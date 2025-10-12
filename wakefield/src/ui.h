@@ -52,7 +52,8 @@ struct SynthParameters {
 enum class UIPage {
     MAIN,
     REVERB,
-    FILTER
+    FILTER,
+    INFO
 };
 
 class UI {
@@ -70,11 +71,22 @@ public:
     // Draw the UI
     void draw(int activeVoices);
     
+    // Set device info
+    void setDeviceInfo(const std::string& audioDevice, int sampleRate, int bufferSize,
+                       const std::string& midiDevice, int midiPort);
+    
 private:
     Synth* synth;
     SynthParameters* params;
     bool initialized;
     UIPage currentPage;
+    
+    // Device information
+    std::string audioDeviceName;
+    int audioSampleRate;
+    int audioBufferSize;
+    std::string midiDeviceName;
+    int midiPortNum;
     
     // Handle keyboard input
     void handleInput(int ch);
@@ -84,6 +96,7 @@ private:
     void drawMainPage(int activeVoices);
     void drawReverbPage();
     void drawFilterPage();
+    void drawInfoPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
 };
 

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cctype>
 
-MidiHandler::MidiHandler() : midiIn(nullptr) {
+MidiHandler::MidiHandler() : midiIn(nullptr), currentPort(-1) {
 }
 
 MidiHandler::~MidiHandler() {
@@ -60,6 +60,9 @@ bool MidiHandler::openPort(unsigned int portNumber) {
         
         // Don't ignore any message types
         midiIn->ignoreTypes(false, false, false);
+        
+        // Store current port number
+        currentPort = portNumber;
         
         std::string portName = midiIn->getPortName(portNumber);
         std::cout << "Opened MIDI port: " << portName << "\n";
@@ -166,4 +169,20 @@ int MidiHandler::findPortByName(const std::string& searchString) {
     }
     
     return -1;  // Not found
+}
+
+std::string MidiHandler::getCurrentPortName() const {
+    if (!midiIn || currentPort < 0) {
+        return "Not connected";
+    }
+    
+    try {
+        return midiIn->getPortName(currentPort);
+    } catch (RtMidiError& error) {
+        return "Error reading port name";
+    }
+}
+
+int MidiHandler::getCurrentPortNumber() const {
+    return currentPort;
 }

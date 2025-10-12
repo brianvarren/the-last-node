@@ -184,6 +184,20 @@ int main() {
             return 1;
         }
         
+        // Get and set device information
+        std::string audioDeviceName = "Unknown";
+        try {
+            RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
+            audioDeviceName = deviceInfo.name;
+        } catch (...) {
+            audioDeviceName = "Default Audio Device";
+        }
+        
+        std::string midiDeviceName = midiHandler->getCurrentPortName();
+        int midiPort = midiHandler->getCurrentPortNumber();
+        
+        ui.setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPort);
+        
         // Main UI loop
         while (running && audio.isStreamRunning()) {
             // Update UI and handle input

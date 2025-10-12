@@ -6,7 +6,12 @@ UI::UI(Synth* synth, SynthParameters* params)
     : synth(synth)
     , params(params)
     , initialized(false)
-    , currentPage(UIPage::MAIN) {
+    , currentPage(UIPage::MAIN)
+    , audioDeviceName("Unknown")
+    , audioSampleRate(0)
+    , audioBufferSize(0)
+    , midiDeviceName("Not connected")
+    , midiPortNum(-1) {
 }
 
 UI::~UI() {
@@ -51,6 +56,15 @@ bool UI::update() {
     return true;
 }
 
+void UI::setDeviceInfo(const std::string& audioDevice, int sampleRate, int bufferSize,
+                       const std::string& midiDevice, int midiPort) {
+    audioDeviceName = audioDevice;
+    audioSampleRate = sampleRate;
+    audioBufferSize = bufferSize;
+    midiDeviceName = midiDevice;
+    midiPortNum = midiPort;
+}
+
 void UI::handleInput(int ch) {
     const float smallStep = 0.01f;
     const float largeStep = 0.1f;
@@ -59,14 +73,17 @@ void UI::handleInput(int ch) {
     if (ch == KEY_LEFT) {
         if (currentPage == UIPage::REVERB) currentPage = UIPage::MAIN;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
+        else if (currentPage == UIPage::INFO) currentPage = UIPage::FILTER;
         return;
     } else if (ch == KEY_RIGHT) {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
+        else if (currentPage == UIPage::FILTER) currentPage = UIPage::INFO;
         return;
     } else if (ch == '\t') {  // Tab key cycles forward
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
+        else if (currentPage == UIPage::FILTER) currentPage = UIPage::INFO;
         else currentPage = UIPage::MAIN;
         return;
     }
@@ -292,8 +309,19 @@ void UI::drawTabs() {
         attroff(COLOR_PAIR(6));
     }
     
+    // Info tab
+    if (currentPage == UIPage::INFO) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(0, 22, " INFO ");
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(6));
+        mvprintw(0, 22, " INFO ");
+        attroff(COLOR_PAIR(6));
+    }
+    
     // Fill rest of line
-    for (int i = 22; i < cols; ++i) {
+    for (int i = 28; i < cols; ++i) {
         mvaddch(0, i, ' ');
     }
     
@@ -601,8 +629,88 @@ void UI::drawFilterPage() {
     mvprintw(row++, 1, "L Learn CC    |  K Clear CC  |  Tab/Arrows Page  |  Q Quit");
 }
 
+void UI::drawInfoPage() {
+    int row = 3;
+    
+    // System information
+    attron(A_BOLD);
+    mvprintw(row++, 1, "SYSTEM INFORMATION");
+    attroff(A_BOLD);
+    row++;
+    
+    // Audio device info
+    attron(COLOR_PAIR(2) | A_BOLD);
+    mvprintw(row++, 2, "AUDIO DEVICE");
+    attroff(COLOR_PAIR(2) | A_BOLD);
+    row++;
+    
+    mvprintw(row++, 4, "Device:      %s", audioDeviceName.c_str());
+    mvprintw(row++, 4, "Sample Rate: %d Hz", audioSampleRate);
+    mvprintw(row++, 4, "Buffer Size: %d samples", audioBufferSize);
+    
+    if (audioSampleRate > 0 && audioBufferSize > 0) {
+        float latency = (audioBufferSize * 1000.0f) / audioSampleRate;
+        mvprintw(row++, 4, "Latency:     %.2f ms", latency);
+    }
+    
+    row += 2;
+    
+    // MIDI device info
+    attron(COLOR_PAIR(2) | A_BOLD);
+    mvprintw(row++, 2, "MIDI DEVICE");
+    attroff(COLOR_PAIR(2) | A_BOLD);
+    row++;
+    
+    mvprintw(row++, 4, "Device:      %s", midiDeviceName.c_str());
+    if (midiPortNum >= 0) {
+        mvprintw(row++, 4, "Port:        %d", midiPortNum);
+        attron(COLOR_PAIR(2));
+        mvprintw(row++, 4, "Status:      Connected");
+        attroff(COLOR_PAIR(2));
+    } else {
+        attron(COLOR_PAIR(4));
+        mvprintw(row++, 4, "Status:      Not connected");
+        attroff(COLOR_PAIR(4));
+    }
+    
+    row += 2;
+    
+    // Reverb engine info
+    attron(COLOR_PAIR(2) | A_BOLD);
+    mvprintw(row++, 2, "DSP ENGINE");
+    attroff(COLOR_PAIR(2) | A_BOLD);
+    row++;
+    
+    mvprintw(row++, 4, "Reverb:      Greyhole (Faust 2.37.3)");
+    mvprintw(row++, 4, "Algorithm:   Nested Diffusion Network");
+    mvprintw(row++, 4, "Delay Taps:  1302 prime numbers");
+    mvprintw(row++, 4, "Modulation:  LFO-based chorus effect");
+    
+    row += 2;
+    
+    // Build info
+    attron(COLOR_PAIR(2) | A_BOLD);
+    mvprintw(row++, 2, "BUILD INFO");
+    attroff(COLOR_PAIR(2) | A_BOLD);
+    row++;
+    
+    mvprintw(row++, 4, "Max Voices:  8 (polyphonic)");
+    mvprintw(row++, 4, "Waveforms:   Sine, Square, Sawtooth, Triangle");
+    mvprintw(row++, 4, "Filters:     Lowpass, Highpass, Shelving");
+    
+    // Controls at bottom
+    int maxY = getmaxy(stdscr);
+    row = maxY - 4;
+    
+    attron(COLOR_PAIR(1));
+    mvhline(row++, 0, '-', getmaxx(stdscr));
+    attroff(COLOR_PAIR(1));
+    
+    mvprintw(row++, 1, "Tab/Arrows Navigate  |  Q Quit");
+}
+
 void UI::draw(int activeVoices) {
-    clear();
+    erase();  // Use erase() instead of clear() - doesn't cause flicker
     
     drawTabs();
     
@@ -615,6 +723,9 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::FILTER:
             drawFilterPage();
+            break;
+        case UIPage::INFO:
+            drawInfoPage();
             break;
     }
     

@@ -33,7 +33,12 @@ public:
     // Add this to the public section of MidiHandler class
     int findPortByName(const std::string& searchString);
     
+    // Get current port info
+    std::string getCurrentPortName() const;
+    int getCurrentPortNumber() const;
+    
 private:
+    int currentPort;
     RtMidiIn* midiIn;
     
     // Parse a MIDI message
