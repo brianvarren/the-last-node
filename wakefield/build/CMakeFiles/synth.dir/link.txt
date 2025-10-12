@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/synth.dir/src/main.cpp.o CMakeFiles/synth.dir/src/synth.cpp.o CMakeFiles/synth.dir/src/midi.cpp.o CMakeFiles/synth.dir/src/envelope.cpp.o CMakeFiles/synth.dir/src/ui.cpp.o CMakeFiles/synth.dir/src/oscillator.cpp.o CMakeFiles/synth.dir/src/reverb.cpp.o -o synth  -lrtaudio -lrtmidi -lcurses /usr/lib/x86_64-linux-gnu/libform.so 
