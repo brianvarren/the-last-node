@@ -1,3 +1,4 @@
+#define RTAUDIO_EXCEPTIONS
 #include <RtAudio.h>
 #include <iostream>
 #include <csignal>
@@ -90,7 +91,10 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             synthParams->reverbSize.load(),
             synthParams->reverbDamping.load(),
             synthParams->reverbMix.load(),
-            synthParams->reverbDecay.load()
+            synthParams->reverbDecay.load(),
+            synthParams->reverbDiffusion.load(),
+            synthParams->reverbModDepth.load(),
+            synthParams->reverbModFreq.load()
         );
         
         // Update filter parameters

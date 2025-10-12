@@ -170,6 +170,30 @@ void UI::handleInput(int ch) {
             case 'v':
                 params->reverbDecay = std::max(0.0f, params->reverbDecay.load() - smallStep);
                 break;
+                
+            // Diffusion (B/b)
+            case 'B':
+                params->reverbDiffusion = std::min(0.99f, params->reverbDiffusion.load() + smallStep);
+                break;
+            case 'b':
+                params->reverbDiffusion = std::max(0.0f, params->reverbDiffusion.load() - smallStep);
+                break;
+                
+            // Mod Depth (N/n)
+            case 'N':
+                params->reverbModDepth = std::min(1.0f, params->reverbModDepth.load() + smallStep);
+                break;
+            case 'n':
+                params->reverbModDepth = std::max(0.0f, params->reverbModDepth.load() - smallStep);
+                break;
+                
+            // Mod Freq (M/m)
+            case 'M':
+                params->reverbModFreq = std::min(10.0f, params->reverbModFreq.load() + smallStep);
+                break;
+            case 'm':
+                params->reverbModFreq = std::max(0.0f, params->reverbModFreq.load() - smallStep);
+                break;
         }
     } else if (currentPage == UIPage::FILTER) {
         switch (ch) {
@@ -423,10 +447,22 @@ void UI::drawReverbPage() {
     attroff(A_BOLD);
     row++;
     
-    drawBar(row++, 2, "Size    (Z/z)", params->reverbSize.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "Damping (X/x)", params->reverbDamping.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "Mix     (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "Decay   (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
+    // Basic parameters
+    drawBar(row++, 2, "Size      (Z/z)", params->reverbSize.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Decay     (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
+    
+    row++;
+    
+    // Greyhole-specific parameters
+    attron(COLOR_PAIR(3));
+    mvprintw(row++, 2, "GREYHOLE CONTROLS");
+    attroff(COLOR_PAIR(3));
+    
+    drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "ModDepth  (N/n)", params->reverbModDepth.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "ModFreq   (M/m)", params->reverbModFreq.load(), 0.0f, 10.0f, 20);
     
     row += 2;
     
@@ -436,10 +472,13 @@ void UI::drawReverbPage() {
     attroff(A_BOLD);
     row++;
     
-    mvprintw(row++, 2, "Size:    Room size (small to large)");
-    mvprintw(row++, 2, "Damping: High frequency absorption");
-    mvprintw(row++, 2, "Mix:     Dry/wet balance");
-    mvprintw(row++, 2, "Decay:   Reverb tail length");
+    mvprintw(row++, 2, "Size:      Room size (small to large)");
+    mvprintw(row++, 2, "Damping:   High frequency absorption");
+    mvprintw(row++, 2, "Mix:       Dry/wet balance");
+    mvprintw(row++, 2, "Decay:     Reverb tail length");
+    mvprintw(row++, 2, "Diffusion: Reverb density/smoothness");
+    mvprintw(row++, 2, "ModDepth:  Chorus effect intensity");
+    mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (Hz)");
     
     // Controls at bottom
     int maxY = getmaxy(stdscr);
@@ -449,7 +488,7 @@ void UI::drawReverbPage() {
     mvhline(row++, 0, '-', getmaxx(stdscr));
     attroff(COLOR_PAIR(1));
     
-    mvprintw(row++, 1, "Space Toggle  |  Z/z X/x C/c V/v Parameters");
+    mvprintw(row++, 1, "Space Toggle  |  Z/z X/x C/c V/v Basic  |  B/b N/n M/m Greyhole");
     mvprintw(row++, 1, "Tab/Arrows Page  |  Q Quit");
 }
 

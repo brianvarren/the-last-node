@@ -58,11 +58,15 @@ void Synth::setWaveform(Waveform waveform) {
     }
 }
 
-void Synth::updateReverbParameters(float size, float damping, float mix, float decay) {
+void Synth::updateReverbParameters(float size, float damping, float mix, float decay,
+                                   float diffusion, float modDepth, float modFreq) {
     reverb.setSize(size);
     reverb.setDamping(damping);
     reverb.setMix(mix);
     reverb.setDecay(decay);
+    reverb.setDiffusion(diffusion);
+    reverb.setModDepth(modDepth);
+    reverb.setModFreq(modFreq);
 }
 
 void Synth::updateFilterParameters(int type, float cutoff, float gain) {

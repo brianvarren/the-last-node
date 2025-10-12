@@ -32,6 +32,11 @@ struct SynthParameters {
     std::atomic<float> reverbDecay{0.5f};
     std::atomic<bool> reverbEnabled{false};
     
+    // Greyhole-specific parameters
+    std::atomic<float> reverbDiffusion{0.5f};
+    std::atomic<float> reverbModDepth{0.1f};
+    std::atomic<float> reverbModFreq{2.0f};
+    
     // Filter parameters
     std::atomic<bool> filterEnabled{false};
     std::atomic<int> filterType{0};  // 0=LP, 1=HP, 2=HighShelf, 3=LowShelf
