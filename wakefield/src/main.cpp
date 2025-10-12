@@ -208,14 +208,8 @@ int main() {
             audio.closeStream();
         }
         
-    } catch (RtAudio::RtAudioError& e) {
-        std::cerr << "RtAudio error: " << e.getMessage() << '\n';
-        delete synth;
-        delete midiHandler;
-        delete synthParams;
-        return 1;
     } catch (std::exception& e) {
-        std::cerr << "Error: " << e.what() << '\n';
+        std::cerr << "Audio error: " << e.what() << '\n';
         delete synth;
         delete midiHandler;
         delete synthParams;
