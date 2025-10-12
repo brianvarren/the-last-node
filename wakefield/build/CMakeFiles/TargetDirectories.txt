@@ -1,3 +1,0 @@
-/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/build/CMakeFiles/synth.dir
-/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/build/CMakeFiles/edit_cache.dir
-/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/build/CMakeFiles/rebuild_cache.dir
