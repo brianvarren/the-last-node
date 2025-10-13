@@ -70,12 +70,7 @@ private:
     // Helper functions
     void buildLFOLUT();
     float calculateEffectiveFrequency(float sampleRate);
-    float interpolateSample(uint32_t phase, float morphPos);
-    
-    // Linear interpolation
-    inline float lerp(float a, float b, float t) const {
-        return a + (b - a) * t;
-    }
+    float generateSample(uint32_t phase, float morphPos);
 };
 
 #endif // BRAINWAVE_OSC_H
