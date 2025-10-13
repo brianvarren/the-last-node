@@ -37,6 +37,10 @@ public:
     std::string getCurrentPortName() const;
     int getCurrentPortNumber() const;
     
+    // Get port count and names
+    int getPortCount();
+    std::string getPortName(int port);
+    
     // Set UI pointer for console messages
     void setUI(void* uiPtr);
     

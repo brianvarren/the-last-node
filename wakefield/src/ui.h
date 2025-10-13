@@ -78,7 +78,8 @@ enum class UIPage {
     MAIN,
     REVERB,
     FILTER,
-    CONFIG
+    CONFIG,
+    TEST
 };
 
 class UI {
@@ -96,9 +97,16 @@ public:
     // Draw the UI
     void draw(int activeVoices);
     
+    // Update test oscillator (call before draw)
+    void updateTestOscillator(float deltaTime);
+    
     // Set device info
     void setDeviceInfo(const std::string& audioDevice, int sampleRate, int bufferSize,
                        const std::string& midiDevice, int midiPort);
+    
+    // Set available devices
+    void setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId);
+    void setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort);
     
     // Add message to console
     void addConsoleMessage(const std::string& message);
@@ -106,6 +114,12 @@ public:
     // Preset management
     void loadPreset(const std::string& filename);
     void savePreset(const std::string& filename);
+    
+    // Device change request (returns true if restart requested)
+    bool isDeviceChangeRequested() const { return deviceChangeRequested; }
+    int getRequestedAudioDevice() const { return requestedAudioDeviceId; }
+    int getRequestedMidiDevice() const { return requestedMidiPortNum; }
+    void clearDeviceChangeRequest() { deviceChangeRequested = false; }
     
 private:
     Synth* synth;
@@ -119,6 +133,12 @@ private:
     int audioBufferSize;
     std::string midiDeviceName;
     int midiPortNum;
+    int currentAudioDeviceId;
+    int currentMidiPortNum;
+    
+    // Available devices
+    std::vector<std::pair<int, std::string>> availableAudioDevices;  // id, name
+    std::vector<std::pair<int, std::string>> availableMidiDevices;   // port, name
     
     // Console message system
     std::deque<std::string> consoleMessages;
@@ -138,6 +158,19 @@ private:
     bool textInputActive;
     std::string textInputBuffer;
     
+    // Test oscilloscope state
+    static const int SCOPE_WIDTH = 80;
+    static const int SCOPE_HEIGHT = 20;
+    float testOscPhase;
+    float testOscFreq;
+    float scopeFadeTime;
+    float scopeBuffer[80][20];  // intensity buffer for fade effect
+    
+    // Device change request
+    bool deviceChangeRequested;
+    int requestedAudioDeviceId;
+    int requestedMidiPortNum;
+    
     // Text input for preset names
     void startTextInput();
     void handleTextInput(int ch);
@@ -152,6 +185,7 @@ private:
     void drawReverbPage();
     void drawFilterPage();
     void drawConfigPage();
+    void drawTestPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawConsole();
     void drawHotkeyLine();

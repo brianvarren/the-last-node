@@ -1,12 +1,16 @@
 #define RTAUDIO_EXCEPTIONS
 #include <RtAudio.h>
 #include <iostream>
+#include <fstream>
 #include <csignal>
 #include <unistd.h>
 #include <cmath>
+#include <sys/stat.h>
+#include <pwd.h>
 #include "synth.h"
 #include "midi.h"
 #include "ui.h"
+#include "preset.h"
 
 // Global instances
 static Synth* synth = nullptr;
@@ -17,6 +21,64 @@ static bool running = true;
 
 void signalHandler(int signum) {
     running = false;
+}
+
+// Helper to get config directory
+std::string getConfigDirectory() {
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) {
+        struct passwd* pw = getpwuid(getuid());
+        homeDir = pw->pw_dir;
+    }
+    return std::string(homeDir) + "/.config/wakefield";
+}
+
+// Read device config
+void readDeviceConfig(int& audioDeviceId, int& midiPort) {
+    std::string configPath = getConfigDirectory() + "/device_config.txt";
+    std::ifstream file(configPath);
+    
+    if (file.is_open()) {
+        std::string line;
+        while (std::getline(file, line)) {
+            if (line.find("audio_device=") == 0) {
+                audioDeviceId = std::stoi(line.substr(13));
+            } else if (line.find("midi_port=") == 0) {
+                midiPort = std::stoi(line.substr(10));
+            }
+        }
+        file.close();
+    }
+}
+
+// Write device config
+void writeDeviceConfig(int audioDeviceId, int midiPort) {
+    std::string configDir = getConfigDirectory();
+    mkdir(configDir.c_str(), 0755);
+    
+    std::string configPath = configDir + "/device_config.txt";
+    std::ofstream file(configPath);
+    
+    if (file.is_open()) {
+        file << "audio_device=" << audioDeviceId << "\n";
+        file << "midi_port=" << midiPort << "\n";
+        file.close();
+    }
+}
+
+// Restart app with new devices
+void restartWithNewDevices(int audioDeviceId, int midiPort, SynthParameters* params, char** argv) {
+    // Save current state as temp preset
+    PresetManager::savePreset("__temp_restart__", params);
+    
+    // Write new device config
+    writeDeviceConfig(audioDeviceId, midiPort);
+    
+    // Restart the application
+    execv(argv[0], argv);
+    
+    // If execv fails, we'll continue running
+    std::cerr << "Failed to restart application\n";
 }
 
 // Callbacks for MIDI events
@@ -118,12 +180,17 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     return 0;
 }
 
-int main() {
+int main(int argc, char** argv) {
     // Set up signal handler for Ctrl+C
     signal(SIGINT, signalHandler);
     
     // Create synth parameters
     synthParams = new SynthParameters();
+    
+    // Read device preferences
+    int preferredAudioDevice = -1;
+    int preferredMidiPort = -1;
+    readDeviceConfig(preferredAudioDevice, preferredMidiPort);
     
     // Initialize MIDI
     midiHandler = new MidiHandler();
@@ -134,17 +201,30 @@ int main() {
         return 1;
     }
     
-    // List and open MIDI ports
-    midiHandler->listPorts();
+    // Get list of available MIDI devices
+    std::vector<std::pair<int, std::string>> midiDevices;
+    int portCount = midiHandler->getPortCount();
+    for (int i = 0; i < portCount; ++i) {
+        std::string portName = midiHandler->getPortName(i);
+        midiDevices.push_back({i, portName});
+    }
     
-    // Try to find Arturia keyboard
-    int arturiaPort = midiHandler->findPortByName("arturia");
-    if (arturiaPort >= 0) {
-        std::cout << "Found Arturia keyboard at port " << arturiaPort << "\n";
-        midiHandler->openPort(arturiaPort);
-    } else {
-        std::cout << "Arturia not found, trying first available port...\n";
-        midiHandler->openPort(0);
+    // Open MIDI port (use preference or find Arturia)
+    int midiPortToUse = preferredMidiPort;
+    if (midiPortToUse < 0 || midiPortToUse >= portCount) {
+        // Try to find Arturia keyboard
+        int arturiaPort = midiHandler->findPortByName("arturia");
+        if (arturiaPort >= 0) {
+            std::cout << "Found Arturia keyboard at port " << arturiaPort << "\n";
+            midiPortToUse = arturiaPort;
+        } else if (portCount > 0) {
+            std::cout << "Using first available MIDI port...\n";
+            midiPortToUse = 0;
+        }
+    }
+    
+    if (midiPortToUse >= 0) {
+        midiHandler->openPort(midiPortToUse);
     }
     
     // Initialize Audio
@@ -171,14 +251,38 @@ int main() {
     // Set UI pointer for MIDI error messages
     midiHandler->setUI(ui);
     
+    // Get list of available audio devices
+    std::vector<std::pair<int, std::string>> audioDevices;
+    unsigned int deviceCount = audio.getDeviceCount();
+    int audioDeviceIdToUse = -1;
+    
+    for (unsigned int i = 0; i < deviceCount; ++i) {
+        try {
+            RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
+            if (info.outputChannels > 0) {  // Only list output devices
+                audioDevices.push_back({static_cast<int>(i), info.name});
+            }
+        } catch (...) {
+            continue;
+        }
+    }
+    
+    // Determine which audio device to use
+    if (preferredAudioDevice >= 0 && preferredAudioDevice < static_cast<int>(deviceCount)) {
+        audioDeviceIdToUse = preferredAudioDevice;
+        std::cout << "Using preferred audio device: " << preferredAudioDevice << "\n";
+    } else {
+        audioDeviceIdToUse = audio.getDefaultOutputDevice();
+        std::cout << "Using default audio device: " << audioDeviceIdToUse << "\n";
+    }
+    
     // Try to initialize audio
-    unsigned int devices = audio.getDeviceCount();
     std::string audioDeviceName = "No Audio Device";
     
-    if (devices > 0) {
+    if (deviceCount > 0) {
         // Set up stream parameters
         RtAudio::StreamParameters parameters;
-        parameters.deviceId = audio.getDefaultOutputDevice();
+        parameters.deviceId = audioDeviceIdToUse;
         parameters.nChannels = 2;  // Stereo
         parameters.firstChannel = 0;
         
@@ -208,10 +312,23 @@ int main() {
         ui->addConsoleMessage("WARNING: No audio devices found - running without audio");
     }
     
-    // Set device information
+    // Set device information and available devices
     std::string midiDeviceName = midiHandler->getCurrentPortName();
     int midiPort = midiHandler->getCurrentPortNumber();
     ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPort);
+    ui->setAvailableAudioDevices(audioDevices, audioDeviceIdToUse);
+    ui->setAvailableMidiDevices(midiDevices, midiPortToUse);
+    
+    // Load temp preset if it exists (from previous restart)
+    std::string tempPresetPath = PresetManager::getPresetPath("__temp_restart__");
+    std::ifstream tempCheck(tempPresetPath);
+    if (tempCheck.good()) {
+        tempCheck.close();
+        PresetManager::loadPreset("__temp_restart__", synthParams);
+        ui->addConsoleMessage("Restored previous state");
+        // Delete temp preset after loading
+        unlink(tempPresetPath.c_str());
+    }
     
     // Main UI loop
     while (running) {
@@ -219,6 +336,34 @@ int main() {
         if (!ui->update()) {
             running = false;  // User pressed 'q'
             break;
+        }
+        
+        // Check for device change request
+        if (ui->isDeviceChangeRequested()) {
+            int newAudioDevice = ui->getRequestedAudioDevice();
+            int newMidiPort = ui->getRequestedMidiDevice();
+            
+            ui->addConsoleMessage("Restarting with new devices...");
+            ui->draw(synth->getActiveVoiceCount());
+            refresh();
+            usleep(500000);  // Show message for 0.5 seconds
+            
+            // Clean shutdown before restart
+            if (audioAvailable) {
+                if (audio.isStreamRunning()) {
+                    audio.stopStream();
+                }
+                if (audio.isStreamOpen()) {
+                    audio.closeStream();
+                }
+            }
+            
+            // Restart with new devices
+            restartWithNewDevices(newAudioDevice, newMidiPort, synthParams, argv);
+            
+            // If restart failed, continue running
+            ui->clearDeviceChangeRequest();
+            ui->addConsoleMessage("Restart failed, continuing with current devices");
         }
         
         // Draw UI

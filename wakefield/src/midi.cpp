@@ -241,3 +241,18 @@ std::string MidiHandler::getCurrentPortName() const {
 int MidiHandler::getCurrentPortNumber() const {
     return currentPort;
 }
+
+int MidiHandler::getPortCount() {
+    if (!midiIn) return 0;
+    return midiIn->getPortCount();
+}
+
+std::string MidiHandler::getPortName(int port) {
+    if (!midiIn) return "";
+    
+    try {
+        return midiIn->getPortName(port);
+    } catch (RtMidiError& error) {
+        return "Error reading port";
+    }
+}

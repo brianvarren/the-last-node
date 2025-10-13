@@ -13,16 +13,31 @@ UI::UI(Synth* synth, SynthParameters* params)
     , audioBufferSize(0)
     , midiDeviceName("Not connected")
     , midiPortNum(-1)
+    , currentAudioDeviceId(-1)
+    , currentMidiPortNum(-1)
     , selectedRow(0)
     , menuPopupActive(false)
     , popupSelectedIndex(0)
     , popupItemCount(0)
     , currentMenuType(MenuType::NONE)
     , currentPresetName("None")
-    , textInputActive(false) {
+    , textInputActive(false)
+    , deviceChangeRequested(false)
+    , requestedAudioDeviceId(-1)
+    , requestedMidiPortNum(-1)
+    , testOscPhase(0.0f)
+    , testOscFreq(0.2f)
+    , scopeFadeTime(2.0f) {
     
     // Load available presets
     refreshPresetList();
+    
+    // Initialize oscilloscope buffer
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        for (int y = 0; y < SCOPE_HEIGHT; ++y) {
+            scopeBuffer[x][y] = 0.0f;
+        }
+    }
 }
 
 UI::~UI() {
@@ -74,6 +89,16 @@ void UI::setDeviceInfo(const std::string& audioDevice, int sampleRate, int buffe
     audioBufferSize = bufferSize;
     midiDeviceName = midiDevice;
     midiPortNum = midiPort;
+}
+
+void UI::setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId) {
+    availableAudioDevices = devices;
+    currentAudioDeviceId = currentDeviceId;
+}
+
+void UI::setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort) {
+    availableMidiDevices = devices;
+    currentMidiPortNum = currentPort;
 }
 
 void UI::handleInput(int ch) {
@@ -131,6 +156,32 @@ void UI::handleInput(int ch) {
                             currentPresetName = selected;
                         }
                         break;
+                    case MenuType::AUDIO_DEVICE:
+                        // Find selected device in available list
+                        for (const auto& dev : availableAudioDevices) {
+                            if (selected.find(dev.second) != std::string::npos) {
+                                if (dev.first != currentAudioDeviceId) {
+                                    requestedAudioDeviceId = dev.first;
+                                    requestedMidiPortNum = currentMidiPortNum;  // Keep current MIDI
+                                    deviceChangeRequested = true;
+                                }
+                                break;
+                            }
+                        }
+                        break;
+                    case MenuType::MIDI_DEVICE:
+                        // Find selected device in available list
+                        for (const auto& dev : availableMidiDevices) {
+                            if (selected.find(dev.second) != std::string::npos) {
+                                if (dev.first != currentMidiPortNum) {
+                                    requestedAudioDeviceId = currentAudioDeviceId;  // Keep current audio
+                                    requestedMidiPortNum = dev.first;
+                                    deviceChangeRequested = true;
+                                }
+                                break;
+                            }
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -149,18 +200,21 @@ void UI::handleInput(int ch) {
         if (currentPage == UIPage::REVERB) currentPage = UIPage::MAIN;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::CONFIG) currentPage = UIPage::FILTER;
+        else if (currentPage == UIPage::TEST) currentPage = UIPage::CONFIG;
         selectedRow = 0;
         return;
     } else if (ch == KEY_RIGHT) {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::CONFIG;
+        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::TEST;
         selectedRow = 0;
         return;
     } else if (ch == '\t') {  // Tab key cycles forward
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::CONFIG;
+        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::TEST;
         else currentPage = UIPage::MAIN;
         selectedRow = 0;
         return;
@@ -351,6 +405,16 @@ void UI::handleInput(int ch) {
                 params->filterCutoffCC = -1;
                 break;
         }
+    } else if (currentPage == UIPage::TEST) {
+        switch (ch) {
+            // Fade time control (F/f)
+            case 'F':
+                scopeFadeTime = std::min(5.0f, scopeFadeTime + 0.5f);
+                break;
+            case 'f':
+                scopeFadeTime = std::max(0.5f, scopeFadeTime - 0.5f);
+                break;
+        }
     }
 }
 
@@ -401,8 +465,19 @@ void UI::drawTabs() {
         attroff(COLOR_PAIR(6));
     }
     
+    // Test tab
+    if (currentPage == UIPage::TEST) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(0, 30, " TEST ");
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(6));
+        mvprintw(0, 30, " TEST ");
+        attroff(COLOR_PAIR(6));
+    }
+    
     // Fill rest of line
-    for (int i = 30; i < cols; ++i) {
+    for (int i = 36; i < cols; ++i) {
         mvaddch(0, i, ' ');
     }
     
@@ -686,7 +761,7 @@ void UI::drawConfigPage() {
     row++;
     
     attron(COLOR_PAIR(3));
-    mvprintw(row++, 2, "Note: Device selection occurs at startup only");
+    mvprintw(row++, 2, "Select a device to restart with new configuration");
     attroff(COLOR_PAIR(3));
     row++;
     
@@ -899,6 +974,7 @@ int UI::getSelectableRowCount() {
         case UIPage::REVERB: return 1;  // Reverb type
         case UIPage::FILTER: return 1;  // Filter type
         case UIPage::CONFIG: return 2;  // Audio and MIDI devices
+        case UIPage::TEST: return 0;  // No selectable rows
         default: return 0;
     }
 }
@@ -937,13 +1013,29 @@ std::vector<std::string> UI::getMenuItems(MenuType menuType) {
             break;
             
         case MenuType::AUDIO_DEVICE:
-            items.push_back(audioDeviceName + " (current)");
-            items.push_back("Note: Device selection at startup only");
+            for (const auto& dev : availableAudioDevices) {
+                std::string item = dev.second;
+                if (dev.first == currentAudioDeviceId) {
+                    item += " (current)";
+                }
+                items.push_back(item);
+            }
+            if (items.empty()) {
+                items.push_back("No audio devices available");
+            }
             break;
             
         case MenuType::MIDI_DEVICE:
-            items.push_back(midiDeviceName + " (current)");
-            items.push_back("Note: Device selection at startup only");
+            for (const auto& dev : availableMidiDevices) {
+                std::string item = dev.second;
+                if (dev.first == currentMidiPortNum) {
+                    item += " (current)";
+                }
+                items.push_back(item);
+            }
+            if (items.empty()) {
+                items.push_back("No MIDI devices available");
+            }
             break;
             
         default:
@@ -1068,4 +1160,119 @@ void UI::handleTextInput(int ch) {
 void UI::finishTextInput() {
     textInputActive = false;
     textInputBuffer.clear();
+}
+
+void UI::updateTestOscillator(float deltaTime) {
+    // Advance oscillator phase
+    testOscPhase += 2.0f * M_PI * testOscFreq * deltaTime;
+    
+    // Wrap phase to maintain phase-lock (0 to 2π)
+    while (testOscPhase >= 2.0f * M_PI) {
+        testOscPhase -= 2.0f * M_PI;
+    }
+    
+    // Decay all pixels in the buffer based on fade time
+    float decayRate = 1.0f / scopeFadeTime;  // How fast to fade (per second)
+    float decayAmount = decayRate * deltaTime;
+    
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        for (int y = 0; y < SCOPE_HEIGHT; ++y) {
+            scopeBuffer[x][y] -= decayAmount;
+            if (scopeBuffer[x][y] < 0.0f) {
+                scopeBuffer[x][y] = 0.0f;
+            }
+        }
+    }
+    
+    // Calculate current sine wave value and position
+    float sineValue = std::sin(testOscPhase);  // -1 to +1
+    
+    // Map phase (0 to 2π) to horizontal position (0 to SCOPE_WIDTH-1)
+    int xPos = static_cast<int>((testOscPhase / (2.0f * M_PI)) * (SCOPE_WIDTH - 1));
+    
+    // Map sine value (-1 to +1) to vertical position (0 to SCOPE_HEIGHT-1)
+    // Center of display is at SCOPE_HEIGHT/2
+    int yPos = static_cast<int>((SCOPE_HEIGHT / 2) - (sineValue * (SCOPE_HEIGHT / 2 - 1)));
+    
+    // Clamp to buffer bounds
+    if (xPos >= 0 && xPos < SCOPE_WIDTH && yPos >= 0 && yPos < SCOPE_HEIGHT) {
+        scopeBuffer[xPos][yPos] = 1.0f;  // Maximum intensity at current position
+    }
+}
+
+void UI::drawTestPage() {
+    int row = 3;
+    
+    // Title
+    attron(A_BOLD);
+    mvprintw(row++, 1, "OSCILLOSCOPE TEST PAGE");
+    attroff(A_BOLD);
+    row++;
+    
+    // Info section
+    mvprintw(row++, 2, "Frequency: %.2f Hz", testOscFreq);
+    mvprintw(row++, 2, "Phase:     %.2f rad (%.1f deg)", testOscPhase, testOscPhase * 180.0f / M_PI);
+    row++;
+    
+    // Fade time control
+    drawBar(row++, 2, "Fade Time (F/f)", scopeFadeTime, 0.5f, 5.0f, 20);
+    row += 2;
+    
+    // Draw oscilloscope display
+    attron(A_BOLD);
+    mvprintw(row++, 1, "SCOPE DISPLAY");
+    attroff(A_BOLD);
+    row++;
+    
+    // Draw top border
+    int scopeStartX = 2;
+    int scopeStartY = row;
+    mvaddch(scopeStartY, scopeStartX, '+');
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        mvaddch(scopeStartY, scopeStartX + 1 + x, '-');
+    }
+    mvaddch(scopeStartY, scopeStartX + 1 + SCOPE_WIDTH, '+');
+    
+    // Draw scope content with fade
+    for (int y = 0; y < SCOPE_HEIGHT; ++y) {
+        mvaddch(scopeStartY + 1 + y, scopeStartX, '|');
+        
+        for (int x = 0; x < SCOPE_WIDTH; ++x) {
+            float intensity = scopeBuffer[x][y];
+            char displayChar;
+            
+            // Map intensity (0.0 to 1.0) to grayscale characters
+            if (intensity >= 0.8f) {
+                displayChar = '+';
+            } else if (intensity >= 0.6f) {
+                displayChar = '=';
+            } else if (intensity >= 0.4f) {
+                displayChar = '-';
+            } else if (intensity >= 0.2f) {
+                displayChar = ':';
+            } else if (intensity >= 0.1f) {
+                displayChar = '.';
+            } else {
+                displayChar = ' ';
+            }
+            
+            mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
+        }
+        
+        mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + SCOPE_WIDTH, '|');
+    }
+    
+    // Draw bottom border
+    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX, '+');
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + x, '-');
+    }
+    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + SCOPE_WIDTH, '+');
+    
+    // Instructions
+    row = scopeStartY + SCOPE_HEIGHT + 3;
+    attron(COLOR_PAIR(3));
+    mvprintw(row++, 2, "Use F/f to adjust fade time");
+    mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave", testOscFreq);
+    attroff(COLOR_PAIR(3));
 }
