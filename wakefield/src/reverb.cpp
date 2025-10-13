@@ -102,16 +102,17 @@ void GreyholeReverb::updateParameters() {
     *ui.size = size;
 }
 
+void GreyholeReverb::setDelayTime(float t) {
+    // Map delay time (0-1) to Greyhole delayTime (0.001-1.45s)
+    t = std::clamp(t, 0.0f, 1.0f);
+    delayTime = 0.001f + t * 1.449f;
+    updateParameters();
+}
+
 void GreyholeReverb::setSize(float s) {
-    // Map size (0-1) to Greyhole parameters
+    // Map size (0-1) to Greyhole size (0.5-3.0)
     s = std::clamp(s, 0.0f, 1.0f);
-    
-    // Map to delayTime (0.001-1.45s)
-    delayTime = 0.001f + s * 1.449f;
-    
-    // Also affect the size parameter (0.5-3.0)
     size = 0.5f + s * 2.5f;
-    
     updateParameters();
 }
 

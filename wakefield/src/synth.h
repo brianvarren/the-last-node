@@ -25,7 +25,7 @@ public:
     
     // Reverb control
     void setReverbEnabled(bool enabled) { reverbEnabled = enabled; }
-    void updateReverbParameters(float size, float damping, float mix, float decay, 
+    void updateReverbParameters(float delayTime, float size, float damping, float mix, float decay, 
                                 float diffusion, float modDepth, float modFreq);
     
     // Filter control

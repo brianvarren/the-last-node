@@ -33,13 +33,12 @@ public:
     GreyholeReverb(float sampleRate);
     ~GreyholeReverb();
     
-    // Parameter setters matching the original interface
-    void setSize(float s);          // Maps to delayTime and size parameters
-    void setDamping(float d);       // Maps to damping parameter
+    // Parameter setters
+    void setDelayTime(float t);     // Delay time 0-1 (maps to 0.001-1.45s)
+    void setSize(float s);          // Room size 0-1 (maps to 0.5-3.0)
+    void setDamping(float d);       // Damping parameter
     void setMix(float m);           // Dry/wet mix (0-1)
     void setDecay(float d);         // Maps to feedback parameter
-    
-    // Additional Greyhole-specific parameters
     void setDiffusion(float d);     // Diffusion amount (0-1)
     void setModDepth(float d);      // Modulation depth (0-1)
     void setModFreq(float f);       // Modulation frequency (0-10 Hz)

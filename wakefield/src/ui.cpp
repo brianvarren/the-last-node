@@ -151,16 +151,19 @@ void UI::handleInput(int ch) {
         }
     } else if (currentPage == UIPage::REVERB) {
         switch (ch) {
-            // Enable/disable reverb
-            case ' ':  // Spacebar
-                params->reverbEnabled = !params->reverbEnabled.load();
-                break;
-                
-            // Size/DelayTime (T/t)
+            // DelayTime (T/t)
             case 'T':
-                params->reverbSize = std::min(1.0f, params->reverbSize.load() + smallStep);
+                params->reverbDelayTime = std::min(1.0f, params->reverbDelayTime.load() + smallStep);
                 break;
             case 't':
+                params->reverbDelayTime = std::max(0.0f, params->reverbDelayTime.load() - smallStep);
+                break;
+                
+            // Size (Z/z)
+            case 'Z':
+                params->reverbSize = std::min(1.0f, params->reverbSize.load() + smallStep);
+                break;
+            case 'z':
                 params->reverbSize = std::max(0.0f, params->reverbSize.load() - smallStep);
                 break;
                 
@@ -406,54 +409,18 @@ void UI::drawReverbPage() {
     int maxY = getmaxy(stdscr);
     int maxRow = maxY - 2;  // Stop before hotkey line
     
-    // Reverb status
-    attron(A_BOLD);
-    mvprintw(row++, 1, "REVERB STATUS");
-    attroff(A_BOLD);
-    row++;
-    
-    mvprintw(row, 2, "Enabled: ");
-    if (params->reverbEnabled.load()) {
-        attron(COLOR_PAIR(2) | A_BOLD);
-        addstr("ON");
-        attroff(COLOR_PAIR(2) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(4));
-        addstr("OFF");
-        attroff(COLOR_PAIR(4));
-    }
-    mvprintw(row++, 20, "(Space to toggle)");
-    
-    row += 2;
-    
-    // Reverb parameters
-    attron(A_BOLD);
-    mvprintw(row++, 1, "PARAMETERS");
-    attroff(A_BOLD);
-    row++;
-    
     // Greyhole parameters with actual DSP ranges
-    // DelayTime and Size both map from reverbSize (0-1) per setSize() in reverb.cpp
-    float delayTime = 0.001f + params->reverbSize.load() * 1.449f;
+    float delayTime = 0.001f + params->reverbDelayTime.load() * 1.449f;
     float size = 0.5f + params->reverbSize.load() * 2.5f;
+    
     drawBar(row++, 2, "DelayTime (T/t)", delayTime, 0.001f, 1.45f, 20);
     drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 0.99f, 20);
-    drawBar(row++, 2, "Size      (T/t)", size, 0.5f, 3.0f, 20);
+    drawBar(row++, 2, "Size      (Z/z)", size, 0.5f, 3.0f, 20);
     drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 0.99f, 20);
     drawBar(row++, 2, "Feedback  (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
-    
-    // Our dry/wet mix control (not a Greyhole DSP parameter)
-    drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
-    
-    row++;
-    
-    // Greyhole modulation parameters
-    attron(COLOR_PAIR(3));
-    mvprintw(row++, 2, "GREYHOLE CONTROLS");
-    attroff(COLOR_PAIR(3));
-    
     drawBar(row++, 2, "ModDepth  (N/n)", params->reverbModDepth.load(), 0.0f, 1.0f, 20);
     drawBar(row++, 2, "ModFreq   (M/m)", params->reverbModFreq.load(), 0.0f, 10.0f, 20);
+    drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
     
     row += 2;
     

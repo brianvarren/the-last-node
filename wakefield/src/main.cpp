@@ -91,6 +91,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         // Update reverb parameters
         synth->setReverbEnabled(synthParams->reverbEnabled.load());
         synth->updateReverbParameters(
+            synthParams->reverbDelayTime.load(),
             synthParams->reverbSize.load(),
             synthParams->reverbDamping.load(),
             synthParams->reverbMix.load(),

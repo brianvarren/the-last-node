@@ -28,11 +28,12 @@ struct SynthParameters {
     std::atomic<int> waveform{static_cast<int>(Waveform::SINE)};
     
     // Reverb parameters
-    std::atomic<float> reverbSize{0.5f};
+    std::atomic<float> reverbDelayTime{0.5f};  // 0-1, maps to 0.001-1.45s
+    std::atomic<float> reverbSize{0.5f};       // 0-1, maps to 0.5-3.0
     std::atomic<float> reverbDamping{0.5f};
     std::atomic<float> reverbMix{0.3f};
     std::atomic<float> reverbDecay{0.5f};
-    std::atomic<bool> reverbEnabled{false};
+    std::atomic<bool> reverbEnabled{true};     // Always enabled now
     
     // Greyhole-specific parameters
     std::atomic<float> reverbDiffusion{0.5f};
