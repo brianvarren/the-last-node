@@ -1,7 +1,11 @@
 #include "midi.h"
+#include "ui.h"
 #include <iostream>
 #include <algorithm>
 #include <cctype>
+
+// Initialize static UI pointer
+void* MidiHandler::uiPointer = nullptr;
 
 MidiHandler::MidiHandler() : midiIn(nullptr), currentPort(-1) {
 }
@@ -12,15 +16,54 @@ MidiHandler::~MidiHandler() {
     }
 }
 
-// Static error callback to suppress MIDI error messages
+// Static error callback to route MIDI messages to console
 void MidiHandler::midiErrorCallback(RtMidiError::Type type, const std::string& errorText, void* userData) {
-    // Suppress the messages - they were causing UI to scroll
-    // Optionally, we could log critical errors only
-    if (type == RtMidiError::WARNING) {
-        // Ignore warnings like "message queue limit reached"
-        return;
+    if (uiPointer) {
+        UI* ui = static_cast<UI*>(uiPointer);
+        
+        std::string prefix;
+        switch (type) {
+            case RtMidiError::WARNING:
+                prefix = "MIDI Warning: ";
+                break;
+            case RtMidiError::DEBUG_WARNING:
+                prefix = "MIDI Debug: ";
+                break;
+            case RtMidiError::UNSPECIFIED:
+                prefix = "MIDI: ";
+                break;
+            case RtMidiError::NO_DEVICES_FOUND:
+                prefix = "MIDI Error: ";
+                break;
+            case RtMidiError::INVALID_DEVICE:
+                prefix = "MIDI Error: ";
+                break;
+            case RtMidiError::MEMORY_ERROR:
+                prefix = "MIDI Error: ";
+                break;
+            case RtMidiError::INVALID_PARAMETER:
+                prefix = "MIDI Error: ";
+                break;
+            case RtMidiError::INVALID_USE:
+                prefix = "MIDI Error: ";
+                break;
+            case RtMidiError::DRIVER_ERROR:
+                prefix = "MIDI Error: ";
+                break;
+            case RtMidiError::SYSTEM_ERROR:
+                prefix = "MIDI Error: ";
+                break;
+            case RtMidiError::THREAD_ERROR:
+                prefix = "MIDI Error: ";
+                break;
+        }
+        
+        ui->addConsoleMessage(prefix + errorText);
     }
-    // For other errors, silently ignore or could add to console if needed
+}
+
+void MidiHandler::setUI(void* uiPtr) {
+    uiPointer = uiPtr;
 }
 
 bool MidiHandler::initialize() {

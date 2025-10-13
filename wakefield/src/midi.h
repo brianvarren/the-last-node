@@ -37,9 +37,13 @@ public:
     std::string getCurrentPortName() const;
     int getCurrentPortNumber() const;
     
+    // Set UI pointer for console messages
+    void setUI(void* uiPtr);
+    
 private:
     int currentPort;
     RtMidiIn* midiIn;
+    static void* uiPointer;  // Static pointer to UI for error callback
     
     // Parse a MIDI message
     void parseMessage(const std::vector<unsigned char>& message,
@@ -47,7 +51,7 @@ private:
                      void (*noteOffCallback)(int note),
                      void (*ccCallback)(int controller, int value));
     
-    // Static error callback for RtMidi (suppresses error messages)
+    // Static error callback for RtMidi - routes to console
     static void midiErrorCallback(RtMidiError::Type type, const std::string& errorText, void* userData);
 };
 

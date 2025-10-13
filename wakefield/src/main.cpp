@@ -167,6 +167,9 @@ int main() {
         return 1;
     }
     
+    // Set UI pointer for MIDI error messages
+    midiHandler->setUI(ui);
+    
     // Try to initialize audio
     unsigned int devices = audio.getDeviceCount();
     std::string audioDeviceName = "No Audio Device";
