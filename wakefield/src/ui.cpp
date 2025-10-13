@@ -475,11 +475,13 @@ void UI::drawReverbPage() {
     attroff(A_BOLD);
     row++;
     
-    // Greyhole parameters (in order from Greyhole DSP)
-    drawBar(row++, 2, "DelayTime (Z/z)", params->reverbSize.load(), 0.0f, 1.0f, 20);  // maps to delayTime
-    drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 1.0f, 20);
+    // Greyhole parameters with actual DSP ranges
+    // DelayTime: map reverbSize (0-1) to actual delayTime range (0.001-1.45)
+    float delayTime = 0.001f + params->reverbSize.load() * 1.449f;
+    drawBar(row++, 2, "DelayTime (Z/z)", delayTime, 0.001f, 1.45f, 20);
+    drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 0.99f, 20);
     drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 0.99f, 20);
     drawBar(row++, 2, "Feedback  (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
     
     row++;
@@ -500,13 +502,13 @@ void UI::drawReverbPage() {
     attroff(A_BOLD);
     row++;
     
-    mvprintw(row++, 2, "DelayTime: Greyhole delay time");
-    mvprintw(row++, 2, "Damping:   High frequency absorption");
-    mvprintw(row++, 2, "Mix:       Dry/wet balance");
-    mvprintw(row++, 2, "Diffusion: Reverb density/smoothness");
-    mvprintw(row++, 2, "Feedback:  Reverb tail length");
-    mvprintw(row++, 2, "ModDepth:  Chorus effect intensity");
-    mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (Hz)");
+    mvprintw(row++, 2, "DelayTime: Greyhole delay time (0.001-1.45s)");
+    mvprintw(row++, 2, "Damping:   High frequency absorption (0.0-0.99)");
+    mvprintw(row++, 2, "Mix:       Dry/wet balance (0.0-1.0)");
+    mvprintw(row++, 2, "Diffusion: Reverb density/smoothness (0.0-0.99)");
+    mvprintw(row++, 2, "Feedback:  Reverb tail length (0.0-1.0)");
+    mvprintw(row++, 2, "ModDepth:  Chorus effect intensity (0.0-1.0)");
+    mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (0.0-10.0 Hz)");
     
     // Controls at bottom
     int maxY = getmaxy(stdscr);
