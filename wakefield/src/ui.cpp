@@ -63,13 +63,24 @@ bool UI::initialize() {
         init_pair(5, COLOR_WHITE, COLOR_BLUE);   // Active tab
         init_pair(6, COLOR_BLACK, COLOR_CYAN);   // Inactive tab
         
-        // Grayscale colors for oscilloscope (pairs 7-11)
-        // These will fade from dim to bright
-        init_pair(7, COLOR_BLACK, COLOR_BLACK);    // Darkest (off)
-        init_pair(8, COLOR_BLACK, COLOR_BLACK);    // Very dim
-        init_pair(9, COLOR_WHITE, COLOR_BLACK);    // Dim
-        init_pair(10, COLOR_WHITE, COLOR_BLACK);   // Medium
-        init_pair(11, COLOR_WHITE, COLOR_BLACK);   // Bright (full)
+        // Check if we have 256 colors available
+        if (COLORS >= 256) {
+            // Use 256-color grayscale palette (colors 232-255 are grayscale)
+            // Map to pairs 7-26 for 20 levels of gray
+            for (int i = 0; i < 20; ++i) {
+                int grayColor = 232 + i * 23 / 19;  // Map 0-19 to 232-255
+                init_pair(7 + i, grayColor, COLOR_BLACK);
+            }
+        } else {
+            // Fallback to 8-color mode with attributes
+            // Use pairs 7-12 for basic grayscale (6 levels)
+            init_pair(7, COLOR_BLACK, COLOR_BLACK);    // Level 0 - darkest
+            init_pair(8, COLOR_BLACK, COLOR_BLACK);    // Level 1 - very dim (will use A_BOLD)
+            init_pair(9, COLOR_WHITE, COLOR_BLACK);    // Level 2 - dim (will use A_DIM)
+            init_pair(10, COLOR_WHITE, COLOR_BLACK);   // Level 3 - medium (will use A_NORMAL)
+            init_pair(11, COLOR_WHITE, COLOR_BLACK);   // Level 4 - bright (will use A_BOLD)
+            init_pair(12, COLOR_CYAN, COLOR_BLACK);    // Level 5 - brightest (cyan bold for extra pop)
+        }
     }
     
     initialized = true;
@@ -1251,27 +1262,39 @@ void UI::drawTestPage() {
         for (int x = 0; x < SCOPE_WIDTH; ++x) {
             float intensity = scopeBuffer[x][y];
             char displayChar = '+';
-            int colorPair = 7;  // Default: darkest (off)
+            int colorPair = 7;
             int attr = 0;
             
-            // Map intensity (0.0 to 1.0) to grayscale using color and attributes
-            if (intensity >= 0.8f) {
-                colorPair = 11;
-                attr = A_BOLD;  // Brightest - white bold
-            } else if (intensity >= 0.6f) {
-                colorPair = 10;
-                attr = A_NORMAL;  // Bright - white normal
-            } else if (intensity >= 0.4f) {
-                colorPair = 9;
-                attr = A_DIM;  // Medium - white dim
-            } else if (intensity >= 0.2f) {
-                colorPair = 8;
-                attr = A_DIM;  // Dim - black dim
-            } else if (intensity >= 0.05f) {
-                colorPair = 7;
-                attr = A_DIM;  // Very dim - black dim
+            if (intensity < 0.02f) {
+                // Too dim - show as space
+                displayChar = ' ';
+            } else if (COLORS >= 256) {
+                // Use 256-color mode - map intensity to 20 gray levels
+                int level = static_cast<int>(intensity * 19.0f);
+                if (level > 19) level = 19;
+                colorPair = 7 + level;
+                attr = (level >= 15) ? A_BOLD : A_NORMAL;
             } else {
-                displayChar = ' ';  // Off - just space
+                // Use 8-color mode with 6 distinct levels
+                if (intensity >= 0.83f) {
+                    colorPair = 12;  // Brightest - cyan bold
+                    attr = A_BOLD;
+                } else if (intensity >= 0.67f) {
+                    colorPair = 11;  // Very bright - white bold
+                    attr = A_BOLD;
+                } else if (intensity >= 0.5f) {
+                    colorPair = 10;  // Bright - white normal
+                    attr = A_NORMAL;
+                } else if (intensity >= 0.33f) {
+                    colorPair = 9;   // Medium - white dim
+                    attr = A_DIM;
+                } else if (intensity >= 0.17f) {
+                    colorPair = 8;   // Dim - black bold
+                    attr = A_BOLD;
+                } else {
+                    colorPair = 7;   // Very dim - black normal
+                    attr = A_NORMAL;
+                }
             }
             
             if (displayChar != ' ') {
@@ -1297,6 +1320,10 @@ void UI::drawTestPage() {
     row = scopeStartY + SCOPE_HEIGHT + 3;
     attron(COLOR_PAIR(3));
     mvprintw(row++, 2, "Use F/f to adjust fade time");
-    mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave with grayscale fading", testOscFreq);
+    if (COLORS >= 256) {
+        mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave (256-color mode: 20 gray levels)", testOscFreq);
+    } else {
+        mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave (8-color mode: 6 gray levels)", testOscFreq);
+    }
     attroff(COLOR_PAIR(3));
 }
