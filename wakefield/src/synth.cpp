@@ -51,10 +51,16 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
     }
 }
 
-void Synth::setWaveform(Waveform waveform) {
-    // Update all voice oscillators with new waveform
+void Synth::updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, 
+                                        int octave, bool lfoEnabled, int lfoSpeed) {
+    // Update all voice oscillators with new brainwave parameters
     for (auto& voice : voices) {
-        voice.oscillator.setWaveform(waveform);
+        voice.oscillator.setMode(mode);
+        voice.oscillator.setFrequency(freq);
+        voice.oscillator.setMorph(morph);
+        voice.oscillator.setOctave(octave);
+        voice.oscillator.setLFOEnabled(lfoEnabled);
+        voice.oscillator.setLFOSpeed(lfoSpeed);
     }
 }
 
@@ -103,8 +109,9 @@ void Synth::noteOn(int midiNote, int velocity) {
     voice.note = midiNote;
     
     float frequency = midiNoteToFrequency(midiNote);
-    voice.oscillator.setFrequency(frequency);
-    voice.oscillator.setPhase(0.0f);  // Reset phase for new note
+    // Set note frequency for KEY mode (will be used if mode is KEY)
+    voice.oscillator.setNoteFrequency(frequency);
+    voice.oscillator.reset();  // Reset phase for new note
     
     voice.envelope.noteOn();  // Trigger envelope attack
 }

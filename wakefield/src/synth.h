@@ -4,7 +4,7 @@
 #include <cmath>
 #include <vector>
 #include "voice.h"
-#include "oscillator.h"
+#include "brainwave_osc.h"
 #include "reverb.h"
 #include "filters.hpp"
 
@@ -20,8 +20,11 @@ public:
     void noteOff(int midiNote);
     
     void updateEnvelopeParameters(float attack, float decay, float sustain, float release);
-    void setWaveform(Waveform waveform);
     void setMasterVolume(float volume) { masterVolume = volume; }
+    
+    // Brainwave oscillator control
+    void updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, 
+                                    int octave, bool lfoEnabled, int lfoSpeed);
     
     // Reverb control
     void setReverbEnabled(bool enabled) { reverbEnabled = enabled; }

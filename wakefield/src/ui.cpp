@@ -221,7 +221,8 @@ void UI::handleInput(int ch) {
     
     // Page navigation (when no popup active)
     if (ch == KEY_LEFT) {
-        if (currentPage == UIPage::REVERB) currentPage = UIPage::MAIN;
+        if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::MAIN;
+        else if (currentPage == UIPage::REVERB) currentPage = UIPage::BRAINWAVE;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::CONFIG) currentPage = UIPage::LOOPER;
@@ -229,7 +230,8 @@ void UI::handleInput(int ch) {
         selectedRow = 0;
         return;
     } else if (ch == KEY_RIGHT) {
-        if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
+        if (currentPage == UIPage::MAIN) currentPage = UIPage::BRAINWAVE;
+        else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
@@ -237,7 +239,8 @@ void UI::handleInput(int ch) {
         selectedRow = 0;
         return;
     } else if (ch == '\t') {  // Tab key cycles forward
-        if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
+        if (currentPage == UIPage::MAIN) currentPage = UIPage::BRAINWAVE;
+        else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
@@ -261,6 +264,12 @@ void UI::handleInput(int ch) {
         if (currentPage == UIPage::MAIN) {
             if (selectedRow == 0) openPopupMenu(MenuType::PRESET);
             else if (selectedRow == 1) openPopupMenu(MenuType::WAVEFORM);
+        } else if (currentPage == UIPage::BRAINWAVE) {
+            // Toggle mode between FREE and KEY
+            if (selectedRow == 0) {
+                int currentMode = params->brainwaveMode.load();
+                params->brainwaveMode = (currentMode == 0) ? 1 : 0;
+            }
         } else if (currentPage == UIPage::REVERB) {
             if (selectedRow == 0) openPopupMenu(MenuType::REVERB_TYPE);
         } else if (currentPage == UIPage::FILTER) {
@@ -274,7 +283,9 @@ void UI::handleInput(int ch) {
     
     // Spacebar to toggle on/off (or rec/play for looper)
     if (ch == ' ') {
-        if (currentPage == UIPage::FILTER) {
+        if (currentPage == UIPage::BRAINWAVE) {
+            params->brainwaveLFOEnabled = !params->brainwaveLFOEnabled.load();
+        } else if (currentPage == UIPage::FILTER) {
             params->filterEnabled = !params->filterEnabled.load();
         } else if (currentPage == UIPage::REVERB) {
             params->reverbEnabled = !params->reverbEnabled.load();
@@ -330,6 +341,44 @@ void UI::handleInput(int ch) {
             case '-':
             case '_':
                 params->masterVolume = std::max(0.0f, params->masterVolume.load() - smallStep);
+                break;
+        }
+    } else if (currentPage == UIPage::BRAINWAVE) {
+        switch (ch) {
+            // Frequency (W/w) - logarithmic scaling
+            case 'W': {
+                float current = params->brainwaveFreq.load();
+                params->brainwaveFreq = std::min(2000.0f, current * 1.05f);
+                break;
+            }
+            case 'w': {
+                float current = params->brainwaveFreq.load();
+                params->brainwaveFreq = std::max(20.0f, current / 1.05f);
+                break;
+            }
+                
+            // Morph (M/m)
+            case 'M':
+                params->brainwaveMorph = std::min(1.0f, params->brainwaveMorph.load() + smallStep);
+                break;
+            case 'm':
+                params->brainwaveMorph = std::max(0.0f, params->brainwaveMorph.load() - smallStep);
+                break;
+                
+            // Octave (O/o)
+            case 'O':
+                params->brainwaveOctave = std::min(8, params->brainwaveOctave.load() + 1);
+                break;
+            case 'o':
+                params->brainwaveOctave = std::max(0, params->brainwaveOctave.load() - 1);
+                break;
+                
+            // LFO Speed (L/l)
+            case 'L':
+                params->brainwaveLFOSpeed = std::min(9, params->brainwaveLFOSpeed.load() + 1);
+                break;
+            case 'l':
+                params->brainwaveLFOSpeed = std::max(0, params->brainwaveLFOSpeed.load() - 1);
                 break;
         }
     } else if (currentPage == UIPage::REVERB) {
@@ -536,58 +585,69 @@ void UI::drawTabs() {
         attroff(COLOR_PAIR(6));
     }
     
-    // Reverb tab
-    if (currentPage == UIPage::REVERB) {
+    // Brainwave tab
+    if (currentPage == UIPage::BRAINWAVE) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 6, " REVERB ");
+        mvprintw(0, 6, " BRAINWAVE ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 6, " REVERB ");
+        mvprintw(0, 6, " BRAINWAVE ");
+        attroff(COLOR_PAIR(6));
+    }
+    
+    // Reverb tab
+    if (currentPage == UIPage::REVERB) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(0, 17, " REVERB ");
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(6));
+        mvprintw(0, 17, " REVERB ");
         attroff(COLOR_PAIR(6));
     }
     
     // Filter tab
     if (currentPage == UIPage::FILTER) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 14, " FILTER ");
+        mvprintw(0, 25, " FILTER ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 14, " FILTER ");
+        mvprintw(0, 25, " FILTER ");
         attroff(COLOR_PAIR(6));
     }
     
     // Looper tab
     if (currentPage == UIPage::LOOPER) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 22, " LOOPER ");
+        mvprintw(0, 33, " LOOPER ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 22, " LOOPER ");
+        mvprintw(0, 33, " LOOPER ");
         attroff(COLOR_PAIR(6));
     }
     
     // Config tab
     if (currentPage == UIPage::CONFIG) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 30, " CONFIG ");
+        mvprintw(0, 41, " CONFIG ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 30, " CONFIG ");
+        mvprintw(0, 41, " CONFIG ");
         attroff(COLOR_PAIR(6));
     }
     
     // Test tab
     if (currentPage == UIPage::TEST) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 38, " TEST ");
+        mvprintw(0, 49, " TEST ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 38, " TEST ");
+        mvprintw(0, 49, " TEST ");
         attroff(COLOR_PAIR(6));
     }
     
@@ -700,6 +760,104 @@ void UI::drawMainPage(int activeVoices) {
     row++;
     
     mvprintw(row++, 2, "Active: %d/8", activeVoices);
+}
+
+void UI::drawBrainwavePage() {
+    int row = 3;
+    int selectableRow = 0;
+    
+    // Mode section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "OSCILLATOR MODE");
+    attroff(A_BOLD);
+    row++;
+    
+    const char* modeNames[] = {"FREE", "KEY"};
+    int mode = params->brainwaveMode.load();
+    
+    // Row 0: Mode selector
+    if (selectedRow == selectableRow && !menuPopupActive) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row++, 2, "> Mode: %s", modeNames[mode]);
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        mvprintw(row++, 2, "  Mode: %s", modeNames[mode]);
+    }
+    selectableRow++;
+    
+    // Mode description
+    if (mode == 0) {
+        attron(COLOR_PAIR(3));
+        mvprintw(row++, 2, "FREE: User controls frequency directly");
+        attroff(COLOR_PAIR(3));
+    } else {
+        attron(COLOR_PAIR(3));
+        mvprintw(row++, 2, "KEY: MIDI note sets frequency, freq param is offset");
+        attroff(COLOR_PAIR(3));
+    }
+    
+    row += 2;
+    
+    // Wavetable parameters section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "WAVETABLE PARAMETERS");
+    attroff(A_BOLD);
+    row++;
+    
+    if (mode == 0) {
+        drawBar(row++, 2, "Frequency (W/w)", params->brainwaveFreq.load(), 20.0f, 2000.0f, 20);
+    } else {
+        drawBar(row++, 2, "Freq Offset (W/w)", params->brainwaveFreq.load(), 20.0f, 2000.0f, 20);
+    }
+    drawBar(row++, 2, "Morph (M/m)     ", params->brainwaveMorph.load(), 0.0f, 1.0f, 20);
+    
+    mvprintw(row++, 2, "Octave (O/o): %d", params->brainwaveOctave.load());
+    
+    row += 2;
+    
+    // LFO section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "LFO MODULATION");
+    attroff(A_BOLD);
+    row++;
+    
+    // LFO status
+    mvprintw(row, 2, "LFO: ");
+    if (params->brainwaveLFOEnabled.load()) {
+        attron(COLOR_PAIR(2) | A_BOLD);
+        addstr("ON");
+        attroff(COLOR_PAIR(2) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(4));
+        addstr("OFF");
+        attroff(COLOR_PAIR(4));
+    }
+    mvprintw(row++, 20, "(Space to toggle)");
+    
+    if (params->brainwaveLFOEnabled.load()) {
+        mvprintw(row++, 2, "LFO Speed (L/l): %d/9", params->brainwaveLFOSpeed.load());
+        
+        if (mode == 1) {
+            attron(COLOR_PAIR(3));
+            mvprintw(row++, 2, "Note: LFO rate scales with MIDI note frequency");
+            attroff(COLOR_PAIR(3));
+        }
+    }
+    
+    row += 2;
+    
+    // Help section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "CONTROLS");
+    attroff(A_BOLD);
+    row++;
+    
+    mvprintw(row++, 2, "Enter: Toggle mode");
+    mvprintw(row++, 2, "W/w:   Adjust frequency/offset");
+    mvprintw(row++, 2, "M/m:   Adjust morph position");
+    mvprintw(row++, 2, "O/o:   Increase/decrease octave");
+    mvprintw(row++, 2, "Space: Toggle LFO on/off");
+    mvprintw(row++, 2, "L/l:   Adjust LFO speed");
 }
 
 void UI::drawReverbPage() {
@@ -1156,6 +1314,9 @@ void UI::draw(int activeVoices) {
             drawMainPage(activeVoices);
             drawConsole();  // Console only on main page
             break;
+        case UIPage::BRAINWAVE:
+            drawBrainwavePage();
+            break;
         case UIPage::REVERB:
             drawReverbPage();
             break;
@@ -1239,6 +1400,7 @@ void UI::draw(int activeVoices) {
 int UI::getSelectableRowCount() {
     switch (currentPage) {
         case UIPage::MAIN: return 2;  // Preset and Waveform
+        case UIPage::BRAINWAVE: return 1;  // Mode selector
         case UIPage::REVERB: return 1;  // Reverb type
         case UIPage::FILTER: return 1;  // Filter type
         case UIPage::CONFIG: return 2;  // Audio and MIDI devices

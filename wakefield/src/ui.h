@@ -84,10 +84,19 @@ struct SynthParameters {
     std::atomic<int> loopClearCC{-1};
     std::atomic<bool> loopMidiLearnMode{false};
     std::atomic<int> loopMidiLearnTarget{-1};  // 0=rec, 1=overdub, 2=stop, 3=clear
+    
+    // Brainwave oscillator parameters
+    std::atomic<int> brainwaveMode{0};         // 0=FREE, 1=KEY
+    std::atomic<float> brainwaveFreq{440.0f};  // Base frequency or offset (20-2000 Hz)
+    std::atomic<float> brainwaveMorph{0.5f};   // 0.0-1.0, maps to frames 0-255
+    std::atomic<int> brainwaveOctave{4};       // 0-8 octave offset
+    std::atomic<bool> brainwaveLFOEnabled{false};
+    std::atomic<int> brainwaveLFOSpeed{0};     // 0-9 index
 };
 
 enum class UIPage {
     MAIN,
+    BRAINWAVE,
     REVERB,
     FILTER,
     LOOPER,
@@ -195,6 +204,7 @@ private:
     // Draw helper functions
     void drawTabs();
     void drawMainPage(int activeVoices);
+    void drawBrainwavePage();
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();

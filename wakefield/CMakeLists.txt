@@ -18,6 +18,7 @@ add_executable(synth
     src/envelope.cpp
     src/ui.cpp
     src/oscillator.cpp
+    src/brainwave_osc.cpp
     src/reverb.cpp
     src/preset.cpp
     src/loop_manager.cpp

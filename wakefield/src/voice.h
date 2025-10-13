@@ -2,12 +2,12 @@
 #define VOICE_H
 
 #include "envelope.h"
-#include "oscillator.h"
+#include "brainwave_osc.h"
 
 struct Voice {
     bool active;           // Is this voice currently playing?
     int note;             // MIDI note number
-    Oscillator oscillator; // Oscillator with waveform
+    BrainwaveOscillator oscillator; // Brainwave wavetable oscillator
     Envelope envelope;     // Amplitude envelope
     
     Voice(float sampleRate) 

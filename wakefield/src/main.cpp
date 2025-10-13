@@ -202,7 +202,16 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             synthParams->release.load()
         );
         synth->setMasterVolume(synthParams->masterVolume.load());
-        synth->setWaveform(static_cast<Waveform>(synthParams->waveform.load()));
+        
+        // Update brainwave oscillator parameters
+        synth->updateBrainwaveParameters(
+            static_cast<BrainwaveMode>(synthParams->brainwaveMode.load()),
+            synthParams->brainwaveFreq.load(),
+            synthParams->brainwaveMorph.load(),
+            synthParams->brainwaveOctave.load(),
+            synthParams->brainwaveLFOEnabled.load(),
+            synthParams->brainwaveLFOSpeed.load()
+        );
         
         // Update reverb parameters
         synth->setReverbEnabled(synthParams->reverbEnabled.load());
