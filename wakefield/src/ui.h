@@ -109,6 +109,7 @@ private:
     void drawInfoPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawConsole();
+    void drawHotkeyLine();
 };
 
 #endif // UI_H

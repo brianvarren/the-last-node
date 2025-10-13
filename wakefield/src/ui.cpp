@@ -399,48 +399,12 @@ void UI::drawMainPage(int activeVoices) {
     row++;
     
     drawBar(row++, 2, "Volume  (+/-)", params->masterVolume.load(), 0.0f, 1.0f, 20);
-    
-    row++;
-    
-    // Voice info
-    attron(A_BOLD);
-    mvprintw(row++, 1, "VOICES");
-    attroff(A_BOLD);
-    row++;
-    
-    mvprintw(row++, 2, "Active: ");
-    
-    int voiceX = 10;
-    if (activeVoices >= 7) {
-        attron(COLOR_PAIR(4) | A_BOLD);
-    } else if (activeVoices >= 4) {
-        attron(COLOR_PAIR(3));
-    } else {
-        attron(COLOR_PAIR(2));
-    }
-    
-    mvprintw(row - 1, voiceX, "%d/8", activeVoices);
-    attroff(COLOR_PAIR(4) | A_BOLD);
-    attroff(COLOR_PAIR(3));
-    attroff(COLOR_PAIR(2));
-    
-    mvprintw(row++, 2, "Usage:  [");
-    attron(COLOR_PAIR(2));
-    for (int i = 0; i < 8; ++i) {
-        if (i < activeVoices) {
-            addch('*');
-        } else {
-            addch('-');
-        }
-    }
-    attroff(COLOR_PAIR(2));
-    addch(']');
 }
 
 void UI::drawReverbPage() {
     int row = 3;
     int maxY = getmaxy(stdscr);
-    int maxRow = maxY - 8;  // Stop before console area
+    int maxRow = maxY - 2;  // Stop before hotkey line
     
     // Reverb status
     attron(A_BOLD);
@@ -514,7 +478,7 @@ void UI::drawReverbPage() {
 void UI::drawFilterPage() {
     int row = 3;
     int maxY = getmaxy(stdscr);
-    int maxRow = maxY - 8;  // Stop before console area
+    int maxRow = maxY - 2;  // Stop before hotkey line
     
     // Filter status
     attron(A_BOLD);
@@ -616,7 +580,7 @@ void UI::drawFilterPage() {
 void UI::drawInfoPage() {
     int row = 3;
     int maxY = getmaxy(stdscr);
-    int maxRow = maxY - 8;  // Stop before console area
+    int maxRow = maxY - 2;  // Stop before hotkey line
     
     // System information
     attron(A_BOLD);
@@ -719,9 +683,13 @@ void UI::drawConsole() {
         mvprintw(row++, 2, "%s", msg.c_str());
         attroff(COLOR_PAIR(2));
     }
+}
+
+void UI::drawHotkeyLine() {
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
+    int row = maxY - 1;
     
-    // Draw hotkey line at bottom
-    row = maxY - 1;
     attron(COLOR_PAIR(1));
     mvhline(row - 1, 0, '-', maxX);
     attroff(COLOR_PAIR(1));
@@ -736,6 +704,7 @@ void UI::draw(int activeVoices) {
     switch (currentPage) {
         case UIPage::MAIN:
             drawMainPage(activeVoices);
+            drawConsole();  // Console only on main page
             break;
         case UIPage::REVERB:
             drawReverbPage();
@@ -748,7 +717,7 @@ void UI::draw(int activeVoices) {
             break;
     }
     
-    drawConsole();
+    drawHotkeyLine();  // Always draw hotkey line at bottom
     
     refresh();
 }
