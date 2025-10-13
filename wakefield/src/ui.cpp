@@ -365,12 +365,12 @@ void UI::handleInput(int ch) {
                 params->brainwaveMorph = std::max(0.0f, params->brainwaveMorph.load() - smallStep);
                 break;
                 
-            // Octave (O/o)
+            // Octave (O/o) - bipolar control
             case 'O':
-                params->brainwaveOctave = std::min(8, params->brainwaveOctave.load() + 1);
+                params->brainwaveOctave = std::min(3, params->brainwaveOctave.load() + 1);
                 break;
             case 'o':
-                params->brainwaveOctave = std::max(0, params->brainwaveOctave.load() - 1);
+                params->brainwaveOctave = std::max(-3, params->brainwaveOctave.load() - 1);
                 break;
                 
             // LFO Speed (L/l)
@@ -811,7 +811,14 @@ void UI::drawBrainwavePage() {
     }
     drawBar(row++, 2, "Morph (M/m)     ", params->brainwaveMorph.load(), 0.0f, 1.0f, 20);
     
-    mvprintw(row++, 2, "Octave (O/o): %d", params->brainwaveOctave.load());
+    int octave = params->brainwaveOctave.load();
+    if (octave > 0) {
+        mvprintw(row++, 2, "Octave (O/o): +%d", octave);
+    } else if (octave < 0) {
+        mvprintw(row++, 2, "Octave (O/o): %d", octave);
+    } else {
+        mvprintw(row++, 2, "Octave (O/o): 0");
+    }
     
     row += 2;
     
@@ -855,7 +862,7 @@ void UI::drawBrainwavePage() {
     mvprintw(row++, 2, "Enter: Toggle mode");
     mvprintw(row++, 2, "W/w:   Adjust frequency/offset");
     mvprintw(row++, 2, "M/m:   Adjust morph position");
-    mvprintw(row++, 2, "O/o:   Increase/decrease octave");
+    mvprintw(row++, 2, "O/o:   Increase/decrease octave (-3 to +3)");
     mvprintw(row++, 2, "Space: Toggle LFO on/off");
     mvprintw(row++, 2, "L/l:   Adjust LFO speed");
 }

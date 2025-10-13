@@ -8,7 +8,7 @@ BrainwaveOscillator::BrainwaveOscillator()
     , baseFrequency_(440.0f)
     , noteFrequency_(440.0f)
     , morphPosition_(0.5f)
-    , octaveOffset_(4)
+    , octaveOffset_(0)  // Default to 0 (no octave shift)
     , lfoEnabled_(false)
     , lfoSpeedIndex_(0)
     , lfoPhase_(0.0f)
@@ -40,9 +40,14 @@ float BrainwaveOscillator::calculateEffectiveFrequency(float sampleRate) {
     if (mode_ == BrainwaveMode::FREE) {
         // FREE mode: use base frequency with octave offset
         freq = baseFrequency_;
+        
+        // Apply octave offset (bipolar: -3 to +3)
         if (octaveOffset_ > 0) {
             freq *= (1 << octaveOffset_);  // Multiply by 2^octave
+        } else if (octaveOffset_ < 0) {
+            freq /= (1 << (-octaveOffset_));  // Divide by 2^|octave|
         }
+        // If octaveOffset_ == 0, freq stays unchanged
         
         // Apply LFO modulation
         if (lfoEnabled_) {
@@ -62,10 +67,13 @@ float BrainwaveOscillator::calculateEffectiveFrequency(float sampleRate) {
         float offset = (baseFrequency_ - 440.0f) * 0.1f;  // Scale down the offset
         freq += offset;
         
-        // Apply octave offset
+        // Apply octave offset (bipolar: -3 to +3)
         if (octaveOffset_ > 0) {
-            freq *= (1 << octaveOffset_);
+            freq *= (1 << octaveOffset_);  // Multiply by 2^octave
+        } else if (octaveOffset_ < 0) {
+            freq /= (1 << (-octaveOffset_));  // Divide by 2^|octave|
         }
+        // If octaveOffset_ == 0, freq stays unchanged
         
         // Apply LFO modulation (LFO speed scales with note frequency)
         if (lfoEnabled_) {

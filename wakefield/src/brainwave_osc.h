@@ -26,7 +26,7 @@ public:
     void setMorph(float morph) { morphPosition_ = morph; }
     float getMorph() const { return morphPosition_; }
     
-    // Octave control (0-8)
+    // Octave control (-3 to +3, bipolar offset)
     void setOctave(int octave) { octaveOffset_ = octave; }
     int getOctave() const { return octaveOffset_; }
     
