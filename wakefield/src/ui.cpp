@@ -62,6 +62,14 @@ bool UI::initialize() {
         init_pair(4, COLOR_RED, COLOR_BLACK);
         init_pair(5, COLOR_WHITE, COLOR_BLUE);   // Active tab
         init_pair(6, COLOR_BLACK, COLOR_CYAN);   // Inactive tab
+        
+        // Grayscale colors for oscilloscope (pairs 7-11)
+        // These will fade from dim to bright
+        init_pair(7, COLOR_BLACK, COLOR_BLACK);    // Darkest (off)
+        init_pair(8, COLOR_BLACK, COLOR_BLACK);    // Very dim
+        init_pair(9, COLOR_WHITE, COLOR_BLACK);    // Dim
+        init_pair(10, COLOR_WHITE, COLOR_BLACK);   // Medium
+        init_pair(11, COLOR_WHITE, COLOR_BLACK);   // Bright (full)
     }
     
     initialized = true;
@@ -1236,30 +1244,43 @@ void UI::drawTestPage() {
     }
     mvaddch(scopeStartY, scopeStartX + 1 + SCOPE_WIDTH, '+');
     
-    // Draw scope content with fade
+    // Draw scope content with grayscale fade
     for (int y = 0; y < SCOPE_HEIGHT; ++y) {
         mvaddch(scopeStartY + 1 + y, scopeStartX, '|');
         
         for (int x = 0; x < SCOPE_WIDTH; ++x) {
             float intensity = scopeBuffer[x][y];
-            char displayChar;
+            char displayChar = '+';
+            int colorPair = 7;  // Default: darkest (off)
+            int attr = 0;
             
-            // Map intensity (0.0 to 1.0) to grayscale characters
+            // Map intensity (0.0 to 1.0) to grayscale using color and attributes
             if (intensity >= 0.8f) {
-                displayChar = '+';
+                colorPair = 11;
+                attr = A_BOLD;  // Brightest - white bold
             } else if (intensity >= 0.6f) {
-                displayChar = '=';
+                colorPair = 10;
+                attr = A_NORMAL;  // Bright - white normal
             } else if (intensity >= 0.4f) {
-                displayChar = '-';
+                colorPair = 9;
+                attr = A_DIM;  // Medium - white dim
             } else if (intensity >= 0.2f) {
-                displayChar = ':';
-            } else if (intensity >= 0.1f) {
-                displayChar = '.';
+                colorPair = 8;
+                attr = A_DIM;  // Dim - black dim
+            } else if (intensity >= 0.05f) {
+                colorPair = 7;
+                attr = A_DIM;  // Very dim - black dim
             } else {
-                displayChar = ' ';
+                displayChar = ' ';  // Off - just space
             }
             
-            mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
+            if (displayChar != ' ') {
+                attron(COLOR_PAIR(colorPair) | attr);
+                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
+                attroff(COLOR_PAIR(colorPair) | attr);
+            } else {
+                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
+            }
         }
         
         mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + SCOPE_WIDTH, '|');
@@ -1276,6 +1297,6 @@ void UI::drawTestPage() {
     row = scopeStartY + SCOPE_HEIGHT + 3;
     attron(COLOR_PAIR(3));
     mvprintw(row++, 2, "Use F/f to adjust fade time");
-    mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave", testOscFreq);
+    mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave with grayscale fading", testOscFreq);
     attroff(COLOR_PAIR(3));
 }
