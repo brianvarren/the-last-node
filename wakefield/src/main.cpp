@@ -469,8 +469,9 @@ int main(int argc, char** argv) {
             ui->addConsoleMessage("Restart failed, continuing with current devices");
         }
         
-        // Update test oscillator
+        // Update oscilloscopes
         ui->updateTestOscillator(deltaTime);
+        ui->updateBrainwaveOscilloscope(deltaTime);
         
         // Draw UI
         int activeVoices = synth->getActiveVoiceCount();

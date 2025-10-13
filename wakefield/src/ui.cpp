@@ -37,12 +37,14 @@ UI::UI(Synth* synth, SynthParameters* params)
     // Load available presets
     refreshPresetList();
     
-    // Initialize oscilloscope buffer
+    // Initialize oscilloscope buffers
     for (int x = 0; x < SCOPE_WIDTH; ++x) {
         for (int y = 0; y < SCOPE_HEIGHT; ++y) {
             scopeBuffer[x][y] = 0.0f;
+            scopeBuffer2[x][y] = 0.0f;
         }
     }
+    brainwaveOscPhase = 0.0f;
 }
 
 UI::~UI() {
@@ -865,6 +867,84 @@ void UI::drawBrainwavePage() {
     mvprintw(row++, 2, "O/o:   Increase/decrease octave (-3 to +3)");
     mvprintw(row++, 2, "Space: Toggle LFO on/off");
     mvprintw(row++, 2, "L/l:   Adjust LFO speed");
+    
+    row += 2;
+    
+    // Draw oscilloscope display
+    attron(A_BOLD);
+    mvprintw(row++, 1, "WAVEFORM DISPLAY");
+    attroff(A_BOLD);
+    row++;
+    
+    // Draw top border
+    int scopeStartX = 2;
+    int scopeStartY = row;
+    mvaddch(scopeStartY, scopeStartX, '+');
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        mvaddch(scopeStartY, scopeStartX + 1 + x, '-');
+    }
+    mvaddch(scopeStartY, scopeStartX + 1 + SCOPE_WIDTH, '+');
+    
+    // Draw scope content with grayscale fade
+    for (int y = 0; y < SCOPE_HEIGHT; ++y) {
+        mvaddch(scopeStartY + 1 + y, scopeStartX, '|');
+        
+        for (int x = 0; x < SCOPE_WIDTH; ++x) {
+            float intensity = scopeBuffer2[x][y];
+            char displayChar = '+';
+            int colorPair = 7;
+            int attr = 0;
+            
+            if (intensity < 0.02f) {
+                // Too dim - show as space
+                displayChar = ' ';
+            } else if (COLORS >= 256) {
+                // Use 256-color mode - map intensity to 20 gray levels
+                int level = static_cast<int>(intensity * 19.0f);
+                if (level > 19) level = 19;
+                colorPair = 7 + level;
+                attr = (level >= 15) ? A_BOLD : A_NORMAL;
+            } else {
+                // Use 8-color mode with 6 distinct levels
+                if (intensity >= 0.83f) {
+                    colorPair = 12;  // Brightest - cyan bold
+                    attr = A_BOLD;
+                } else if (intensity >= 0.67f) {
+                    colorPair = 11;  // Very bright - white bold
+                    attr = A_BOLD;
+                } else if (intensity >= 0.5f) {
+                    colorPair = 10;  // Bright - white normal
+                    attr = A_NORMAL;
+                } else if (intensity >= 0.33f) {
+                    colorPair = 9;   // Medium - white dim
+                    attr = A_DIM;
+                } else if (intensity >= 0.17f) {
+                    colorPair = 8;   // Dim - black bold
+                    attr = A_BOLD;
+                } else {
+                    colorPair = 7;   // Very dim - black normal
+                    attr = A_NORMAL;
+                }
+            }
+            
+            if (displayChar != ' ') {
+                attron(COLOR_PAIR(colorPair) | attr);
+                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
+                attroff(COLOR_PAIR(colorPair) | attr);
+            } else {
+                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
+            }
+        }
+        
+        mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + SCOPE_WIDTH, '|');
+    }
+    
+    // Draw bottom border
+    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX, '+');
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + x, '-');
+    }
+    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + SCOPE_WIDTH, '+');
 }
 
 void UI::drawReverbPage() {
@@ -1597,6 +1677,72 @@ void UI::handleTextInput(int ch) {
 void UI::finishTextInput() {
     textInputActive = false;
     textInputBuffer.clear();
+}
+
+void UI::updateBrainwaveOscilloscope(float deltaTime) {
+    // Advance oscillator phase slowly for visualization
+    float displayFreq = 1.0f;  // 1 Hz for nice slow display
+    brainwaveOscPhase += 2.0f * M_PI * displayFreq * deltaTime;
+    
+    // Wrap phase to maintain phase-lock (0 to 2π)
+    while (brainwaveOscPhase >= 2.0f * M_PI) {
+        brainwaveOscPhase -= 2.0f * M_PI;
+    }
+    
+    // Decay all pixels in the buffer based on fade time
+    float decayRate = 1.0f / scopeFadeTime;  // How fast to fade (per second)
+    float decayAmount = decayRate * deltaTime;
+    
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        for (int y = 0; y < SCOPE_HEIGHT; ++y) {
+            scopeBuffer2[x][y] -= decayAmount;
+            if (scopeBuffer2[x][y] < 0.0f) {
+                scopeBuffer2[x][y] = 0.0f;
+            }
+        }
+    }
+    
+    // Generate waveform using current morph position
+    // Convert phase to 32-bit accumulator format
+    uint32_t phaseAccum = static_cast<uint32_t>((brainwaveOscPhase / (2.0f * M_PI)) * 4294967296.0);
+    float morphPos = params->brainwaveMorph.load();
+    
+    // Generate sample using brainwave algorithm
+    // We need to call the static helper functions directly
+    float normalizedPhase = brainwaveOscPhase / (2.0f * M_PI);
+    float waveValue;
+    
+    if (morphPos < 0.5f) {
+        // Phase distortion (same as in brainwave_osc.cpp)
+        float d = 1.0f - (morphPos * 2.0f);
+        float shapedPhase;
+        if (normalizedPhase <= d) {
+            shapedPhase = (1.0f / M_PI) * normalizedPhase;
+        } else {
+            shapedPhase = (1.0f / M_PI) * (1.0f + ((normalizedPhase - d) / (1.0f - d)));
+        }
+        waveValue = -std::cos(2.0f * M_PI * shapedPhase);
+    } else {
+        // Tanh waveshaping (same as in brainwave_osc.cpp)
+        float amount = (morphPos - 0.5f) * 2.0f;
+        float sine = std::sin(2.0f * M_PI * normalizedPhase);
+        float gain = 1.0f + (amount * 9.0f);
+        float shaped = std::tanh(sine * gain);
+        float normalizer = std::tanh(gain);
+        waveValue = shaped / normalizer;
+    }
+    
+    // Map phase (0 to 2π) to horizontal position (0 to SCOPE_WIDTH-1)
+    int xPos = static_cast<int>((brainwaveOscPhase / (2.0f * M_PI)) * (SCOPE_WIDTH - 1));
+    
+    // Map wave value (-1 to +1) to vertical position (0 to SCOPE_HEIGHT-1)
+    // Center of display is at SCOPE_HEIGHT/2
+    int yPos = static_cast<int>((SCOPE_HEIGHT / 2) - (waveValue * (SCOPE_HEIGHT / 2 - 1)));
+    
+    // Clamp to buffer bounds
+    if (xPos >= 0 && xPos < SCOPE_WIDTH && yPos >= 0 && yPos < SCOPE_HEIGHT) {
+        scopeBuffer2[xPos][yPos] = 1.0f;  // Maximum intensity at current position
+    }
 }
 
 void UI::updateTestOscillator(float deltaTime) {

@@ -122,6 +122,9 @@ public:
     // Update test oscillator (call before draw)
     void updateTestOscillator(float deltaTime);
     
+    // Update brainwave oscilloscope (call before draw)
+    void updateBrainwaveOscilloscope(float deltaTime);
+    
     // Set device info
     void setDeviceInfo(const std::string& audioDevice, int sampleRate, int bufferSize,
                        const std::string& midiDevice, int midiPort);
@@ -187,6 +190,10 @@ private:
     float testOscFreq;
     float scopeFadeTime;
     float scopeBuffer[80][20];  // intensity buffer for fade effect
+    
+    // Brainwave oscilloscope
+    float brainwaveOscPhase;
+    float scopeBuffer2[80][20];  // second scope buffer for brainwave page
     
     // Device change request
     bool deviceChangeRequested;
