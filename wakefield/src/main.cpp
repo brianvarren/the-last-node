@@ -331,6 +331,7 @@ int main(int argc, char** argv) {
     }
     
     // Main UI loop
+    float deltaTime = 0.05f;  // 50ms default (20 FPS)
     while (running) {
         // Update UI and handle input
         if (!ui->update()) {
@@ -365,6 +366,9 @@ int main(int argc, char** argv) {
             ui->clearDeviceChangeRequest();
             ui->addConsoleMessage("Restart failed, continuing with current devices");
         }
+        
+        // Update test oscillator
+        ui->updateTestOscillator(deltaTime);
         
         // Draw UI
         int activeVoices = synth->getActiveVoiceCount();

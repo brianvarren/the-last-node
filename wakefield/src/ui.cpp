@@ -903,6 +903,9 @@ void UI::draw(int activeVoices) {
         case UIPage::CONFIG:
             drawConfigPage();
             break;
+        case UIPage::TEST:
+            drawTestPage();
+            break;
     }
     
     drawHotkeyLine();  // Always draw hotkey line at bottom
