@@ -156,11 +156,11 @@ void UI::handleInput(int ch) {
                 params->reverbEnabled = !params->reverbEnabled.load();
                 break;
                 
-            // Size (Z/z)
-            case 'Z':
+            // Size/DelayTime (T/t)
+            case 'T':
                 params->reverbSize = std::min(1.0f, params->reverbSize.load() + smallStep);
                 break;
-            case 'z':
+            case 't':
                 params->reverbSize = std::max(0.0f, params->reverbSize.load() - smallStep);
                 break;
                 
@@ -472,9 +472,9 @@ void UI::drawReverbPage() {
     // DelayTime and Size both map from reverbSize (0-1) per setSize() in reverb.cpp
     float delayTime = 0.001f + params->reverbSize.load() * 1.449f;
     float size = 0.5f + params->reverbSize.load() * 2.5f;
-    drawBar(row++, 2, "DelayTime (Z/z)", delayTime, 0.001f, 1.45f, 20);
+    drawBar(row++, 2, "DelayTime (T/t)", delayTime, 0.001f, 1.45f, 20);
     drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 0.99f, 20);
-    drawBar(row++, 2, "Size      (Z/z)", size, 0.5f, 3.0f, 20);
+    drawBar(row++, 2, "Size      (T/t)", size, 0.5f, 3.0f, 20);
     drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 0.99f, 20);
     drawBar(row++, 2, "Feedback  (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
     
