@@ -20,6 +20,7 @@ add_executable(synth
     src/oscillator.cpp
     src/reverb.cpp
     src/preset.cpp
+    src/loop_manager.cpp
 )
 
 # Include directories

@@ -11,12 +11,14 @@
 #include "midi.h"
 #include "ui.h"
 #include "preset.h"
+#include "loop_manager.h"
 
 // Global instances
 static Synth* synth = nullptr;
 static MidiHandler* midiHandler = nullptr;
 static SynthParameters* synthParams = nullptr;
 static UI* ui = nullptr;
+LoopManager* loopManager = nullptr;  // Non-static so UI can access it
 static bool running = true;
 
 void signalHandler(int signum) {
@@ -98,7 +100,7 @@ void onNoteOff(int note) {
 void onControlChange(int controller, int value) {
     if (!synthParams) return;
     
-    // Check if we're in CC learn mode
+    // Check if we're in CC learn mode (filter)
     if (synthParams->ccLearnMode.load() && synthParams->ccLearnTarget.load() == 0) {
         // Learn this CC for filter cutoff
         synthParams->filterCutoffCC = controller;
@@ -107,6 +109,26 @@ void onControlChange(int controller, int value) {
         if (ui) {
             ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Filter Cutoff");
         }
+    }
+    
+    // Check if we're in looper MIDI learn mode
+    if (synthParams->loopMidiLearnMode.load()) {
+        int target = synthParams->loopMidiLearnTarget.load();
+        if (target == 0) {
+            synthParams->loopRecPlayCC = controller;
+            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Rec/Play");
+        } else if (target == 1) {
+            synthParams->loopOverdubCC = controller;
+            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Overdub");
+        } else if (target == 2) {
+            synthParams->loopStopCC = controller;
+            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Stop");
+        } else if (target == 3) {
+            synthParams->loopClearCC = controller;
+            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Clear");
+        }
+        synthParams->loopMidiLearnMode = false;
+        synthParams->loopMidiLearnTarget = -1;
     }
     
     // Process CC messages if they're mapped to parameters
@@ -119,6 +141,33 @@ void onControlChange(int controller, int value) {
         float frequency = 20.0f * std::pow(1000.0f, normalized);  // 20 * (1000^norm)
         synthParams->filterCutoff = frequency;
     }
+    
+    // Process looper CC mappings (toggle on high values > 64)
+    if (loopManager) {
+        int recPlayCC = synthParams->loopRecPlayCC.load();
+        if (recPlayCC >= 0 && controller == recPlayCC && value > 64) {
+            Looper* loop = loopManager->getCurrentLoop();
+            if (loop) loop->pressRecPlay();
+        }
+        
+        int overdubCC = synthParams->loopOverdubCC.load();
+        if (overdubCC >= 0 && controller == overdubCC && value > 64) {
+            Looper* loop = loopManager->getCurrentLoop();
+            if (loop) loop->pressOverdub();
+        }
+        
+        int stopCC = synthParams->loopStopCC.load();
+        if (stopCC >= 0 && controller == stopCC && value > 64) {
+            Looper* loop = loopManager->getCurrentLoop();
+            if (loop) loop->pressStop();
+        }
+        
+        int clearCC = synthParams->loopClearCC.load();
+        if (clearCC >= 0 && controller == clearCC && value > 64) {
+            Looper* loop = loopManager->getCurrentLoop();
+            if (loop) loop->pressClear();
+        }
+    }
 }
 
 // Audio callback function
@@ -127,6 +176,11 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
                   double /*streamTime*/, 
                   RtAudioStreamStatus status, 
                   void* /*userData*/) {
+    
+    // Temp buffers for synth output (before looper)
+    static std::vector<float> tempBuffer;
+    static std::vector<float> tempL;
+    static std::vector<float> tempR;
     
     float* buffer = static_cast<float*>(outputBuffer);
     
@@ -172,9 +226,44 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         );
     }
     
-    // Generate audio
-    if (synth) {
-        synth->process(buffer, nFrames, 2);  // 2 channels for stereo
+    // Update looper parameters
+    if (loopManager && synthParams) {
+        loopManager->selectLoop(synthParams->currentLoop.load());
+        loopManager->setOverdubMix(synthParams->overdubMix.load());
+    }
+    
+    // Generate audio from synth (with effects) into temp buffer
+    if (synth && loopManager) {
+        // Resize temp buffers if needed
+        size_t stereoFrames = nFrames * 2;
+        if (tempBuffer.size() < stereoFrames) {
+            tempBuffer.resize(stereoFrames);
+            tempL.resize(nFrames);
+            tempR.resize(nFrames);
+        }
+        
+        // Process synth into temp buffer
+        synth->process(tempBuffer.data(), nFrames, 2);
+        
+        // Deinterleave for looper processing
+        for (unsigned int i = 0; i < nFrames; ++i) {
+            tempL[i] = tempBuffer[i * 2];
+            tempR[i] = tempBuffer[i * 2 + 1];
+        }
+        
+        // Process through loopers (post-effects)
+        std::vector<float> outL(nFrames);
+        std::vector<float> outR(nFrames);
+        loopManager->processBlock(tempL.data(), tempR.data(), outL.data(), outR.data(), nFrames);
+        
+        // Interleave output
+        for (unsigned int i = 0; i < nFrames; ++i) {
+            buffer[i * 2] = outL[i];
+            buffer[i * 2 + 1] = outR[i];
+        }
+    } else if (synth) {
+        // No looper, just process synth directly
+        synth->process(buffer, nFrames, 2);
     }
     
     return 0;
@@ -237,12 +326,16 @@ int main(int argc, char** argv) {
     // Create synth instance
     synth = new Synth(static_cast<float>(sampleRate));
     
+    // Create looper manager
+    loopManager = new LoopManager(static_cast<float>(sampleRate));
+    
     // Initialize UI first (before audio)
     ui = new UI(synth, synthParams);
     if (!ui->initialize()) {
         std::cerr << "Failed to initialize UI\n";
         delete ui;
         delete synth;
+        delete loopManager;
         delete midiHandler;
         delete synthParams;
         return 1;
@@ -391,6 +484,7 @@ int main(int argc, char** argv) {
     // Clean up
     delete ui;
     delete synth;
+    delete loopManager;
     delete midiHandler;
     delete synthParams;
     

@@ -72,12 +72,25 @@ struct SynthParameters {
     std::atomic<bool> ccLearnMode{false};
     std::atomic<int> ccLearnTarget{-1};  // Which parameter to learn (-1 = none)
     std::atomic<int> filterCutoffCC{-1};  // Which CC controls filter cutoff (-1 = none)
+    
+    // Looper parameters
+    std::atomic<int> currentLoop{0};       // 0-3
+    std::atomic<float> overdubMix{0.6f};   // global overdub wet amount
+    
+    // MIDI Learn for loop controls
+    std::atomic<int> loopRecPlayCC{-1};
+    std::atomic<int> loopOverdubCC{-1};
+    std::atomic<int> loopStopCC{-1};
+    std::atomic<int> loopClearCC{-1};
+    std::atomic<bool> loopMidiLearnMode{false};
+    std::atomic<int> loopMidiLearnTarget{-1};  // 0=rec, 1=overdub, 2=stop, 3=clear
 };
 
 enum class UIPage {
     MAIN,
     REVERB,
     FILTER,
+    LOOPER,
     CONFIG,
     TEST
 };
@@ -184,6 +197,7 @@ private:
     void drawMainPage(int activeVoices);
     void drawReverbPage();
     void drawFilterPage();
+    void drawLooperPage();
     void drawConfigPage();
     void drawTestPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);

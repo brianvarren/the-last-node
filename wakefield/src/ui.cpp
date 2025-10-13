@@ -1,7 +1,12 @@
 #include "ui.h"
 #include "synth.h"
 #include "preset.h"
+#include "loop_manager.h"
+#include "looper.h"
 #include <cmath>
+
+// External reference to global loopManager from main.cpp
+extern LoopManager* loopManager;
 
 UI::UI(Synth* synth, SynthParameters* params)
     : synth(synth)
@@ -218,21 +223,24 @@ void UI::handleInput(int ch) {
     if (ch == KEY_LEFT) {
         if (currentPage == UIPage::REVERB) currentPage = UIPage::MAIN;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
-        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::FILTER;
+        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
+        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::TEST) currentPage = UIPage::CONFIG;
         selectedRow = 0;
         return;
     } else if (ch == KEY_RIGHT) {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::CONFIG;
+        else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
+        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
         else if (currentPage == UIPage::CONFIG) currentPage = UIPage::TEST;
         selectedRow = 0;
         return;
     } else if (ch == '\t') {  // Tab key cycles forward
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::CONFIG;
+        else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
+        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
         else if (currentPage == UIPage::CONFIG) currentPage = UIPage::TEST;
         else currentPage = UIPage::MAIN;
         selectedRow = 0;
@@ -264,12 +272,17 @@ void UI::handleInput(int ch) {
         return;
     }
     
-    // Spacebar to toggle on/off
+    // Spacebar to toggle on/off (or rec/play for looper)
     if (ch == ' ') {
         if (currentPage == UIPage::FILTER) {
             params->filterEnabled = !params->filterEnabled.load();
         } else if (currentPage == UIPage::REVERB) {
             params->reverbEnabled = !params->reverbEnabled.load();
+        } else if (currentPage == UIPage::LOOPER) {
+            if (loopManager) {
+                Looper* loop = loopManager->getCurrentLoop();
+                if (loop) loop->pressRecPlay();
+            }
         }
         return;
     }
@@ -424,6 +437,78 @@ void UI::handleInput(int ch) {
                 params->filterCutoffCC = -1;
                 break;
         }
+    } else if (currentPage == UIPage::LOOPER) {
+        switch (ch) {
+            // Loop selection (1-4)
+            case '1':
+                params->currentLoop = 0;
+                break;
+            case '2':
+                params->currentLoop = 1;
+                break;
+            case '3':
+                params->currentLoop = 2;
+                break;
+            case '4':
+                params->currentLoop = 3;
+                break;
+                
+            // Overdub toggle (O/o)
+            case 'O':
+            case 'o':
+                if (loopManager) {
+                    Looper* loop = loopManager->getCurrentLoop();
+                    if (loop) loop->pressOverdub();
+                }
+                break;
+                
+            // Stop (S/s)
+            case 'S':
+            case 's':
+                if (loopManager) {
+                    Looper* loop = loopManager->getCurrentLoop();
+                    if (loop) loop->pressStop();
+                }
+                break;
+                
+            // Clear (C/c)
+            case 'C':
+            case 'c':
+                if (loopManager) {
+                    Looper* loop = loopManager->getCurrentLoop();
+                    if (loop) loop->pressClear();
+                }
+                break;
+                
+            // Overdub mix ([/])
+            case '[':
+                params->overdubMix = std::max(0.0f, params->overdubMix.load() - 0.05f);
+                break;
+            case ']':
+                params->overdubMix = std::min(1.0f, params->overdubMix.load() + 0.05f);
+                break;
+                
+            // MIDI Learn (M/m) - cycles through targets
+            case 'M':
+            case 'm':
+                if (!params->loopMidiLearnMode.load()) {
+                    // Start learning with first target (rec/play)
+                    params->loopMidiLearnMode = true;
+                    params->loopMidiLearnTarget = 0;
+                } else {
+                    // Cycle to next target
+                    int target = params->loopMidiLearnTarget.load();
+                    target++;
+                    if (target > 3) {
+                        // Done cycling, exit learn mode
+                        params->loopMidiLearnMode = false;
+                        params->loopMidiLearnTarget = -1;
+                    } else {
+                        params->loopMidiLearnTarget = target;
+                    }
+                }
+                break;
+        }
     } else if (currentPage == UIPage::TEST) {
         switch (ch) {
             // Fade time control (F/f)
@@ -473,30 +558,41 @@ void UI::drawTabs() {
         attroff(COLOR_PAIR(6));
     }
     
-    // Config tab
-    if (currentPage == UIPage::CONFIG) {
+    // Looper tab
+    if (currentPage == UIPage::LOOPER) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 22, " CONFIG ");
+        mvprintw(0, 22, " LOOPER ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 22, " CONFIG ");
+        mvprintw(0, 22, " LOOPER ");
+        attroff(COLOR_PAIR(6));
+    }
+    
+    // Config tab
+    if (currentPage == UIPage::CONFIG) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(0, 30, " CONFIG ");
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(6));
+        mvprintw(0, 30, " CONFIG ");
         attroff(COLOR_PAIR(6));
     }
     
     // Test tab
     if (currentPage == UIPage::TEST) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 30, " TEST ");
+        mvprintw(0, 38, " TEST ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 30, " TEST ");
+        mvprintw(0, 38, " TEST ");
         attroff(COLOR_PAIR(6));
     }
     
     // Fill rest of line
-    for (int i = 36; i < cols; ++i) {
+    for (int i = 44; i < cols; ++i) {
         mvaddch(0, i, ' ');
     }
     
@@ -769,6 +865,153 @@ void UI::drawFilterPage() {
     mvprintw(row++, 2, "Low Shelf:  Boost/cut low frequencies");
 }
 
+void UI::drawLooperPage() {
+    if (!loopManager) {
+        mvprintw(3, 2, "Looper not initialized");
+        return;
+    }
+    
+    int row = 3;
+    int currentLoop = params->currentLoop.load();
+    
+    // Title
+    attron(A_BOLD);
+    mvprintw(row++, 1, "LOOPER - Guitar Pedal Style");
+    attroff(A_BOLD);
+    row++;
+    
+    // Current loop indicator
+    mvprintw(row++, 2, "Current Loop: ");
+    attron(COLOR_PAIR(5) | A_BOLD);
+    printw("%d", currentLoop + 1);
+    attroff(COLOR_PAIR(5) | A_BOLD);
+    printw("  (Press 1-4 to select)");
+    row++;
+    
+    // Loop state grid
+    attron(A_BOLD);
+    mvprintw(row++, 1, "LOOP STATUS");
+    attroff(A_BOLD);
+    row++;
+    
+    const char* stateNames[] = {"Empty", "Recording", "Playing", "Overdubbing", "Stopped"};
+    int stateColors[] = {1, 3, 2, 4, 6};  // gray, yellow, green, red, cyan
+    
+    for (int i = 0; i < 4; ++i) {
+        Looper::State state = loopManager->getLoopState(i);
+        float loopLen = loopManager->getLoopLength(i);
+        float loopTime = loopManager->getLoopTime(i);
+        
+        // Loop number
+        if (i == currentLoop) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(row, 2, ">");
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        } else {
+            mvprintw(row, 2, " ");
+        }
+        
+        mvprintw(row, 3, "Loop %d: ", i + 1);
+        
+        // State with color
+        attron(COLOR_PAIR(stateColors[static_cast<int>(state)]) | A_BOLD);
+        printw("%-12s", stateNames[static_cast<int>(state)]);
+        attroff(COLOR_PAIR(stateColors[static_cast<int>(state)]) | A_BOLD);
+        
+        // Time display
+        if (loopLen > 0.0f) {
+            int lenMin = static_cast<int>(loopLen) / 60;
+            int lenSec = static_cast<int>(loopLen) % 60;
+            int lenMs = static_cast<int>((loopLen - static_cast<int>(loopLen)) * 100);
+            
+            int timeMin = static_cast<int>(loopTime) / 60;
+            int timeSec = static_cast<int>(loopTime) % 60;
+            int timeMs = static_cast<int>((loopTime - static_cast<int>(loopTime)) * 100);
+            
+            printw("  %02d:%02d.%02d / %02d:%02d.%02d", 
+                   timeMin, timeSec, timeMs, 
+                   lenMin, lenSec, lenMs);
+        } else {
+            printw("  --:--:-- / --:--:--");
+        }
+        
+        row++;
+    }
+    
+    row += 2;
+    
+    // Global parameters
+    attron(A_BOLD);
+    mvprintw(row++, 1, "PARAMETERS");
+    attroff(A_BOLD);
+    row++;
+    
+    drawBar(row++, 2, "Overdub Mix ([/])", params->overdubMix.load(), 0.0f, 1.0f, 20);
+    
+    row += 2;
+    
+    // Controls section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "CONTROLS");
+    attroff(A_BOLD);
+    row++;
+    
+    mvprintw(row++, 2, "Space - Rec/Play toggle");
+    mvprintw(row++, 2, "O     - Overdub toggle");
+    mvprintw(row++, 2, "S     - Stop current loop");
+    mvprintw(row++, 2, "C     - Clear current loop");
+    mvprintw(row++, 2, "1-4   - Select loop");
+    mvprintw(row++, 2, "[/]   - Adjust overdub mix");
+    
+    row += 2;
+    
+    // MIDI Learn section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "MIDI CC LEARN");
+    attroff(A_BOLD);
+    row++;
+    
+    if (params->loopMidiLearnMode.load()) {
+        const char* targetNames[] = {"Rec/Play", "Overdub", "Stop", "Clear"};
+        int target = params->loopMidiLearnTarget.load();
+        
+        attron(COLOR_PAIR(3) | A_BOLD);
+        mvprintw(row++, 2, ">>> LEARNING MODE ACTIVE <<<");
+        attroff(COLOR_PAIR(3) | A_BOLD);
+        
+        if (target >= 0 && target < 4) {
+            mvprintw(row++, 2, "Move a MIDI controller to assign it to: %s", targetNames[target]);
+        }
+    } else {
+        mvprintw(row++, 2, "Press M to cycle through MIDI learn targets");
+    }
+    
+    // Show current CC mappings
+    int recPlayCC = params->loopRecPlayCC.load();
+    int overdubCC = params->loopOverdubCC.load();
+    int stopCC = params->loopStopCC.load();
+    int clearCC = params->loopClearCC.load();
+    
+    mvprintw(row++, 2, "Rec/Play CC: %s", recPlayCC >= 0 ? (std::string("CC#") + std::to_string(recPlayCC)).c_str() : "Not assigned");
+    mvprintw(row++, 2, "Overdub CC:  %s", overdubCC >= 0 ? (std::string("CC#") + std::to_string(overdubCC)).c_str() : "Not assigned");
+    mvprintw(row++, 2, "Stop CC:     %s", stopCC >= 0 ? (std::string("CC#") + std::to_string(stopCC)).c_str() : "Not assigned");
+    mvprintw(row++, 2, "Clear CC:    %s", clearCC >= 0 ? (std::string("CC#") + std::to_string(clearCC)).c_str() : "Not assigned");
+    
+    row += 2;
+    
+    // Usage guide
+    attron(A_BOLD);
+    mvprintw(row++, 1, "USAGE GUIDE");
+    attroff(A_BOLD);
+    row++;
+    
+    mvprintw(row++, 2, "1. Press Space to start recording on selected loop");
+    mvprintw(row++, 2, "2. Press Space again to start playback");
+    mvprintw(row++, 2, "3. Press O to overdub additional layers");
+    mvprintw(row++, 2, "4. Use 1-4 to switch between loops and layer sounds");
+    mvprintw(row++, 2, "5. Adjust [/] to control overdub mix (prevents clipping)");
+}
+
 void UI::drawConfigPage() {
     int row = 3;
     int selectableRow = 0;
@@ -918,6 +1161,9 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::FILTER:
             drawFilterPage();
+            break;
+        case UIPage::LOOPER:
+            drawLooperPage();
             break;
         case UIPage::CONFIG:
             drawConfigPage();
