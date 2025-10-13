@@ -41,14 +41,14 @@ GreyholeReverb::~GreyholeReverb() {
 void GreyholeReverb::updateParameters() {
     if (!dsp) return;
     
-    // Access the Faust hslider parameters directly
-    // fHslider0 = damping (0.0 - 0.99)
-    // fHslider1 = diffusion (0.0 - 0.99)
-    // fHslider2 = feedback (0.0 - 1.0)
-    // fHslider3 = modDepth (0.0 - 1.0)
-    // fHslider4 = modFreq (0.0 - 10.0)
-    // fHslider5 = delayTime (0.001 - 1.45)
-    // fHslider6 = size (0.5 - 3.0)
+    // Access the Faust hslider parameters directly (as defined in greyhole.cpp buildUserInterface)
+    // fHslider4 = delayTime (0.001 - 1.45, default 0.2)
+    // fHslider0 = damping (0.0 - 0.99, default 0.0)
+    // fHslider6 = size (0.5 - 3.0, default 1.0)
+    // fHslider5 = diffusion (0.0 - 0.99, default 0.5)
+    // fHslider1 = feedback (0.0 - 1.0, default 0.9)
+    // fHslider3 = modDepth (0.0 - 1.0, default 0.1)
+    // fHslider2 = modFreq (0.0 - 10.0, default 2.0)
     
     // Note: We need to access these through a setter method or directly
     // For now, we'll create a simple UI class to set parameters
