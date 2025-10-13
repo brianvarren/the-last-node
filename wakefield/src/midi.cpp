@@ -12,9 +12,25 @@ MidiHandler::~MidiHandler() {
     }
 }
 
+// Static error callback to suppress MIDI error messages
+void MidiHandler::midiErrorCallback(RtMidiError::Type type, const std::string& errorText, void* userData) {
+    // Suppress the messages - they were causing UI to scroll
+    // Optionally, we could log critical errors only
+    if (type == RtMidiError::WARNING) {
+        // Ignore warnings like "message queue limit reached"
+        return;
+    }
+    // For other errors, silently ignore or could add to console if needed
+}
+
 bool MidiHandler::initialize() {
     try {
-        midiIn = new RtMidiIn();
+        // Create RtMidiIn with error callback to suppress messages
+        midiIn = new RtMidiIn(RtMidi::UNSPECIFIED, "WakefieldSynth", 100);
+        
+        // Set error callback to suppress error messages
+        midiIn->setErrorCallback(&MidiHandler::midiErrorCallback, nullptr);
+        
         return true;
     } catch (RtMidiError& error) {
         std::cerr << "MIDI Error: " << error.getMessage() << std::endl;
@@ -92,13 +108,10 @@ void MidiHandler::parseMessage(const std::vector<unsigned char>& message,
         
         // Note: MIDI Note On with velocity 0 is actually a Note Off
         if (velocity == 0) {
-            std::cout << "Note Off: " << (int)note << " (ch " << (int)channel << ")\n";
             if (noteOffCallback) {
                 noteOffCallback(note);
             }
         } else {
-            std::cout << "Note On:  " << (int)note << " velocity " << (int)velocity 
-                     << " (ch " << (int)channel << ")\n";
             if (noteOnCallback) {
                 noteOnCallback(note, velocity);
             }
@@ -107,7 +120,6 @@ void MidiHandler::parseMessage(const std::vector<unsigned char>& message,
     // Note Off
     else if (status == MIDI_NOTE_OFF && message.size() >= 3) {
         unsigned char note = message[1];
-        std::cout << "Note Off: " << (int)note << " (ch " << (int)channel << ")\n";
         if (noteOffCallback) {
             noteOffCallback(note);
         }

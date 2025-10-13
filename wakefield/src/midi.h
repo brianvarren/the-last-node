@@ -46,6 +46,9 @@ private:
                      void (*noteOnCallback)(int note, int velocity),
                      void (*noteOffCallback)(int note),
                      void (*ccCallback)(int controller, int value));
+    
+    // Static error callback for RtMidi (suppresses error messages)
+    static void midiErrorCallback(RtMidiError::Type type, const std::string& errorText, void* userData);
 };
 
 #endif // MIDI_H
