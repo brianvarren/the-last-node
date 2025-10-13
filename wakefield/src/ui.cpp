@@ -476,13 +476,17 @@ void UI::drawReverbPage() {
     row++;
     
     // Greyhole parameters with actual DSP ranges
-    // DelayTime: map reverbSize (0-1) to actual delayTime range (0.001-1.45)
+    // DelayTime and Size both map from reverbSize (0-1) per setSize() in reverb.cpp
     float delayTime = 0.001f + params->reverbSize.load() * 1.449f;
+    float size = 0.5f + params->reverbSize.load() * 2.5f;
     drawBar(row++, 2, "DelayTime (Z/z)", delayTime, 0.001f, 1.45f, 20);
     drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 0.99f, 20);
-    drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Size      (Z/z)", size, 0.5f, 3.0f, 20);
     drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 0.99f, 20);
     drawBar(row++, 2, "Feedback  (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
+    
+    // Our dry/wet mix control (not a Greyhole DSP parameter)
+    drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
     
     row++;
     
@@ -504,9 +508,10 @@ void UI::drawReverbPage() {
     
     mvprintw(row++, 2, "DelayTime: Greyhole delay time (0.001-1.45s)");
     mvprintw(row++, 2, "Damping:   High frequency absorption (0.0-0.99)");
-    mvprintw(row++, 2, "Mix:       Dry/wet balance (0.0-1.0)");
+    mvprintw(row++, 2, "Size:      Greyhole room size (0.5-3.0)");
     mvprintw(row++, 2, "Diffusion: Reverb density/smoothness (0.0-0.99)");
     mvprintw(row++, 2, "Feedback:  Reverb tail length (0.0-1.0)");
+    mvprintw(row++, 2, "Mix:       Dry/wet balance (0.0-1.0)");
     mvprintw(row++, 2, "ModDepth:  Chorus effect intensity (0.0-1.0)");
     mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (0.0-10.0 Hz)");
     
