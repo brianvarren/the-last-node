@@ -184,6 +184,9 @@ void UI::handleInput(int ch) {
             if (selectedRow == 0) openPopupMenu(MenuType::REVERB_TYPE);
         } else if (currentPage == UIPage::FILTER) {
             if (selectedRow == 0) openPopupMenu(MenuType::FILTER_TYPE);
+        } else if (currentPage == UIPage::CONFIG) {
+            if (selectedRow == 0) openPopupMenu(MenuType::AUDIO_DEVICE);
+            else if (selectedRow == 1) openPopupMenu(MenuType::MIDI_DEVICE);
         }
         return;
     }
@@ -674,20 +677,35 @@ void UI::drawFilterPage() {
 
 void UI::drawConfigPage() {
     int row = 3;
+    int selectableRow = 0;
     
     // System information
     attron(A_BOLD);
-    mvprintw(row++, 1, "CONFIGURATION");
+    mvprintw(row++, 1, "DEVICE CONFIGURATION");
     attroff(A_BOLD);
     row++;
     
-    // Audio device info
-    attron(COLOR_PAIR(2) | A_BOLD);
-    mvprintw(row++, 2, "AUDIO DEVICE");
-    attroff(COLOR_PAIR(2) | A_BOLD);
+    attron(COLOR_PAIR(3));
+    mvprintw(row++, 2, "Note: Device selection occurs at startup only");
+    attroff(COLOR_PAIR(3));
     row++;
     
-    mvprintw(row++, 4, "Device:      %s", audioDeviceName.c_str());
+    // Audio device section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "AUDIO DEVICE");
+    attroff(A_BOLD);
+    row++;
+    
+    // Row 0: Audio device selector
+    if (selectedRow == selectableRow && !menuPopupActive) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row++, 2, "> Device: %s", audioDeviceName.c_str());
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        mvprintw(row++, 2, "  Device: %s", audioDeviceName.c_str());
+    }
+    selectableRow++;
+    
     mvprintw(row++, 4, "Sample Rate: %d Hz", audioSampleRate);
     mvprintw(row++, 4, "Buffer Size: %d samples", audioBufferSize);
     
@@ -698,13 +716,22 @@ void UI::drawConfigPage() {
     
     row += 2;
     
-    // MIDI device info
-    attron(COLOR_PAIR(2) | A_BOLD);
-    mvprintw(row++, 2, "MIDI DEVICE");
-    attroff(COLOR_PAIR(2) | A_BOLD);
+    // MIDI device section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "MIDI DEVICE");
+    attroff(A_BOLD);
     row++;
     
-    mvprintw(row++, 4, "Device:      %s", midiDeviceName.c_str());
+    // Row 1: MIDI device selector
+    if (selectedRow == selectableRow && !menuPopupActive) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row++, 2, "> Device: %s", midiDeviceName.c_str());
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        mvprintw(row++, 2, "  Device: %s", midiDeviceName.c_str());
+    }
+    selectableRow++;
+    
     if (midiPortNum >= 0) {
         mvprintw(row++, 4, "Port:        %d", midiPortNum);
         attron(COLOR_PAIR(2));
@@ -719,15 +746,15 @@ void UI::drawConfigPage() {
     row += 2;
     
     // Build info
-    attron(COLOR_PAIR(2) | A_BOLD);
-    mvprintw(row++, 2, "BUILD INFO");
-    attroff(COLOR_PAIR(2) | A_BOLD);
+    attron(A_BOLD);
+    mvprintw(row++, 1, "BUILD INFO");
+    attroff(A_BOLD);
     row++;
     
-    mvprintw(row++, 4, "Max Voices:  8 (polyphonic)");
-    mvprintw(row++, 4, "Waveforms:   Sine, Square, Sawtooth, Triangle");
-    mvprintw(row++, 4, "Filters:     Lowpass, Highpass, Shelving");
-    mvprintw(row++, 4, "Reverb:      Greyhole (Faust 2.37.3)");
+    mvprintw(row++, 2, "Max Voices:  8 (polyphonic)");
+    mvprintw(row++, 2, "Waveforms:   Sine, Square, Sawtooth, Triangle");
+    mvprintw(row++, 2, "Filters:     Lowpass, Highpass, Shelving");
+    mvprintw(row++, 2, "Reverb:      Greyhole (Faust 2.37.3)");
 }
 
 void UI::addConsoleMessage(const std::string& message) {
@@ -814,6 +841,8 @@ void UI::draw(int activeVoices) {
             case MenuType::FILTER_TYPE: title = "Select Filter Type"; break;
             case MenuType::REVERB_TYPE: title = "Select Reverb Type"; break;
             case MenuType::PRESET: title = "Preset Management"; break;
+            case MenuType::AUDIO_DEVICE: title = "Audio Device"; break;
+            case MenuType::MIDI_DEVICE: title = "MIDI Device"; break;
             default: title = "Menu"; break;
         }
         drawPopupMenu(items, title);
@@ -869,7 +898,7 @@ int UI::getSelectableRowCount() {
         case UIPage::MAIN: return 2;  // Preset and Waveform
         case UIPage::REVERB: return 1;  // Reverb type
         case UIPage::FILTER: return 1;  // Filter type
-        case UIPage::CONFIG: return 0;  // No selectable rows
+        case UIPage::CONFIG: return 2;  // Audio and MIDI devices
         default: return 0;
     }
 }
@@ -905,6 +934,16 @@ std::vector<std::string> UI::getMenuItems(MenuType menuType) {
             for (const auto& preset : availablePresets) {
                 items.push_back(preset);
             }
+            break;
+            
+        case MenuType::AUDIO_DEVICE:
+            items.push_back(audioDeviceName + " (current)");
+            items.push_back("Note: Device selection at startup only");
+            break;
+            
+        case MenuType::MIDI_DEVICE:
+            items.push_back(midiDeviceName + " (current)");
+            items.push_back("Note: Device selection at startup only");
             break;
             
         default:
