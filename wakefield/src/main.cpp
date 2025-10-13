@@ -148,20 +148,7 @@ int main() {
     
     // Initialize Audio
     RtAudio audio;
-    
-    unsigned int devices = audio.getDeviceCount();
-    if (devices == 0) {
-        std::cerr << "No audio devices found!\n";
-        delete midiHandler;
-        delete synthParams;
-        return 1;
-    }
-    
-    // Set up stream parameters
-    RtAudio::StreamParameters parameters;
-    parameters.deviceId = audio.getDefaultOutputDevice();
-    parameters.nChannels = 2;  // Stereo
-    parameters.firstChannel = 0;
+    bool audioAvailable = false;
     
     unsigned int sampleRate = 48000;
     unsigned int bufferFrames = 256;
@@ -169,69 +156,83 @@ int main() {
     // Create synth instance
     synth = new Synth(static_cast<float>(sampleRate));
     
-    try {
-        audio.openStream(&parameters, nullptr, RTAUDIO_FLOAT32,
-                        sampleRate, &bufferFrames, &audioCallback);
+    // Initialize UI first (before audio)
+    ui = new UI(synth, synthParams);
+    if (!ui->initialize()) {
+        std::cerr << "Failed to initialize UI\n";
+        delete ui;
+        delete synth;
+        delete midiHandler;
+        delete synthParams;
+        return 1;
+    }
+    
+    // Try to initialize audio
+    unsigned int devices = audio.getDeviceCount();
+    std::string audioDeviceName = "No Audio Device";
+    
+    if (devices > 0) {
+        // Set up stream parameters
+        RtAudio::StreamParameters parameters;
+        parameters.deviceId = audio.getDefaultOutputDevice();
+        parameters.nChannels = 2;  // Stereo
+        parameters.firstChannel = 0;
         
-        audio.startStream();
-        
-        // Initialize UI
-        ui = new UI(synth, synthParams);
-        if (!ui->initialize()) {
-            std::cerr << "Failed to initialize UI\n";
-            audio.stopStream();
-            audio.closeStream();
-            delete synth;
-            delete midiHandler;
-            delete synthParams;
-            delete ui;
-            return 1;
-        }
-        
-        // Get and set device information
-        std::string audioDeviceName = "Unknown";
         try {
-            RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
-            audioDeviceName = deviceInfo.name;
-        } catch (...) {
-            audioDeviceName = "Default Audio Device";
-        }
-        
-        std::string midiDeviceName = midiHandler->getCurrentPortName();
-        int midiPort = midiHandler->getCurrentPortNumber();
-        
-        ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPort);
-        
-        // Main UI loop
-        while (running && audio.isStreamRunning()) {
-            // Update UI and handle input
-            if (!ui->update()) {
-                running = false;  // User pressed 'q'
-                break;
+            audio.openStream(&parameters, nullptr, RTAUDIO_FLOAT32,
+                            sampleRate, &bufferFrames, &audioCallback);
+            
+            audio.startStream();
+            audioAvailable = true;
+            
+            // Get device name
+            try {
+                RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
+                audioDeviceName = deviceInfo.name;
+            } catch (...) {
+                audioDeviceName = "Default Audio Device";
             }
             
-            // Draw UI
-            int activeVoices = synth->getActiveVoiceCount();
-            ui->draw(activeVoices);
+            ui->addConsoleMessage("Audio initialized: " + audioDeviceName);
             
-            // Sleep to control refresh rate (~20 FPS)
-            usleep(50000);  // 50ms
+        } catch (std::exception& e) {
+            std::cerr << "Audio error: " << e.what() << '\n';
+            ui->addConsoleMessage("WARNING: Audio failed - running without audio");
+            audioAvailable = false;
+        }
+    } else {
+        ui->addConsoleMessage("WARNING: No audio devices found - running without audio");
+    }
+    
+    // Set device information
+    std::string midiDeviceName = midiHandler->getCurrentPortName();
+    int midiPort = midiHandler->getCurrentPortNumber();
+    ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPort);
+    
+    // Main UI loop
+    while (running) {
+        // Update UI and handle input
+        if (!ui->update()) {
+            running = false;  // User pressed 'q'
+            break;
         }
         
-        // Clean shutdown
+        // Draw UI
+        int activeVoices = synth->getActiveVoiceCount();
+        ui->draw(activeVoices);
+        
+        // Sleep to control refresh rate (~20 FPS)
+        usleep(50000);  // 50ms
+    }
+    
+    // Clean shutdown
+    if (audioAvailable) {
         if (audio.isStreamRunning()) {
             audio.stopStream();
         }
         if (audio.isStreamOpen()) {
             audio.closeStream();
         }
-        
-    } catch (std::exception& e) {
-        std::cerr << "Audio error: " << e.what() << '\n';
-        delete synth;
-        delete midiHandler;
-        delete synthParams;
-        return 1;
     }
     
     // Clean up
