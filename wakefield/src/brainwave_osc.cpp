@@ -91,10 +91,12 @@ float BrainwaveOscillator::interpolateSample(uint32_t phase, float morphPos) {
     float frameFrac = framePos - frameA;
     
     // Extract wavetable index and interpolation fraction from phase
-    // Upper 11 bits = index (0-2047), next 8 bits = mu for interpolation
+    // Upper 11 bits = index (0-2047), remaining bits for interpolation
     uint16_t index = phase >> 21;  // Get upper 11 bits (2048 samples)
-    uint16_t mu = (phase >> 13) & 0xFF;  // Get next 8 bits for interpolation
-    float muScaled = mu / 255.0f;
+    
+    // Use remaining 21 bits for higher precision interpolation
+    uint32_t fracBits = phase & 0x1FFFFF;  // Lower 21 bits
+    float muScaled = static_cast<float>(fracBits) / 2097152.0f;  // 2^21 = 2097152
     
     // Get samples from frame A
     int offsetA = frameA * BRAINWAVE_FRAME_SIZE + index;
@@ -118,9 +120,11 @@ float BrainwaveOscillator::process(float sampleRate) {
     // Calculate effective frequency with all modulations
     float freq = calculateEffectiveFrequency(sampleRate);
     
-    // Calculate phase increment
+    // Calculate phase increment using double precision to avoid overflow
     // phase_increment = (frequency * 2^32) / sample_rate
-    uint32_t phaseIncrement = static_cast<uint32_t>((freq * 4294967296.0) / sampleRate);
+    // Use double to maintain precision for large intermediate values
+    double phaseIncrementDouble = (static_cast<double>(freq) * 4294967296.0) / static_cast<double>(sampleRate);
+    uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementDouble);
     
     // Get current sample with morphing
     float sample = interpolateSample(phaseAccumulator_, morphPosition_);
