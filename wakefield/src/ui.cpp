@@ -475,20 +475,20 @@ void UI::drawReverbPage() {
     attroff(A_BOLD);
     row++;
     
-    // Basic parameters
-    drawBar(row++, 2, "Size      (Z/z)", params->reverbSize.load(), 0.0f, 1.0f, 20);
+    // Greyhole parameters (in order from Greyhole DSP)
+    drawBar(row++, 2, "DelayTime (Z/z)", params->reverbSize.load(), 0.0f, 1.0f, 20);  // maps to delayTime
     drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 1.0f, 20);
     drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "Decay     (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Feedback  (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
     
     row++;
     
-    // Greyhole-specific parameters
+    // Greyhole modulation parameters
     attron(COLOR_PAIR(3));
     mvprintw(row++, 2, "GREYHOLE CONTROLS");
     attroff(COLOR_PAIR(3));
     
-    drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 1.0f, 20);
     drawBar(row++, 2, "ModDepth  (N/n)", params->reverbModDepth.load(), 0.0f, 1.0f, 20);
     drawBar(row++, 2, "ModFreq   (M/m)", params->reverbModFreq.load(), 0.0f, 10.0f, 20);
     
@@ -500,11 +500,11 @@ void UI::drawReverbPage() {
     attroff(A_BOLD);
     row++;
     
-    mvprintw(row++, 2, "Size:      Room size (small to large)");
+    mvprintw(row++, 2, "DelayTime: Greyhole delay time");
     mvprintw(row++, 2, "Damping:   High frequency absorption");
     mvprintw(row++, 2, "Mix:       Dry/wet balance");
-    mvprintw(row++, 2, "Decay:     Reverb tail length");
     mvprintw(row++, 2, "Diffusion: Reverb density/smoothness");
+    mvprintw(row++, 2, "Feedback:  Reverb tail length");
     mvprintw(row++, 2, "ModDepth:  Chorus effect intensity");
     mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (Hz)");
     
