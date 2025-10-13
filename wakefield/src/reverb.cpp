@@ -1,5 +1,5 @@
 #include "reverb.h"
-#include "../reverb/greyhole_dsp.h"
+#include "../reverb/greyhole.cpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -69,7 +69,9 @@ void GreyholeReverb::updateParameters() {
         virtual ~SimpleUI() {}
         
         virtual void openVerticalBox(const char*) override {}
+        virtual void openHorizontalBox(const char*) override {}
         virtual void closeBox() override {}
+        virtual void declare(void*, const char*, const char*) override {}
         
         virtual void addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step) override {
             if (strcmp(label, "damping") == 0) damping = zone;
