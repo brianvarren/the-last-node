@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "synth.h"
+#include "preset.h"
 #include <cmath>
 
 UI::UI(Synth* synth, SynthParameters* params)
@@ -11,7 +12,17 @@ UI::UI(Synth* synth, SynthParameters* params)
     , audioSampleRate(0)
     , audioBufferSize(0)
     , midiDeviceName("Not connected")
-    , midiPortNum(-1) {
+    , midiPortNum(-1)
+    , selectedRow(0)
+    , menuPopupActive(false)
+    , popupSelectedIndex(0)
+    , popupItemCount(0)
+    , currentMenuType(MenuType::NONE)
+    , currentPresetName("None")
+    , textInputActive(false) {
+    
+    // Load available presets
+    refreshPresetList();
 }
 
 UI::~UI() {
@@ -69,42 +80,127 @@ void UI::handleInput(int ch) {
     const float smallStep = 0.01f;
     const float largeStep = 0.1f;
     
-    // Page navigation
+    // Handle text input mode
+    if (textInputActive) {
+        handleTextInput(ch);
+        return;
+    }
+    
+    // Handle popup menu navigation
+    if (menuPopupActive) {
+        if (ch == KEY_UP) {
+            popupSelectedIndex--;
+            if (popupSelectedIndex < 0) popupSelectedIndex = popupItemCount - 1;
+            return;
+        } else if (ch == KEY_DOWN) {
+            popupSelectedIndex++;
+            if (popupSelectedIndex >= popupItemCount) popupSelectedIndex = 0;
+            return;
+        } else if (ch == '\n' || ch == KEY_ENTER) {
+            // Select current item
+            std::vector<std::string> items = getMenuItems(currentMenuType);
+            if (popupSelectedIndex >= 0 && popupSelectedIndex < static_cast<int>(items.size())) {
+                std::string selected = items[popupSelectedIndex];
+                
+                switch (currentMenuType) {
+                    case MenuType::WAVEFORM:
+                        if (selected == "Sine") params->waveform = static_cast<int>(Waveform::SINE);
+                        else if (selected == "Square") params->waveform = static_cast<int>(Waveform::SQUARE);
+                        else if (selected == "Sawtooth") params->waveform = static_cast<int>(Waveform::SAWTOOTH);
+                        else if (selected == "Triangle") params->waveform = static_cast<int>(Waveform::TRIANGLE);
+                        break;
+                    case MenuType::FILTER_TYPE:
+                        if (selected == "Lowpass") params->filterType = 0;
+                        else if (selected == "Highpass") params->filterType = 1;
+                        else if (selected == "High Shelf") params->filterType = 2;
+                        else if (selected == "Low Shelf") params->filterType = 3;
+                        break;
+                    case MenuType::REVERB_TYPE:
+                        if (selected == "Greyhole") params->reverbType = static_cast<int>(ReverbType::GREYHOLE);
+                        else if (selected == "Plate") params->reverbType = static_cast<int>(ReverbType::PLATE);
+                        else if (selected == "Room") params->reverbType = static_cast<int>(ReverbType::ROOM);
+                        else if (selected == "Hall") params->reverbType = static_cast<int>(ReverbType::HALL);
+                        else if (selected == "Spring") params->reverbType = static_cast<int>(ReverbType::SPRING);
+                        break;
+                    case MenuType::PRESET:
+                        if (selected == "[Save New...]") {
+                            startTextInput();
+                        } else {
+                            // Load preset
+                            loadPreset(selected);
+                            currentPresetName = selected;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            closePopupMenu();
+            return;
+        } else if (ch == 27) {  // Escape key
+            closePopupMenu();
+            return;
+        }
+        return;
+    }
+    
+    // Page navigation (when no popup active)
     if (ch == KEY_LEFT) {
         if (currentPage == UIPage::REVERB) currentPage = UIPage::MAIN;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
-        else if (currentPage == UIPage::INFO) currentPage = UIPage::FILTER;
+        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::FILTER;
+        selectedRow = 0;
         return;
     } else if (ch == KEY_RIGHT) {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::INFO;
+        else if (currentPage == UIPage::FILTER) currentPage = UIPage::CONFIG;
+        selectedRow = 0;
         return;
     } else if (ch == '\t') {  // Tab key cycles forward
         if (currentPage == UIPage::MAIN) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::INFO;
+        else if (currentPage == UIPage::FILTER) currentPage = UIPage::CONFIG;
         else currentPage = UIPage::MAIN;
+        selectedRow = 0;
         return;
     }
     
-    // Page-specific controls
+    // Row navigation
+    if (ch == KEY_UP) {
+        selectedRow--;
+        if (selectedRow < 0) selectedRow = getSelectableRowCount() - 1;
+        return;
+    } else if (ch == KEY_DOWN) {
+        selectedRow++;
+        if (selectedRow >= getSelectableRowCount()) selectedRow = 0;
+        return;
+    } else if (ch == '\n' || ch == KEY_ENTER) {
+        // Open appropriate popup menu based on current page and selected row
+        if (currentPage == UIPage::MAIN) {
+            if (selectedRow == 0) openPopupMenu(MenuType::PRESET);
+            else if (selectedRow == 1) openPopupMenu(MenuType::WAVEFORM);
+        } else if (currentPage == UIPage::REVERB) {
+            if (selectedRow == 0) openPopupMenu(MenuType::REVERB_TYPE);
+        } else if (currentPage == UIPage::FILTER) {
+            if (selectedRow == 0) openPopupMenu(MenuType::FILTER_TYPE);
+        }
+        return;
+    }
+    
+    // Spacebar to toggle on/off
+    if (ch == ' ') {
+        if (currentPage == UIPage::FILTER) {
+            params->filterEnabled = !params->filterEnabled.load();
+        } else if (currentPage == UIPage::REVERB) {
+            params->reverbEnabled = !params->reverbEnabled.load();
+        }
+        return;
+    }
+    
+    // Page-specific controls (keep letter key shortcuts)
     if (currentPage == UIPage::MAIN) {
         switch (ch) {
-            // Waveform selection (1-4)
-            case '1':
-                params->waveform = static_cast<int>(Waveform::SINE);
-                break;
-            case '2':
-                params->waveform = static_cast<int>(Waveform::SQUARE);
-                break;
-            case '3':
-                params->waveform = static_cast<int>(Waveform::SAWTOOTH);
-                break;
-            case '4':
-                params->waveform = static_cast<int>(Waveform::TRIANGLE);
-                break;
-                
             // Attack control (A/a)
             case 'A':
                 params->attack = std::min(2.0f, params->attack.load() + largeStep);
@@ -138,12 +234,10 @@ void UI::handleInput(int ch) {
                 break;
                 
             // Master volume
-            case KEY_UP:
             case '+':
             case '=':
                 params->masterVolume = std::min(1.0f, params->masterVolume.load() + smallStep);
                 break;
-            case KEY_DOWN:
             case '-':
             case '_':
                 params->masterVolume = std::max(0.0f, params->masterVolume.load() - smallStep);
@@ -217,25 +311,6 @@ void UI::handleInput(int ch) {
         }
     } else if (currentPage == UIPage::FILTER) {
         switch (ch) {
-            // Enable/disable filter
-            case ' ':  // Spacebar
-                params->filterEnabled = !params->filterEnabled.load();
-                break;
-                
-            // Filter type selection
-            case '1':
-                params->filterType = 0;  // Lowpass
-                break;
-            case '2':
-                params->filterType = 1;  // Highpass
-                break;
-            case '3':
-                params->filterType = 2;  // High shelf
-                break;
-            case '4':
-                params->filterType = 3;  // Low shelf
-                break;
-                
             // Cutoff (F/f) - logarithmic scaling for frequency
             case 'F': {
                 float current = params->filterCutoff.load();
@@ -312,19 +387,19 @@ void UI::drawTabs() {
         attroff(COLOR_PAIR(6));
     }
     
-    // Info tab
-    if (currentPage == UIPage::INFO) {
+    // Config tab
+    if (currentPage == UIPage::CONFIG) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 22, " INFO ");
+        mvprintw(0, 22, " CONFIG ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 22, " INFO ");
+        mvprintw(0, 22, " CONFIG ");
         attroff(COLOR_PAIR(6));
     }
     
     // Fill rest of line
-    for (int i = 28; i < cols; ++i) {
+    for (int i = 30; i < cols; ++i) {
         mvaddch(0, i, ' ');
     }
     
@@ -362,8 +437,25 @@ void UI::drawBar(int y, int x, const char* label, float value, float min, float 
 
 void UI::drawMainPage(int activeVoices) {
     int row = 3;
-    int maxY = getmaxy(stdscr);
-    int maxRow = maxY - 8;  // Stop before console area
+    int selectableRow = 0;
+    
+    // Preset section
+    attron(A_BOLD);
+    mvprintw(row++, 1, "PRESET");
+    attroff(A_BOLD);
+    row++;
+    
+    // Row 0: Preset selector
+    if (selectedRow == selectableRow && !menuPopupActive) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row++, 2, "> Preset: %s", currentPresetName.c_str());
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        mvprintw(row++, 2, "  Preset: %s", currentPresetName.c_str());
+    }
+    selectableRow++;
+    
+    row++;
     
     // Waveform section
     attron(A_BOLD);
@@ -373,12 +465,15 @@ void UI::drawMainPage(int activeVoices) {
     
     Waveform currentWaveform = static_cast<Waveform>(params->waveform.load());
     
-    mvprintw(row, 2, "1:Sine  2:Square  3:Sawtooth  4:Triangle");
-    row++;
-    mvprintw(row++, 2, "Current: ");
-    attron(COLOR_PAIR(2) | A_BOLD);
-    addstr(Oscillator::getWaveformName(currentWaveform));
-    attroff(COLOR_PAIR(2) | A_BOLD);
+    // Row 1: Waveform selector
+    if (selectedRow == selectableRow && !menuPopupActive) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row++, 2, "> Waveform: %s", Oscillator::getWaveformName(currentWaveform));
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        mvprintw(row++, 2, "  Waveform: %s", Oscillator::getWaveformName(currentWaveform));
+    }
+    selectableRow++;
     
     row++;
     
@@ -402,59 +497,46 @@ void UI::drawMainPage(int activeVoices) {
     row++;
     
     drawBar(row++, 2, "Volume  (+/-)", params->masterVolume.load(), 0.0f, 1.0f, 20);
+    
+    row++;
+    
+    // Voice info
+    attron(A_BOLD);
+    mvprintw(row++, 1, "VOICES");
+    attroff(A_BOLD);
+    row++;
+    
+    mvprintw(row++, 2, "Active: %d/8", activeVoices);
 }
 
 void UI::drawReverbPage() {
     int row = 3;
-    int maxY = getmaxy(stdscr);
-    int maxRow = maxY - 2;  // Stop before hotkey line
+    int selectableRow = 0;
     
-    // Greyhole parameters with actual DSP ranges
-    float delayTime = 0.001f + params->reverbDelayTime.load() * 1.449f;
-    float size = 0.5f + params->reverbSize.load() * 2.5f;
-    
-    drawBar(row++, 2, "DelayTime (T/t)", delayTime, 0.001f, 1.45f, 20);
-    drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 0.99f, 20);
-    drawBar(row++, 2, "Size      (Z/z)", size, 0.5f, 3.0f, 20);
-    drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 0.99f, 20);
-    drawBar(row++, 2, "Feedback  (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "ModDepth  (N/n)", params->reverbModDepth.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "ModFreq   (M/m)", params->reverbModFreq.load(), 0.0f, 10.0f, 20);
-    drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
-    
-    row += 2;
-    
-    // Parameter descriptions (only if room)
-    if (row + 10 < maxRow) {
-        attron(A_BOLD);
-        mvprintw(row++, 1, "PARAMETER GUIDE");
-        attroff(A_BOLD);
-        row++;
-        
-        mvprintw(row++, 2, "DelayTime: Greyhole delay time (0.001-1.45s)");
-        mvprintw(row++, 2, "Damping:   High frequency absorption (0.0-0.99)");
-        mvprintw(row++, 2, "Size:      Greyhole room size (0.5-3.0)");
-        mvprintw(row++, 2, "Diffusion: Reverb density/smoothness (0.0-0.99)");
-        mvprintw(row++, 2, "Feedback:  Reverb tail length (0.0-1.0)");
-        mvprintw(row++, 2, "Mix:       Dry/wet balance (0.0-1.0)");
-        mvprintw(row++, 2, "ModDepth:  Chorus effect intensity (0.0-1.0)");
-        mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (0.0-10.0 Hz)");
-    }
-}
-
-void UI::drawFilterPage() {
-    int row = 3;
-    int maxY = getmaxy(stdscr);
-    int maxRow = maxY - 2;  // Stop before hotkey line
-    
-    // Filter status
+    // Reverb type section
     attron(A_BOLD);
-    mvprintw(row++, 1, "FILTER STATUS");
+    mvprintw(row++, 1, "REVERB TYPE");
     attroff(A_BOLD);
     row++;
     
-    mvprintw(row, 2, "Enabled: ");
-    if (params->filterEnabled.load()) {
+    // Get current reverb type name
+    const char* reverbTypeNames[] = {"Greyhole", "Plate", "Room", "Hall", "Spring"};
+    int reverbType = params->reverbType.load();
+    const char* currentReverbType = reverbTypeNames[reverbType];
+    
+    // Row 0: Reverb type selector
+    if (selectedRow == selectableRow && !menuPopupActive) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row++, 2, "> Type: %s", currentReverbType);
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        mvprintw(row++, 2, "  Type: %s", currentReverbType);
+    }
+    selectableRow++;
+    
+    // Show status
+    mvprintw(row, 2, "Status: ");
+    if (params->reverbEnabled.load()) {
         attron(COLOR_PAIR(2) | A_BOLD);
         addstr("ON");
         attroff(COLOR_PAIR(2) | A_BOLD);
@@ -467,20 +549,68 @@ void UI::drawFilterPage() {
     
     row += 2;
     
-    // Filter type selection
+    // Only show Greyhole parameters if that's selected
+    if (reverbType == static_cast<int>(ReverbType::GREYHOLE)) {
+        attron(A_BOLD);
+        mvprintw(row++, 1, "GREYHOLE PARAMETERS");
+        attroff(A_BOLD);
+        row++;
+        
+        float delayTime = 0.001f + params->reverbDelayTime.load() * 1.449f;
+        float size = 0.5f + params->reverbSize.load() * 2.5f;
+        
+        drawBar(row++, 2, "DelayTime (T/t)", delayTime, 0.001f, 1.45f, 20);
+        drawBar(row++, 2, "Damping   (X/x)", params->reverbDamping.load(), 0.0f, 0.99f, 20);
+        drawBar(row++, 2, "Size      (Z/z)", size, 0.5f, 3.0f, 20);
+        drawBar(row++, 2, "Diffusion (B/b)", params->reverbDiffusion.load(), 0.0f, 0.99f, 20);
+        drawBar(row++, 2, "Feedback  (V/v)", params->reverbDecay.load(), 0.0f, 1.0f, 20);
+        drawBar(row++, 2, "ModDepth  (N/n)", params->reverbModDepth.load(), 0.0f, 1.0f, 20);
+        drawBar(row++, 2, "ModFreq   (M/m)", params->reverbModFreq.load(), 0.0f, 10.0f, 20);
+        drawBar(row++, 2, "Mix       (C/c)", params->reverbMix.load(), 0.0f, 1.0f, 20);
+    } else {
+        // Show placeholder for other reverb types
+        attron(COLOR_PAIR(3));
+        mvprintw(row++, 2, "This reverb type is not yet implemented.");
+        mvprintw(row++, 2, "Only Greyhole is currently functional.");
+        attroff(COLOR_PAIR(3));
+    }
+}
+
+void UI::drawFilterPage() {
+    int row = 3;
+    int selectableRow = 0;
+    
+    // Filter type section
     attron(A_BOLD);
     mvprintw(row++, 1, "FILTER TYPE");
     attroff(A_BOLD);
     row++;
     
-    mvprintw(row++, 2, "1:Lowpass  2:Highpass  3:HighShelf  4:LowShelf");
-    
     const char* filterNames[] = {"Lowpass", "Highpass", "High Shelf", "Low Shelf"};
     int filterType = params->filterType.load();
-    mvprintw(row++, 2, "Current: ");
-    attron(COLOR_PAIR(2) | A_BOLD);
-    addstr(filterNames[filterType]);
-    attroff(COLOR_PAIR(2) | A_BOLD);
+    
+    // Row 0: Filter type selector
+    if (selectedRow == selectableRow && !menuPopupActive) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row++, 2, "> Type: %s", filterNames[filterType]);
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        mvprintw(row++, 2, "  Type: %s", filterNames[filterType]);
+    }
+    selectableRow++;
+    
+    // Show status
+    mvprintw(row, 2, "Status: ");
+    if (params->filterEnabled.load()) {
+        attron(COLOR_PAIR(2) | A_BOLD);
+        addstr("ON");
+        attroff(COLOR_PAIR(2) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(4));
+        addstr("OFF");
+        attroff(COLOR_PAIR(4));
+    }
+    mvprintw(row++, 20, "(Space to toggle)");
     
     row += 2;
     
@@ -530,28 +660,24 @@ void UI::drawFilterPage() {
     
     row += 2;
     
-    // Parameter descriptions (only if room)
-    if (row + 6 < maxRow) {
-        attron(A_BOLD);
-        mvprintw(row++, 1, "PARAMETER GUIDE");
-        attroff(A_BOLD);
-        row++;
-        
-        mvprintw(row++, 2, "Lowpass:    Removes high frequencies");
-        mvprintw(row++, 2, "Highpass:   Removes low frequencies");
-        mvprintw(row++, 2, "High Shelf: Boost/cut high frequencies");
-        mvprintw(row++, 2, "Low Shelf:  Boost/cut low frequencies");
-    }
+    // Parameter descriptions
+    attron(A_BOLD);
+    mvprintw(row++, 1, "PARAMETER GUIDE");
+    attroff(A_BOLD);
+    row++;
+    
+    mvprintw(row++, 2, "Lowpass:    Removes high frequencies");
+    mvprintw(row++, 2, "Highpass:   Removes low frequencies");
+    mvprintw(row++, 2, "High Shelf: Boost/cut high frequencies");
+    mvprintw(row++, 2, "Low Shelf:  Boost/cut low frequencies");
 }
 
-void UI::drawInfoPage() {
+void UI::drawConfigPage() {
     int row = 3;
-    int maxY = getmaxy(stdscr);
-    int maxRow = maxY - 2;  // Stop before hotkey line
     
     // System information
     attron(A_BOLD);
-    mvprintw(row++, 1, "SYSTEM INFORMATION");
+    mvprintw(row++, 1, "CONFIGURATION");
     attroff(A_BOLD);
     row++;
     
@@ -592,19 +718,6 @@ void UI::drawInfoPage() {
     
     row += 2;
     
-    // Reverb engine info
-    attron(COLOR_PAIR(2) | A_BOLD);
-    mvprintw(row++, 2, "DSP ENGINE");
-    attroff(COLOR_PAIR(2) | A_BOLD);
-    row++;
-    
-    mvprintw(row++, 4, "Reverb:      Greyhole (Faust 2.37.3)");
-    mvprintw(row++, 4, "Algorithm:   Nested Diffusion Network");
-    mvprintw(row++, 4, "Delay Taps:  1302 prime numbers");
-    mvprintw(row++, 4, "Modulation:  LFO-based chorus effect");
-    
-    row += 2;
-    
     // Build info
     attron(COLOR_PAIR(2) | A_BOLD);
     mvprintw(row++, 2, "BUILD INFO");
@@ -614,6 +727,7 @@ void UI::drawInfoPage() {
     mvprintw(row++, 4, "Max Voices:  8 (polyphonic)");
     mvprintw(row++, 4, "Waveforms:   Sine, Square, Sawtooth, Triangle");
     mvprintw(row++, 4, "Filters:     Lowpass, Highpass, Shelving");
+    mvprintw(row++, 4, "Reverb:      Greyhole (Faust 2.37.3)");
 }
 
 void UI::addConsoleMessage(const std::string& message) {
@@ -660,7 +774,12 @@ void UI::drawHotkeyLine() {
     attron(COLOR_PAIR(1));
     mvhline(row - 1, 0, '-', maxX);
     attroff(COLOR_PAIR(1));
-    mvprintw(row, 1, "Tab/Arrows Navigate  |  Q Quit");
+    
+    if (menuPopupActive || textInputActive) {
+        mvprintw(row, 1, "↑↓ Navigate  |  Enter Select  |  Esc Cancel  |  Q Quit");
+    } else {
+        mvprintw(row, 1, "Tab/←→ Page  |  ↑↓ Select  |  Enter Open Menu  |  Q Quit");
+    }
 }
 
 void UI::draw(int activeVoices) {
@@ -679,12 +798,235 @@ void UI::draw(int activeVoices) {
         case UIPage::FILTER:
             drawFilterPage();
             break;
-        case UIPage::INFO:
-            drawInfoPage();
+        case UIPage::CONFIG:
+            drawConfigPage();
             break;
     }
     
     drawHotkeyLine();  // Always draw hotkey line at bottom
     
+    // Draw popup menu if active
+    if (menuPopupActive) {
+        std::vector<std::string> items = getMenuItems(currentMenuType);
+        std::string title;
+        switch (currentMenuType) {
+            case MenuType::WAVEFORM: title = "Select Waveform"; break;
+            case MenuType::FILTER_TYPE: title = "Select Filter Type"; break;
+            case MenuType::REVERB_TYPE: title = "Select Reverb Type"; break;
+            case MenuType::PRESET: title = "Preset Management"; break;
+            default: title = "Menu"; break;
+        }
+        drawPopupMenu(items, title);
+    }
+    
+    // Draw text input overlay if active
+    if (textInputActive) {
+        int maxY = getmaxy(stdscr);
+        int maxX = getmaxx(stdscr);
+        int height = 7;
+        int width = 50;
+        int startY = (maxY - height) / 2;
+        int startX = (maxX - width) / 2;
+        
+        // Draw box
+        attron(COLOR_PAIR(5));
+        for (int y = startY; y < startY + height; ++y) {
+            for (int x = startX; x < startX + width; ++x) {
+                mvaddch(y, x, ' ');
+            }
+        }
+        attroff(COLOR_PAIR(5));
+        
+        // Draw border
+        attron(A_BOLD);
+        mvhline(startY, startX, '-', width);
+        mvhline(startY + height - 1, startX, '-', width);
+        mvvline(startY, startX, '|', height);
+        mvvline(startY, startX + width - 1, '|', height);
+        attroff(A_BOLD);
+        
+        // Draw title
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(startY + 1, startX + 2, "Save Preset As:");
+        attroff(COLOR_PAIR(5) | A_BOLD);
+        
+        // Draw input field
+        mvprintw(startY + 3, startX + 2, "> %s_", textInputBuffer.c_str());
+        
+        // Draw hint
+        attron(COLOR_PAIR(3));
+        mvprintw(startY + 5, startX + 2, "Press Enter to save, Esc to cancel");
+        attroff(COLOR_PAIR(3));
+    }
+    
     refresh();
+}
+
+// Helper functions
+
+int UI::getSelectableRowCount() {
+    switch (currentPage) {
+        case UIPage::MAIN: return 2;  // Preset and Waveform
+        case UIPage::REVERB: return 1;  // Reverb type
+        case UIPage::FILTER: return 1;  // Filter type
+        case UIPage::CONFIG: return 0;  // No selectable rows
+        default: return 0;
+    }
+}
+
+std::vector<std::string> UI::getMenuItems(MenuType menuType) {
+    std::vector<std::string> items;
+    
+    switch (menuType) {
+        case MenuType::WAVEFORM:
+            items.push_back("Sine");
+            items.push_back("Square");
+            items.push_back("Sawtooth");
+            items.push_back("Triangle");
+            break;
+            
+        case MenuType::FILTER_TYPE:
+            items.push_back("Lowpass");
+            items.push_back("Highpass");
+            items.push_back("High Shelf");
+            items.push_back("Low Shelf");
+            break;
+            
+        case MenuType::REVERB_TYPE:
+            items.push_back("Greyhole");
+            items.push_back("Plate");
+            items.push_back("Room");
+            items.push_back("Hall");
+            items.push_back("Spring");
+            break;
+            
+        case MenuType::PRESET:
+            items.push_back("[Save New...]");
+            for (const auto& preset : availablePresets) {
+                items.push_back(preset);
+            }
+            break;
+            
+        default:
+            break;
+    }
+    
+    return items;
+}
+
+void UI::openPopupMenu(MenuType menuType) {
+    currentMenuType = menuType;
+    menuPopupActive = true;
+    popupSelectedIndex = 0;
+    
+    std::vector<std::string> items = getMenuItems(menuType);
+    popupItemCount = items.size();
+}
+
+void UI::closePopupMenu() {
+    menuPopupActive = false;
+    currentMenuType = MenuType::NONE;
+    popupSelectedIndex = 0;
+    popupItemCount = 0;
+}
+
+void UI::drawPopupMenu(const std::vector<std::string>& items, const std::string& title) {
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
+    
+    int height = items.size() + 4;  // Items + border + title + padding
+    int width = 50;
+    
+    // Adjust width based on content
+    for (const auto& item : items) {
+        if (static_cast<int>(item.length()) + 6 > width) {
+            width = item.length() + 6;
+        }
+    }
+    
+    int startY = (maxY - height) / 2;
+    int startX = (maxX - width) / 2;
+    
+    // Draw filled box background
+    attron(COLOR_PAIR(6));
+    for (int y = startY; y < startY + height; ++y) {
+        for (int x = startX; x < startX + width; ++x) {
+            mvaddch(y, x, ' ');
+        }
+    }
+    attroff(COLOR_PAIR(6));
+    
+    // Draw border
+    attron(A_BOLD);
+    mvhline(startY, startX, '-', width);
+    mvhline(startY + height - 1, startX, '-', width);
+    mvvline(startY, startX, '|', height);
+    mvvline(startY, startX + width - 1, '|', height);
+    attroff(A_BOLD);
+    
+    // Draw title
+    attron(COLOR_PAIR(5) | A_BOLD);
+    mvprintw(startY + 1, startX + 2, "%s", title.c_str());
+    attroff(COLOR_PAIR(5) | A_BOLD);
+    
+    // Draw items
+    for (size_t i = 0; i < items.size(); ++i) {
+        int itemY = startY + 3 + i;
+        
+        if (static_cast<int>(i) == popupSelectedIndex) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(itemY, startX + 2, "> %s", items[i].c_str());
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        } else {
+            mvprintw(itemY, startX + 2, "  %s", items[i].c_str());
+        }
+    }
+}
+
+void UI::refreshPresetList() {
+    availablePresets = PresetManager::listPresets();
+}
+
+void UI::loadPreset(const std::string& filename) {
+    if (PresetManager::loadPreset(filename, params)) {
+        currentPresetName = filename;
+    }
+}
+
+void UI::savePreset(const std::string& filename) {
+    if (PresetManager::savePreset(filename, params)) {
+        currentPresetName = filename;
+        refreshPresetList();
+    }
+}
+
+void UI::startTextInput() {
+    textInputActive = true;
+    textInputBuffer.clear();
+    closePopupMenu();
+}
+
+void UI::handleTextInput(int ch) {
+    if (ch == '\n' || ch == KEY_ENTER) {
+        // Save preset with entered name
+        if (!textInputBuffer.empty()) {
+            savePreset(textInputBuffer);
+        }
+        finishTextInput();
+    } else if (ch == 27) {  // Escape
+        finishTextInput();
+    } else if (ch == KEY_BACKSPACE || ch == 127) {
+        if (!textInputBuffer.empty()) {
+            textInputBuffer.pop_back();
+        }
+    } else if (ch >= 32 && ch < 127) {  // Printable characters
+        if (textInputBuffer.length() < 30) {
+            textInputBuffer += static_cast<char>(ch);
+        }
+    }
+}
+
+void UI::finishTextInput() {
+    textInputActive = false;
+    textInputBuffer.clear();
 }

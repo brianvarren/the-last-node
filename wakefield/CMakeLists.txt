@@ -19,6 +19,7 @@ add_executable(synth
     src/ui.cpp
     src/oscillator.cpp
     src/reverb.cpp
+    src/preset.cpp
 )
 
 # Include directories

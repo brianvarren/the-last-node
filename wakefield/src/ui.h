@@ -6,6 +6,7 @@
 #include <atomic>
 #include <deque>
 #include <mutex>
+#include <vector>
 #include "oscillator.h"
 
 class Synth;  // Forward declaration
@@ -18,6 +19,26 @@ enum class FilterType {
     LOWSHELF = 3
 };
 
+// Reverb types
+enum class ReverbType {
+    GREYHOLE = 0,
+    PLATE = 1,
+    ROOM = 2,
+    HALL = 3,
+    SPRING = 4
+};
+
+// Menu types for popup menus
+enum class MenuType {
+    NONE,
+    WAVEFORM,
+    FILTER_TYPE,
+    REVERB_TYPE,
+    PRESET,
+    AUDIO_DEVICE,
+    MIDI_DEVICE
+};
+
 // Parameters that can be controlled via UI
 struct SynthParameters {
     std::atomic<float> attack{0.01f};
@@ -28,6 +49,7 @@ struct SynthParameters {
     std::atomic<int> waveform{static_cast<int>(Waveform::SINE)};
     
     // Reverb parameters
+    std::atomic<int> reverbType{static_cast<int>(ReverbType::GREYHOLE)};
     std::atomic<float> reverbDelayTime{0.5f};  // 0-1, maps to 0.001-1.45s
     std::atomic<float> reverbSize{0.5f};       // 0-1, maps to 0.5-3.0
     std::atomic<float> reverbDamping{0.5f};
@@ -56,7 +78,7 @@ enum class UIPage {
     MAIN,
     REVERB,
     FILTER,
-    INFO
+    CONFIG
 };
 
 class UI {
@@ -81,6 +103,10 @@ public:
     // Add message to console
     void addConsoleMessage(const std::string& message);
     
+    // Preset management
+    void loadPreset(const std::string& filename);
+    void savePreset(const std::string& filename);
+    
 private:
     Synth* synth;
     SynthParameters* params;
@@ -99,6 +125,24 @@ private:
     std::mutex consoleMutex;
     static const int MAX_CONSOLE_MESSAGES = 5;
     
+    // Menu navigation state
+    int selectedRow;
+    bool menuPopupActive;
+    int popupSelectedIndex;
+    int popupItemCount;
+    MenuType currentMenuType;
+    
+    // Preset management
+    std::string currentPresetName;
+    std::vector<std::string> availablePresets;
+    bool textInputActive;
+    std::string textInputBuffer;
+    
+    // Text input for preset names
+    void startTextInput();
+    void handleTextInput(int ch);
+    void finishTextInput();
+    
     // Handle keyboard input
     void handleInput(int ch);
     
@@ -107,10 +151,22 @@ private:
     void drawMainPage(int activeVoices);
     void drawReverbPage();
     void drawFilterPage();
-    void drawInfoPage();
+    void drawConfigPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawConsole();
     void drawHotkeyLine();
+    
+    // Popup menu helpers
+    void drawPopupMenu(const std::vector<std::string>& items, const std::string& title);
+    void openPopupMenu(MenuType menuType);
+    void closePopupMenu();
+    void refreshPresetList();
+    
+    // Helper to get menu items for a given menu type
+    std::vector<std::string> getMenuItems(MenuType menuType);
+    
+    // Helper to get selectable row count for current page
+    int getSelectableRowCount();
 };
 
 #endif // UI_H
