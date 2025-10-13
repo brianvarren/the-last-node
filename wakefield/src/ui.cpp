@@ -359,6 +359,8 @@ void UI::drawBar(int y, int x, const char* label, float value, float min, float 
 
 void UI::drawMainPage(int activeVoices) {
     int row = 3;
+    int maxY = getmaxy(stdscr);
+    int maxRow = maxY - 8;  // Stop before console area
     
     // Waveform section
     attron(A_BOLD);
@@ -437,6 +439,8 @@ void UI::drawMainPage(int activeVoices) {
 
 void UI::drawReverbPage() {
     int row = 3;
+    int maxY = getmaxy(stdscr);
+    int maxRow = maxY - 8;  // Stop before console area
     
     // Reverb status
     attron(A_BOLD);
@@ -489,24 +493,28 @@ void UI::drawReverbPage() {
     
     row += 2;
     
-    // Parameter descriptions
-    attron(A_BOLD);
-    mvprintw(row++, 1, "PARAMETER GUIDE");
-    attroff(A_BOLD);
-    row++;
-    
-    mvprintw(row++, 2, "DelayTime: Greyhole delay time (0.001-1.45s)");
-    mvprintw(row++, 2, "Damping:   High frequency absorption (0.0-0.99)");
-    mvprintw(row++, 2, "Size:      Greyhole room size (0.5-3.0)");
-    mvprintw(row++, 2, "Diffusion: Reverb density/smoothness (0.0-0.99)");
-    mvprintw(row++, 2, "Feedback:  Reverb tail length (0.0-1.0)");
-    mvprintw(row++, 2, "Mix:       Dry/wet balance (0.0-1.0)");
-    mvprintw(row++, 2, "ModDepth:  Chorus effect intensity (0.0-1.0)");
-    mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (0.0-10.0 Hz)");
+    // Parameter descriptions (only if room)
+    if (row + 10 < maxRow) {
+        attron(A_BOLD);
+        mvprintw(row++, 1, "PARAMETER GUIDE");
+        attroff(A_BOLD);
+        row++;
+        
+        mvprintw(row++, 2, "DelayTime: Greyhole delay time (0.001-1.45s)");
+        mvprintw(row++, 2, "Damping:   High frequency absorption (0.0-0.99)");
+        mvprintw(row++, 2, "Size:      Greyhole room size (0.5-3.0)");
+        mvprintw(row++, 2, "Diffusion: Reverb density/smoothness (0.0-0.99)");
+        mvprintw(row++, 2, "Feedback:  Reverb tail length (0.0-1.0)");
+        mvprintw(row++, 2, "Mix:       Dry/wet balance (0.0-1.0)");
+        mvprintw(row++, 2, "ModDepth:  Chorus effect intensity (0.0-1.0)");
+        mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (0.0-10.0 Hz)");
+    }
 }
 
 void UI::drawFilterPage() {
     int row = 3;
+    int maxY = getmaxy(stdscr);
+    int maxRow = maxY - 8;  // Stop before console area
     
     // Filter status
     attron(A_BOLD);
@@ -591,20 +599,24 @@ void UI::drawFilterPage() {
     
     row += 2;
     
-    // Parameter descriptions
-    attron(A_BOLD);
-    mvprintw(row++, 1, "PARAMETER GUIDE");
-    attroff(A_BOLD);
-    row++;
-    
-    mvprintw(row++, 2, "Lowpass:    Removes high frequencies");
-    mvprintw(row++, 2, "Highpass:   Removes low frequencies");
-    mvprintw(row++, 2, "High Shelf: Boost/cut high frequencies");
-    mvprintw(row++, 2, "Low Shelf:  Boost/cut low frequencies");
+    // Parameter descriptions (only if room)
+    if (row + 6 < maxRow) {
+        attron(A_BOLD);
+        mvprintw(row++, 1, "PARAMETER GUIDE");
+        attroff(A_BOLD);
+        row++;
+        
+        mvprintw(row++, 2, "Lowpass:    Removes high frequencies");
+        mvprintw(row++, 2, "Highpass:   Removes low frequencies");
+        mvprintw(row++, 2, "High Shelf: Boost/cut high frequencies");
+        mvprintw(row++, 2, "Low Shelf:  Boost/cut low frequencies");
+    }
 }
 
 void UI::drawInfoPage() {
     int row = 3;
+    int maxY = getmaxy(stdscr);
+    int maxRow = maxY - 8;  // Stop before console area
     
     // System information
     attron(A_BOLD);
