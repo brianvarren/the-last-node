@@ -12,6 +12,7 @@
 static Synth* synth = nullptr;
 static MidiHandler* midiHandler = nullptr;
 static SynthParameters* synthParams = nullptr;
+static UI* ui = nullptr;
 static bool running = true;
 
 void signalHandler(int signum) {
@@ -41,7 +42,9 @@ void onControlChange(int controller, int value) {
         synthParams->filterCutoffCC = controller;
         synthParams->ccLearnMode = false;
         synthParams->ccLearnTarget = -1;
-        std::cout << "Learned CC#" << controller << " for Filter Cutoff\n";
+        if (ui) {
+            ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Filter Cutoff");
+        }
     }
     
     // Process CC messages if they're mapped to parameters
@@ -173,14 +176,15 @@ int main() {
         audio.startStream();
         
         // Initialize UI
-        UI ui(synth, synthParams);
-        if (!ui.initialize()) {
+        ui = new UI(synth, synthParams);
+        if (!ui->initialize()) {
             std::cerr << "Failed to initialize UI\n";
             audio.stopStream();
             audio.closeStream();
             delete synth;
             delete midiHandler;
             delete synthParams;
+            delete ui;
             return 1;
         }
         
@@ -196,19 +200,19 @@ int main() {
         std::string midiDeviceName = midiHandler->getCurrentPortName();
         int midiPort = midiHandler->getCurrentPortNumber();
         
-        ui.setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPort);
+        ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPort);
         
         // Main UI loop
         while (running && audio.isStreamRunning()) {
             // Update UI and handle input
-            if (!ui.update()) {
+            if (!ui->update()) {
                 running = false;  // User pressed 'q'
                 break;
             }
             
             // Draw UI
             int activeVoices = synth->getActiveVoiceCount();
-            ui.draw(activeVoices);
+            ui->draw(activeVoices);
             
             // Sleep to control refresh rate (~20 FPS)
             usleep(50000);  // 50ms
@@ -231,6 +235,7 @@ int main() {
     }
     
     // Clean up
+    delete ui;
     delete synth;
     delete midiHandler;
     delete synthParams;

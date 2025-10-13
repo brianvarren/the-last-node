@@ -4,6 +4,8 @@
 #include <ncurses.h>
 #include <string>
 #include <atomic>
+#include <deque>
+#include <mutex>
 #include "oscillator.h"
 
 class Synth;  // Forward declaration
@@ -75,6 +77,9 @@ public:
     void setDeviceInfo(const std::string& audioDevice, int sampleRate, int bufferSize,
                        const std::string& midiDevice, int midiPort);
     
+    // Add message to console
+    void addConsoleMessage(const std::string& message);
+    
 private:
     Synth* synth;
     SynthParameters* params;
@@ -88,6 +93,11 @@ private:
     std::string midiDeviceName;
     int midiPortNum;
     
+    // Console message system
+    std::deque<std::string> consoleMessages;
+    std::mutex consoleMutex;
+    static const int MAX_CONSOLE_MESSAGES = 5;
+    
     // Handle keyboard input
     void handleInput(int ch);
     
@@ -98,6 +108,7 @@ private:
     void drawFilterPage();
     void drawInfoPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
+    void drawConsole();
 };
 
 #endif // UI_H

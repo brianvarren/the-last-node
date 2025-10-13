@@ -433,17 +433,6 @@ void UI::drawMainPage(int activeVoices) {
     }
     attroff(COLOR_PAIR(2));
     addch(']');
-    
-    // Controls at bottom
-    int maxY = getmaxy(stdscr);
-    row = maxY - 6;
-    
-    attron(COLOR_PAIR(1));
-    mvhline(row++, 0, '-', getmaxx(stdscr));
-    attroff(COLOR_PAIR(1));
-    
-    mvprintw(row++, 1, "1-4 Waveform  |  A/a D/d S/s R/r Envelope");
-    mvprintw(row++, 1, "+/- Volume    |  Tab/Arrows Page  |  Q Quit");
 }
 
 void UI::drawReverbPage() {
@@ -514,17 +503,6 @@ void UI::drawReverbPage() {
     mvprintw(row++, 2, "Mix:       Dry/wet balance (0.0-1.0)");
     mvprintw(row++, 2, "ModDepth:  Chorus effect intensity (0.0-1.0)");
     mvprintw(row++, 2, "ModFreq:   Chorus modulation speed (0.0-10.0 Hz)");
-    
-    // Controls at bottom
-    int maxY = getmaxy(stdscr);
-    row = maxY - 6;
-    
-    attron(COLOR_PAIR(1));
-    mvhline(row++, 0, '-', getmaxx(stdscr));
-    attroff(COLOR_PAIR(1));
-    
-    mvprintw(row++, 1, "Space Toggle  |  Z/z X/x C/c V/v Basic  |  B/b N/n M/m Greyhole");
-    mvprintw(row++, 1, "Tab/Arrows Page  |  Q Quit");
 }
 
 void UI::drawFilterPage() {
@@ -623,17 +601,6 @@ void UI::drawFilterPage() {
     mvprintw(row++, 2, "Highpass:   Removes low frequencies");
     mvprintw(row++, 2, "High Shelf: Boost/cut high frequencies");
     mvprintw(row++, 2, "Low Shelf:  Boost/cut low frequencies");
-    
-    // Controls at bottom
-    int maxY = getmaxy(stdscr);
-    row = maxY - 6;
-    
-    attron(COLOR_PAIR(1));
-    mvhline(row++, 0, '-', getmaxx(stdscr));
-    attroff(COLOR_PAIR(1));
-    
-    mvprintw(row++, 1, "Space Toggle  |  1-4 Type  |  F/f Cutoff  |  G/g Gain");
-    mvprintw(row++, 1, "L Learn CC    |  K Clear CC  |  Tab/Arrows Page  |  Q Quit");
 }
 
 void UI::drawInfoPage() {
@@ -704,16 +671,49 @@ void UI::drawInfoPage() {
     mvprintw(row++, 4, "Max Voices:  8 (polyphonic)");
     mvprintw(row++, 4, "Waveforms:   Sine, Square, Sawtooth, Triangle");
     mvprintw(row++, 4, "Filters:     Lowpass, Highpass, Shelving");
-    
-    // Controls at bottom
+}
+
+void UI::addConsoleMessage(const std::string& message) {
+    std::lock_guard<std::mutex> lock(consoleMutex);
+    consoleMessages.push_back(message);
+    if (consoleMessages.size() > MAX_CONSOLE_MESSAGES) {
+        consoleMessages.pop_front();
+    }
+}
+
+void UI::drawConsole() {
     int maxY = getmaxy(stdscr);
-    row = maxY - 4;
+    int maxX = getmaxx(stdscr);
     
+    // Console starts 7 lines from bottom
+    int consoleStart = maxY - 7;
+    
+    // Draw separator
     attron(COLOR_PAIR(1));
-    mvhline(row++, 0, '-', getmaxx(stdscr));
+    mvhline(consoleStart, 0, '-', maxX);
     attroff(COLOR_PAIR(1));
     
-    mvprintw(row++, 1, "Tab/Arrows Navigate  |  Q Quit");
+    // Draw console title
+    attron(A_BOLD);
+    mvprintw(consoleStart + 1, 1, "CONSOLE");
+    attroff(A_BOLD);
+    
+    // Draw messages
+    std::lock_guard<std::mutex> lock(consoleMutex);
+    int row = consoleStart + 2;
+    for (const auto& msg : consoleMessages) {
+        if (row >= maxY - 2) break;  // Don't overwrite hotkey line
+        attron(COLOR_PAIR(2));
+        mvprintw(row++, 2, "%s", msg.c_str());
+        attroff(COLOR_PAIR(2));
+    }
+    
+    // Draw hotkey line at bottom
+    row = maxY - 1;
+    attron(COLOR_PAIR(1));
+    mvhline(row - 1, 0, '-', maxX);
+    attroff(COLOR_PAIR(1));
+    mvprintw(row, 1, "Tab/Arrows Navigate  |  Q Quit");
 }
 
 void UI::draw(int activeVoices) {
@@ -735,6 +735,8 @@ void UI::draw(int activeVoices) {
             drawInfoPage();
             break;
     }
+    
+    drawConsole();
     
     refresh();
 }
