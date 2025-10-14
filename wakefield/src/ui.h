@@ -211,6 +211,7 @@ private:
     // Draw helper functions
     void drawTabs();
     void drawMainPage(int activeVoices);
+    void drawParametersPage();  // Generic parameter page drawing
     void drawBrainwavePage();
     void drawReverbPage();
     void drawFilterPage();
