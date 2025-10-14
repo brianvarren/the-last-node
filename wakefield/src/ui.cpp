@@ -51,7 +51,6 @@ UI::UI(Synth* synth, SynthParameters* params)
             scopeBuffer2[x][y] = 0.0f;
         }
     }
-    brainwaveOscPhase = 0.0f;
 }
 
 UI::~UI() {
