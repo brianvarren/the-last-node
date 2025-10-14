@@ -190,15 +190,16 @@ private:
     // Test oscilloscope state
     static const int SCOPE_WIDTH = 80;
     static const int SCOPE_HEIGHT = 20;
+    static const int BRAIN_SCOPE_WIDTH = 64;
+    static const int BRAIN_SCOPE_HEIGHT = 40;
     float testOscPhase;
     float testOscFreq;
     float scopeFadeTime;
     float scopeBuffer[80][20];  // intensity buffer for fade effect
     
     // Brainwave oscilloscope
-    float brainwaveOscPhase;
-    float scopeBuffer2[80][20];  // second scope buffer for brainwave page
-    static const int WAVEFORM_BUFFER_SIZE = 1024;
+    float scopeBuffer2[BRAIN_SCOPE_WIDTH][BRAIN_SCOPE_HEIGHT];  // second scope buffer for brainwave page
+    static const int WAVEFORM_BUFFER_SIZE = 8192;
     std::vector<float> waveformBuffer;
     std::atomic<int> waveformBufferWritePos;
     

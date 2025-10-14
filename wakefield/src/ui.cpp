@@ -3,6 +3,7 @@
 #include "preset.h"
 #include "loop_manager.h"
 #include "looper.h"
+#include <algorithm>
 #include <cmath>
 
 // External reference to global loopManager from main.cpp
@@ -43,6 +44,10 @@ UI::UI(Synth* synth, SynthParameters* params)
     for (int x = 0; x < SCOPE_WIDTH; ++x) {
         for (int y = 0; y < SCOPE_HEIGHT; ++y) {
             scopeBuffer[x][y] = 0.0f;
+        }
+    }
+    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
+        for (int y = 0; y < BRAIN_SCOPE_HEIGHT; ++y) {
             scopeBuffer2[x][y] = 0.0f;
         }
     }
@@ -886,21 +891,28 @@ void UI::drawBrainwavePage() {
     mvprintw(row++, 1, "WAVEFORM DISPLAY");
     attroff(A_BOLD);
     row++;
+
+    int screenCols = getmaxx(stdscr);
+    int screenRows = getmaxy(stdscr);
+    int scopeStartX = screenCols * 3 / 5;
+    int scopeStartY = 4;
+    if (scopeStartX + BRAIN_SCOPE_WIDTH + 2 > screenCols) {
+        scopeStartX = std::max(2, screenCols - (BRAIN_SCOPE_WIDTH + 3));
+    }
+    scopeStartY = screenRows >= BRAIN_SCOPE_HEIGHT + 6 ? 4 : std::max(1, screenRows - (BRAIN_SCOPE_HEIGHT + 2));
     
     // Draw top border
-    int scopeStartX = 2;
-    int scopeStartY = row;
     mvaddch(scopeStartY, scopeStartX, '+');
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
         mvaddch(scopeStartY, scopeStartX + 1 + x, '-');
     }
-    mvaddch(scopeStartY, scopeStartX + 1 + SCOPE_WIDTH, '+');
-    
+    mvaddch(scopeStartY, scopeStartX + 1 + BRAIN_SCOPE_WIDTH, '+');
+
     // Draw scope content with grayscale fade
-    for (int y = 0; y < SCOPE_HEIGHT; ++y) {
+    for (int y = 0; y < BRAIN_SCOPE_HEIGHT; ++y) {
         mvaddch(scopeStartY + 1 + y, scopeStartX, '|');
         
-        for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
             float intensity = scopeBuffer2[x][y];
             char displayChar = '+';
             int colorPair = 7;
@@ -947,15 +959,15 @@ void UI::drawBrainwavePage() {
             }
         }
         
-        mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + SCOPE_WIDTH, '|');
+        mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + BRAIN_SCOPE_WIDTH, '|');
     }
     
     // Draw bottom border
-    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX, '+');
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
-        mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + x, '-');
+    mvaddch(scopeStartY + 1 + BRAIN_SCOPE_HEIGHT, scopeStartX, '+');
+    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
+        mvaddch(scopeStartY + 1 + BRAIN_SCOPE_HEIGHT, scopeStartX + 1 + x, '-');
     }
-    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + SCOPE_WIDTH, '+');
+    mvaddch(scopeStartY + 1 + BRAIN_SCOPE_HEIGHT, scopeStartX + 1 + BRAIN_SCOPE_WIDTH, '+');
 }
 
 void UI::drawReverbPage() {
@@ -1698,47 +1710,59 @@ void UI::writeToWaveformBuffer(float sample) {
 
 void UI::updateBrainwaveOscilloscope(float deltaTime) {
     // Decay all pixels in the buffer based on fade time
-    float decayRate = 1.0f / scopeFadeTime;  // How fast to fade (per second)
+    // Decay existing pixels
+    float decayRate = 1.0f / scopeFadeTime;
     float decayAmount = decayRate * deltaTime;
-    
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
-        for (int y = 0; y < SCOPE_HEIGHT; ++y) {
+
+    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
+        for (int y = 0; y < BRAIN_SCOPE_HEIGHT; ++y) {
             scopeBuffer2[x][y] -= decayAmount;
             if (scopeBuffer2[x][y] < 0.0f) {
                 scopeBuffer2[x][y] = 0.0f;
             }
         }
     }
-    
-    // Find a zero-crossing for triggering the scope
-    int readPos = waveformBufferWritePos.load(std::memory_order_relaxed);
-    int endPos = (readPos + WAVEFORM_BUFFER_SIZE - 1) % WAVEFORM_BUFFER_SIZE;
-    int triggerPos = -1;
 
-    for (int i = 0; i < WAVEFORM_BUFFER_SIZE - 1; ++i) {
-        int current = (endPos - i + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
-        int prev = (current - 1 + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
-        if (waveformBuffer[prev] < 0.0f && waveformBuffer[current] >= 0.0f) {
-            triggerPos = current;
+    // Phase-locked rendering: maintain a stable trigger across frames
+    int writePos = waveformBufferWritePos.load(std::memory_order_relaxed);
+    int triggerPos = writePos;
+
+    for (int i = 0; i < WAVEFORM_BUFFER_SIZE; ++i) {
+        int index = (writePos - i + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
+        int prevIndex = (index - 1 + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
+        if (waveformBuffer[prevIndex] < 0.0f && waveformBuffer[index] >= 0.0f) {
+            triggerPos = index;
             break;
         }
     }
 
-    if (triggerPos == -1) {
-        triggerPos = readPos;
+    int cycleSamples = -1;
+    for (int i = 1; i < WAVEFORM_BUFFER_SIZE; ++i) {
+        int index = (triggerPos + i) % WAVEFORM_BUFFER_SIZE;
+        int prevIndex = (index - 1 + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
+        if (waveformBuffer[prevIndex] < 0.0f && waveformBuffer[index] >= 0.0f) {
+            cycleSamples = i;
+            break;
+        }
     }
 
-    // Draw the waveform from the buffer
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
-        int bufferIndex = (triggerPos + (x * WAVEFORM_BUFFER_SIZE / SCOPE_WIDTH)) % WAVEFORM_BUFFER_SIZE;
+    if (cycleSamples <= 0) {
+        cycleSamples = WAVEFORM_BUFFER_SIZE / 8;
+    }
+
+    float samplesPerPixel = static_cast<float>(cycleSamples) / static_cast<float>(BRAIN_SCOPE_WIDTH);
+    float sampleCursor = static_cast<float>(triggerPos);
+
+    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
+        int bufferIndex = static_cast<int>(sampleCursor) % WAVEFORM_BUFFER_SIZE;
         float waveValue = waveformBuffer[bufferIndex];
+        int yPos = static_cast<int>((BRAIN_SCOPE_HEIGHT / 2.0f) - (waveValue * (BRAIN_SCOPE_HEIGHT / 2.0f - 1.0f)));
 
-        // Map wave value (-1 to +1) to vertical position (0 to SCOPE_HEIGHT-1)
-        int yPos = static_cast<int>((SCOPE_HEIGHT / 2.0f) - (waveValue * (SCOPE_HEIGHT / 2.0f - 1.0f)));
-
-        if (x >= 0 && x < SCOPE_WIDTH && yPos >= 0 && yPos < SCOPE_HEIGHT) {
+        if (yPos >= 0 && yPos < BRAIN_SCOPE_HEIGHT) {
             scopeBuffer2[x][yPos] = 1.0f;
         }
+
+        sampleCursor += samplesPerPixel;
     }
 }
 
