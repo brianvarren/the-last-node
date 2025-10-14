@@ -89,6 +89,7 @@ struct SynthParameters {
     std::atomic<int> brainwaveMode{0};         // 0=FREE, 1=KEY
     std::atomic<float> brainwaveFreq{440.0f};  // Base frequency or offset (20-2000 Hz)
     std::atomic<float> brainwaveMorph{0.5f};   // 0.0-1.0, maps to frames 0-255
+    std::atomic<float> brainwaveDuty{0.5f};    // 0.0-1.0, pulse width
     std::atomic<int> brainwaveOctave{0};       // -3 to +3 octave offset (0 = no shift)
     std::atomic<bool> brainwaveLFOEnabled{false};
     std::atomic<int> brainwaveLFOSpeed{0};     // 0-9 index
@@ -136,6 +137,9 @@ public:
     // Add message to console
     void addConsoleMessage(const std::string& message);
     
+    // Waveform buffer for oscilloscope
+    void writeToWaveformBuffer(float sample);
+
     // Preset management
     void loadPreset(const std::string& filename);
     void savePreset(const std::string& filename);
@@ -194,6 +198,9 @@ private:
     // Brainwave oscilloscope
     float brainwaveOscPhase;
     float scopeBuffer2[80][20];  // second scope buffer for brainwave page
+    static const int WAVEFORM_BUFFER_SIZE = 1024;
+    std::vector<float> waveformBuffer;
+    std::atomic<int> waveformBufferWritePos;
     
     // Device change request
     bool deviceChangeRequested;

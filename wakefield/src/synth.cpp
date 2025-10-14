@@ -1,4 +1,5 @@
 #include "synth.h"
+#include "ui.h"
 #include <iostream>
 
 Synth::Synth(float sampleRate) 
@@ -7,6 +8,7 @@ Synth::Synth(float sampleRate)
     , reverbEnabled(false)
     , filterEnabled(false)
     , currentFilterType(0)
+    , ui(nullptr)
     , reverb(sampleRate)
     , filterL(sampleRate)
     , filterR(sampleRate) {
@@ -51,13 +53,14 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
     }
 }
 
-void Synth::updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, 
+void Synth::updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, float duty,
                                         int octave, bool lfoEnabled, int lfoSpeed) {
     // Update all voice oscillators with new brainwave parameters
     for (auto& voice : voices) {
         voice.oscillator.setMode(mode);
         voice.oscillator.setFrequency(freq);
         voice.oscillator.setMorph(morph);
+        voice.oscillator.setDuty(duty);
         voice.oscillator.setOctave(octave);
         voice.oscillator.setLFOEnabled(lfoEnabled);
         voice.oscillator.setLFOSpeed(lfoSpeed);
@@ -151,6 +154,11 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         for (unsigned int i = 0; i < nFrames; ++i) {
             float sample = voices[v].generateSample();
             
+            // Write to UI oscilloscope buffer if this is the first active voice
+            if (v == 0 && ui) {
+                ui->writeToWaveformBuffer(sample);
+            }
+
             // Mix into all channels with master volume
             // Scale by 0.5 to prevent clipping when multiple voices play
             for (unsigned int ch = 0; ch < nChannels; ++ch) {

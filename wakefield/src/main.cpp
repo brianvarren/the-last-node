@@ -208,6 +208,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             static_cast<BrainwaveMode>(synthParams->brainwaveMode.load()),
             synthParams->brainwaveFreq.load(),
             synthParams->brainwaveMorph.load(),
+            synthParams->brainwaveDuty.load(),
             synthParams->brainwaveOctave.load(),
             synthParams->brainwaveLFOEnabled.load(),
             synthParams->brainwaveLFOSpeed.load()
@@ -350,6 +351,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     
+    // Link synth to UI for oscilloscope
+    synth->setUI(ui);
+
     // Set UI pointer for MIDI error messages
     midiHandler->setUI(ui);
     

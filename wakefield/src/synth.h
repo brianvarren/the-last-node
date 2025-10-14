@@ -8,6 +8,8 @@
 #include "reverb.h"
 #include "filters.hpp"
 
+class UI; // Forward declaration
+
 constexpr int MAX_VOICES = 8;
 
 class Synth {
@@ -22,9 +24,12 @@ public:
     void updateEnvelopeParameters(float attack, float decay, float sustain, float release);
     void setMasterVolume(float volume) { masterVolume = volume; }
     
+    // Link to UI for oscilloscope
+    void setUI(UI* ui_ptr) { ui = ui_ptr; }
+
     // Brainwave oscillator control
-    void updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, 
-                                    int octave, bool lfoEnabled, int lfoSpeed);
+    void updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, float duty,
+                                     int octave, bool lfoEnabled, int lfoSpeed);
     
     // Reverb control
     void setReverbEnabled(bool enabled) { reverbEnabled = enabled; }
@@ -43,6 +48,7 @@ private:
     bool reverbEnabled;
     bool filterEnabled;
     int currentFilterType;
+    UI* ui;
     
     std::vector<Voice> voices;
     GreyholeReverb reverb;

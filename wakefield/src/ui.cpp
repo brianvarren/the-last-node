@@ -32,7 +32,9 @@ UI::UI(Synth* synth, SynthParameters* params)
     , requestedMidiPortNum(-1)
     , testOscPhase(0.0f)
     , testOscFreq(0.2f)
-    , scopeFadeTime(2.0f) {
+    , scopeFadeTime(2.0f)
+    , waveformBuffer(WAVEFORM_BUFFER_SIZE, 0.0f)
+    , waveformBufferWritePos(0) {
     
     // Load available presets
     refreshPresetList();
@@ -367,6 +369,14 @@ void UI::handleInput(int ch) {
                 params->brainwaveMorph = std::max(0.0f, params->brainwaveMorph.load() - smallStep);
                 break;
                 
+            // Duty (P/p)
+            case 'P':
+                params->brainwaveDuty = std::min(1.0f, params->brainwaveDuty.load() + smallStep);
+                break;
+            case 'p':
+                params->brainwaveDuty = std::max(0.0f, params->brainwaveDuty.load() - smallStep);
+                break;
+
             // Octave (O/o) - bipolar control
             case 'O':
                 params->brainwaveOctave = std::min(3, params->brainwaveOctave.load() + 1);
@@ -812,6 +822,7 @@ void UI::drawBrainwavePage() {
         drawBar(row++, 2, "Freq Offset (W/w)", params->brainwaveFreq.load(), 20.0f, 2000.0f, 20);
     }
     drawBar(row++, 2, "Morph (M/m)     ", params->brainwaveMorph.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Duty (P/p)      ", params->brainwaveDuty.load(), 0.0f, 1.0f, 20);
     
     int octave = params->brainwaveOctave.load();
     if (octave > 0) {
@@ -861,9 +872,9 @@ void UI::drawBrainwavePage() {
     attroff(A_BOLD);
     row++;
     
-    mvprintw(row++, 2, "Enter: Toggle mode");
     mvprintw(row++, 2, "W/w:   Adjust frequency/offset");
     mvprintw(row++, 2, "M/m:   Adjust morph position");
+    mvprintw(row++, 2, "P/p:   Adjust pulse duty");
     mvprintw(row++, 2, "O/o:   Increase/decrease octave (-3 to +3)");
     mvprintw(row++, 2, "Space: Toggle LFO on/off");
     mvprintw(row++, 2, "L/l:   Adjust LFO speed");
@@ -1679,16 +1690,13 @@ void UI::finishTextInput() {
     textInputBuffer.clear();
 }
 
+void UI::writeToWaveformBuffer(float sample) {
+    int pos = waveformBufferWritePos.load(std::memory_order_relaxed);
+    waveformBuffer[pos] = sample;
+    waveformBufferWritePos.store((pos + 1) % WAVEFORM_BUFFER_SIZE, std::memory_order_relaxed);
+}
+
 void UI::updateBrainwaveOscilloscope(float deltaTime) {
-    // Advance oscillator phase slowly for visualization
-    float displayFreq = 1.0f;  // 1 Hz for nice slow display
-    brainwaveOscPhase += 2.0f * M_PI * displayFreq * deltaTime;
-    
-    // Wrap phase to maintain phase-lock (0 to 2π)
-    while (brainwaveOscPhase >= 2.0f * M_PI) {
-        brainwaveOscPhase -= 2.0f * M_PI;
-    }
-    
     // Decay all pixels in the buffer based on fade time
     float decayRate = 1.0f / scopeFadeTime;  // How fast to fade (per second)
     float decayAmount = decayRate * deltaTime;
@@ -1702,46 +1710,35 @@ void UI::updateBrainwaveOscilloscope(float deltaTime) {
         }
     }
     
-    // Generate waveform using current morph position
-    // Convert phase to 32-bit accumulator format
-    uint32_t phaseAccum = static_cast<uint32_t>((brainwaveOscPhase / (2.0f * M_PI)) * 4294967296.0);
-    float morphPos = params->brainwaveMorph.load();
-    
-    // Generate sample using brainwave algorithm
-    // We need to call the static helper functions directly
-    float normalizedPhase = brainwaveOscPhase / (2.0f * M_PI);
-    float waveValue;
-    
-    if (morphPos < 0.5f) {
-        // Phase distortion (same as in brainwave_osc.cpp)
-        float d = 1.0f - (morphPos * 2.0f);
-        float shapedPhase;
-        if (normalizedPhase <= d) {
-            shapedPhase = (1.0f / M_PI) * normalizedPhase;
-        } else {
-            shapedPhase = (1.0f / M_PI) * (1.0f + ((normalizedPhase - d) / (1.0f - d)));
+    // Find a zero-crossing for triggering the scope
+    int readPos = waveformBufferWritePos.load(std::memory_order_relaxed);
+    int endPos = (readPos + WAVEFORM_BUFFER_SIZE - 1) % WAVEFORM_BUFFER_SIZE;
+    int triggerPos = -1;
+
+    for (int i = 0; i < WAVEFORM_BUFFER_SIZE - 1; ++i) {
+        int current = (endPos - i + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
+        int prev = (current - 1 + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
+        if (waveformBuffer[prev] < 0.0f && waveformBuffer[current] >= 0.0f) {
+            triggerPos = current;
+            break;
         }
-        waveValue = -std::cos(2.0f * M_PI * shapedPhase);
-    } else {
-        // Tanh waveshaping (same as in brainwave_osc.cpp)
-        float amount = (morphPos - 0.5f) * 2.0f;
-        float sine = std::sin(2.0f * M_PI * normalizedPhase);
-        float gain = 1.0f + (amount * 9.0f);
-        float shaped = std::tanh(sine * gain);
-        float normalizer = std::tanh(gain);
-        waveValue = shaped / normalizer;
     }
-    
-    // Map phase (0 to 2π) to horizontal position (0 to SCOPE_WIDTH-1)
-    int xPos = static_cast<int>((brainwaveOscPhase / (2.0f * M_PI)) * (SCOPE_WIDTH - 1));
-    
-    // Map wave value (-1 to +1) to vertical position (0 to SCOPE_HEIGHT-1)
-    // Center of display is at SCOPE_HEIGHT/2
-    int yPos = static_cast<int>((SCOPE_HEIGHT / 2) - (waveValue * (SCOPE_HEIGHT / 2 - 1)));
-    
-    // Clamp to buffer bounds
-    if (xPos >= 0 && xPos < SCOPE_WIDTH && yPos >= 0 && yPos < SCOPE_HEIGHT) {
-        scopeBuffer2[xPos][yPos] = 1.0f;  // Maximum intensity at current position
+
+    if (triggerPos == -1) {
+        triggerPos = readPos;
+    }
+
+    // Draw the waveform from the buffer
+    for (int x = 0; x < SCOPE_WIDTH; ++x) {
+        int bufferIndex = (triggerPos + (x * WAVEFORM_BUFFER_SIZE / SCOPE_WIDTH)) % WAVEFORM_BUFFER_SIZE;
+        float waveValue = waveformBuffer[bufferIndex];
+
+        // Map wave value (-1 to +1) to vertical position (0 to SCOPE_HEIGHT-1)
+        int yPos = static_cast<int>((SCOPE_HEIGHT / 2.0f) - (waveValue * (SCOPE_HEIGHT / 2.0f - 1.0f)));
+
+        if (x >= 0 && x < SCOPE_WIDTH && yPos >= 0 && yPos < SCOPE_HEIGHT) {
+            scopeBuffer2[x][yPos] = 1.0f;
+        }
     }
 }
 
