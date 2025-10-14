@@ -26,6 +26,10 @@ public:
     void setMorph(float morph) { morphPosition_ = morph; }
     float getMorph() const { return morphPosition_; }
     
+    // Duty control (0.0 to 1.0, pulse width for square/pulse waves)
+    void setDuty(float duty) { duty_ = std::min(std::max(duty, 0.0f), 1.0f); }
+    float getDuty() const { return duty_; }
+    
     // Octave control (-3 to +3, bipolar offset)
     void setOctave(int octave) { octaveOffset_ = octave; }
     int getOctave() const { return octaveOffset_; }
@@ -51,6 +55,7 @@ private:
     float baseFrequency_;      // User-controlled frequency or offset
     float noteFrequency_;      // MIDI note frequency (KEY mode)
     float morphPosition_;      // 0.0 to 1.0
+    float duty_;               // 0.0 to 1.0, pulse width control
     int octaveOffset_;         // 0 to 8
     
     // LFO

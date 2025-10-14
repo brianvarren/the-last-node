@@ -2,48 +2,55 @@
 #include <algorithm>
 #include <cmath>
 
-// Phase distortion phaseshaper (Casio CZ-style)
-static float phaseshaper(float x, float d) {
-    // Classic phase distortion synthesis
-    // x: normalized phase (0.0 to 1.0)
-    // d: point of inflection (0.0 to 1.0)
-    if (x <= d) {
-        return (1.0f / M_PI) * x;
-    } else {
-        return (1.0f / M_PI) * (1.0f + ((x - d) / (1.0f - d)));
-    }
-}
-
-// Generate waveform with phase distortion (morph 0.0 to 0.5)
+// Classic Casio CZ style phase distortion for sawtooth
+// morph: 0.0 (saw) to 0.5 (sine)
 static float generatePhaseDistorted(float phase, float morph) {
-    // Map morph to d parameter
-    // morph = 0.0 → d = 1.0 (maximum distortion)
-    // morph = 0.5 → d = 0.5 (pure sine)
-    float d = 1.0f - (morph * 2.0f);
+    // phase is normalized [0, 1)
     
-    // Apply phaseshaper and generate output
-    float shapedPhase = phaseshaper(phase, d);
-    return -std::cos(2.0f * M_PI * shapedPhase);
+    // map morph to alpha
+    // morph=0   -> alpha=1 (saw)
+    // morph=0.5 -> alpha=0.5 (sine)
+    float alpha = 1.0f - morph;
+    alpha = std::min(std::max(alpha, 0.001f), 0.999f);
+
+    float warped_phase;
+    if (phase < alpha) {
+        warped_phase = phase * 0.5f / alpha;
+    } else {
+        warped_phase = 0.5f + (phase - alpha) * 0.5f / (1.0f - alpha);
+    }
+    
+    return std::sin(warped_phase * 2.0f * M_PI);
 }
 
-// Generate waveform with tanh waveshaping (morph 0.5 to 1.0)
-static float generateTanhShaped(float phase, float morph) {
-    // Map morph to amount
-    // morph = 0.5 → amount = 0.0 (pure sine)
-    // morph = 1.0 → amount = 1.0 (maximum saturation)
-    float amount = (morph - 0.5f) * 2.0f;
+// Generate waveform with tanh-shaped pulse (morph 0.5 to 1.0)
+static float generateTanhShaped(float phase, float morph, float duty) {
+    // phase is normalized [0, 1)
+    const float twoPi = 2.0f * M_PI;
+    float sine = std::sin(twoPi * phase);
+
+    // Map morph to edge parameter
+    // morph = 0.5 → edge = 0.0 (pure sine)
+    // morph = 1.0 → edge = 1.0 (hard square)
+    float edge = (morph - 0.5f) * 2.0f;
+    edge = std::min(std::max(edge, 0.0f), 1.0f);
+
+    // When edge is very small, just return a pure sine wave.
+    if (edge < 1e-3f) {
+        return sine;
+    }
+
+    // Map duty to comparator bias
+    float theta = twoPi * (duty - 0.5f);
+    float x = sine - std::sin(theta);
     
-    // Start with pure sine
-    float sine = std::sin(2.0f * M_PI * phase);
+    // Edge hardness control
+    float beta = 1.0f + 40.0f * edge;
     
-    // Apply increasing gain before tanh
-    // Scale factor chosen to create square-like wave at amount=1.0
-    float gain = 1.0f + (amount * 9.0f);  // 1.0 to 10.0
-    float shaped = std::tanh(sine * gain);
-    
-    // Normalize to maintain amplitude
-    float normalizer = std::tanh(gain);
-    return shaped / normalizer;
+    float tanh_pulse = std::tanh(beta * x);
+
+    // Crossfade from sine to tanh pulse based on edge to ensure smooth transition
+    return (1.0f - edge) * sine + edge * tanh_pulse;
 }
 
 BrainwaveOscillator::BrainwaveOscillator()
@@ -51,6 +58,7 @@ BrainwaveOscillator::BrainwaveOscillator()
     , baseFrequency_(440.0f)
     , noteFrequency_(440.0f)
     , morphPosition_(0.5f)
+    , duty_(0.5f)  // Default to 50% duty (symmetric square)
     , octaveOffset_(0)  // Default to 0 (no octave shift)
     , lfoEnabled_(false)
     , lfoSpeedIndex_(0)
@@ -140,11 +148,11 @@ float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos) {
     
     // Generate waveform based on morph position
     if (morphPos < 0.5f) {
-        // Left side: Phase distortion
+        // Left side: Phase distortion (saw)
         return generatePhaseDistorted(normalizedPhase, morphPos);
     } else {
-        // Right side: Tanh waveshaping
-        return generateTanhShaped(normalizedPhase, morphPos);
+        // Right side: Tanh-shaped pulse/square with duty control
+        return generateTanhShaped(normalizedPhase, morphPos, duty_);
     }
 }
 
