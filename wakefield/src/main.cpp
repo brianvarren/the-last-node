@@ -12,6 +12,7 @@
 #include "ui.h"
 #include "preset.h"
 #include "loop_manager.h"
+#include "parameter_smoother.h"
 
 // Global instances
 static Synth* synth = nullptr;
@@ -323,75 +324,165 @@ void onControlChange(int controller, int value) {
 }
 
 // Audio callback function
-int audioCallback(void* outputBuffer, void* /*inputBuffer*/, 
+int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
                   unsigned int nFrames,
-                  double /*streamTime*/, 
-                  RtAudioStreamStatus status, 
+                  double /*streamTime*/,
+                  RtAudioStreamStatus status,
                   void* /*userData*/) {
-    
+
     // Temp buffers for synth output (before looper)
     static std::vector<float> tempBuffer;
     static std::vector<float> tempL;
     static std::vector<float> tempR;
-    
+
+    // Parameter smoothers (10ms smoothing time at 48kHz = ~100Hz update rate)
+    static bool smoothersInitialized = false;
+    static ParameterSmoother attackSmoother;
+    static ParameterSmoother decaySmoother;
+    static ParameterSmoother sustainSmoother;
+    static ParameterSmoother releaseSmoother;
+    static ParameterSmoother masterVolumeSmoother;
+    static ParameterSmoother brainwaveFreqSmoother;
+    static ParameterSmoother brainwaveMorphSmoother;
+    static ParameterSmoother brainwaveDutySmoother;
+    static ParameterSmoother reverbDelayTimeSmoother;
+    static ParameterSmoother reverbSizeSmoother;
+    static ParameterSmoother reverbDampingSmoother;
+    static ParameterSmoother reverbMixSmoother;
+    static ParameterSmoother reverbDecaySmoother;
+    static ParameterSmoother reverbDiffusionSmoother;
+    static ParameterSmoother reverbModDepthSmoother;
+    static ParameterSmoother reverbModFreqSmoother;
+    static ParameterSmoother filterCutoffSmoother;
+    static ParameterSmoother filterGainSmoother;
+    static ParameterSmoother overdubMixSmoother;
+
     float* buffer = static_cast<float*>(outputBuffer);
-    
+
     if (status) {
         std::cout << "Stream underflow detected!" << std::endl;
     }
-    
+
     // Process pending MIDI messages first
     if (midiHandler) {
         midiHandler->processMessages(onNoteOn, onNoteOff, onControlChange);
     }
     
     // Update synth parameters from UI (atomic reads are thread-safe)
+    // Use smoothers to prevent zipper noise
     if (synth && synthParams) {
+        // Initialize smoothers on first run
+        if (!smoothersInitialized) {
+            attackSmoother.reset(synthParams->attack.load());
+            decaySmoother.reset(synthParams->decay.load());
+            sustainSmoother.reset(synthParams->sustain.load());
+            releaseSmoother.reset(synthParams->release.load());
+            masterVolumeSmoother.reset(synthParams->masterVolume.load());
+            brainwaveFreqSmoother.reset(synthParams->brainwaveFreq.load());
+            brainwaveMorphSmoother.reset(synthParams->brainwaveMorph.load());
+            brainwaveDutySmoother.reset(synthParams->brainwaveDuty.load());
+            reverbDelayTimeSmoother.reset(synthParams->reverbDelayTime.load());
+            reverbSizeSmoother.reset(synthParams->reverbSize.load());
+            reverbDampingSmoother.reset(synthParams->reverbDamping.load());
+            reverbMixSmoother.reset(synthParams->reverbMix.load());
+            reverbDecaySmoother.reset(synthParams->reverbDecay.load());
+            reverbDiffusionSmoother.reset(synthParams->reverbDiffusion.load());
+            reverbModDepthSmoother.reset(synthParams->reverbModDepth.load());
+            reverbModFreqSmoother.reset(synthParams->reverbModFreq.load());
+            filterCutoffSmoother.reset(synthParams->filterCutoff.load());
+            filterGainSmoother.reset(synthParams->filterGain.load());
+            overdubMixSmoother.reset(synthParams->overdubMix.load());
+            smoothersInitialized = true;
+        }
+
+        // Update smoother targets from atomic parameters
+        attackSmoother.setTarget(synthParams->attack.load());
+        decaySmoother.setTarget(synthParams->decay.load());
+        sustainSmoother.setTarget(synthParams->sustain.load());
+        releaseSmoother.setTarget(synthParams->release.load());
+        masterVolumeSmoother.setTarget(synthParams->masterVolume.load());
+        brainwaveFreqSmoother.setTarget(synthParams->brainwaveFreq.load());
+        brainwaveMorphSmoother.setTarget(synthParams->brainwaveMorph.load());
+        brainwaveDutySmoother.setTarget(synthParams->brainwaveDuty.load());
+        reverbDelayTimeSmoother.setTarget(synthParams->reverbDelayTime.load());
+        reverbSizeSmoother.setTarget(synthParams->reverbSize.load());
+        reverbDampingSmoother.setTarget(synthParams->reverbDamping.load());
+        reverbMixSmoother.setTarget(synthParams->reverbMix.load());
+        reverbDecaySmoother.setTarget(synthParams->reverbDecay.load());
+        reverbDiffusionSmoother.setTarget(synthParams->reverbDiffusion.load());
+        reverbModDepthSmoother.setTarget(synthParams->reverbModDepth.load());
+        reverbModFreqSmoother.setTarget(synthParams->reverbModFreq.load());
+        filterCutoffSmoother.setTarget(synthParams->filterCutoff.load());
+        filterGainSmoother.setTarget(synthParams->filterGain.load());
+        overdubMixSmoother.setTarget(synthParams->overdubMix.load());
+
+        // Process smoothers (one step per audio callback)
+        float smoothedAttack = attackSmoother.process();
+        float smoothedDecay = decaySmoother.process();
+        float smoothedSustain = sustainSmoother.process();
+        float smoothedRelease = releaseSmoother.process();
+        float smoothedMasterVolume = masterVolumeSmoother.process();
+        float smoothedBrainwaveFreq = brainwaveFreqSmoother.process();
+        float smoothedBrainwaveMorph = brainwaveMorphSmoother.process();
+        float smoothedBrainwaveDuty = brainwaveDutySmoother.process();
+        float smoothedReverbDelayTime = reverbDelayTimeSmoother.process();
+        float smoothedReverbSize = reverbSizeSmoother.process();
+        float smoothedReverbDamping = reverbDampingSmoother.process();
+        float smoothedReverbMix = reverbMixSmoother.process();
+        float smoothedReverbDecay = reverbDecaySmoother.process();
+        float smoothedReverbDiffusion = reverbDiffusionSmoother.process();
+        float smoothedReverbModDepth = reverbModDepthSmoother.process();
+        float smoothedReverbModFreq = reverbModFreqSmoother.process();
+        float smoothedFilterCutoff = filterCutoffSmoother.process();
+        float smoothedFilterGain = filterGainSmoother.process();
+
+        // Update synth with smoothed values
         synth->updateEnvelopeParameters(
-            synthParams->attack.load(),
-            synthParams->decay.load(),
-            synthParams->sustain.load(),
-            synthParams->release.load()
+            smoothedAttack,
+            smoothedDecay,
+            smoothedSustain,
+            smoothedRelease
         );
-        synth->setMasterVolume(synthParams->masterVolume.load());
-        
-        // Update brainwave oscillator parameters
+        synth->setMasterVolume(smoothedMasterVolume);
+
+        // Update brainwave oscillator parameters (discrete params not smoothed)
         synth->updateBrainwaveParameters(
             static_cast<BrainwaveMode>(synthParams->brainwaveMode.load()),
-            synthParams->brainwaveFreq.load(),
-            synthParams->brainwaveMorph.load(),
-            synthParams->brainwaveDuty.load(),
+            smoothedBrainwaveFreq,
+            smoothedBrainwaveMorph,
+            smoothedBrainwaveDuty,
             synthParams->brainwaveOctave.load(),
             synthParams->brainwaveLFOEnabled.load(),
             synthParams->brainwaveLFOSpeed.load()
         );
-        
-        // Update reverb parameters
+
+        // Update reverb parameters (discrete params not smoothed)
         synth->setReverbEnabled(synthParams->reverbEnabled.load());
         synth->updateReverbParameters(
-            synthParams->reverbDelayTime.load(),
-            synthParams->reverbSize.load(),
-            synthParams->reverbDamping.load(),
-            synthParams->reverbMix.load(),
-            synthParams->reverbDecay.load(),
-            synthParams->reverbDiffusion.load(),
-            synthParams->reverbModDepth.load(),
-            synthParams->reverbModFreq.load()
+            smoothedReverbDelayTime,
+            smoothedReverbSize,
+            smoothedReverbDamping,
+            smoothedReverbMix,
+            smoothedReverbDecay,
+            smoothedReverbDiffusion,
+            smoothedReverbModDepth,
+            smoothedReverbModFreq
         );
-        
-        // Update filter parameters
+
+        // Update filter parameters (discrete params not smoothed)
         synth->setFilterEnabled(synthParams->filterEnabled.load());
         synth->updateFilterParameters(
             synthParams->filterType.load(),
-            synthParams->filterCutoff.load(),
-            synthParams->filterGain.load()
+            smoothedFilterCutoff,
+            smoothedFilterGain
         );
     }
-    
+
     // Update looper parameters
     if (loopManager && synthParams) {
         loopManager->selectLoop(synthParams->currentLoop.load());
-        loopManager->setOverdubMix(synthParams->overdubMix.load());
+        float smoothedOverdubMix = overdubMixSmoother.process();
+        loopManager->setOverdubMix(smoothedOverdubMix);
     }
     
     // Generate audio from synth (with effects) into temp buffer
