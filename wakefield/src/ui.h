@@ -82,6 +82,11 @@ struct SynthParameters {
     std::atomic<bool> midiLearnActive{false};
     std::atomic<int> midiLearnParameterId{-1};  // Which parameter ID to learn (-1 = none)
     std::atomic<double> midiLearnStartTime{0.0};  // Timestamp when MIDI learn started
+
+    // MIDI CC mappings for all parameters (parameter ID -> CC number, -1 means not mapped)
+    std::atomic<int> parameterCCMap[50];  // Support up to 50 parameters
+
+    // Legacy - keep for backwards compatibility
     std::atomic<int> filterCutoffCC{-1};  // Which CC controls filter cutoff (-1 = none)
     
     // Legacy MIDI learn for compatibility
@@ -108,6 +113,13 @@ struct SynthParameters {
     std::atomic<int> brainwaveOctave{0};       // -3 to +3 octave offset (0 = no shift)
     std::atomic<bool> brainwaveLFOEnabled{false};
     std::atomic<int> brainwaveLFOSpeed{0};     // 0-9 index
+
+    // Constructor to initialize CC map
+    SynthParameters() {
+        for (int i = 0; i < 50; ++i) {
+            parameterCCMap[i] = -1;  // -1 means no CC assigned
+        }
+    }
 };
 
 enum class UIPage {
@@ -145,6 +157,9 @@ public:
     
     // Add message to console
     void addConsoleMessage(const std::string& message);
+
+    // Get parameter name by ID (public for MIDI handler)
+    std::string getParameterName(int id);
     
     // Waveform buffer for oscilloscope
     void writeToWaveformBuffer(float sample);

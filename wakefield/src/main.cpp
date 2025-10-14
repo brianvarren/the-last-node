@@ -83,6 +83,125 @@ void restartWithNewDevices(int audioDeviceId, int midiPort, SynthParameters* par
     std::cerr << "Failed to restart application\n";
 }
 
+// Helper function to map MIDI CC value (0-127) to parameter range
+float mapCCToParameter(int ccValue, float minVal, float maxVal, bool logarithmic = false) {
+    float normalized = ccValue / 127.0f;  // 0.0 to 1.0
+
+    if (logarithmic) {
+        // Logarithmic mapping (for frequency-like parameters)
+        float logMin = std::log(minVal);
+        float logMax = std::log(maxVal);
+        return std::exp(logMin + normalized * (logMax - logMin));
+    } else {
+        // Linear mapping
+        return minVal + normalized * (maxVal - minVal);
+    }
+}
+
+// Helper function to apply MIDI CC to a parameter
+void applyMIDICCToParameter(int paramId, int ccValue) {
+    if (!synthParams) return;
+
+    switch (paramId) {
+        // MAIN page parameters
+        case 1:  // Waveform (ENUM 0-3)
+            synthParams->waveform = static_cast<int>(mapCCToParameter(ccValue, 0, 3));
+            break;
+        case 2:  // Attack (exponential)
+            synthParams->attack = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+            break;
+        case 3:  // Decay (exponential)
+            synthParams->decay = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+            break;
+        case 4:  // Sustain (linear)
+            synthParams->sustain = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 5:  // Release (exponential)
+            synthParams->release = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+            break;
+        case 6:  // Master Volume (linear)
+            synthParams->masterVolume = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+
+        // BRAINWAVE page parameters
+        case 10:  // Mode (ENUM 0-1)
+            synthParams->brainwaveMode = static_cast<int>(mapCCToParameter(ccValue, 0, 1));
+            break;
+        case 11:  // Frequency (logarithmic)
+            synthParams->brainwaveFreq = mapCCToParameter(ccValue, 20.0f, 2000.0f, true);
+            break;
+        case 12:  // Morph (linear)
+            synthParams->brainwaveMorph = mapCCToParameter(ccValue, 0.0001f, 0.9999f);
+            break;
+        case 13:  // Duty (linear)
+            synthParams->brainwaveDuty = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 14:  // Octave (INT -3 to 3)
+            synthParams->brainwaveOctave = static_cast<int>(mapCCToParameter(ccValue, -3, 3));
+            break;
+        case 15:  // LFO Enabled (BOOL)
+            synthParams->brainwaveLFOEnabled = (ccValue > 63);
+            break;
+        case 16:  // LFO Speed (INT 0-9)
+            synthParams->brainwaveLFOSpeed = static_cast<int>(mapCCToParameter(ccValue, 0, 9));
+            break;
+
+        // REVERB page parameters
+        case 20:  // Reverb Type (ENUM 0-4)
+            synthParams->reverbType = static_cast<int>(mapCCToParameter(ccValue, 0, 4));
+            break;
+        case 21:  // Reverb Enabled (BOOL)
+            synthParams->reverbEnabled = (ccValue > 63);
+            break;
+        case 22:  // Delay Time (linear)
+            synthParams->reverbDelayTime = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 23:  // Size (linear)
+            synthParams->reverbSize = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 24:  // Damping (linear)
+            synthParams->reverbDamping = mapCCToParameter(ccValue, 0.0f, 0.99f);
+            break;
+        case 25:  // Mix (linear)
+            synthParams->reverbMix = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 26:  // Decay (linear)
+            synthParams->reverbDecay = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 27:  // Diffusion (linear)
+            synthParams->reverbDiffusion = mapCCToParameter(ccValue, 0.0f, 0.99f);
+            break;
+        case 28:  // Mod Depth (linear)
+            synthParams->reverbModDepth = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 29:  // Mod Freq (linear)
+            synthParams->reverbModFreq = mapCCToParameter(ccValue, 0.0f, 10.0f);
+            break;
+
+        // FILTER page parameters
+        case 30:  // Filter Type (ENUM 0-3)
+            synthParams->filterType = static_cast<int>(mapCCToParameter(ccValue, 0, 3));
+            break;
+        case 31:  // Filter Enabled (BOOL)
+            synthParams->filterEnabled = (ccValue > 63);
+            break;
+        case 32:  // Cutoff (logarithmic)
+            synthParams->filterCutoff = mapCCToParameter(ccValue, 20.0f, 20000.0f, true);
+            break;
+        case 33:  // Gain (linear)
+            synthParams->filterGain = mapCCToParameter(ccValue, -24.0f, 24.0f);
+            break;
+
+        // LOOPER page parameters
+        case 40:  // Current Loop (INT 0-3)
+            synthParams->currentLoop = static_cast<int>(mapCCToParameter(ccValue, 0, 3));
+            break;
+        case 41:  // Overdub Mix (linear)
+            synthParams->overdubMix = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+    }
+}
+
 // Callbacks for MIDI events
 void onNoteOn(int note, int velocity) {
     if (synth) {
@@ -103,14 +222,21 @@ void onControlChange(int controller, int value) {
     // Check if we're in the new unified MIDI learn mode
     if (synthParams->midiLearnActive.load()) {
         int paramId = synthParams->midiLearnParameterId.load();
-        
-        // Currently only filter cutoff (param ID 32) supports MIDI learn
-        if (paramId == 32) {
-            synthParams->filterCutoffCC = controller;
+
+        // Learn CC for any parameter
+        if (paramId >= 0 && paramId < 50) {
+            synthParams->parameterCCMap[paramId] = controller;
             synthParams->midiLearnActive = false;
             synthParams->midiLearnParameterId = -1;
+
+            // Also update legacy filterCutoffCC if it's the filter cutoff parameter
+            if (paramId == 32) {
+                synthParams->filterCutoffCC = controller;
+            }
+
             if (ui) {
-                ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Filter Cutoff");
+                std::string paramName = ui->getParameterName(paramId);
+                ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for " + paramName);
             }
             return;  // Exit early after learning
         }
@@ -147,7 +273,17 @@ void onControlChange(int controller, int value) {
         synthParams->loopMidiLearnTarget = -1;
     }
     
-    // Process CC messages if they're mapped to parameters
+    // Process CC messages - check if any parameter is mapped to this controller
+    // TODO: Add parameter smoothing at control rate (100Hz) to prevent zipper noise
+    // Current implementation: Atomic writes provide thread-safe direct updates
+    for (int paramId = 0; paramId < 50; ++paramId) {
+        int mappedCC = synthParams->parameterCCMap[paramId].load();
+        if (mappedCC >= 0 && mappedCC == controller) {
+            applyMIDICCToParameter(paramId, value);
+        }
+    }
+
+    // Legacy: Process CC messages if they're mapped to parameters
     int cutoffCC = synthParams->filterCutoffCC.load();
     if (cutoffCC >= 0 && controller == cutoffCC) {
         // Map MIDI CC value (0-127) to frequency range (20-20000 Hz) logarithmically

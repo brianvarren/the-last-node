@@ -925,44 +925,44 @@ void UI::finishTextInput() {
 void UI::initializeParameters() {
     parameters.clear();
     
-    // MAIN page parameters
-    parameters.push_back({1, ParamType::ENUM, "Waveform", "", 0, 3, {"Sine", "Square", "Sawtooth", "Triangle"}, false, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({2, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, false, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({3, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, false, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({4, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({5, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, false, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::MAIN)});
-    
-    // BRAINWAVE page parameters
-    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, false, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({14, ParamType::INT, "Octave", "", -3, 3, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({15, ParamType::BOOL, "LFO Enabled", "", 0, 1, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({16, ParamType::INT, "LFO Speed", "", 0, 9, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
-    
-    // REVERB page parameters  
-    parameters.push_back({20, ParamType::ENUM, "Reverb Type", "", 0, 4, {"Greyhole", "Plate", "Room", "Hall", "Spring"}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({21, ParamType::BOOL, "Reverb Enabled", "", 0, 1, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({22, ParamType::FLOAT, "Delay Time", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({23, ParamType::FLOAT, "Size", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({24, ParamType::FLOAT, "Damping", "", 0.0f, 0.99f, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({25, ParamType::FLOAT, "Mix", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({26, ParamType::FLOAT, "Decay", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({27, ParamType::FLOAT, "Diffusion", "", 0.0f, 0.99f, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({28, ParamType::FLOAT, "Mod Depth", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, false, static_cast<int>(UIPage::REVERB)});
-    
-    // FILTER page parameters
-    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 3, {"Lowpass", "Highpass", "High Shelf", "Low Shelf"}, false, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, false, static_cast<int>(UIPage::FILTER)});
+    // MAIN page parameters - ALL support MIDI learn
+    parameters.push_back({1, ParamType::ENUM, "Waveform", "", 0, 3, {"Sine", "Square", "Sawtooth", "Triangle"}, true, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({2, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({3, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({4, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({5, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
+
+    // BRAINWAVE page parameters - ALL support MIDI learn
+    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({14, ParamType::INT, "Octave", "", -3, 3, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({15, ParamType::BOOL, "LFO Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({16, ParamType::INT, "LFO Speed", "", 0, 9, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
+
+    // REVERB page parameters - ALL support MIDI learn
+    parameters.push_back({20, ParamType::ENUM, "Reverb Type", "", 0, 4, {"Greyhole", "Plate", "Room", "Hall", "Spring"}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({21, ParamType::BOOL, "Reverb Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({22, ParamType::FLOAT, "Delay Time", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({23, ParamType::FLOAT, "Size", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({24, ParamType::FLOAT, "Damping", "", 0.0f, 0.99f, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({25, ParamType::FLOAT, "Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({26, ParamType::FLOAT, "Decay", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({27, ParamType::FLOAT, "Diffusion", "", 0.0f, 0.99f, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({28, ParamType::FLOAT, "Mod Depth", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, true, static_cast<int>(UIPage::REVERB)});
+
+    // FILTER page parameters - ALL support MIDI learn
+    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 3, {"Lowpass", "Highpass", "High Shelf", "Low Shelf"}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({32, ParamType::FLOAT, "Cutoff", "Hz", 20.0f, 20000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({33, ParamType::FLOAT, "Gain", "dB", -24.0f, 24.0f, {}, false, static_cast<int>(UIPage::FILTER)});
-    
-    // LOOPER page parameters
-    parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, false, static_cast<int>(UIPage::LOOPER)});
-    parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::LOOPER)});
+    parameters.push_back({33, ParamType::FLOAT, "Gain", "dB", -24.0f, 24.0f, {}, true, static_cast<int>(UIPage::FILTER)});
+
+    // LOOPER page parameters - ALL support MIDI learn
+    parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
+    parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LOOPER)});
 }
 
 InlineParameter* UI::getParameter(int id) {
@@ -1198,6 +1198,11 @@ void UI::startMidiLearn(int id) {
 void UI::finishMidiLearn() {
     params->midiLearnActive = false;
     params->midiLearnParameterId = -1;
+}
+
+std::string UI::getParameterName(int id) {
+    InlineParameter* param = getParameter(id);
+    return param ? param->name : "Unknown";
 }
 
 void UI::writeToWaveformBuffer(float sample) {
