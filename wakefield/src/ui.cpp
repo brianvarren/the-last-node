@@ -208,7 +208,7 @@ void UI::handleInput(int ch) {
         startNumericInput(selectedParameterId);
         return;
     }
-    
+
     // 'L' key starts MIDI learn for current parameter
     if (ch == 'L' || ch == 'l') {
         startMidiLearn(selectedParameterId);
