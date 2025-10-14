@@ -122,167 +122,99 @@ void UI::setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>&
 }
 
 void UI::handleInput(int ch) {
-    const float smallStep = 0.01f;
-    const float largeStep = 0.1f;
-    
-    // Handle text input mode
+    // Handle preset text input mode
     if (textInputActive) {
         handleTextInput(ch);
         return;
     }
     
-    // Handle popup menu navigation
-    if (menuPopupActive) {
-        if (ch == KEY_UP) {
-            popupSelectedIndex--;
-            if (popupSelectedIndex < 0) popupSelectedIndex = popupItemCount - 1;
-            return;
-        } else if (ch == KEY_DOWN) {
-            popupSelectedIndex++;
-            if (popupSelectedIndex >= popupItemCount) popupSelectedIndex = 0;
-            return;
-        } else if (ch == '\n' || ch == KEY_ENTER) {
-            // Select current item
-            std::vector<std::string> items = getMenuItems(currentMenuType);
-            if (popupSelectedIndex >= 0 && popupSelectedIndex < static_cast<int>(items.size())) {
-                std::string selected = items[popupSelectedIndex];
-                
-                switch (currentMenuType) {
-                    case MenuType::WAVEFORM:
-                        if (selected == "Sine") params->waveform = static_cast<int>(Waveform::SINE);
-                        else if (selected == "Square") params->waveform = static_cast<int>(Waveform::SQUARE);
-                        else if (selected == "Sawtooth") params->waveform = static_cast<int>(Waveform::SAWTOOTH);
-                        else if (selected == "Triangle") params->waveform = static_cast<int>(Waveform::TRIANGLE);
-                        break;
-                    case MenuType::FILTER_TYPE:
-                        if (selected == "Lowpass") params->filterType = 0;
-                        else if (selected == "Highpass") params->filterType = 1;
-                        else if (selected == "High Shelf") params->filterType = 2;
-                        else if (selected == "Low Shelf") params->filterType = 3;
-                        break;
-                    case MenuType::REVERB_TYPE:
-                        if (selected == "Greyhole") params->reverbType = static_cast<int>(ReverbType::GREYHOLE);
-                        else if (selected == "Plate") params->reverbType = static_cast<int>(ReverbType::PLATE);
-                        else if (selected == "Room") params->reverbType = static_cast<int>(ReverbType::ROOM);
-                        else if (selected == "Hall") params->reverbType = static_cast<int>(ReverbType::HALL);
-                        else if (selected == "Spring") params->reverbType = static_cast<int>(ReverbType::SPRING);
-                        break;
-                    case MenuType::PRESET:
-                        if (selected == "[Save New...]") {
-                            startTextInput();
-                        } else {
-                            // Load preset
-                            loadPreset(selected);
-                            currentPresetName = selected;
-                        }
-                        break;
-                    case MenuType::AUDIO_DEVICE:
-                        // Find selected device in available list
-                        for (const auto& dev : availableAudioDevices) {
-                            if (selected.find(dev.second) != std::string::npos) {
-                                if (dev.first != currentAudioDeviceId) {
-                                    requestedAudioDeviceId = dev.first;
-                                    requestedMidiPortNum = currentMidiPortNum;  // Keep current MIDI
-                                    deviceChangeRequested = true;
-                                }
-                                break;
-                            }
-                        }
-                        break;
-                    case MenuType::MIDI_DEVICE:
-                        // Find selected device in available list
-                        for (const auto& dev : availableMidiDevices) {
-                            if (selected.find(dev.second) != std::string::npos) {
-                                if (dev.first != currentMidiPortNum) {
-                                    requestedAudioDeviceId = currentAudioDeviceId;  // Keep current audio
-                                    requestedMidiPortNum = dev.first;
-                                    deviceChangeRequested = true;
-                                }
-                                break;
-                            }
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-            closePopupMenu();
-            return;
+    // Handle numeric input mode for parameters
+    if (numericInputActive) {
+        if (ch == '\n' || ch == KEY_ENTER) {
+            finishNumericInput();
         } else if (ch == 27) {  // Escape key
-            closePopupMenu();
-            return;
+            numericInputActive = false;
+            numericInputBuffer.clear();
+        } else if (ch == KEY_BACKSPACE || ch == 127) {
+            if (!numericInputBuffer.empty()) {
+                numericInputBuffer.pop_back();
+            }
+        } else if (ch >= 32 && ch < 127) {  // Printable characters
+            if (numericInputBuffer.length() < 20) {
+                numericInputBuffer += static_cast<char>(ch);
+            }
         }
         return;
     }
     
-    // Page navigation (when no popup active)
-    if (ch == KEY_LEFT) {
-        if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::MAIN;
-        else if (currentPage == UIPage::REVERB) currentPage = UIPage::BRAINWAVE;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
-        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::LOOPER;
-        selectedRow = 0;
-        return;
-    } else if (ch == KEY_RIGHT) {
-        if (currentPage == UIPage::MAIN) currentPage = UIPage::BRAINWAVE;
-        else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::REVERB;
-        else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
-        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
-        selectedRow = 0;
-        return;
-    } else if (ch == '\t') {  // Tab key cycles forward
+    // Get current page parameter IDs
+    std::vector<int> pageParams = getParameterIdsForPage(currentPage);
+    
+    // Tab key cycles forward through pages
+    if (ch == '\t') {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::BRAINWAVE;
         else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
         else currentPage = UIPage::MAIN;
-        selectedRow = 0;
-        return;
-    }
-    
-    // Row navigation
-    if (ch == KEY_UP) {
-        selectedRow--;
-        if (selectedRow < 0) selectedRow = getSelectableRowCount() - 1;
-        return;
-    } else if (ch == KEY_DOWN) {
-        selectedRow++;
-        if (selectedRow >= getSelectableRowCount()) selectedRow = 0;
-        return;
-    } else if (ch == '\n' || ch == KEY_ENTER) {
-        // Open appropriate popup menu based on current page and selected row
-        if (currentPage == UIPage::MAIN) {
-            if (selectedRow == 0) openPopupMenu(MenuType::PRESET);
-            else if (selectedRow == 1) openPopupMenu(MenuType::WAVEFORM);
-        } else if (currentPage == UIPage::BRAINWAVE) {
-            // Toggle mode between FREE and KEY
-            if (selectedRow == 0) {
-                int currentMode = params->brainwaveMode.load();
-                params->brainwaveMode = (currentMode == 0) ? 1 : 0;
-            }
-        } else if (currentPage == UIPage::REVERB) {
-            if (selectedRow == 0) openPopupMenu(MenuType::REVERB_TYPE);
-        } else if (currentPage == UIPage::FILTER) {
-            if (selectedRow == 0) openPopupMenu(MenuType::FILTER_TYPE);
-        } else if (currentPage == UIPage::CONFIG) {
-            if (selectedRow == 0) openPopupMenu(MenuType::AUDIO_DEVICE);
-            else if (selectedRow == 1) openPopupMenu(MenuType::MIDI_DEVICE);
+        
+        // Set selected parameter to first parameter on new page
+        std::vector<int> newPageParams = getParameterIdsForPage(currentPage);
+        if (!newPageParams.empty()) {
+            selectedParameterId = newPageParams[0];
         }
         return;
     }
     
-    // Spacebar to toggle on/off (or rec/play for looper)
+    // Up/Down arrows navigate between parameters on current page
+    if (ch == KEY_UP) {
+        if (!pageParams.empty()) {
+            auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
+            if (it != pageParams.end() && it != pageParams.begin()) {
+                selectedParameterId = *(--it);
+            } else {
+                selectedParameterId = pageParams.back(); // Wrap to end
+            }
+        }
+        return;
+    } else if (ch == KEY_DOWN) {
+        if (!pageParams.empty()) {
+            auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
+            if (it != pageParams.end() && (it + 1) != pageParams.end()) {
+                selectedParameterId = *(++it);
+            } else {
+                selectedParameterId = pageParams.front(); // Wrap to beginning
+            }
+        }
+        return;
+    }
+    
+    // Left/Right arrows adjust parameter values
+    if (ch == KEY_LEFT) {
+        adjustParameter(selectedParameterId, false);
+        return;
+    } else if (ch == KEY_RIGHT) {
+        adjustParameter(selectedParameterId, true);
+        return;
+    }
+    
+    // Enter key starts numeric input for current parameter
+    if (ch == '\n' || ch == KEY_ENTER) {
+        startNumericInput(selectedParameterId);
+        return;
+    }
+    
+    // 'L' key starts MIDI learn for current parameter
+    if (ch == 'L' || ch == 'l') {
+        startMidiLearn(selectedParameterId);
+        return;
+    }
+    
+    // Transport and looping hotkeys (keep these)
     if (ch == ' ') {
-        if (currentPage == UIPage::BRAINWAVE) {
-            params->brainwaveLFOEnabled = !params->brainwaveLFOEnabled.load();
-        } else if (currentPage == UIPage::FILTER) {
-            params->filterEnabled = !params->filterEnabled.load();
-        } else if (currentPage == UIPage::REVERB) {
-            params->reverbEnabled = !params->reverbEnabled.load();
-        } else if (currentPage == UIPage::LOOPER) {
+        // Spacebar behavior depends on current page
+        if (currentPage == UIPage::LOOPER) {
             if (loopManager) {
                 Looper* loop = loopManager->getCurrentLoop();
                 if (loop) loop->pressRecPlay();
@@ -291,237 +223,14 @@ void UI::handleInput(int ch) {
         return;
     }
     
-    // Page-specific controls (keep letter key shortcuts)
-    if (currentPage == UIPage::MAIN) {
-        switch (ch) {
-            // Attack control (A/a) - exponential scaling for ambient
-            case 'A': {
-                float current = params->attack.load();
-                // Exponential scaling - multiply by 1.1 for smooth progression
-                params->attack = std::min(30.0f, current * 1.1f);
-                break;
-            }
-            case 'a': {
-                float current = params->attack.load();
-                // Exponential scaling - divide by 1.1 for smooth progression
-                params->attack = std::max(0.001f, current / 1.1f);
-                break;
-            }
-                
-            // Decay control (D/d) - exponential scaling for ambient
-            case 'D': {
-                float current = params->decay.load();
-                // Exponential scaling - multiply by 1.1 for smooth progression
-                params->decay = std::min(30.0f, current * 1.1f);
-                break;
-            }
-            case 'd': {
-                float current = params->decay.load();
-                // Exponential scaling - divide by 1.1 for smooth progression
-                params->decay = std::max(0.001f, current / 1.1f);
-                break;
-            }
-                
-            // Sustain control (S/s)
-            case 'S':
-                params->sustain = std::min(1.0f, params->sustain.load() + smallStep);
-                break;
-            case 's':
-                params->sustain = std::max(0.0f, params->sustain.load() - smallStep);
-                break;
-                
-            // Release control (R/r) - exponential scaling for ambient
-            case 'R': {
-                float current = params->release.load();
-                // Exponential scaling - multiply by 1.1 for smooth progression
-                params->release = std::min(30.0f, current * 1.1f);
-                break;
-            }
-            case 'r': {
-                float current = params->release.load();
-                // Exponential scaling - divide by 1.1 for smooth progression
-                params->release = std::max(0.001f, current / 1.1f);
-                break;
-            }
-                
-            // Master volume
-            case '+':
-            case '=':
-                params->masterVolume = std::min(1.0f, params->masterVolume.load() + smallStep);
-                break;
-            case '-':
-            case '_':
-                params->masterVolume = std::max(0.0f, params->masterVolume.load() - smallStep);
-                break;
-        }
-    } else if (currentPage == UIPage::BRAINWAVE) {
-        switch (ch) {
-            // Frequency (W/w) - exponential/musical scaling
-            case 'W': {
-                float current = params->brainwaveFreq.load();
-                // Use musical semitone ratio (2^(1/12) ≈ 1.059463)
-                params->brainwaveFreq = std::min(2000.0f, current * 1.059463f);
-                break;
-            }
-            case 'w': {
-                float current = params->brainwaveFreq.load();
-                // Use musical semitone ratio (2^(1/12) ≈ 1.059463)
-                params->brainwaveFreq = std::max(20.0f, current / 1.059463f);
-                break;
-            }
-                
-            // Morph (M/m) - clamped to 0.0001-0.9999
-            case 'M':
-                params->brainwaveMorph = std::min(0.9999f, params->brainwaveMorph.load() + smallStep);
-                break;
-            case 'm':
-                params->brainwaveMorph = std::max(0.0001f, params->brainwaveMorph.load() - smallStep);
-                break;
-                
-            // Duty (P/p)
-            case 'P':
-                params->brainwaveDuty = std::min(1.0f, params->brainwaveDuty.load() + smallStep);
-                break;
-            case 'p':
-                params->brainwaveDuty = std::max(0.0f, params->brainwaveDuty.load() - smallStep);
-                break;
-
-            // Octave (O/o) - bipolar control
-            case 'O':
-                params->brainwaveOctave = std::min(3, params->brainwaveOctave.load() + 1);
-                break;
-            case 'o':
-                params->brainwaveOctave = std::max(-3, params->brainwaveOctave.load() - 1);
-                break;
-                
-            // LFO Speed (L/l)
-            case 'L':
-                params->brainwaveLFOSpeed = std::min(9, params->brainwaveLFOSpeed.load() + 1);
-                break;
-            case 'l':
-                params->brainwaveLFOSpeed = std::max(0, params->brainwaveLFOSpeed.load() - 1);
-                break;
-        }
-    } else if (currentPage == UIPage::REVERB) {
-        switch (ch) {
-            // DelayTime (T/t)
-            case 'T':
-                params->reverbDelayTime = std::min(1.0f, params->reverbDelayTime.load() + smallStep);
-                break;
-            case 't':
-                params->reverbDelayTime = std::max(0.0f, params->reverbDelayTime.load() - smallStep);
-                break;
-                
-            // Size (Z/z)
-            case 'Z':
-                params->reverbSize = std::min(1.0f, params->reverbSize.load() + smallStep);
-                break;
-            case 'z':
-                params->reverbSize = std::max(0.0f, params->reverbSize.load() - smallStep);
-                break;
-                
-            // Damping (X/x)
-            case 'X':
-                params->reverbDamping = std::min(1.0f, params->reverbDamping.load() + smallStep);
-                break;
-            case 'x':
-                params->reverbDamping = std::max(0.0f, params->reverbDamping.load() - smallStep);
-                break;
-                
-            // Mix (C/c)
-            case 'C':
-                params->reverbMix = std::min(1.0f, params->reverbMix.load() + smallStep);
-                break;
-            case 'c':
-                params->reverbMix = std::max(0.0f, params->reverbMix.load() - smallStep);
-                break;
-                
-            // Decay (V/v)
-            case 'V':
-                params->reverbDecay = std::min(0.99f, params->reverbDecay.load() + smallStep);
-                break;
-            case 'v':
-                params->reverbDecay = std::max(0.0f, params->reverbDecay.load() - smallStep);
-                break;
-                
-            // Diffusion (B/b)
-            case 'B':
-                params->reverbDiffusion = std::min(0.99f, params->reverbDiffusion.load() + smallStep);
-                break;
-            case 'b':
-                params->reverbDiffusion = std::max(0.0f, params->reverbDiffusion.load() - smallStep);
-                break;
-                
-            // Mod Depth (N/n)
-            case 'N':
-                params->reverbModDepth = std::min(1.0f, params->reverbModDepth.load() + smallStep);
-                break;
-            case 'n':
-                params->reverbModDepth = std::max(0.0f, params->reverbModDepth.load() - smallStep);
-                break;
-                
-            // Mod Freq (M/m)
-            case 'M':
-                params->reverbModFreq = std::min(10.0f, params->reverbModFreq.load() + smallStep);
-                break;
-            case 'm':
-                params->reverbModFreq = std::max(0.0f, params->reverbModFreq.load() - smallStep);
-                break;
-        }
-    } else if (currentPage == UIPage::FILTER) {
-        switch (ch) {
-            // Cutoff (F/f) - logarithmic scaling for frequency
-            case 'F': {
-                float current = params->filterCutoff.load();
-                params->filterCutoff = std::min(20000.0f, current * 1.1f);
-                break;
-            }
-            case 'f': {
-                float current = params->filterCutoff.load();
-                params->filterCutoff = std::max(20.0f, current / 1.1f);
-                break;
-            }
-                
-            // Gain (G/g) - for shelf filters
-            case 'G':
-                params->filterGain = std::min(24.0f, params->filterGain.load() + 1.0f);
-                break;
-            case 'g':
-                params->filterGain = std::max(-24.0f, params->filterGain.load() - 1.0f);
-                break;
-                
-            // MIDI CC Learn (L/l)
-            case 'L':
-            case 'l':
-                params->ccLearnMode = !params->ccLearnMode.load();
-                if (params->ccLearnMode.load()) {
-                    params->ccLearnTarget = 0;  // 0 = filter cutoff
-                } else {
-                    params->ccLearnTarget = -1;
-                }
-                break;
-                
-            // Clear CC mapping
-            case 'K':
-            case 'k':
-                params->filterCutoffCC = -1;
-                break;
-        }
-    } else if (currentPage == UIPage::LOOPER) {
+    // Looper-specific hotkeys (only active on looper page)
+    if (currentPage == UIPage::LOOPER) {
         switch (ch) {
             // Loop selection (1-4)
-            case '1':
-                params->currentLoop = 0;
-                break;
-            case '2':
-                params->currentLoop = 1;
-                break;
-            case '3':
-                params->currentLoop = 2;
-                break;
-            case '4':
-                params->currentLoop = 3;
-                break;
+            case '1': params->currentLoop = 0; break;
+            case '2': params->currentLoop = 1; break;
+            case '3': params->currentLoop = 2; break;
+            case '4': params->currentLoop = 3; break;
                 
             // Overdub toggle (O/o)
             case 'O':
@@ -556,27 +265,6 @@ void UI::handleInput(int ch) {
                 break;
             case ']':
                 params->overdubMix = std::min(1.0f, params->overdubMix.load() + 0.05f);
-                break;
-                
-            // MIDI Learn (M/m) - cycles through targets
-            case 'M':
-            case 'm':
-                if (!params->loopMidiLearnMode.load()) {
-                    // Start learning with first target (rec/play)
-                    params->loopMidiLearnMode = true;
-                    params->loopMidiLearnTarget = 0;
-                } else {
-                    // Cycle to next target
-                    int target = params->loopMidiLearnTarget.load();
-                    target++;
-                    if (target > 3) {
-                        // Done cycling, exit learn mode
-                        params->loopMidiLearnMode = false;
-                        params->loopMidiLearnTarget = -1;
-                    } else {
-                        params->loopMidiLearnTarget = target;
-                    }
-                }
                 break;
         }
     }
@@ -1729,6 +1417,144 @@ void UI::setParameterValue(int id, float value) {
         case 40: params->currentLoop = static_cast<int>(value); break;
         case 41: params->overdubMix = value; break;
     }
+}
+
+void UI::adjustParameter(int id, bool increase) {
+    InlineParameter* param = getParameter(id);
+    if (!param) return;
+    
+    float currentValue = getParameterValue(id);
+    float newValue = currentValue;
+    
+    switch (param->type) {
+        case ParamType::FLOAT: {
+            float step = (param->max_val - param->min_val) * 0.01f; // 1% steps
+            
+            // Special exponential handling for certain parameters
+            if (id == 2 || id == 3 || id == 5) { // Attack, Decay, Release - exponential scaling
+                if (increase) {
+                    newValue = std::min(param->max_val, currentValue * 1.1f);
+                } else {
+                    newValue = std::max(param->min_val, currentValue / 1.1f);
+                }
+            } else if (id == 11) { // Brainwave frequency - musical scaling
+                if (increase) {
+                    newValue = std::min(param->max_val, currentValue * 1.059463f); // semitone ratio
+                } else {
+                    newValue = std::max(param->min_val, currentValue / 1.059463f);
+                }
+            } else if (id == 32) { // Filter cutoff - logarithmic scaling
+                if (increase) {
+                    newValue = std::min(param->max_val, currentValue * 1.1f);
+                } else {
+                    newValue = std::max(param->min_val, currentValue / 1.1f);
+                }
+            } else {
+                // Linear scaling for other parameters
+                if (increase) {
+                    newValue = std::min(param->max_val, currentValue + step);
+                } else {
+                    newValue = std::max(param->min_val, currentValue - step);
+                }
+            }
+            break;
+        }
+        case ParamType::INT: {
+            int intValue = static_cast<int>(currentValue);
+            if (increase) {
+                intValue = std::min(static_cast<int>(param->max_val), intValue + 1);
+            } else {
+                intValue = std::max(static_cast<int>(param->min_val), intValue - 1);
+            }
+            newValue = static_cast<float>(intValue);
+            break;
+        }
+        case ParamType::ENUM: {
+            int enumValue = static_cast<int>(currentValue);
+            if (increase) {
+                enumValue = std::min(static_cast<int>(param->max_val), enumValue + 1);
+            } else {
+                enumValue = std::max(static_cast<int>(param->min_val), enumValue - 1);
+            }
+            newValue = static_cast<float>(enumValue);
+            break;
+        }
+        case ParamType::BOOL: {
+            newValue = (currentValue > 0.5f) ? 0.0f : 1.0f;
+            break;
+        }
+    }
+    
+    setParameterValue(id, newValue);
+}
+
+std::string UI::getParameterDisplayString(int id) {
+    InlineParameter* param = getParameter(id);
+    if (!param) return "";
+    
+    float value = getParameterValue(id);
+    
+    switch (param->type) {
+        case ParamType::FLOAT: {
+            if (param->unit.empty()) {
+                return std::to_string(value);
+            } else {
+                return std::to_string(value) + " " + param->unit;
+            }
+        }
+        case ParamType::INT: {
+            return std::to_string(static_cast<int>(value));
+        }
+        case ParamType::ENUM: {
+            int enumIndex = static_cast<int>(value);
+            if (enumIndex >= 0 && enumIndex < static_cast<int>(param->enum_values.size())) {
+                return param->enum_values[enumIndex];
+            }
+            return "Unknown";
+        }
+        case ParamType::BOOL: {
+            return (value > 0.5f) ? "ON" : "OFF";
+        }
+    }
+    return "";
+}
+
+void UI::startNumericInput(int id) {
+    numericInputActive = true;
+    selectedParameterId = id;
+    numericInputBuffer.clear();
+}
+
+void UI::finishNumericInput() {
+    if (!numericInputActive) return;
+    
+    InlineParameter* param = getParameter(selectedParameterId);
+    if (param && !numericInputBuffer.empty()) {
+        try {
+            float value = std::stof(numericInputBuffer);
+            value = std::max(param->min_val, std::min(param->max_val, value));
+            setParameterValue(selectedParameterId, value);
+        } catch (...) {
+            // Invalid input, ignore
+        }
+    }
+    
+    numericInputActive = false;
+    numericInputBuffer.clear();
+}
+
+void UI::startMidiLearn(int id) {
+    InlineParameter* param = getParameter(id);
+    if (param && param->supports_midi_learn) {
+        midiLearnActive = true;
+        midiLearnParameterId = id;
+        addConsoleMessage("MIDI Learn active for " + param->name + " - move a controller");
+    }
+}
+
+void UI::finishMidiLearn() {
+    midiLearnActive = false;
+    midiLearnParameterId = -1;
 }
 
 void UI::writeToWaveformBuffer(float sample) {
