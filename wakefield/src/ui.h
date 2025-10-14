@@ -28,15 +28,25 @@ enum class ReverbType {
     SPRING = 4
 };
 
-// Menu types for popup menus
-enum class MenuType {
-    NONE,
-    WAVEFORM,
-    FILTER_TYPE,
-    REVERB_TYPE,
-    PRESET,
-    AUDIO_DEVICE,
-    MIDI_DEVICE
+// Parameter types for inline editing
+enum class ParamType {
+    FLOAT,
+    INT, 
+    ENUM,
+    BOOL
+};
+
+// Inline parameter definition
+struct InlineParameter {
+    int id;
+    ParamType type;
+    std::string name;
+    std::string unit;
+    float min_val;
+    float max_val;
+    std::vector<std::string> enum_values; // For enum type
+    bool supports_midi_learn;
+    int page; // Which UIPage this parameter belongs to
 };
 
 // Parameters that can be controlled via UI
@@ -88,7 +98,7 @@ struct SynthParameters {
     // Brainwave oscillator parameters
     std::atomic<int> brainwaveMode{0};         // 0=FREE, 1=KEY
     std::atomic<float> brainwaveFreq{440.0f};  // Base frequency or offset (20-2000 Hz)
-    std::atomic<float> brainwaveMorph{0.5f};   // 0.0-1.0, maps to frames 0-255
+    std::atomic<float> brainwaveMorph{0.5f};   // 0.0001-0.9999, maps to frames 0-255
     std::atomic<float> brainwaveDuty{0.5f};    // 0.0-1.0, pulse width
     std::atomic<int> brainwaveOctave{0};       // -3 to +3 octave offset (0 = no shift)
     std::atomic<bool> brainwaveLFOEnabled{false};
@@ -101,8 +111,7 @@ enum class UIPage {
     REVERB,
     FILTER,
     LOOPER,
-    CONFIG,
-    TEST
+    CONFIG
 };
 
 class UI {
@@ -120,11 +129,6 @@ public:
     // Draw the UI
     void draw(int activeVoices);
     
-    // Update test oscillator (call before draw)
-    void updateTestOscillator(float deltaTime);
-    
-    // Update brainwave oscilloscope (call before draw)
-    void updateBrainwaveOscilloscope(float deltaTime);
     
     // Set device info
     void setDeviceInfo(const std::string& audioDevice, int sampleRate, int bufferSize,
@@ -174,12 +178,12 @@ private:
     std::mutex consoleMutex;
     static const int MAX_CONSOLE_MESSAGES = 5;
     
-    // Menu navigation state
-    int selectedRow;
-    bool menuPopupActive;
-    int popupSelectedIndex;
-    int popupItemCount;
-    MenuType currentMenuType;
+    // Parameter navigation state  
+    int selectedParameterId;
+    bool numericInputActive;
+    std::string numericInputBuffer;
+    bool midiLearnActive;
+    int midiLearnParameterId;
     
     // Preset management
     std::string currentPresetName;
@@ -187,18 +191,6 @@ private:
     bool textInputActive;
     std::string textInputBuffer;
     
-    // Test oscilloscope state
-    static const int SCOPE_WIDTH = 80;
-    static const int SCOPE_HEIGHT = 20;
-    static const int BRAIN_SCOPE_WIDTH = 64;
-    static const int BRAIN_SCOPE_HEIGHT = 40;
-    float testOscPhase;
-    float testOscFreq;
-    float scopeFadeTime;
-    float scopeBuffer[80][20];  // intensity buffer for fade effect
-    
-    // Brainwave oscilloscope
-    float scopeBuffer2[BRAIN_SCOPE_WIDTH][BRAIN_SCOPE_HEIGHT];  // second scope buffer for brainwave page
     static const int WAVEFORM_BUFFER_SIZE = 8192;
     std::vector<float> waveformBuffer;
     std::atomic<int> waveformBufferWritePos;
@@ -224,22 +216,26 @@ private:
     void drawFilterPage();
     void drawLooperPage();
     void drawConfigPage();
-    void drawTestPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawConsole();
     void drawHotkeyLine();
     
-    // Popup menu helpers
-    void drawPopupMenu(const std::vector<std::string>& items, const std::string& title);
-    void openPopupMenu(MenuType menuType);
-    void closePopupMenu();
+    // Preset management helpers
     void refreshPresetList();
     
-    // Helper to get menu items for a given menu type
-    std::vector<std::string> getMenuItems(MenuType menuType);
-    
-    // Helper to get selectable row count for current page
-    int getSelectableRowCount();
+    // Parameter management
+    std::vector<InlineParameter> parameters;
+    void initializeParameters();
+    InlineParameter* getParameter(int id);
+    std::vector<int> getParameterIdsForPage(UIPage page);
+    void adjustParameter(int id, bool increase);
+    void setParameterValue(int id, float value);
+    float getParameterValue(int id);
+    std::string getParameterDisplayString(int id);
+    void startNumericInput(int id);
+    void finishNumericInput();
+    void startMidiLearn(int id);
+    void finishMidiLearn();
 };
 
 #endif // UI_H

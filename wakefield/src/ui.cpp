@@ -21,36 +21,24 @@ UI::UI(Synth* synth, SynthParameters* params)
     , midiPortNum(-1)
     , currentAudioDeviceId(-1)
     , currentMidiPortNum(-1)
-    , selectedRow(0)
-    , menuPopupActive(false)
-    , popupSelectedIndex(0)
-    , popupItemCount(0)
-    , currentMenuType(MenuType::NONE)
+    , selectedParameterId(0)
+    , numericInputActive(false)
+    , midiLearnActive(false)
+    , midiLearnParameterId(-1)
     , currentPresetName("None")
     , textInputActive(false)
     , deviceChangeRequested(false)
     , requestedAudioDeviceId(-1)
     , requestedMidiPortNum(-1)
-    , testOscPhase(0.0f)
-    , testOscFreq(0.2f)
-    , scopeFadeTime(2.0f)
     , waveformBuffer(WAVEFORM_BUFFER_SIZE, 0.0f)
     , waveformBufferWritePos(0) {
     
     // Load available presets
     refreshPresetList();
     
-    // Initialize oscilloscope buffers
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
-        for (int y = 0; y < SCOPE_HEIGHT; ++y) {
-            scopeBuffer[x][y] = 0.0f;
-        }
-    }
-    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
-        for (int y = 0; y < BRAIN_SCOPE_HEIGHT; ++y) {
-            scopeBuffer2[x][y] = 0.0f;
-        }
-    }
+    // Initialize parameter definitions
+    initializeParameters();
+    
 }
 
 UI::~UI() {
@@ -234,7 +222,6 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::CONFIG) currentPage = UIPage::LOOPER;
-        else if (currentPage == UIPage::TEST) currentPage = UIPage::CONFIG;
         selectedRow = 0;
         return;
     } else if (ch == KEY_RIGHT) {
@@ -243,7 +230,6 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
-        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::TEST;
         selectedRow = 0;
         return;
     } else if (ch == '\t') {  // Tab key cycles forward
@@ -252,7 +238,6 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
-        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::TEST;
         else currentPage = UIPage::MAIN;
         selectedRow = 0;
         return;
@@ -309,21 +294,33 @@ void UI::handleInput(int ch) {
     // Page-specific controls (keep letter key shortcuts)
     if (currentPage == UIPage::MAIN) {
         switch (ch) {
-            // Attack control (A/a)
-            case 'A':
-                params->attack = std::min(2.0f, params->attack.load() + largeStep);
+            // Attack control (A/a) - exponential scaling for ambient
+            case 'A': {
+                float current = params->attack.load();
+                // Exponential scaling - multiply by 1.1 for smooth progression
+                params->attack = std::min(30.0f, current * 1.1f);
                 break;
-            case 'a':
-                params->attack = std::max(0.001f, params->attack.load() - largeStep);
+            }
+            case 'a': {
+                float current = params->attack.load();
+                // Exponential scaling - divide by 1.1 for smooth progression
+                params->attack = std::max(0.001f, current / 1.1f);
                 break;
+            }
                 
-            // Decay control (D/d)
-            case 'D':
-                params->decay = std::min(2.0f, params->decay.load() + largeStep);
+            // Decay control (D/d) - exponential scaling for ambient
+            case 'D': {
+                float current = params->decay.load();
+                // Exponential scaling - multiply by 1.1 for smooth progression
+                params->decay = std::min(30.0f, current * 1.1f);
                 break;
-            case 'd':
-                params->decay = std::max(0.001f, params->decay.load() - largeStep);
+            }
+            case 'd': {
+                float current = params->decay.load();
+                // Exponential scaling - divide by 1.1 for smooth progression
+                params->decay = std::max(0.001f, current / 1.1f);
                 break;
+            }
                 
             // Sustain control (S/s)
             case 'S':
@@ -333,13 +330,19 @@ void UI::handleInput(int ch) {
                 params->sustain = std::max(0.0f, params->sustain.load() - smallStep);
                 break;
                 
-            // Release control (R/r)
-            case 'R':
-                params->release = std::min(2.0f, params->release.load() + largeStep);
+            // Release control (R/r) - exponential scaling for ambient
+            case 'R': {
+                float current = params->release.load();
+                // Exponential scaling - multiply by 1.1 for smooth progression
+                params->release = std::min(30.0f, current * 1.1f);
                 break;
-            case 'r':
-                params->release = std::max(0.001f, params->release.load() - largeStep);
+            }
+            case 'r': {
+                float current = params->release.load();
+                // Exponential scaling - divide by 1.1 for smooth progression
+                params->release = std::max(0.001f, current / 1.1f);
                 break;
+            }
                 
             // Master volume
             case '+':
@@ -353,24 +356,26 @@ void UI::handleInput(int ch) {
         }
     } else if (currentPage == UIPage::BRAINWAVE) {
         switch (ch) {
-            // Frequency (W/w) - logarithmic scaling
+            // Frequency (W/w) - exponential/musical scaling
             case 'W': {
                 float current = params->brainwaveFreq.load();
-                params->brainwaveFreq = std::min(2000.0f, current * 1.05f);
+                // Use musical semitone ratio (2^(1/12) ≈ 1.059463)
+                params->brainwaveFreq = std::min(2000.0f, current * 1.059463f);
                 break;
             }
             case 'w': {
                 float current = params->brainwaveFreq.load();
-                params->brainwaveFreq = std::max(20.0f, current / 1.05f);
+                // Use musical semitone ratio (2^(1/12) ≈ 1.059463)
+                params->brainwaveFreq = std::max(20.0f, current / 1.059463f);
                 break;
             }
                 
-            // Morph (M/m)
+            // Morph (M/m) - clamped to 0.0001-0.9999
             case 'M':
-                params->brainwaveMorph = std::min(1.0f, params->brainwaveMorph.load() + smallStep);
+                params->brainwaveMorph = std::min(0.9999f, params->brainwaveMorph.load() + smallStep);
                 break;
             case 'm':
-                params->brainwaveMorph = std::max(0.0f, params->brainwaveMorph.load() - smallStep);
+                params->brainwaveMorph = std::max(0.0001f, params->brainwaveMorph.load() - smallStep);
                 break;
                 
             // Duty (P/p)
@@ -574,16 +579,6 @@ void UI::handleInput(int ch) {
                 }
                 break;
         }
-    } else if (currentPage == UIPage::TEST) {
-        switch (ch) {
-            // Fade time control (F/f)
-            case 'F':
-                scopeFadeTime = std::min(5.0f, scopeFadeTime + 0.5f);
-                break;
-            case 'f':
-                scopeFadeTime = std::max(0.5f, scopeFadeTime - 0.5f);
-                break;
-        }
     }
 }
 
@@ -656,16 +651,6 @@ void UI::drawTabs() {
         attroff(COLOR_PAIR(6));
     }
     
-    // Test tab
-    if (currentPage == UIPage::TEST) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 49, " TEST ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 49, " TEST ");
-        attroff(COLOR_PAIR(6));
-    }
     
     // Fill rest of line
     for (int i = 44; i < cols; ++i) {
@@ -752,10 +737,10 @@ void UI::drawMainPage(int activeVoices) {
     attroff(A_BOLD);
     row++;
     
-    drawBar(row++, 2, "Attack  (A/a)", params->attack.load(), 0.0f, 2.0f, 20);
-    drawBar(row++, 2, "Decay   (D/d)", params->decay.load(), 0.0f, 2.0f, 20);
+    drawBar(row++, 2, "Attack  (A/a)", params->attack.load(), 0.0f, 30.0f, 20);
+    drawBar(row++, 2, "Decay   (D/d)", params->decay.load(), 0.0f, 30.0f, 20);
     drawBar(row++, 2, "Sustain (S/s)", params->sustain.load(), 0.0f, 1.0f, 20);
-    drawBar(row++, 2, "Release (R/r)", params->release.load(), 0.0f, 2.0f, 20);
+    drawBar(row++, 2, "Release (R/r)", params->release.load(), 0.0f, 30.0f, 20);
     
     row++;
     
@@ -825,7 +810,7 @@ void UI::drawBrainwavePage() {
     } else {
         drawBar(row++, 2, "Freq Offset (W/w)", params->brainwaveFreq.load(), 20.0f, 2000.0f, 20);
     }
-    drawBar(row++, 2, "Morph (M/m)     ", params->brainwaveMorph.load(), 0.0f, 1.0f, 20);
+    drawBar(row++, 2, "Morph (M/m)     ", params->brainwaveMorph.load(), 0.0001f, 0.9999f, 20);
     drawBar(row++, 2, "Duty (P/p)      ", params->brainwaveDuty.load(), 0.0f, 1.0f, 20);
     
     int octave = params->brainwaveOctave.load();
@@ -883,90 +868,6 @@ void UI::drawBrainwavePage() {
     mvprintw(row++, 2, "Space: Toggle LFO on/off");
     mvprintw(row++, 2, "L/l:   Adjust LFO speed");
     
-    row += 2;
-    
-    // Draw oscilloscope display
-    attron(A_BOLD);
-    mvprintw(row++, 1, "WAVEFORM DISPLAY");
-    attroff(A_BOLD);
-    row++;
-
-    int screenCols = getmaxx(stdscr);
-    int screenRows = getmaxy(stdscr);
-    int scopeStartX = screenCols * 3 / 5;
-    int scopeStartY = 4;
-    if (scopeStartX + BRAIN_SCOPE_WIDTH + 2 > screenCols) {
-        scopeStartX = std::max(2, screenCols - (BRAIN_SCOPE_WIDTH + 3));
-    }
-    scopeStartY = screenRows >= BRAIN_SCOPE_HEIGHT + 6 ? 4 : std::max(1, screenRows - (BRAIN_SCOPE_HEIGHT + 2));
-    
-    // Draw top border
-    mvaddch(scopeStartY, scopeStartX, '+');
-    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
-        mvaddch(scopeStartY, scopeStartX + 1 + x, '-');
-    }
-    mvaddch(scopeStartY, scopeStartX + 1 + BRAIN_SCOPE_WIDTH, '+');
-
-    // Draw scope content with grayscale fade
-    for (int y = 0; y < BRAIN_SCOPE_HEIGHT; ++y) {
-        mvaddch(scopeStartY + 1 + y, scopeStartX, '|');
-        
-        for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
-            float intensity = scopeBuffer2[x][y];
-            char displayChar = '+';
-            int colorPair = 7;
-            int attr = 0;
-            
-            if (intensity < 0.02f) {
-                // Too dim - show as space
-                displayChar = ' ';
-            } else if (COLORS >= 256) {
-                // Use 256-color mode - map intensity to 20 gray levels
-                int level = static_cast<int>(intensity * 19.0f);
-                if (level > 19) level = 19;
-                colorPair = 7 + level;
-                attr = (level >= 15) ? A_BOLD : A_NORMAL;
-            } else {
-                // Use 8-color mode with 6 distinct levels
-                if (intensity >= 0.83f) {
-                    colorPair = 12;  // Brightest - cyan bold
-                    attr = A_BOLD;
-                } else if (intensity >= 0.67f) {
-                    colorPair = 11;  // Very bright - white bold
-                    attr = A_BOLD;
-                } else if (intensity >= 0.5f) {
-                    colorPair = 10;  // Bright - white normal
-                    attr = A_NORMAL;
-                } else if (intensity >= 0.33f) {
-                    colorPair = 9;   // Medium - white dim
-                    attr = A_DIM;
-                } else if (intensity >= 0.17f) {
-                    colorPair = 8;   // Dim - black bold
-                    attr = A_BOLD;
-                } else {
-                    colorPair = 7;   // Very dim - black normal
-                    attr = A_NORMAL;
-                }
-            }
-            
-            if (displayChar != ' ') {
-                attron(COLOR_PAIR(colorPair) | attr);
-                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
-                attroff(COLOR_PAIR(colorPair) | attr);
-            } else {
-                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
-            }
-        }
-        
-        mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + BRAIN_SCOPE_WIDTH, '|');
-    }
-    
-    // Draw bottom border
-    mvaddch(scopeStartY + 1 + BRAIN_SCOPE_HEIGHT, scopeStartX, '+');
-    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
-        mvaddch(scopeStartY + 1 + BRAIN_SCOPE_HEIGHT, scopeStartX + 1 + x, '-');
-    }
-    mvaddch(scopeStartY + 1 + BRAIN_SCOPE_HEIGHT, scopeStartX + 1 + BRAIN_SCOPE_WIDTH, '+');
 }
 
 void UI::drawReverbPage() {
@@ -1438,9 +1339,6 @@ void UI::draw(int activeVoices) {
         case UIPage::CONFIG:
             drawConfigPage();
             break;
-        case UIPage::TEST:
-            drawTestPage();
-            break;
     }
     
     drawHotkeyLine();  // Always draw hotkey line at bottom
@@ -1513,7 +1411,6 @@ int UI::getSelectableRowCount() {
         case UIPage::REVERB: return 1;  // Reverb type
         case UIPage::FILTER: return 1;  // Filter type
         case UIPage::CONFIG: return 2;  // Audio and MIDI devices
-        case UIPage::TEST: return 0;  // No selectable rows
         default: return 0;
     }
 }
@@ -1701,210 +1598,142 @@ void UI::finishTextInput() {
     textInputBuffer.clear();
 }
 
+// Parameter management functions
+void UI::initializeParameters() {
+    parameters.clear();
+    
+    // MAIN page parameters
+    parameters.push_back({1, ParamType::ENUM, "Waveform", "", 0, 3, {"Sine", "Square", "Sawtooth", "Triangle"}, false, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({2, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, false, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({3, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, false, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({4, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({5, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, false, static_cast<int>(UIPage::MAIN)});
+    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::MAIN)});
+    
+    // BRAINWAVE page parameters
+    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, false, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({14, ParamType::INT, "Octave", "", -3, 3, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({15, ParamType::BOOL, "LFO Enabled", "", 0, 1, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
+    parameters.push_back({16, ParamType::INT, "LFO Speed", "", 0, 9, {}, false, static_cast<int>(UIPage::BRAINWAVE)});
+    
+    // REVERB page parameters  
+    parameters.push_back({20, ParamType::ENUM, "Reverb Type", "", 0, 4, {"Greyhole", "Plate", "Room", "Hall", "Spring"}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({21, ParamType::BOOL, "Reverb Enabled", "", 0, 1, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({22, ParamType::FLOAT, "Delay Time", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({23, ParamType::FLOAT, "Size", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({24, ParamType::FLOAT, "Damping", "", 0.0f, 0.99f, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({25, ParamType::FLOAT, "Mix", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({26, ParamType::FLOAT, "Decay", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({27, ParamType::FLOAT, "Diffusion", "", 0.0f, 0.99f, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({28, ParamType::FLOAT, "Mod Depth", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::REVERB)});
+    parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, false, static_cast<int>(UIPage::REVERB)});
+    
+    // FILTER page parameters
+    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 3, {"Lowpass", "Highpass", "High Shelf", "Low Shelf"}, false, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, false, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({32, ParamType::FLOAT, "Cutoff", "Hz", 20.0f, 20000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({33, ParamType::FLOAT, "Gain", "dB", -24.0f, 24.0f, {}, false, static_cast<int>(UIPage::FILTER)});
+    
+    // LOOPER page parameters
+    parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, false, static_cast<int>(UIPage::LOOPER)});
+    parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, false, static_cast<int>(UIPage::LOOPER)});
+}
+
+InlineParameter* UI::getParameter(int id) {
+    for (auto& param : parameters) {
+        if (param.id == id) {
+            return &param;
+        }
+    }
+    return nullptr;
+}
+
+std::vector<int> UI::getParameterIdsForPage(UIPage page) {
+    std::vector<int> ids;
+    int pageInt = static_cast<int>(page);
+    for (const auto& param : parameters) {
+        if (param.page == pageInt) {
+            ids.push_back(param.id);
+        }
+    }
+    return ids;
+}
+
+float UI::getParameterValue(int id) {
+    switch (id) {
+        case 1: return static_cast<float>(params->waveform.load());
+        case 2: return params->attack.load();
+        case 3: return params->decay.load();
+        case 4: return params->sustain.load();
+        case 5: return params->release.load();
+        case 6: return params->masterVolume.load();
+        case 10: return static_cast<float>(params->brainwaveMode.load());
+        case 11: return params->brainwaveFreq.load();
+        case 12: return params->brainwaveMorph.load();
+        case 13: return params->brainwaveDuty.load();
+        case 14: return static_cast<float>(params->brainwaveOctave.load());
+        case 15: return params->brainwaveLFOEnabled.load() ? 1.0f : 0.0f;
+        case 16: return static_cast<float>(params->brainwaveLFOSpeed.load());
+        case 20: return static_cast<float>(params->reverbType.load());
+        case 21: return params->reverbEnabled.load() ? 1.0f : 0.0f;
+        case 22: return params->reverbDelayTime.load();
+        case 23: return params->reverbSize.load();
+        case 24: return params->reverbDamping.load();
+        case 25: return params->reverbMix.load();
+        case 26: return params->reverbDecay.load();
+        case 27: return params->reverbDiffusion.load();
+        case 28: return params->reverbModDepth.load();
+        case 29: return params->reverbModFreq.load();
+        case 30: return static_cast<float>(params->filterType.load());
+        case 31: return params->filterEnabled.load() ? 1.0f : 0.0f;
+        case 32: return params->filterCutoff.load();
+        case 33: return params->filterGain.load();
+        case 40: return static_cast<float>(params->currentLoop.load());
+        case 41: return params->overdubMix.load();
+        default: return 0.0f;
+    }
+}
+
+void UI::setParameterValue(int id, float value) {
+    switch (id) {
+        case 1: params->waveform = static_cast<int>(value); break;
+        case 2: params->attack = value; break;
+        case 3: params->decay = value; break;
+        case 4: params->sustain = value; break;
+        case 5: params->release = value; break;
+        case 6: params->masterVolume = value; break;
+        case 10: params->brainwaveMode = static_cast<int>(value); break;
+        case 11: params->brainwaveFreq = value; break;
+        case 12: params->brainwaveMorph = value; break;
+        case 13: params->brainwaveDuty = value; break;
+        case 14: params->brainwaveOctave = static_cast<int>(value); break;
+        case 15: params->brainwaveLFOEnabled = (value > 0.5f); break;
+        case 16: params->brainwaveLFOSpeed = static_cast<int>(value); break;
+        case 20: params->reverbType = static_cast<int>(value); break;
+        case 21: params->reverbEnabled = (value > 0.5f); break;
+        case 22: params->reverbDelayTime = value; break;
+        case 23: params->reverbSize = value; break;
+        case 24: params->reverbDamping = value; break;
+        case 25: params->reverbMix = value; break;
+        case 26: params->reverbDecay = value; break;
+        case 27: params->reverbDiffusion = value; break;
+        case 28: params->reverbModDepth = value; break;
+        case 29: params->reverbModFreq = value; break;
+        case 30: params->filterType = static_cast<int>(value); break;
+        case 31: params->filterEnabled = (value > 0.5f); break;
+        case 32: params->filterCutoff = value; break;
+        case 33: params->filterGain = value; break;
+        case 40: params->currentLoop = static_cast<int>(value); break;
+        case 41: params->overdubMix = value; break;
+    }
+}
+
 void UI::writeToWaveformBuffer(float sample) {
     int pos = waveformBufferWritePos.load(std::memory_order_relaxed);
     waveformBuffer[pos] = sample;
     waveformBufferWritePos.store((pos + 1) % WAVEFORM_BUFFER_SIZE, std::memory_order_relaxed);
 }
 
-void UI::updateBrainwaveOscilloscope(float deltaTime) {
-    // Decay all pixels in the buffer based on fade time
-    // Decay existing pixels
-    float decayRate = 1.0f / scopeFadeTime;
-    float decayAmount = decayRate * deltaTime;
-
-    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
-        for (int y = 0; y < BRAIN_SCOPE_HEIGHT; ++y) {
-            scopeBuffer2[x][y] -= decayAmount;
-            if (scopeBuffer2[x][y] < 0.0f) {
-                scopeBuffer2[x][y] = 0.0f;
-            }
-        }
-    }
-
-    // Phase-locked rendering: maintain a stable trigger across frames
-    int writePos = waveformBufferWritePos.load(std::memory_order_relaxed);
-    int triggerPos = writePos;
-
-    for (int i = 0; i < WAVEFORM_BUFFER_SIZE; ++i) {
-        int index = (writePos - i + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
-        int prevIndex = (index - 1 + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
-        if (waveformBuffer[prevIndex] < 0.0f && waveformBuffer[index] >= 0.0f) {
-            triggerPos = index;
-            break;
-        }
-    }
-
-    int cycleSamples = -1;
-    for (int i = 1; i < WAVEFORM_BUFFER_SIZE; ++i) {
-        int index = (triggerPos + i) % WAVEFORM_BUFFER_SIZE;
-        int prevIndex = (index - 1 + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
-        if (waveformBuffer[prevIndex] < 0.0f && waveformBuffer[index] >= 0.0f) {
-            cycleSamples = i;
-            break;
-        }
-    }
-
-    if (cycleSamples <= 0) {
-        cycleSamples = WAVEFORM_BUFFER_SIZE / 8;
-    }
-
-    float samplesPerPixel = static_cast<float>(cycleSamples) / static_cast<float>(BRAIN_SCOPE_WIDTH);
-    float sampleCursor = static_cast<float>(triggerPos);
-
-    for (int x = 0; x < BRAIN_SCOPE_WIDTH; ++x) {
-        int bufferIndex = static_cast<int>(sampleCursor) % WAVEFORM_BUFFER_SIZE;
-        float waveValue = waveformBuffer[bufferIndex];
-        int yPos = static_cast<int>((BRAIN_SCOPE_HEIGHT / 2.0f) - (waveValue * (BRAIN_SCOPE_HEIGHT / 2.0f - 1.0f)));
-
-        if (yPos >= 0 && yPos < BRAIN_SCOPE_HEIGHT) {
-            scopeBuffer2[x][yPos] = 1.0f;
-        }
-
-        sampleCursor += samplesPerPixel;
-    }
-}
-
-void UI::updateTestOscillator(float deltaTime) {
-    // Advance oscillator phase
-    testOscPhase += 2.0f * M_PI * testOscFreq * deltaTime;
-    
-    // Wrap phase to maintain phase-lock (0 to 2π)
-    while (testOscPhase >= 2.0f * M_PI) {
-        testOscPhase -= 2.0f * M_PI;
-    }
-    
-    // Decay all pixels in the buffer based on fade time
-    float decayRate = 1.0f / scopeFadeTime;  // How fast to fade (per second)
-    float decayAmount = decayRate * deltaTime;
-    
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
-        for (int y = 0; y < SCOPE_HEIGHT; ++y) {
-            scopeBuffer[x][y] -= decayAmount;
-            if (scopeBuffer[x][y] < 0.0f) {
-                scopeBuffer[x][y] = 0.0f;
-            }
-        }
-    }
-    
-    // Calculate current sine wave value and position
-    float sineValue = std::sin(testOscPhase);  // -1 to +1
-    
-    // Map phase (0 to 2π) to horizontal position (0 to SCOPE_WIDTH-1)
-    int xPos = static_cast<int>((testOscPhase / (2.0f * M_PI)) * (SCOPE_WIDTH - 1));
-    
-    // Map sine value (-1 to +1) to vertical position (0 to SCOPE_HEIGHT-1)
-    // Center of display is at SCOPE_HEIGHT/2
-    int yPos = static_cast<int>((SCOPE_HEIGHT / 2) - (sineValue * (SCOPE_HEIGHT / 2 - 1)));
-    
-    // Clamp to buffer bounds
-    if (xPos >= 0 && xPos < SCOPE_WIDTH && yPos >= 0 && yPos < SCOPE_HEIGHT) {
-        scopeBuffer[xPos][yPos] = 1.0f;  // Maximum intensity at current position
-    }
-}
-
-void UI::drawTestPage() {
-    int row = 3;
-    
-    // Title
-    attron(A_BOLD);
-    mvprintw(row++, 1, "OSCILLOSCOPE TEST PAGE");
-    attroff(A_BOLD);
-    row++;
-    
-    // Info section
-    mvprintw(row++, 2, "Frequency: %.2f Hz", testOscFreq);
-    mvprintw(row++, 2, "Phase:     %.2f rad (%.1f deg)", testOscPhase, testOscPhase * 180.0f / M_PI);
-    row++;
-    
-    // Fade time control
-    drawBar(row++, 2, "Fade Time (F/f)", scopeFadeTime, 0.5f, 5.0f, 20);
-    row += 2;
-    
-    // Draw oscilloscope display
-    attron(A_BOLD);
-    mvprintw(row++, 1, "SCOPE DISPLAY");
-    attroff(A_BOLD);
-    row++;
-    
-    // Draw top border
-    int scopeStartX = 2;
-    int scopeStartY = row;
-    mvaddch(scopeStartY, scopeStartX, '+');
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
-        mvaddch(scopeStartY, scopeStartX + 1 + x, '-');
-    }
-    mvaddch(scopeStartY, scopeStartX + 1 + SCOPE_WIDTH, '+');
-    
-    // Draw scope content with grayscale fade
-    for (int y = 0; y < SCOPE_HEIGHT; ++y) {
-        mvaddch(scopeStartY + 1 + y, scopeStartX, '|');
-        
-        for (int x = 0; x < SCOPE_WIDTH; ++x) {
-            float intensity = scopeBuffer[x][y];
-            char displayChar = '+';
-            int colorPair = 7;
-            int attr = 0;
-            
-            if (intensity < 0.02f) {
-                // Too dim - show as space
-                displayChar = ' ';
-            } else if (COLORS >= 256) {
-                // Use 256-color mode - map intensity to 20 gray levels
-                int level = static_cast<int>(intensity * 19.0f);
-                if (level > 19) level = 19;
-                colorPair = 7 + level;
-                attr = (level >= 15) ? A_BOLD : A_NORMAL;
-            } else {
-                // Use 8-color mode with 6 distinct levels
-                if (intensity >= 0.83f) {
-                    colorPair = 12;  // Brightest - cyan bold
-                    attr = A_BOLD;
-                } else if (intensity >= 0.67f) {
-                    colorPair = 11;  // Very bright - white bold
-                    attr = A_BOLD;
-                } else if (intensity >= 0.5f) {
-                    colorPair = 10;  // Bright - white normal
-                    attr = A_NORMAL;
-                } else if (intensity >= 0.33f) {
-                    colorPair = 9;   // Medium - white dim
-                    attr = A_DIM;
-                } else if (intensity >= 0.17f) {
-                    colorPair = 8;   // Dim - black bold
-                    attr = A_BOLD;
-                } else {
-                    colorPair = 7;   // Very dim - black normal
-                    attr = A_NORMAL;
-                }
-            }
-            
-            if (displayChar != ' ') {
-                attron(COLOR_PAIR(colorPair) | attr);
-                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
-                attroff(COLOR_PAIR(colorPair) | attr);
-            } else {
-                mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + x, displayChar);
-            }
-        }
-        
-        mvaddch(scopeStartY + 1 + y, scopeStartX + 1 + SCOPE_WIDTH, '|');
-    }
-    
-    // Draw bottom border
-    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX, '+');
-    for (int x = 0; x < SCOPE_WIDTH; ++x) {
-        mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + x, '-');
-    }
-    mvaddch(scopeStartY + 1 + SCOPE_HEIGHT, scopeStartX + 1 + SCOPE_WIDTH, '+');
-    
-    // Instructions
-    row = scopeStartY + SCOPE_HEIGHT + 3;
-    attron(COLOR_PAIR(3));
-    mvprintw(row++, 2, "Use F/f to adjust fade time");
-    if (COLORS >= 256) {
-        mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave (256-color mode: 20 gray levels)", testOscFreq);
-    } else {
-        mvprintw(row++, 2, "The trace shows a phase-locked %.2f Hz sine wave (8-color mode: 6 gray levels)", testOscFreq);
-    }
-    attroff(COLOR_PAIR(3));
-}
