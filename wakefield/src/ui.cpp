@@ -23,8 +23,6 @@ UI::UI(Synth* synth, SynthParameters* params)
     , currentMidiPortNum(-1)
     , selectedParameterId(0)
     , numericInputActive(false)
-    , midiLearnActive(false)
-    , midiLearnParameterId(-1)
     , currentPresetName("None")
     , textInputActive(false)
     , deviceChangeRequested(false)
@@ -469,7 +467,7 @@ void UI::drawFilterPage() {
     drawParametersPage();
     
     // Show MIDI Learn status if active
-    if (midiLearnActive && midiLearnParameterId == 32) { // Filter cutoff
+    if (params->midiLearnActive.load() && params->midiLearnParameterId.load() == 32) { // Filter cutoff
         int row = 15;
         attron(COLOR_PAIR(3) | A_BOLD);
         mvprintw(row++, 2, ">>> MIDI LEARN ACTIVE <<<");
@@ -732,7 +730,7 @@ void UI::drawHotkeyLine() {
         mvprintw(row, 1, "Type value  |  Enter Confirm  |  Esc Cancel  |  Q Quit");
     } else if (textInputActive) {
         mvprintw(row, 1, "Type preset name  |  Enter Save  |  Esc Cancel  |  Q Quit");
-    } else if (midiLearnActive) {
+    } else if (params->midiLearnActive.load()) {
         mvprintw(row, 1, "Move MIDI controller to assign  |  Esc Cancel  |  Q Quit");
     } else {
         mvprintw(row, 1, "Tab Page  |  ↑↓ Param  |  ←→ Adjust  |  Enter Type  |  L Learn  |  Q Quit");
@@ -1160,15 +1158,15 @@ void UI::finishNumericInput() {
 void UI::startMidiLearn(int id) {
     InlineParameter* param = getParameter(id);
     if (param && param->supports_midi_learn) {
-        midiLearnActive = true;
-        midiLearnParameterId = id;
+        params->midiLearnActive = true;
+        params->midiLearnParameterId = id;
         addConsoleMessage("MIDI Learn active for " + param->name + " - move a controller");
     }
 }
 
 void UI::finishMidiLearn() {
-    midiLearnActive = false;
-    midiLearnParameterId = -1;
+    params->midiLearnActive = false;
+    params->midiLearnParameterId = -1;
 }
 
 void UI::writeToWaveformBuffer(float sample) {

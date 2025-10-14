@@ -100,7 +100,23 @@ void onNoteOff(int note) {
 void onControlChange(int controller, int value) {
     if (!synthParams) return;
     
-    // Check if we're in CC learn mode (filter)
+    // Check if we're in the new unified MIDI learn mode
+    if (synthParams->midiLearnActive.load()) {
+        int paramId = synthParams->midiLearnParameterId.load();
+        
+        // Currently only filter cutoff (param ID 32) supports MIDI learn
+        if (paramId == 32) {
+            synthParams->filterCutoffCC = controller;
+            synthParams->midiLearnActive = false;
+            synthParams->midiLearnParameterId = -1;
+            if (ui) {
+                ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Filter Cutoff");
+            }
+            return;  // Exit early after learning
+        }
+    }
+    
+    // Legacy: Check if we're in CC learn mode (filter) - for backwards compatibility
     if (synthParams->ccLearnMode.load() && synthParams->ccLearnTarget.load() == 0) {
         // Learn this CC for filter cutoff
         synthParams->filterCutoffCC = controller;

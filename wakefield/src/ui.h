@@ -78,10 +78,14 @@ struct SynthParameters {
     std::atomic<float> filterCutoff{1000.0f};
     std::atomic<float> filterGain{0.0f};  // For shelf filters (dB)
     
-    // MIDI CC Learn
+    // Generic MIDI CC Learn for new parameter system
+    std::atomic<bool> midiLearnActive{false};
+    std::atomic<int> midiLearnParameterId{-1};  // Which parameter ID to learn (-1 = none)
+    std::atomic<int> filterCutoffCC{-1};  // Which CC controls filter cutoff (-1 = none)
+    
+    // Legacy MIDI learn for compatibility
     std::atomic<bool> ccLearnMode{false};
     std::atomic<int> ccLearnTarget{-1};  // Which parameter to learn (-1 = none)
-    std::atomic<int> filterCutoffCC{-1};  // Which CC controls filter cutoff (-1 = none)
     
     // Looper parameters
     std::atomic<int> currentLoop{0};       // 0-3
@@ -182,8 +186,6 @@ private:
     int selectedParameterId;
     bool numericInputActive;
     std::string numericInputBuffer;
-    bool midiLearnActive;
-    int midiLearnParameterId;
     
     // Preset management
     std::string currentPresetName;
