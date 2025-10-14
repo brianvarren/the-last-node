@@ -81,6 +81,7 @@ struct SynthParameters {
     // Generic MIDI CC Learn for new parameter system
     std::atomic<bool> midiLearnActive{false};
     std::atomic<int> midiLearnParameterId{-1};  // Which parameter ID to learn (-1 = none)
+    std::atomic<double> midiLearnStartTime{0.0};  // Timestamp when MIDI learn started
     std::atomic<int> filterCutoffCC{-1};  // Which CC controls filter cutoff (-1 = none)
     
     // Legacy MIDI learn for compatibility

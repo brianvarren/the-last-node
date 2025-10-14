@@ -5,6 +5,7 @@
 #include "looper.h"
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 
 // External reference to global loopManager from main.cpp
 extern LoopManager* loopManager;
@@ -94,15 +95,28 @@ bool UI::initialize() {
 
 bool UI::update() {
     int ch = getch();
-    
+
     if (ch != ERR) {
         handleInput(ch);
-        
+
         if (ch == 'q' || ch == 'Q') {
             return false;
         }
     }
-    
+
+    // Check for MIDI learn timeout (10 seconds)
+    if (params->midiLearnActive.load()) {
+        auto now = std::chrono::steady_clock::now();
+        double currentTime = std::chrono::duration<double>(now.time_since_epoch()).count();
+        double startTime = params->midiLearnStartTime.load();
+
+        if (currentTime - startTime > 10.0) {
+            // Timeout - cancel MIDI learn
+            finishMidiLearn();
+            addConsoleMessage("MIDI Learn timeout - cancelled");
+        }
+    }
+
     return true;
 }
 
@@ -131,7 +145,7 @@ void UI::handleInput(int ch) {
         handleTextInput(ch);
         return;
     }
-    
+
     // Handle numeric input mode for parameters
     if (numericInputActive) {
         if (ch == '\n' || ch == KEY_ENTER) {
@@ -149,6 +163,15 @@ void UI::handleInput(int ch) {
             }
         }
         return;
+    }
+
+    // Handle MIDI learn mode - allow Escape to cancel
+    if (params->midiLearnActive.load()) {
+        if (ch == 27) {  // Escape key
+            finishMidiLearn();
+            addConsoleMessage("MIDI Learn cancelled");
+        }
+        return;  // Don't process other keys during MIDI learn
     }
     
     // Get current page parameter IDs
@@ -1160,7 +1183,15 @@ void UI::startMidiLearn(int id) {
     if (param && param->supports_midi_learn) {
         params->midiLearnActive = true;
         params->midiLearnParameterId = id;
-        addConsoleMessage("MIDI Learn active for " + param->name + " - move a controller");
+
+        // Record start time for timeout
+        auto now = std::chrono::steady_clock::now();
+        double currentTime = std::chrono::duration<double>(now.time_since_epoch()).count();
+        params->midiLearnStartTime = currentTime;
+
+        addConsoleMessage("MIDI Learn: " + param->name + " (10s timeout) - move a controller");
+    } else if (param && !param->supports_midi_learn) {
+        addConsoleMessage("MIDI Learn not available for " + param->name);
     }
 }
 
