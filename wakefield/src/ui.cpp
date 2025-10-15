@@ -825,105 +825,113 @@ void UI::drawSequencerPage() {
 
     // Get Euclidean info
     EuclideanPattern& euclidean = sequencer->getEuclideanPattern();
-    // Header and status for vertical layout
+
+    // Current track info
     int trackIdx = sequencer->getCurrentTrackIndex();
-    attron(A_BOLD);
-    mvprintw(row++, 1, "SEQUENCER - Track %d (vertical)", trackIdx + 1);
-    attroff(A_BOLD);
-    row++;
+    Track& currentTrack = sequencer->getCurrentTrack();
 
-    // Transport and tempo info
-    mvprintw(row, col, "Status: ");
-    if (playing) {
-        attron(COLOR_PAIR(2) | A_BOLD);
-        printw("PLAYING");
-        attroff(COLOR_PAIR(2) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(1));
-        printw("STOPPED");
-        attroff(COLOR_PAIR(1));
+    int cols = getmaxx(stdscr);
+    int leftCol = col;
+    int minRightCol = leftCol + 40;
+    int rightCol = std::max(minRightCol, cols - 28);
+    if (rightCol > cols - 18) {
+        rightCol = std::max(minRightCol, cols - 18);
     }
-    printw("  |  Tempo: %.1f BPM  |  Step: %d/%d",
-           tempo, currentStep + 1, pattern.getLength());
-    row++;
+    if (rightCol > cols - 2) {
+        rightCol = cols - 2;
+    }
 
-    // Track info
-    mvprintw(row++, col, "Scale: %s", scaleName.c_str());
-    mvprintw(row++, col, "Euclidean: %d hits / %d steps / %d rotation",
-             euclidean.getHits(), euclidean.getSteps(), euclidean.getRotation());
-    row++;
+    auto subdivisionToString = [](Subdivision subdiv) {
+        switch (subdiv) {
+            case Subdivision::WHOLE: return "1/1";
+            case Subdivision::HALF: return "1/2";
+            case Subdivision::QUARTER: return "1/4";
+            case Subdivision::EIGHTH: return "1/8";
+            case Subdivision::SIXTEENTH: return "1/16";
+            case Subdivision::THIRTYSECOND: return "1/32";
+            case Subdivision::SIXTYFOURTH: return "1/64";
+            default: return "?";
+        }
+    };
 
-    // Vertical pattern view
     attron(A_BOLD);
-    mvprintw(row++, 1, "PATTERN (vertical):");
+    mvprintw(row, leftCol, "SEQUENCER - Track %d", trackIdx + 1);
     attroff(A_BOLD);
-    row++;
 
-    // Table header
+    int infoRow = row;
+    mvprintw(infoRow++, rightCol, "Track %d/%d", trackIdx + 1, sequencer->getTrackCount());
+    mvprintw(infoRow++, rightCol, "Status: %s", playing ? "PLAYING" : "STOPPED");
+    mvprintw(infoRow++, rightCol, "Tempo: %5.1f BPM", tempo);
+    mvprintw(infoRow++, rightCol, "Step: %3d / %3d", currentStep + 1, pattern.getLength());
+    mvprintw(infoRow++, rightCol, "Scale: %s", scaleName.c_str());
+    mvprintw(infoRow++, rightCol, "Euclid: %d / %d", euclidean.getHits(), euclidean.getSteps());
+    mvprintw(infoRow++, rightCol, "Rotation: %d", euclidean.getRotation());
+    mvprintw(infoRow++, rightCol, "Subdivision: %s", subdivisionToString(pattern.getResolution()));
+    mvprintw(infoRow++, rightCol, "Muted: %s", currentTrack.isMuted() ? "YES" : "NO");
+    mvprintw(infoRow++, rightCol, "Solo: %s", currentTrack.isSolo() ? "YES" : "NO");
+    mvprintw(infoRow++, rightCol, "Active: %3d", pattern.getActiveStepCount());
+    mvprintw(infoRow++, rightCol, "Locked: %3d", pattern.getLockedStepCount());
+    mvprintw(infoRow++, rightCol, "Lock flag: L = locked");
+
+    row += 2;
+
+    // Vertical tracker header
     attron(A_BOLD);
-    mvprintw(row, col, "Idx  Cur  Lck  Note   Vel  Gate  Prob");
+    mvprintw(row++, leftCol, "Idx  Lock  Note   Vel   Gate   Prob");
     attroff(A_BOLD);
-    row++;
 
     int displaySteps = std::min(16, pattern.getLength());
     for (int i = 0; i < displaySteps; ++i) {
         const PatternStep& step = pattern.getStep(i);
+        bool isCurrent = (i == currentStep);
 
-        // Index
-        mvprintw(row, col, "%3d", i);
-
-        // Current step indicator
-        if (i == currentStep && playing) {
-            attron(COLOR_PAIR(5) | A_BOLD);
-            mvprintw(row, col + 5, ">");
-            attroff(COLOR_PAIR(5) | A_BOLD);
-        } else {
-            mvprintw(row, col + 5, " ");
+        if (isCurrent) {
+            attron(A_REVERSE | A_BOLD);
         }
 
-        // Locked indicator
+        // Index column
+        mvprintw(row, leftCol, "%3d", i);
+
+        // Locked indicator column
         if (step.locked) {
             attron(COLOR_PAIR(3) | A_BOLD);
-            mvprintw(row, col + 10, "L");
+            mvprintw(row, leftCol + 6, "L");
             attroff(COLOR_PAIR(3) | A_BOLD);
         } else {
-            mvprintw(row, col + 10, " ");
+            mvprintw(row, leftCol + 6, " ");
         }
 
-        // Note name or dot
+        // Note column
+        std::string noteText;
         if (step.active) {
             const char* notes[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
             int octave = (step.midiNote / 12) - 1;
             int noteIndex = step.midiNote % 12;
-            mvprintw(row, col + 15, "%s%d", notes[noteIndex], octave);
+            noteText = std::string(notes[noteIndex]) + std::to_string(octave);
+        } else {
+            noteText = "·";
+        }
+        mvprintw(row, leftCol + 12, "%-4s", noteText.c_str());
+
+        // Velocity, Gate, Probability columns
+        if (step.active) {
+            mvprintw(row, leftCol + 20, "%3d", step.velocity);
+            mvprintw(row, leftCol + 27, "%3d", static_cast<int>(step.gateLength * 100));
+            mvprintw(row, leftCol + 35, "%3d", static_cast<int>(step.probability * 100));
         } else {
             attron(COLOR_PAIR(1));
-            mvprintw(row, col + 15, "·");
+            mvprintw(row, leftCol + 20, " · ");
+            mvprintw(row, leftCol + 27, " · ");
+            mvprintw(row, leftCol + 35, " · ");
             attroff(COLOR_PAIR(1));
         }
 
-        // Velocity, Gate, Probability
-        if (step.active) {
-            mvprintw(row, col + 23, "%3d", step.velocity);
-            mvprintw(row, col + 29, "%3d", static_cast<int>(step.gateLength * 100));
-            mvprintw(row, col + 35, "%3d", static_cast<int>(step.probability * 100));
-        } else {
-            attron(COLOR_PAIR(1));
-            mvprintw(row, col + 23, "·  ");
-            mvprintw(row, col + 29, "·  ");
-            mvprintw(row, col + 35, "·  ");
-            attroff(COLOR_PAIR(1));
+        if (isCurrent) {
+            attroff(A_REVERSE | A_BOLD);
         }
 
         row++;
     }
-
-    row += 1;
-
-    // Pattern statistics
-    mvprintw(row++, col, "Active steps: %d / %d  |  Locked steps: %d",
-             pattern.getActiveStepCount(), pattern.getLength(),
-             pattern.getLockedStepCount());
 }
 
 void UI::drawConfigPage() {
@@ -1681,6 +1689,13 @@ CONTROLS:
   [/]        - Rotate pattern left/right
   E          - Edit scale (TODO)
   H          - Show this help
+
+LAYOUT:
+  • Left pane shows the vertical tracker (Idx, Lock, Note, Vel, Gate, Prob).
+    The highlighted row is the current step; 'L' in the Lock column means a
+    step is locked from regeneration; '·' marks inactive steps.
+  • Right pane shows track status, tempo, step counter, scale, Euclidean data,
+    subdivision, mute/solo state, and quick statistics for the active track.
 
 ABOUT:
 The sequencer is a generative MIDI pattern generator that combines three
