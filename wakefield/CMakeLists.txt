@@ -27,6 +27,7 @@ add_executable(synth
     src/markov.cpp
     src/euclidean.cpp
     src/pattern.cpp
+    src/track.cpp
     src/sequencer.cpp
 )
 

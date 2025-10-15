@@ -7,6 +7,7 @@
 Pattern::Pattern(int len, Subdivision res)
     : length(len)
     , resolution(res)
+    , rotation(0)
 {
     steps.resize(length);
 }
@@ -17,13 +18,13 @@ void Pattern::setLength(int len) {
 }
 
 PatternStep& Pattern::getStep(int index) {
-    int idx = index % length;
+    int idx = (index + rotation) % length;
     if (idx < 0) idx += length;
     return steps[idx];
 }
 
 const PatternStep& Pattern::getStep(int index) const {
-    int idx = index % length;
+    int idx = (index + rotation) % length;
     if (idx < 0) idx += length;
     return steps[idx];
 }
@@ -119,6 +120,11 @@ void Pattern::mutate(float amount) {
             steps[step].probability = std::clamp(steps[step].probability + shift, 0.0f, 1.0f);
         }
     }
+}
+
+void Pattern::rotate(int steps) {
+    rotation = (rotation + steps) % length;
+    if (rotation < 0) rotation += length;
 }
 
 void Pattern::lockStep(int step) {

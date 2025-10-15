@@ -8,6 +8,7 @@
 #include "constraint.h"
 #include "markov.h"
 #include "euclidean.h"
+#include "track.h"
 #include "synth.h"
 
 class Sequencer {
@@ -24,25 +25,36 @@ public:
     void setTempo(double bpm) { clock.setTempo(bpm); }
     double getTempo() const { return clock.getTempo(); }
 
-    // Pattern generation
+    // Multi-track support
+    int getTrackCount() const { return tracks.size(); }
+    Track& getCurrentTrack() { return tracks[currentTrackIndex]; }
+    const Track& getCurrentTrack() const { return tracks[currentTrackIndex]; }
+    Track& getTrack(int index) { return tracks[index]; }
+    const Track& getTrack(int index) const { return tracks[index]; }
+
+    int getCurrentTrackIndex() const { return currentTrackIndex; }
+    void setCurrentTrack(int index);
+    void nextTrack();
+    void prevTrack();
+
+    // Pattern generation (operates on current track)
     void generatePattern();
     void regenerateUnlocked();
     void mutatePattern(float amount);
     void clearPattern();
 
-    // Configuration
-    void setConstraints(const MusicalConstraints& c) { constraints = c; }
-    MusicalConstraints& getConstraints() { return constraints; }
+    // Pattern rotation (synchronized)
+    void rotatePattern(int steps);
 
-    void setEuclideanPattern(int hits, int steps, int rotation);
-    EuclideanPattern& getEuclideanPattern() { return euclideanRhythm; }
+    // Configuration (current track)
+    MusicalConstraints& getConstraints() { return getCurrentTrack().getConstraints(); }
+    EuclideanPattern& getEuclideanPattern() { return getCurrentTrack().getEuclideanPattern(); }
+    MarkovChain& getMarkovChain() { return getCurrentTrack().getMarkovChain(); }
+    Pattern& getPattern() { return getCurrentTrack().getPattern(); }
+    const Pattern& getPattern() const { return getCurrentTrack().getPattern(); }
 
     void setMarkovMode(int mode);  // 0=random, 1=orbit, 2=ascend, 3=descend, 4=drone
-    MarkovChain& getMarkovChain() { return markovChain; }
-
-    // Pattern access
-    Pattern& getPattern() { return currentPattern; }
-    const Pattern& getPattern() const { return currentPattern; }
+    void setEuclideanPattern(int hits, int steps, int rotation);
 
     int getCurrentStep() const { return currentStep; }
 
@@ -54,14 +66,12 @@ public:
 
 private:
     Clock clock;
-    Pattern currentPattern;
-    MusicalConstraints constraints;
-    MarkovChain markovChain;
-    EuclideanPattern euclideanRhythm;
+    std::vector<Track> tracks;
+    int currentTrackIndex;
 
     Synth* synth;
     int currentStep;
-    int lastTriggeredStep;
+    std::vector<int> lastTriggeredStep;  // Per-track
 
     // Track active notes for gate length management
     struct ActiveNote {

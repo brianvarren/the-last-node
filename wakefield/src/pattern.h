@@ -67,6 +67,11 @@ public:
     // Mutation (slight variation of existing pattern)
     void mutate(float amount);  // 0.0-1.0 (how much to change)
 
+    // Pattern rotation (phase shift)
+    void rotate(int steps);  // Positive = forward, negative = backward
+    int getRotation() const { return rotation; }
+    void setRotation(int rot) { rotation = rot; }
+
     // Editing
     void lockStep(int step);
     void unlockStep(int step);
@@ -98,6 +103,7 @@ private:
     std::vector<PatternStep> steps;
     int length;
     Subdivision resolution;
+    int rotation;  // Pattern rotation offset
 
     // Helper for generation
     void generateStep(int stepIndex, MusicalConstraints& constraints,

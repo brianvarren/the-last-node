@@ -155,6 +155,7 @@ void UI::handleInput(int ch) {
         } else if (ch == 27) {  // Escape key
             numericInputActive = false;
             numericInputBuffer.clear();
+            clear();  // Clear screen to refresh properly
         } else if (ch == KEY_BACKSPACE || ch == 127) {
             if (!numericInputBuffer.empty()) {
                 numericInputBuffer.pop_back();
@@ -172,6 +173,7 @@ void UI::handleInput(int ch) {
         if (ch == 27) {  // Escape key
             finishMidiLearn();
             addConsoleMessage("MIDI Learn cancelled");
+            clear();  // Clear screen to refresh properly
         }
         return;  // Don't process other keys during MIDI learn
     }
@@ -188,7 +190,25 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::SEQUENCER;
         else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::CONFIG;
         else currentPage = UIPage::MAIN;
-        
+
+        // Set selected parameter to first parameter on new page
+        std::vector<int> newPageParams = getParameterIdsForPage(currentPage);
+        if (!newPageParams.empty()) {
+            selectedParameterId = newPageParams[0];
+        }
+        return;
+    }
+
+    // Ctrl+Tab (KEY_BTAB or Shift+Tab) cycles backward through pages
+    if (ch == KEY_BTAB || ch == 353) {  // KEY_BTAB = Shift+Tab, 353 = some terminals
+        if (currentPage == UIPage::MAIN) currentPage = UIPage::CONFIG;
+        else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::MAIN;
+        else if (currentPage == UIPage::REVERB) currentPage = UIPage::BRAINWAVE;
+        else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
+        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
+        else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::LOOPER;
+        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::SEQUENCER;
+
         // Set selected parameter to first parameter on new page
         std::vector<int> newPageParams = getParameterIdsForPage(currentPage);
         if (!newPageParams.empty()) {
@@ -799,7 +819,7 @@ void UI::drawSequencerPage() {
     for (int i = 0; i < displaySteps; ++i) {
         if (i == currentStep && playing) {
             attron(COLOR_PAIR(5) | A_BOLD);
-            mvprintw(row, col + 6 + i * 4, "↓ ");
+            mvprintw(row, col + 6 + i * 4, "v ");
             attroff(COLOR_PAIR(5) | A_BOLD);
         } else {
             mvprintw(row, col + 6 + i * 4, "  ");
@@ -813,7 +833,7 @@ void UI::drawSequencerPage() {
         const PatternStep& step = pattern.getStep(i);
         if (step.locked) {
             attron(COLOR_PAIR(3) | A_BOLD);
-            mvprintw(row, col + 6 + i * 4, "🔒");
+            mvprintw(row, col + 6 + i * 4, "L ");
             attroff(COLOR_PAIR(3) | A_BOLD);
         } else if (step.active) {
             // Convert MIDI note to name
@@ -996,7 +1016,7 @@ void UI::drawHotkeyLine() {
     } else if (params->midiLearnActive.load()) {
         mvprintw(row, 1, "Move MIDI controller to assign  |  Esc Cancel  |  Q Quit");
     } else {
-        mvprintw(row, 1, "Tab Page  |  ↑↓ Param  |  ←→ Adjust  |  Enter Type  |  L Learn  |  Q Quit");
+        mvprintw(row, 1, "Tab/Shift+Tab Page  |  Up/Dn Param  |  Left/Right Adjust  |  Enter Type  |  L Learn  |  Q Quit");
     }
 }
 
@@ -1148,6 +1168,7 @@ void UI::handleTextInput(int ch) {
         finishTextInput();
     } else if (ch == 27) {  // Escape
         finishTextInput();
+        clear();  // Clear screen to refresh properly
     } else if (ch == KEY_BACKSPACE || ch == 127) {
         if (!textInputBuffer.empty()) {
             textInputBuffer.pop_back();

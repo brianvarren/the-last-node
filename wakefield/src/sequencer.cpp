@@ -4,29 +4,20 @@
 
 Sequencer::Sequencer(float sampleRate, Synth* synth)
     : clock(sampleRate)
-    , currentPattern(16, Subdivision::SIXTEENTH)
-    , constraints()
-    , markovChain()
-    , euclideanRhythm(7, 16, 0)  // Default: 7 hits in 16 steps
+    , currentTrackIndex(0)
     , synth(synth)
     , currentStep(0)
-    , lastTriggeredStep(-1)
 {
-    // Set default constraints (D Phrygian, octaves 2-4)
-    constraints.setScale(Scale::PHRYGIAN);
-    constraints.setRootNote(2);  // D
-    constraints.setOctaveRange(2, 4);
-    constraints.setContour(Contour::ORBITING);
-    constraints.setGravityNote(50);  // D3
-    constraints.setDensity(0.6f);
+    // Create 4 tracks by default
+    for (int i = 0; i < 4; ++i) {
+        tracks.emplace_back(i, 16, Subdivision::SIXTEENTH);
+        lastTriggeredStep.push_back(-1);
+    }
 
-    // Initialize Markov chain
-    std::vector<int> legalNotes = constraints.getLegalNotes();
-    markovChain.initialize(legalNotes);
-    markovChain.setOrbitingPattern(constraints.getGravityNote());
-
-    // Generate initial pattern
-    generatePattern();
+    // Generate initial patterns for all tracks
+    for (auto& track : tracks) {
+        track.generatePattern();
+    }
 
     // Set default tempo
     clock.setTempo(90.0);  // Slow, ambient tempo
@@ -44,79 +35,75 @@ void Sequencer::stop() {
 void Sequencer::reset() {
     clock.reset();
     currentStep = 0;
-    lastTriggeredStep = -1;
+    for (auto& step : lastTriggeredStep) {
+        step = -1;
+    }
     allNotesOff();
 }
 
+void Sequencer::setCurrentTrack(int index) {
+    if (index >= 0 && index < static_cast<int>(tracks.size())) {
+        currentTrackIndex = index;
+    }
+}
+
+void Sequencer::nextTrack() {
+    currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
+}
+
+void Sequencer::prevTrack() {
+    currentTrackIndex = (currentTrackIndex - 1 + tracks.size()) % tracks.size();
+}
+
 void Sequencer::setEuclideanPattern(int hits, int steps, int rotation) {
-    euclideanRhythm = EuclideanPattern(hits, steps, rotation);
+    getCurrentTrack().getEuclideanPattern() = EuclideanPattern(hits, steps, rotation);
 }
 
 void Sequencer::setMarkovMode(int mode) {
+    MarkovChain& markov = getCurrentTrack().getMarkovChain();
+    MusicalConstraints& constraints = getCurrentTrack().getConstraints();
+
     switch (mode) {
         case 0:  // Random walk
-            markovChain.setRandomWalk();
+            markov.setRandomWalk();
             break;
         case 1:  // Orbiting
-            markovChain.setOrbitingPattern(constraints.getGravityNote());
+            markov.setOrbitingPattern(constraints.getGravityNote());
             break;
         case 2:  // Ascending
-            markovChain.setAscending();
+            markov.setAscending();
             break;
         case 3:  // Descending
-            markovChain.setDescending();
+            markov.setDescending();
             break;
         case 4:  // Drone
-            markovChain.setDronePattern();
+            markov.setDronePattern();
             break;
         default:
-            markovChain.setRandomWalk();
+            markov.setRandomWalk();
             break;
     }
 }
 
 void Sequencer::generatePattern() {
-    // Update Markov chain with current legal notes
-    std::vector<int> legalNotes = constraints.getLegalNotes();
-    if (!legalNotes.empty()) {
-        markovChain.initialize(legalNotes);
-
-        // Re-apply current Markov mode based on contour
-        switch (constraints.getContour()) {
-            case Contour::RANDOM_WALK:
-                markovChain.setRandomWalk();
-                break;
-            case Contour::ORBITING:
-                markovChain.setOrbitingPattern(constraints.getGravityNote());
-                break;
-            case Contour::ASCENDING:
-                markovChain.setAscending();
-                break;
-            case Contour::DESCENDING:
-                markovChain.setDescending();
-                break;
-            case Contour::DRONE:
-                markovChain.setDronePattern();
-                break;
-        }
-    }
-
-    // Generate pattern using current constraints
-    currentPattern.generateFromConstraints(constraints, markovChain, euclideanRhythm);
+    getCurrentTrack().generatePattern();
 }
 
 void Sequencer::regenerateUnlocked() {
-    // Regenerate only unlocked steps
-    currentPattern.regenerateUnlocked(constraints, markovChain, euclideanRhythm);
+    getCurrentTrack().regenerateUnlocked();
 }
 
 void Sequencer::mutatePattern(float amount) {
-    currentPattern.mutate(amount);
+    getCurrentTrack().mutate(amount);
 }
 
 void Sequencer::clearPattern() {
-    currentPattern.clear();
+    getCurrentTrack().getPattern().clear();
     allNotesOff();
+}
+
+void Sequencer::rotatePattern(int steps) {
+    getCurrentTrack().getPattern().rotate(steps);
 }
 
 void Sequencer::allNotesOff() {
@@ -132,39 +119,56 @@ void Sequencer::allNotesOff() {
 void Sequencer::triggerStep(int step) {
     if (!synth) return;
 
-    PatternStep& patternStep = currentPattern.getStep(step);
+    // Process all tracks
+    for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
+        Track& track = tracks[trackIdx];
 
-    if (!patternStep.active) return;
+        // Skip muted tracks
+        if (track.isMuted()) continue;
 
-    // Probability check
-    float r = static_cast<float>(rand()) / RAND_MAX;
-    if (r > patternStep.probability) {
-        return;  // Skip this trigger
+        // Check if any track is soloed
+        bool anySolo = false;
+        for (const auto& t : tracks) {
+            if (t.isSolo()) {
+                anySolo = true;
+                break;
+            }
+        }
+
+        // If solo mode is active, only play soloed tracks
+        if (anySolo && !track.isSolo()) continue;
+
+        Pattern& pattern = track.getPattern();
+        PatternStep& patternStep = pattern.getStep(step);
+
+        if (!patternStep.active) continue;
+
+        // Probability check
+        float r = static_cast<float>(rand()) / RAND_MAX;
+        if (r > patternStep.probability) {
+            continue;  // Skip this trigger
+        }
+
+        // Trigger note
+        synth->noteOn(patternStep.midiNote, patternStep.velocity);
+
+        // Track active note for gate management
+        ActiveNote activeNote;
+        activeNote.midiNote = patternStep.midiNote;
+        activeNote.startSample = clock.getCurrentStep(pattern.getResolution()) *
+                                 clock.getSamplesPerStep(pattern.getResolution());
+        activeNote.gateLength = patternStep.gateLength;
+        activeNotes.push_back(activeNote);
     }
-
-    // Trigger note
-    synth->noteOn(patternStep.midiNote, patternStep.velocity);
-
-    // Track active note for gate management
-    ActiveNote activeNote;
-    activeNote.midiNote = patternStep.midiNote;
-    activeNote.startSample = clock.getCurrentStep(currentPattern.getResolution()) *
-                             clock.getSamplesPerStep(currentPattern.getResolution());
-    activeNote.gateLength = patternStep.gateLength;
-    activeNotes.push_back(activeNote);
-
-    // TODO: Apply parameter automation if set
-    // if (patternStep.filterCutoff > 0) { ... }
-    // if (patternStep.reverbMix >= 0) { ... }
-    // if (patternStep.brainwaveMorph >= 0) { ... }
 }
 
 void Sequencer::updateGates() {
     if (!synth || activeNotes.empty()) return;
 
-    uint64_t currentSample = clock.getCurrentStep(currentPattern.getResolution()) *
-                             clock.getSamplesPerStep(currentPattern.getResolution());
-    double samplesPerStep = clock.getSamplesPerStep(currentPattern.getResolution());
+    // Use current track's subdivision for sample calculation (could be per-track in future)
+    uint64_t currentSample = clock.getCurrentStep(getCurrentTrack().getPattern().getResolution()) *
+                             clock.getSamplesPerStep(getCurrentTrack().getPattern().getResolution());
+    double samplesPerStep = clock.getSamplesPerStep(getCurrentTrack().getPattern().getResolution());
 
     // Check each active note
     auto it = activeNotes.begin();
@@ -187,17 +191,33 @@ void Sequencer::process(unsigned int nFrames) {
         return;
     }
 
-    // Check if we crossed a step boundary
-    int stepIndex;
-    if (clock.checkStepTrigger(nFrames, currentPattern.getResolution(), stepIndex)) {
-        // Wrap step to pattern length
-        currentStep = stepIndex % currentPattern.getLength();
+    // Process each track with its own subdivision
+    for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
+        Track& track = tracks[trackIdx];
+        Pattern& pattern = track.getPattern();
+        Subdivision subdiv = pattern.getResolution();
 
-        // Trigger the step if it wasn't just triggered
-        if (currentStep != lastTriggeredStep) {
-            triggerStep(currentStep);
-            lastTriggeredStep = currentStep;
+        int stepIndex;
+        if (clock.checkStepTrigger(nFrames, subdiv, stepIndex)) {
+            // Wrap step to pattern length
+            int trackStep = stepIndex % pattern.getLength();
+
+            // Trigger the step if it wasn't just triggered
+            if (trackStep != lastTriggeredStep[trackIdx]) {
+                // Only trigger from track 0 for now (simplification)
+                if (trackIdx == 0) {
+                    currentStep = trackStep;
+                }
+                lastTriggeredStep[trackIdx] = trackStep;
+            }
         }
+    }
+
+    // Trigger current step (processes all tracks)
+    static int lastProcessedStep = -1;
+    if (currentStep != lastProcessedStep) {
+        triggerStep(currentStep);
+        lastProcessedStep = currentStep;
     }
 
     // Update gate lengths
