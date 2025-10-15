@@ -7,7 +7,7 @@
 // Provides smooth transitions without zipper noise
 class ParameterSmoother {
 public:
-    ParameterSmoother(float smoothTime = 0.01f, float sampleRate = 48000.0f)
+    ParameterSmoother(float smoothTime = 0.01f, float sampleRate = 100.0f)
         : currentValue(0.0f)
         , targetValue(0.0f) {
         setSmoothTime(smoothTime, sampleRate);

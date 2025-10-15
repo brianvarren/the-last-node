@@ -11,7 +11,7 @@ pkg_check_modules(RTMIDI REQUIRED rtmidi)
 find_package(Curses REQUIRED)
 
 # Create executable with multiple source files
-add_executable(synth 
+add_executable(synth
     src/main.cpp
     src/synth.cpp
     src/midi.cpp
@@ -22,6 +22,12 @@ add_executable(synth
     src/reverb.cpp
     src/preset.cpp
     src/loop_manager.cpp
+    src/clock.cpp
+    src/constraint.cpp
+    src/markov.cpp
+    src/euclidean.cpp
+    src/pattern.cpp
+    src/sequencer.cpp
 )
 
 # Include directories

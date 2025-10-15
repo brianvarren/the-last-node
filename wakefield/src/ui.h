@@ -128,6 +128,7 @@ enum class UIPage {
     REVERB,
     FILTER,
     LOOPER,
+    SEQUENCER,
     CONFIG
 };
 
@@ -234,6 +235,7 @@ private:
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();
+    void drawSequencerPage();
     void drawConfigPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawConsole();

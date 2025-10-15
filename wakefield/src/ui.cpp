@@ -3,12 +3,14 @@
 #include "preset.h"
 #include "loop_manager.h"
 #include "looper.h"
+#include "sequencer.h"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
 
-// External reference to global loopManager from main.cpp
+// External references to global objects from main.cpp
 extern LoopManager* loopManager;
+extern Sequencer* sequencer;
 
 UI::UI(Synth* synth, SynthParameters* params)
     : synth(synth)
@@ -183,7 +185,8 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
-        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::CONFIG;
+        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::SEQUENCER;
+        else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::CONFIG;
         else currentPage = UIPage::MAIN;
         
         // Set selected parameter to first parameter on new page
@@ -246,6 +249,14 @@ void UI::handleInput(int ch) {
                 Looper* loop = loopManager->getCurrentLoop();
                 if (loop) loop->pressRecPlay();
             }
+        } else if (currentPage == UIPage::SEQUENCER) {
+            if (sequencer) {
+                if (sequencer->isPlaying()) {
+                    sequencer->stop();
+                } else {
+                    sequencer->play();
+                }
+            }
         }
         return;
     }
@@ -292,6 +303,70 @@ void UI::handleInput(int ch) {
                 break;
             case ']':
                 params->overdubMix = std::min(1.0f, params->overdubMix.load() + 0.05f);
+                break;
+        }
+    }
+
+    // Sequencer-specific hotkeys (only active on sequencer page)
+    if (currentPage == UIPage::SEQUENCER && sequencer) {
+        switch (ch) {
+            // Generate pattern (G/g)
+            case 'G':
+            case 'g':
+                sequencer->generatePattern();
+                addConsoleMessage("Generated new pattern");
+                break;
+
+            // Mutate pattern (M/m)
+            case 'M':
+            case 'm':
+                sequencer->mutatePattern(0.2f);  // 20% mutation
+                addConsoleMessage("Pattern mutated");
+                break;
+
+            // Reset sequencer (R/r)
+            case 'R':
+            case 'r':
+                sequencer->reset();
+                addConsoleMessage("Sequencer reset");
+                break;
+
+            // Tempo control (T/Y)
+            case 'T':
+            case 't':
+                {
+                    double newTempo = std::max(20.0, sequencer->getTempo() - 5.0);
+                    sequencer->setTempo(newTempo);
+                }
+                break;
+            case 'Y':
+            case 'y':
+                {
+                    double newTempo = std::min(300.0, sequencer->getTempo() + 5.0);
+                    sequencer->setTempo(newTempo);
+                }
+                break;
+
+            // Euclidean hits control (H/J)
+            case 'H':
+            case 'h':
+                {
+                    EuclideanPattern& euc = sequencer->getEuclideanPattern();
+                    int newHits = std::max(1, euc.getHits() - 1);
+                    sequencer->setEuclideanPattern(newHits, euc.getSteps(), euc.getRotation());
+                    sequencer->regenerateUnlocked();
+                    addConsoleMessage("Euclidean hits: " + std::to_string(newHits));
+                }
+                break;
+            case 'J':
+            case 'j':
+                {
+                    EuclideanPattern& euc = sequencer->getEuclideanPattern();
+                    int newHits = std::min(euc.getSteps(), euc.getHits() + 1);
+                    sequencer->setEuclideanPattern(newHits, euc.getSteps(), euc.getRotation());
+                    sequencer->regenerateUnlocked();
+                    addConsoleMessage("Euclidean hits: " + std::to_string(newHits));
+                }
                 break;
         }
     }
@@ -354,21 +429,32 @@ void UI::drawTabs() {
         mvprintw(0, 33, " LOOPER ");
         attroff(COLOR_PAIR(6));
     }
-    
-    // Config tab
-    if (currentPage == UIPage::CONFIG) {
+
+    // Sequencer tab
+    if (currentPage == UIPage::SEQUENCER) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 41, " CONFIG ");
+        mvprintw(0, 41, " SEQUENCER ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 41, " CONFIG ");
+        mvprintw(0, 41, " SEQUENCER ");
         attroff(COLOR_PAIR(6));
     }
-    
-    
+
+    // Config tab
+    if (currentPage == UIPage::CONFIG) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(0, 52, " CONFIG ");
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(6));
+        mvprintw(0, 52, " CONFIG ");
+        attroff(COLOR_PAIR(6));
+    }
+
+
     // Fill rest of line
-    for (int i = 44; i < cols; ++i) {
+    for (int i = 60; i < cols; ++i) {
         mvaddch(0, i, ' ');
     }
     
@@ -646,6 +732,160 @@ void UI::drawLooperPage() {
     mvprintw(row++, 2, "5. Adjust [/] to control overdub mix (prevents clipping)");
 }
 
+void UI::drawSequencerPage() {
+    if (!sequencer) {
+        mvprintw(3, 2, "Sequencer not initialized");
+        return;
+    }
+
+    int row = 3;
+    int col = 2;
+
+    // Get sequencer info
+    const Pattern& pattern = sequencer->getPattern();
+    double tempo = sequencer->getTempo();
+    int currentStep = sequencer->getCurrentStep();
+    bool playing = sequencer->isPlaying();
+
+    // Get constraints info
+    MusicalConstraints& constraints = sequencer->getConstraints();
+    std::string scaleName = constraints.getScaleName();
+
+    // Get Euclidean info
+    EuclideanPattern& euclidean = sequencer->getEuclideanPattern();
+
+    // Title and status
+    attron(A_BOLD);
+    mvprintw(row++, 1, "SEQUENCER - Generative Pattern");
+    attroff(A_BOLD);
+    row++;
+
+    // Transport and tempo info
+    mvprintw(row, col, "Status: ");
+    if (playing) {
+        attron(COLOR_PAIR(2) | A_BOLD);
+        printw("PLAYING");
+        attroff(COLOR_PAIR(2) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(1));
+        printw("STOPPED");
+        attroff(COLOR_PAIR(1));
+    }
+    printw("  |  Tempo: %.1f BPM  |  Step: %d/%d",
+           tempo, currentStep + 1, pattern.getLength());
+    row++;
+
+    mvprintw(row++, col, "Scale: %s", scaleName.c_str());
+    mvprintw(row++, col, "Euclidean: %d hits / %d steps / %d rotation",
+             euclidean.getHits(), euclidean.getSteps(), euclidean.getRotation());
+    row++;
+
+    // Pattern visualization (horizontal tracker)
+    attron(A_BOLD);
+    mvprintw(row++, 1, "PATTERN (horizontal tracker):");
+    attroff(A_BOLD);
+    row++;
+
+    // Draw step numbers (only show first 16 steps for now)
+    mvprintw(row, col, "Step: ");
+    int displaySteps = std::min(16, pattern.getLength());
+    for (int i = 0; i < displaySteps; ++i) {
+        mvprintw(row, col + 6 + i * 4, "%2d", i);
+    }
+    row++;
+
+    // Draw current step indicator
+    mvprintw(row, col, "      ");
+    for (int i = 0; i < displaySteps; ++i) {
+        if (i == currentStep && playing) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(row, col + 6 + i * 4, "↓ ");
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        } else {
+            mvprintw(row, col + 6 + i * 4, "  ");
+        }
+    }
+    row++;
+
+    // Draw pitch lane
+    mvprintw(row, col, "Pitch ");
+    for (int i = 0; i < displaySteps; ++i) {
+        const PatternStep& step = pattern.getStep(i);
+        if (step.locked) {
+            attron(COLOR_PAIR(3) | A_BOLD);
+            mvprintw(row, col + 6 + i * 4, "🔒");
+            attroff(COLOR_PAIR(3) | A_BOLD);
+        } else if (step.active) {
+            // Convert MIDI note to name
+            const char* notes[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+            int octave = (step.midiNote / 12) - 1;
+            int noteIndex = step.midiNote % 12;
+            mvprintw(row, col + 6 + i * 4, "%s%d", notes[noteIndex], octave);
+        } else {
+            attron(COLOR_PAIR(1));
+            mvprintw(row, col + 6 + i * 4, "· ");
+            attroff(COLOR_PAIR(1));
+        }
+    }
+    row++;
+
+    // Draw velocity lane
+    mvprintw(row, col, "Vel   ");
+    for (int i = 0; i < displaySteps; ++i) {
+        const PatternStep& step = pattern.getStep(i);
+        if (step.active) {
+            mvprintw(row, col + 6 + i * 4, "%3d", step.velocity);
+        } else {
+            attron(COLOR_PAIR(1));
+            mvprintw(row, col + 6 + i * 4, "·  ");
+            attroff(COLOR_PAIR(1));
+        }
+    }
+    row++;
+
+    // Draw gate lane
+    mvprintw(row, col, "Gate  ");
+    for (int i = 0; i < displaySteps; ++i) {
+        const PatternStep& step = pattern.getStep(i);
+        if (step.active) {
+            mvprintw(row, col + 6 + i * 4, "%3d", static_cast<int>(step.gateLength * 100));
+        } else {
+            attron(COLOR_PAIR(1));
+            mvprintw(row, col + 6 + i * 4, "·  ");
+            attroff(COLOR_PAIR(1));
+        }
+    }
+    row++;
+
+    // Draw probability lane
+    mvprintw(row, col, "Prob  ");
+    for (int i = 0; i < displaySteps; ++i) {
+        const PatternStep& step = pattern.getStep(i);
+        if (step.active) {
+            mvprintw(row, col + 6 + i * 4, "%3d", static_cast<int>(step.probability * 100));
+        } else {
+            attron(COLOR_PAIR(1));
+            mvprintw(row, col + 6 + i * 4, "·  ");
+            attroff(COLOR_PAIR(1));
+        }
+    }
+    row += 2;
+
+    // Pattern statistics
+    mvprintw(row++, col, "Active steps: %d / %d  |  Locked steps: %d",
+             pattern.getActiveStepCount(), pattern.getLength(),
+             pattern.getLockedStepCount());
+    row++;
+
+    // Controls
+    attron(A_BOLD);
+    mvprintw(row++, 1, "CONTROLS:");
+    attroff(A_BOLD);
+    mvprintw(row++, col, "[Space] Play/Stop  |  [G] Generate  |  [M] Mutate  |  [R] Reset");
+    mvprintw(row++, col, "[T]/[Y] Tempo -/+  |  [H]/[J] Hits -/+  |  [S] Save  |  [O] Load");
+    mvprintw(row++, col, "Note: Full editing coming soon!");
+}
+
 void UI::drawConfigPage() {
     int row = 3;
     
@@ -781,6 +1021,9 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::LOOPER:
             drawLooperPage();
+            break;
+        case UIPage::SEQUENCER:
+            drawSequencerPage();
             break;
         case UIPage::CONFIG:
             drawConfigPage();

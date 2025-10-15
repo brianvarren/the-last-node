@@ -13,6 +13,7 @@
 #include "preset.h"
 #include "loop_manager.h"
 #include "parameter_smoother.h"
+#include "sequencer.h"
 
 // Global instances
 static Synth* synth = nullptr;
@@ -20,6 +21,7 @@ static MidiHandler* midiHandler = nullptr;
 static SynthParameters* synthParams = nullptr;
 static UI* ui = nullptr;
 LoopManager* loopManager = nullptr;  // Non-static so UI can access it
+Sequencer* sequencer = nullptr;  // Non-static so UI can access it
 static bool running = true;
 
 void signalHandler(int signum) {
@@ -484,7 +486,12 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         float smoothedOverdubMix = overdubMixSmoother.process();
         loopManager->setOverdubMix(smoothedOverdubMix);
     }
-    
+
+    // Process sequencer (triggers notes based on patterns)
+    if (sequencer) {
+        sequencer->process(nFrames);
+    }
+
     // Generate audio from synth (with effects) into temp buffer
     if (synth && loopManager) {
         // Resize temp buffers if needed
@@ -578,10 +585,13 @@ int main(int argc, char** argv) {
     
     // Create synth instance
     synth = new Synth(static_cast<float>(sampleRate));
-    
+
     // Create looper manager
     loopManager = new LoopManager(static_cast<float>(sampleRate));
-    
+
+    // Create sequencer
+    sequencer = new Sequencer(static_cast<float>(sampleRate), synth);
+
     // Initialize UI first (before audio)
     ui = new UI(synth, synthParams);
     if (!ui->initialize()) {
@@ -738,10 +748,11 @@ int main(int argc, char** argv) {
     
     // Clean up
     delete ui;
+    delete sequencer;
     delete synth;
     delete loopManager;
     delete midiHandler;
     delete synthParams;
-    
+
     return 0;
 }
