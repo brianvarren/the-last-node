@@ -56,7 +56,17 @@ public:
     void setMarkovMode(int mode);  // 0=random, 1=orbit, 2=ascend, 3=descend, 4=drone
     void setEuclideanPattern(int hits, int steps, int rotation);
 
-    int getCurrentStep() const { return currentStep; }
+    int getCurrentStep() const {
+        return (!currentSteps.empty() && currentTrackIndex >= 0 && currentTrackIndex < static_cast<int>(currentSteps.size()))
+                   ? currentSteps[currentTrackIndex]
+                   : 0;
+    }
+    int getCurrentStep(int trackIndex) const {
+        if (trackIndex >= 0 && trackIndex < static_cast<int>(currentSteps.size())) {
+            return currentSteps[trackIndex];
+        }
+        return 0;
+    }
 
     // Process audio (called from audio callback)
     void process(unsigned int nFrames);
@@ -70,7 +80,7 @@ private:
     int currentTrackIndex;
 
     Synth* synth;
-    int currentStep;
+    std::vector<int> currentSteps;  // Per-track playback position
     std::vector<int> lastTriggeredStep;  // Per-track
 
     // Track active notes for gate length management
@@ -78,11 +88,12 @@ private:
         int midiNote;
         uint64_t startSample;
         float gateLength;  // In steps
+        Subdivision subdivision;  // Track subdivision for gate timing
     };
     std::vector<ActiveNote> activeNotes;
 
     // Trigger a step
-    void triggerStep(int step);
+    void triggerTrackStep(size_t trackIndex, int step);
 
     // Check and release notes based on gate length
     void updateGates();

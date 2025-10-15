@@ -6,17 +6,12 @@ Sequencer::Sequencer(float sampleRate, Synth* synth)
     : clock(sampleRate)
     , currentTrackIndex(0)
     , synth(synth)
-    , currentStep(0)
 {
     // Create 4 tracks by default
     for (int i = 0; i < 4; ++i) {
         tracks.emplace_back(i, 16, Subdivision::SIXTEENTH);
         lastTriggeredStep.push_back(-1);
-    }
-
-    // Generate initial patterns for all tracks
-    for (auto& track : tracks) {
-        track.generatePattern();
+        currentSteps.push_back(0);
     }
 
     // Set default tempo
@@ -34,9 +29,11 @@ void Sequencer::stop() {
 
 void Sequencer::reset() {
     clock.reset();
-    currentStep = 0;
-    for (auto& step : lastTriggeredStep) {
-        step = -1;
+    for (size_t i = 0; i < lastTriggeredStep.size(); ++i) {
+        lastTriggeredStep[i] = -1;
+    }
+    for (size_t i = 0; i < currentSteps.size(); ++i) {
+        currentSteps[i] = 0;
     }
     allNotesOff();
 }
@@ -116,63 +113,47 @@ void Sequencer::allNotesOff() {
     activeNotes.clear();
 }
 
-void Sequencer::triggerStep(int step) {
-    if (!synth) return;
-
-    // Process all tracks
-    for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
-        Track& track = tracks[trackIdx];
-
-        // Skip muted tracks
-        if (track.isMuted()) continue;
-
-        // Check if any track is soloed
-        bool anySolo = false;
-        for (const auto& t : tracks) {
-            if (t.isSolo()) {
-                anySolo = true;
-                break;
-            }
-        }
-
-        // If solo mode is active, only play soloed tracks
-        if (anySolo && !track.isSolo()) continue;
-
-        Pattern& pattern = track.getPattern();
-        PatternStep& patternStep = pattern.getStep(step);
-
-        if (!patternStep.active) continue;
-
-        // Probability check
-        float r = static_cast<float>(rand()) / RAND_MAX;
-        if (r > patternStep.probability) {
-            continue;  // Skip this trigger
-        }
-
-        // Trigger note
-        synth->noteOn(patternStep.midiNote, patternStep.velocity);
-
-        // Track active note for gate management
-        ActiveNote activeNote;
-        activeNote.midiNote = patternStep.midiNote;
-        activeNote.startSample = clock.getCurrentStep(pattern.getResolution()) *
-                                 clock.getSamplesPerStep(pattern.getResolution());
-        activeNote.gateLength = patternStep.gateLength;
-        activeNotes.push_back(activeNote);
+void Sequencer::triggerTrackStep(size_t trackIndex, int step) {
+    if (!synth || trackIndex >= tracks.size()) {
+        return;
     }
+
+    Track& track = tracks[trackIndex];
+    Pattern& pattern = track.getPattern();
+    PatternStep& patternStep = pattern.getStep(step);
+
+    if (!patternStep.active) {
+        return;
+    }
+
+    // Skip muted / solo logic handled by caller
+
+    // Probability check
+    float r = static_cast<float>(rand()) / RAND_MAX;
+    if (r > patternStep.probability) {
+        return;  // Skip this trigger
+    }
+
+    synth->noteOn(patternStep.midiNote, patternStep.velocity);
+
+    ActiveNote activeNote{};
+    activeNote.midiNote = patternStep.midiNote;
+    activeNote.startSample = clock.getCurrentStep(pattern.getResolution()) *
+                             clock.getSamplesPerStep(pattern.getResolution());
+    activeNote.gateLength = patternStep.gateLength;
+    activeNote.subdivision = pattern.getResolution();
+    activeNotes.push_back(activeNote);
 }
 
 void Sequencer::updateGates() {
     if (!synth || activeNotes.empty()) return;
 
-    // Use current track's subdivision for sample calculation (could be per-track in future)
-    uint64_t currentSample = clock.getCurrentStep(getCurrentTrack().getPattern().getResolution()) *
-                             clock.getSamplesPerStep(getCurrentTrack().getPattern().getResolution());
-    double samplesPerStep = clock.getSamplesPerStep(getCurrentTrack().getPattern().getResolution());
-
     // Check each active note
     auto it = activeNotes.begin();
     while (it != activeNotes.end()) {
+        uint64_t currentSample = clock.getCurrentStep(it->subdivision) *
+                                 clock.getSamplesPerStep(it->subdivision);
+        double samplesPerStep = clock.getSamplesPerStep(it->subdivision);
         uint64_t elapsed = currentSample - it->startSample;
         double gateTimeInSamples = samplesPerStep * it->gateLength;
 
@@ -191,6 +172,14 @@ void Sequencer::process(unsigned int nFrames) {
         return;
     }
 
+    bool anySolo = false;
+    for (const auto& track : tracks) {
+        if (track.isSolo()) {
+            anySolo = true;
+            break;
+        }
+    }
+
     // Process each track with its own subdivision
     for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
         Track& track = tracks[trackIdx];
@@ -199,28 +188,21 @@ void Sequencer::process(unsigned int nFrames) {
 
         int stepIndex;
         if (clock.checkStepTrigger(nFrames, subdiv, stepIndex)) {
-            // Wrap step to pattern length
             int trackStep = stepIndex % pattern.getLength();
+            currentSteps[trackIdx] = trackStep;
 
-            // Trigger the step if it wasn't just triggered
             if (trackStep != lastTriggeredStep[trackIdx]) {
-                // Only trigger from track 0 for now (simplification)
-                if (trackIdx == 0) {
-                    currentStep = trackStep;
-                }
                 lastTriggeredStep[trackIdx] = trackStep;
+
+                bool muted = track.isMuted();
+                bool skipForSolo = anySolo && !track.isSolo();
+                if (!muted && !skipForSolo) {
+                    triggerTrackStep(trackIdx, trackStep);
+                }
             }
         }
     }
 
-    // Trigger current step (processes all tracks)
-    static int lastProcessedStep = -1;
-    if (currentStep != lastProcessedStep) {
-        triggerStep(currentStep);
-        lastProcessedStep = currentStep;
-    }
-
-    // Update gate lengths
     updateGates();
 
     // Advance clock

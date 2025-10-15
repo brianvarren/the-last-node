@@ -7,6 +7,7 @@
 #include <deque>
 #include <mutex>
 #include <vector>
+#include <functional>
 #include "oscillator.h"
 
 class Synth;  // Forward declaration
@@ -146,6 +147,25 @@ public:
     
     // Draw the UI
     void draw(int activeVoices);
+
+    // Sequencer info field identifiers (exposed for shared lookup tables)
+    enum class SequencerInfoField {
+        TRACK = 0,
+        STATUS,
+        TEMPO,
+        STEP,
+        SCALE,
+        ROOT,
+        EUCLID_HITS,
+        EUCLID_STEPS,
+        EUCLID_ROTATION,
+        SUBDIVISION,
+        MUTED,
+        SOLO,
+        ACTIVE_COUNT,
+        LOCKED_COUNT,
+        LOCK_FLAG
+    };
     
     
     // Set device info
@@ -248,6 +268,16 @@ private:
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawConsole();
     void drawHotkeyLine();
+
+    // Sequencer helpers
+    bool handleSequencerInput(int ch);
+    void adjustSequencerTrackerField(int row, int column, int direction);
+    void adjustSequencerInfoField(int infoIndex, int direction);
+    void startSequencerNumericInput(int row, int column);
+    void startSequencerInfoNumericInput(int infoIndex);
+    void applySequencerNumericInput(const std::string& text);
+    void cancelSequencerNumericInput();
+    void ensureSequencerSelectionInRange();
     
     // Preset management helpers
     void refreshPresetList();
@@ -265,6 +295,51 @@ private:
     void finishNumericInput();
     void startMidiLearn(int id);
     void finishMidiLearn();
+
+    // Sequencer UI state
+    enum class SequencerTrackerColumn {
+        LOCK = 0,
+        NOTE = 1,
+        VELOCITY = 2,
+        GATE = 3,
+        PROBABILITY = 4
+    };
+
+    enum class SequencerNumericField {
+        NONE = 0,
+        NOTE,
+        VELOCITY,
+        GATE,
+        PROBABILITY,
+        TEMPO,
+        SCALE,
+        ROOT,
+        EUCLID_HITS,
+        EUCLID_STEPS,
+        EUCLID_ROTATION,
+        SUBDIVISION,
+        MUTED,
+        SOLO
+    };
+
+    struct SequencerNumericContext {
+        SequencerNumericField field;
+        int row;      // For tracker editing (row index)
+        int column;   // For tracker editing (column index)
+        int infoIndex; // For right pane editing
+        SequencerNumericContext()
+            : field(SequencerNumericField::NONE)
+            , row(-1)
+            , column(-1)
+            , infoIndex(-1) {}
+    };
+
+    int sequencerSelectedRow;
+    int sequencerSelectedColumn;
+    bool sequencerFocusRightPane;
+    int sequencerRightSelection;
+    bool numericInputIsSequencer;
+    SequencerNumericContext sequencerNumericContext;
 };
 
 #endif // UI_H
