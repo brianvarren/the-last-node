@@ -218,7 +218,15 @@ private:
     bool deviceChangeRequested;
     int requestedAudioDeviceId;
     int requestedMidiPortNum;
-    
+
+    // Help system
+    bool helpActive;
+    int helpScrollOffset;
+    void showHelp();
+    void hideHelp();
+    void drawHelpPage();
+    std::string getHelpContent(UIPage page);
+
     // Text input for preset names
     void startTextInput();
     void handleTextInput(int ch);

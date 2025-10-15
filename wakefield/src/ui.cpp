@@ -31,6 +31,8 @@ UI::UI(Synth* synth, SynthParameters* params)
     , deviceChangeRequested(false)
     , requestedAudioDeviceId(-1)
     , requestedMidiPortNum(-1)
+    , helpActive(false)
+    , helpScrollOffset(0)
     , waveformBuffer(WAVEFORM_BUFFER_SIZE, 0.0f)
     , waveformBufferWritePos(0) {
     
@@ -142,6 +144,22 @@ void UI::setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>&
 }
 
 void UI::handleInput(int ch) {
+    // Handle help mode
+    if (helpActive) {
+        if (ch == 'h' || ch == 'H' || ch == 27 || ch == 'q' || ch == 'Q') {  // H, Esc, or Q to close
+            hideHelp();
+        } else if (ch == KEY_UP || ch == 'k' || ch == 'K') {
+            helpScrollOffset = std::max(0, helpScrollOffset - 1);
+        } else if (ch == KEY_DOWN || ch == 'j' || ch == 'J') {
+            helpScrollOffset++;
+        } else if (ch == KEY_PPAGE) {  // Page Up
+            helpScrollOffset = std::max(0, helpScrollOffset - 10);
+        } else if (ch == KEY_NPAGE) {  // Page Down
+            helpScrollOffset += 10;
+        }
+        return;
+    }
+
     // Handle preset text input mode
     if (textInputActive) {
         handleTextInput(ch);
@@ -252,6 +270,12 @@ void UI::handleInput(int ch) {
     // Enter key starts numeric input for current parameter
     if (ch == '\n' || ch == KEY_ENTER) {
         startNumericInput(selectedParameterId);
+        return;
+    }
+
+    // 'H' key shows help (uppercase only to avoid conflicts)
+    if (ch == 'H') {
+        showHelp();
         return;
     }
 
@@ -387,6 +411,34 @@ void UI::handleInput(int ch) {
                     sequencer->regenerateUnlocked();
                     addConsoleMessage("Euclidean hits: " + std::to_string(newHits));
                 }
+                break;
+
+            // Track selection (1-4)
+            case '1':
+                sequencer->setCurrentTrack(0);
+                addConsoleMessage("Sequencer: Track 1 selected");
+                break;
+            case '2':
+                sequencer->setCurrentTrack(1);
+                addConsoleMessage("Sequencer: Track 2 selected");
+                break;
+            case '3':
+                sequencer->setCurrentTrack(2);
+                addConsoleMessage("Sequencer: Track 3 selected");
+                break;
+            case '4':
+                sequencer->setCurrentTrack(3);
+                addConsoleMessage("Sequencer: Track 4 selected");
+                break;
+
+            // Pattern rotation ([/])
+            case '[':
+                sequencer->rotatePattern(-1);
+                addConsoleMessage("Sequencer: Rotated pattern left");
+                break;
+            case ']':
+                sequencer->rotatePattern(1);
+                addConsoleMessage("Sequencer: Rotated pattern right");
                 break;
         }
     }
@@ -773,10 +825,10 @@ void UI::drawSequencerPage() {
 
     // Get Euclidean info
     EuclideanPattern& euclidean = sequencer->getEuclideanPattern();
-
-    // Title and status
+    // Header and status for vertical layout
+    int trackIdx = sequencer->getCurrentTrackIndex();
     attron(A_BOLD);
-    mvprintw(row++, 1, "SEQUENCER - Generative Pattern");
+    mvprintw(row++, 1, "SEQUENCER - Track %d (vertical)", trackIdx + 1);
     attroff(A_BOLD);
     row++;
 
@@ -795,115 +847,83 @@ void UI::drawSequencerPage() {
            tempo, currentStep + 1, pattern.getLength());
     row++;
 
+    // Track info
     mvprintw(row++, col, "Scale: %s", scaleName.c_str());
     mvprintw(row++, col, "Euclidean: %d hits / %d steps / %d rotation",
              euclidean.getHits(), euclidean.getSteps(), euclidean.getRotation());
     row++;
 
-    // Pattern visualization (horizontal tracker)
+    // Vertical pattern view
     attron(A_BOLD);
-    mvprintw(row++, 1, "PATTERN (horizontal tracker):");
+    mvprintw(row++, 1, "PATTERN (vertical):");
     attroff(A_BOLD);
     row++;
 
-    // Draw step numbers (only show first 16 steps for now)
-    mvprintw(row, col, "Step: ");
+    // Table header
+    attron(A_BOLD);
+    mvprintw(row, col, "Idx  Cur  Lck  Note   Vel  Gate  Prob");
+    attroff(A_BOLD);
+    row++;
+
     int displaySteps = std::min(16, pattern.getLength());
     for (int i = 0; i < displaySteps; ++i) {
-        mvprintw(row, col + 6 + i * 4, "%2d", i);
-    }
-    row++;
+        const PatternStep& step = pattern.getStep(i);
 
-    // Draw current step indicator
-    mvprintw(row, col, "      ");
-    for (int i = 0; i < displaySteps; ++i) {
+        // Index
+        mvprintw(row, col, "%3d", i);
+
+        // Current step indicator
         if (i == currentStep && playing) {
             attron(COLOR_PAIR(5) | A_BOLD);
-            mvprintw(row, col + 6 + i * 4, "v ");
+            mvprintw(row, col + 5, ">");
             attroff(COLOR_PAIR(5) | A_BOLD);
         } else {
-            mvprintw(row, col + 6 + i * 4, "  ");
+            mvprintw(row, col + 5, " ");
         }
-    }
-    row++;
 
-    // Draw pitch lane
-    mvprintw(row, col, "Pitch ");
-    for (int i = 0; i < displaySteps; ++i) {
-        const PatternStep& step = pattern.getStep(i);
+        // Locked indicator
         if (step.locked) {
             attron(COLOR_PAIR(3) | A_BOLD);
-            mvprintw(row, col + 6 + i * 4, "L ");
+            mvprintw(row, col + 10, "L");
             attroff(COLOR_PAIR(3) | A_BOLD);
-        } else if (step.active) {
-            // Convert MIDI note to name
+        } else {
+            mvprintw(row, col + 10, " ");
+        }
+
+        // Note name or dot
+        if (step.active) {
             const char* notes[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
             int octave = (step.midiNote / 12) - 1;
             int noteIndex = step.midiNote % 12;
-            mvprintw(row, col + 6 + i * 4, "%s%d", notes[noteIndex], octave);
+            mvprintw(row, col + 15, "%s%d", notes[noteIndex], octave);
         } else {
             attron(COLOR_PAIR(1));
-            mvprintw(row, col + 6 + i * 4, "· ");
+            mvprintw(row, col + 15, "·");
             attroff(COLOR_PAIR(1));
         }
-    }
-    row++;
 
-    // Draw velocity lane
-    mvprintw(row, col, "Vel   ");
-    for (int i = 0; i < displaySteps; ++i) {
-        const PatternStep& step = pattern.getStep(i);
+        // Velocity, Gate, Probability
         if (step.active) {
-            mvprintw(row, col + 6 + i * 4, "%3d", step.velocity);
+            mvprintw(row, col + 23, "%3d", step.velocity);
+            mvprintw(row, col + 29, "%3d", static_cast<int>(step.gateLength * 100));
+            mvprintw(row, col + 35, "%3d", static_cast<int>(step.probability * 100));
         } else {
             attron(COLOR_PAIR(1));
-            mvprintw(row, col + 6 + i * 4, "·  ");
+            mvprintw(row, col + 23, "·  ");
+            mvprintw(row, col + 29, "·  ");
+            mvprintw(row, col + 35, "·  ");
             attroff(COLOR_PAIR(1));
         }
-    }
-    row++;
 
-    // Draw gate lane
-    mvprintw(row, col, "Gate  ");
-    for (int i = 0; i < displaySteps; ++i) {
-        const PatternStep& step = pattern.getStep(i);
-        if (step.active) {
-            mvprintw(row, col + 6 + i * 4, "%3d", static_cast<int>(step.gateLength * 100));
-        } else {
-            attron(COLOR_PAIR(1));
-            mvprintw(row, col + 6 + i * 4, "·  ");
-            attroff(COLOR_PAIR(1));
-        }
+        row++;
     }
-    row++;
 
-    // Draw probability lane
-    mvprintw(row, col, "Prob  ");
-    for (int i = 0; i < displaySteps; ++i) {
-        const PatternStep& step = pattern.getStep(i);
-        if (step.active) {
-            mvprintw(row, col + 6 + i * 4, "%3d", static_cast<int>(step.probability * 100));
-        } else {
-            attron(COLOR_PAIR(1));
-            mvprintw(row, col + 6 + i * 4, "·  ");
-            attroff(COLOR_PAIR(1));
-        }
-    }
-    row += 2;
+    row += 1;
 
     // Pattern statistics
     mvprintw(row++, col, "Active steps: %d / %d  |  Locked steps: %d",
              pattern.getActiveStepCount(), pattern.getLength(),
              pattern.getLockedStepCount());
-    row++;
-
-    // Controls
-    attron(A_BOLD);
-    mvprintw(row++, 1, "CONTROLS:");
-    attroff(A_BOLD);
-    mvprintw(row++, col, "[Space] Play/Stop  |  [G] Generate  |  [M] Mutate  |  [R] Reset");
-    mvprintw(row++, col, "[T]/[Y] Tempo -/+  |  [H]/[J] Hits -/+  |  [S] Save  |  [O] Load");
-    mvprintw(row++, col, "Note: Full editing coming soon!");
 }
 
 void UI::drawConfigPage() {
@@ -1022,7 +1042,14 @@ void UI::drawHotkeyLine() {
 
 void UI::draw(int activeVoices) {
     erase();  // Use erase() instead of clear() - doesn't cause flicker
-    
+
+    // If help is active, show help instead of normal UI
+    if (helpActive) {
+        drawHelpPage();
+        refresh();
+        return;
+    }
+
     drawTabs();
     
     switch (currentPage) {
@@ -1475,3 +1502,330 @@ void UI::writeToWaveformBuffer(float sample) {
     waveformBufferWritePos.store((pos + 1) % WAVEFORM_BUFFER_SIZE, std::memory_order_relaxed);
 }
 
+// Help system implementation
+void UI::showHelp() {
+    helpActive = true;
+    helpScrollOffset = 0;
+    clear();
+}
+
+void UI::hideHelp() {
+    helpActive = false;
+    helpScrollOffset = 0;
+    clear();
+}
+
+std::string UI::getHelpContent(UIPage page) {
+    std::string content;
+
+    switch (page) {
+        case UIPage::MAIN:
+            content = R"(
+=== MAIN PAGE ===
+
+CONTROLS:
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select parameter
+  Left/Right     - Adjust parameter value
+  Enter          - Type exact value
+  L              - MIDI Learn (assign MIDI CC to parameter)
+  H              - Show this help
+  Q              - Quit application
+
+PARAMETERS:
+  Waveform   - Oscillator waveform type
+  Attack     - Envelope attack time (0.001-30s)
+  Decay      - Envelope decay time (0.001-30s)
+  Sustain    - Envelope sustain level (0-100%)
+  Release    - Envelope release time (0.001-30s)
+  Volume     - Master output volume
+
+ABOUT:
+Wakefield is a polyphonic wavetable synthesizer with brainwave oscillators,
+built-in reverb, filters, loopers, and a generative MIDI sequencer for
+creating dark ambient soundscapes.
+
+The MAIN page controls the basic synthesis parameters including envelope
+(ADSR) and master volume. All parameters support MIDI learn for external
+control via MIDI controllers.
+)";
+            break;
+
+        case UIPage::BRAINWAVE:
+            content = R"(
+=== BRAINWAVE OSCILLATOR ===
+
+CONTROLS:
+  [Same global controls as MAIN page]
+
+PARAMETERS:
+  Mode       - FREE (manual freq) or KEY (MIDI tracking)
+  Frequency  - Base frequency or offset (20-2000 Hz)
+  Morph      - Wavetable position (0-255 frames)
+  Duty       - Pulse width for PWM synthesis
+  Octave     - Octave shift (-3 to +3)
+  LFO Enable - Enable modulation LFO
+  LFO Speed  - LFO rate (0-9, slow to fast)
+
+ABOUT:
+The Brainwave oscillator is a wavetable synth engine that morphs through
+256 frames of complex waveforms. In FREE mode, you control the frequency
+directly. In KEY mode, it tracks MIDI notes while the Frequency parameter
+acts as an offset or detune amount.
+
+The Morph parameter sweeps through the wavetable frames, allowing smooth
+transitions from simple to complex timbres. The LFO can modulate the morph
+parameter for evolving textures perfect for dark ambient pads and drones.
+)";
+            break;
+
+        case UIPage::REVERB:
+            content = R"(
+=== REVERB ===
+
+CONTROLS:
+  [Same global controls as MAIN page]
+
+PARAMETERS:
+  Type       - Reverb algorithm (Greyhole, Plate, Room, Hall, Spring)
+  Enabled    - Bypass reverb processing
+  Delay Time - Pre-delay before reverb (0-1)
+  Size       - Reverb room size (0.5-3.0)
+  Damping    - High frequency damping
+  Mix        - Dry/wet balance
+  Decay      - Reverb decay time
+  Diffusion  - Density of reflections
+  Mod Depth  - Modulation depth
+  Mod Freq   - Modulation frequency
+
+ABOUT:
+Wakefield features the Greyhole reverb algorithm, a complex diffused delay
+network designed specifically for lush, expansive ambient spaces. The reverb
+can create everything from subtle room ambience to massive cathedral-like
+spaces with infinitely long decay times.
+
+The Modulation parameters add subtle pitch shifting and movement to the
+reverb tail, creating shimmering, ethereal textures that never sound static.
+)";
+            break;
+
+        case UIPage::FILTER:
+            content = R"(
+=== FILTER ===
+
+CONTROLS:
+  [Same global controls as MAIN page]
+
+PARAMETERS:
+  Type    - Lowpass, Highpass, High Shelf, Low Shelf
+  Enabled - Bypass filter processing
+  Cutoff  - Filter cutoff frequency (20-20000 Hz)
+  Gain    - Shelf gain in dB (for shelf filters only)
+
+ABOUT:
+The filter section provides tone shaping capabilities. Lowpass and highpass
+filters are based on the Topology-Preserving Transform (TPT) design for
+smooth, artifact-free cutoff modulation.
+
+The shelf filters allow you to boost or cut high or low frequencies,
+useful for brightening dull sounds or removing muddiness. All filter types
+support MIDI learn for real-time modulation.
+)";
+            break;
+
+        case UIPage::LOOPER:
+            content = R"(
+=== LOOPER ===
+
+CONTROLS:
+  Space      - Record / Play / Stop
+  O          - Toggle Overdub mode
+  S          - Stop loop
+  C          - Clear loop
+  1-4        - Select loop (4 independent loops)
+  [/]        - Adjust overdub mix
+  H          - Show this help
+
+PARAMETERS:
+  Current Loop - Active loop (1-4)
+  Overdub Mix  - Wet amount for overdubbing (0-100%)
+
+ABOUT:
+Wakefield includes 4 independent guitar-pedal-style loopers. Each loop can
+record, playback, overdub, stop, and clear independently.
+
+WORKFLOW:
+1. Press Space to start recording
+2. Press Space again to start playback
+3. Press O to enter overdub mode (layers on top)
+4. Use [/] to control how much new audio mixes with existing loop
+5. Switch between loops with 1-4 keys to layer different parts
+
+The overdub mix control is crucial - keeping it around 60% prevents the loop
+from getting too loud when layering multiple passes.
+)";
+            break;
+
+        case UIPage::SEQUENCER:
+            content = R"(
+=== GENERATIVE SEQUENCER ===
+
+CONTROLS:
+  Space      - Play/Stop sequencer
+  G          - Generate new pattern
+  M          - Mutate pattern (20% variation)
+  R          - Reset playback position
+  T/Y        - Tempo -/+ 5 BPM
+  h/j        - Euclidean hits -/+ 1
+  1-4        - Switch track (4 tracks)
+  [/]        - Rotate pattern left/right
+  E          - Edit scale (TODO)
+  H          - Show this help
+
+ABOUT:
+The sequencer is a generative MIDI pattern generator that combines three
+powerful algorithmic composition techniques:
+
+1. CONSTRAINT-BASED PITCH GENERATION
+   Generates notes within musical scales (Phrygian, Locrian, Dorian, etc.)
+   ensuring all output is musically coherent. Supports melodic contours like
+   "Orbiting" (gravitational pull to center note) and "Random Walk".
+
+2. MARKOV CHAIN MELODY
+   Uses probability-weighted transitions to generate evolving melodies.
+   Notes don't repeat randomly - they follow musical logic with smooth
+   voice leading and tendency tones.
+
+3. EUCLIDEAN RHYTHM GENERATION
+   Distributes N hits evenly across M steps using Bjorklund's algorithm.
+   Example: 7 hits in 16 steps creates [X · · X · · X · · X · · X · ·]
+   This creates mathematically perfect, organic-sounding rhythms.
+
+WORKFLOW:
+- Press G to generate a new pattern
+- Press Space to hear it
+- Press M to mutate slightly (keeps good parts, varies others)
+- Adjust Euclidean hits (H/J) to change rhythm density
+- Switch tracks (1-4) to layer multiple patterns
+- Each track can have different scales, tempos, subdivisions
+
+DEFAULT SETTINGS (optimized for dark ambient):
+- Scale: D Phrygian (dark, mysterious)
+- Octave Range: C2-C4 (low, droney)
+- Contour: Orbiting D3 (hypnotic repetition)
+- Euclidean: 7/16 (sparse, interesting)
+- Tempo: 90 BPM (slow, meditative)
+
+MULTI-TRACK SYSTEM:
+Wakefield supports 4 independent tracks playing simultaneously. Each track
+has its own:
+- Pattern (16-256 steps)
+- Scale and constraints
+- Euclidean rhythm settings
+- Markov chain transition matrix
+- Subdivision (1/16th, 1/8th, 1/4th, etc.)
+
+This allows complex polyrhythmic textures:
+- Track 1: Slow drone (whole notes, 1/4 subdivision)
+- Track 2: Mid-tempo pad (1/8th subdivision)
+- Track 3: Fast arpeggio (1/32nd subdivision, near audio-rate)
+- Track 4: Sparse percussion (1/16th, very few hits)
+)";
+            break;
+
+        case UIPage::CONFIG:
+            content = R"(
+=== CONFIGURATION ===
+
+CONTROLS:
+  Up/Down    - Navigate options
+  Enter      - Select audio/MIDI device
+  H          - Show this help
+  Q          - Quit
+
+ABOUT:
+The CONFIG page shows system information and allows selection of audio
+and MIDI devices. Device changes require restarting the application to
+apply the new settings.
+
+SYSTEM INFO:
+- Audio device and sample rate
+- MIDI input device
+- Buffer size (affects latency)
+
+To change devices, select them from the list and press Enter. The application
+will restart with the new configuration.
+)";
+            break;
+
+        default:
+            content = "No help available for this page.";
+            break;
+    }
+
+    return content;
+}
+
+void UI::drawHelpPage() {
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+
+    // Draw title bar
+    attron(COLOR_PAIR(5) | A_BOLD);
+    mvprintw(0, 0, " HELP ");
+    attroff(COLOR_PAIR(5) | A_BOLD);
+
+    attron(COLOR_PAIR(6));
+    for (int i = 6; i < cols; ++i) {
+        mvaddch(0, i, ' ');
+    }
+    attroff(COLOR_PAIR(6));
+
+    // Draw separator
+    attron(COLOR_PAIR(1));
+    mvhline(1, 0, '-', cols);
+    attroff(COLOR_PAIR(1));
+
+    // Get help content for current page
+    std::string content = getHelpContent(currentPage);
+
+    // Split content into lines
+    std::vector<std::string> lines;
+    std::string line;
+    for (char c : content) {
+        if (c == '\n') {
+            lines.push_back(line);
+            line.clear();
+        } else {
+            line += c;
+        }
+    }
+    if (!line.empty()) {
+        lines.push_back(line);
+    }
+
+    // Draw content with scrolling
+    int contentHeight = rows - 4;  // Leave space for header and footer
+    int startLine = helpScrollOffset;
+    int endLine = std::min(static_cast<int>(lines.size()), startLine + contentHeight);
+
+    for (int i = startLine; i < endLine; ++i) {
+        int displayRow = 2 + (i - startLine);
+        mvprintw(displayRow, 1, "%s", lines[i].c_str());
+    }
+
+    // Draw footer with scroll indicator
+    attron(COLOR_PAIR(1));
+    mvhline(rows - 2, 0, '-', cols);
+    attroff(COLOR_PAIR(1));
+
+    attron(COLOR_PAIR(5) | A_BOLD);
+    mvprintw(rows - 1, 1, "Up/Down/PgUp/PgDn: Scroll  |  H/Esc/Q: Close");
+    attroff(COLOR_PAIR(5) | A_BOLD);
+
+    // Scroll indicator
+    if (lines.size() > contentHeight) {
+        int percent = (helpScrollOffset * 100) / std::max(1, static_cast<int>(lines.size()) - contentHeight);
+        mvprintw(rows - 1, cols - 15, "[%3d%% of %3d]", percent, static_cast<int>(lines.size()));
+    }
+}
