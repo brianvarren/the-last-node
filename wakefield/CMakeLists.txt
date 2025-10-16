@@ -46,4 +46,5 @@ target_link_libraries(synth PRIVATE
     ${RTAUDIO_LIBRARIES} 
     ${RTMIDI_LIBRARIES}
     ${CURSES_LIBRARIES}
+    ncursesw
 )
