@@ -1597,6 +1597,7 @@ void UI::drawSequencerPage() {
                                 grayPair);
         }
 
+        wrefresh(trackerWin);
         delwin(trackerWin);
     }
 
