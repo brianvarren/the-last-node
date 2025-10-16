@@ -274,6 +274,9 @@ private:
     void startSequencerInfoNumericInput(int infoIndex);
     void applySequencerNumericInput(const std::string& text);
     void cancelSequencerNumericInput();
+    void startSequencerScaleMenu();
+    void handleSequencerScaleMenuInput(int ch);
+    void finishSequencerScaleMenu(bool applySelection);
     void ensureSequencerSelectionInRange();
     
     // Preset management helpers
@@ -338,10 +341,14 @@ private:
     int sequencerRightSelection;
     float sequencerMutateAmount;  // Percentage 0-100
 
-    // Actions section state (below parameters)
+    // Actions section state
     bool sequencerFocusActionsPane;
-    int sequencerActionsRow;     // 0=Generate, 1=Randomize, 2=Mutate, 3=Clear, 4=Rotate
+    int sequencerActionsRow;     // 0=Generate, 1=Clear, 2=Randomize, 3=Mutate, 4=Rotate
     int sequencerActionsColumn;  // 0=All, 1=Note, 2=Vel, 3=Gate, 4=Prob
+
+    // Scale selection menu
+    bool sequencerScaleMenuActive;
+    int sequencerScaleMenuIndex;
 
     bool numericInputIsSequencer;
     SequencerNumericContext sequencerNumericContext;

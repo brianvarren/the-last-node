@@ -438,6 +438,22 @@ static std::string scaleKey(Scale scale) {
     }
 }
 
+static const char* scaleDisplayName(Scale scale) {
+    switch (scale) {
+        case Scale::CHROMATIC: return "Chromatic";
+        case Scale::MINOR_NATURAL: return "Natural Minor";
+        case Scale::HARMONIC_MINOR: return "Harmonic Minor";
+        case Scale::PHRYGIAN: return "Phrygian";
+        case Scale::LOCRIAN: return "Locrian";
+        case Scale::DORIAN: return "Dorian";
+        case Scale::WHOLE_TONE: return "Whole Tone";
+        case Scale::DIMINISHED: return "Diminished";
+        case Scale::PENTATONIC_MINOR: return "Pentatonic Minor";
+        case Scale::CUSTOM: return "Custom";
+        default: return "Unknown";
+    }
+}
+
 static bool parseScaleText(const std::string& text, Scale& outScale) {
     std::string lower;
     lower.reserve(text.size());
@@ -516,6 +532,8 @@ UI::UI(Synth* synth, SynthParameters* params)
     , sequencerFocusActionsPane(false)
     , sequencerActionsRow(0)
     , sequencerActionsColumn(0)
+    , sequencerScaleMenuActive(false)
+    , sequencerScaleMenuIndex(0)
     , numericInputIsSequencer(false) {
     
     // Load available presets
@@ -645,6 +663,11 @@ void UI::handleInput(int ch) {
     // Handle preset text input mode
     if (textInputActive) {
         handleTextInput(ch);
+        return;
+    }
+
+    if (sequencerScaleMenuActive) {
+        handleSequencerScaleMenuInput(ch);
         return;
     }
 
@@ -1322,10 +1345,7 @@ void UI::drawSequencerPage() {
     int currentStep = sequencer->getCurrentStep(trackIdx);
     currentStep = (currentStep % patternLength + patternLength) % patternLength;
 
-    int cols = getmaxx(stdscr);
-    int rightCol = std::max(leftCol + 42, cols - 32);
-    if (rightCol < leftCol + 38) rightCol = leftCol + 38;
-    if (rightCol > cols - 12) rightCol = cols - 12;
+    int rightCol = leftCol + 35;  // Place right pane closer to tracker
 
     // Status indicators at top
     int statusAttr = playing ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(4) | A_BOLD);
@@ -1339,6 +1359,63 @@ void UI::drawSequencerPage() {
     mvprintw(row, leftCol, "SEQUENCER - Track %d", trackIdx + 1);
     attroff(A_BOLD);
     row += 2;
+
+    // Draw actions section FIRST at top of right pane
+    int actionsStartRow = 3;
+    attron(A_BOLD);
+    mvprintw(actionsStartRow, rightCol, "ACTIONS");
+    attroff(A_BOLD);
+    actionsStartRow++;
+
+    // Generate and Clear buttons
+    bool generateSelected = sequencerFocusActionsPane && sequencerActionsRow == 0;
+    if (generateSelected) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+    }
+    mvprintw(actionsStartRow, rightCol, "[Generate]");
+    if (generateSelected) {
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    }
+
+    bool clearSelected = sequencerFocusActionsPane && sequencerActionsRow == 1;
+    if (clearSelected) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+    }
+    mvprintw(actionsStartRow, rightCol + 12, "[Clear]");
+    if (clearSelected) {
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    }
+    actionsStartRow += 2;
+
+    // Actions grid header
+    mvprintw(actionsStartRow, rightCol, "            All  Note Vel  Gate Prob");
+    actionsStartRow++;
+
+    // Actions grid rows (Randomize, Mutate, Rotate only)
+    const char* actionLabels[] = {"Randomize", "Mutate   ", "Rotate   "};
+    for (int aRow = 0; aRow < 3; ++aRow) {
+        mvprintw(actionsStartRow, rightCol, "%-10s", actionLabels[aRow]);
+        for (int aCol = 0; aCol < 5; ++aCol) {
+            bool cellSelected = sequencerFocusActionsPane &&
+                                sequencerActionsRow == (aRow + 2) &&
+                                sequencerActionsColumn == aCol;
+            int xPos = rightCol + 12 + aCol * 5;
+            if (cellSelected) {
+                attron(COLOR_PAIR(5) | A_BOLD);
+            }
+            mvprintw(actionsStartRow, xPos, "[ ]");
+            if (cellSelected) {
+                attroff(COLOR_PAIR(5) | A_BOLD);
+            }
+        }
+        actionsStartRow++;
+    }
+
+    int infoRow = actionsStartRow + 1;
+    attron(A_BOLD);
+    mvprintw(infoRow, rightCol, "PARAMETERS");
+    attroff(A_BOLD);
+    infoRow += 2;
 
     // Draw right-side info panel
     struct InfoValue {
@@ -1429,64 +1506,16 @@ void UI::drawSequencerPage() {
         pushInfo(def, text, attr, highlight);
     }
 
-    int infoRow = 3;
     for (const auto& info : infoValues) {
-        ++infoRow;
         int attr = info.highlight ? (COLOR_PAIR(5) | A_BOLD) : info.attr;
-        if (attr != 0) attron(attr);
-        mvprintw(infoRow, rightCol, "%-12s: %s", info.def->label, info.text.c_str());
-        if (attr != 0) attroff(attr);
-    }
-
-    // Actions section below parameters
-    infoRow += 2;
-    attron(A_BOLD);
-    mvprintw(infoRow, rightCol, "ACTIONS");
-    attroff(A_BOLD);
-    infoRow++;
-
-    // Generate and Clear buttons
-    bool generateSelected = sequencerFocusActionsPane && sequencerActionsRow == 0;
-    if (generateSelected) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-    }
-    mvprintw(infoRow, rightCol, "[Generate]");
-    if (generateSelected) {
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    }
-
-    bool clearSelected = sequencerFocusActionsPane && sequencerActionsRow == 1;
-    if (clearSelected) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-    }
-    mvprintw(infoRow, rightCol + 12, "[Clear]");
-    if (clearSelected) {
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    }
-    infoRow += 2;
-
-    // Actions grid header
-    mvprintw(infoRow, rightCol, "            All  Note Vel  Gate Prob");
-    infoRow++;
-
-    // Actions grid rows (Randomize, Mutate, Rotate only - Clear moved above)
-    const char* actionLabels[] = {"Randomize", "Mutate   ", "Rotate   "};
-    for (int aRow = 0; aRow < 3; ++aRow) {
-        mvprintw(infoRow, rightCol, "%-10s", actionLabels[aRow]);
-        for (int aCol = 0; aCol < 5; ++aCol) {
-            bool cellSelected = sequencerFocusActionsPane &&
-                                sequencerActionsRow == (aRow + 2) &&  // +2 because 0=Generate, 1=Clear
-                                sequencerActionsColumn == aCol;
-            int xPos = rightCol + 12 + aCol * 5;
-            if (cellSelected) {
-                attron(COLOR_PAIR(5) | A_BOLD);
-            }
-            mvprintw(infoRow, xPos, "[ ]");
-            if (cellSelected) {
-                attroff(COLOR_PAIR(5) | A_BOLD);
-            }
+        if (attr != 0) {
+            attron(attr);
         }
-        infoRow++;
+        mvprintw(infoRow, rightCol, "%-12s: %s", info.def->label, info.text.c_str());
+        if (attr != 0) {
+            attroff(attr);
+        }
+        ++infoRow;
     }
 
     // Simple tracker display - cap at 16 steps
@@ -1506,7 +1535,7 @@ void UI::drawSequencerPage() {
     for (int i = 0; i < displayRows; ++i) {
         const PatternStep& step = pattern.getStep(i);
         bool rowSelected = (!sequencerFocusRightPane && !sequencerFocusActionsPane && sequencerSelectedRow == i);
-        bool isCurrentStep = (playing && currentStep == i);
+        bool isCurrentStep = (currentStep == i);
 
         // Reset attributes and clear the line
         attrset(A_NORMAL);
@@ -1713,6 +1742,8 @@ void UI::drawHotkeyLine() {
     
     if (numericInputActive) {
         mvprintw(row, 1, "Type value  |  Enter Confirm  |  Esc Cancel  |  Q Quit");
+    } else if (sequencerScaleMenuActive) {
+        mvprintw(row, 1, "Up/Down Choose Scale  |  Enter Confirm  |  Esc Cancel  |  Q Quit");
     } else if (textInputActive) {
         mvprintw(row, 1, "Type preset name  |  Enter Save  |  Esc Cancel  |  Q Quit");
     } else if (params->midiLearnActive.load()) {
@@ -1866,6 +1897,48 @@ void UI::draw(int activeVoices) {
         } else {
             mvprintw(startY + 5, startX + 2, "Press Enter to confirm, Esc to cancel");
         }
+        attroff(COLOR_PAIR(3));
+    } else if (sequencerScaleMenuActive) {
+        int maxY = getmaxy(stdscr);
+        int maxX = getmaxx(stdscr);
+        int optionCount = static_cast<int>(kScaleOrder.size());
+        int height = optionCount + 4;
+        if (height < 8) {
+            height = 8;
+        }
+        int width = 36;
+        int startY = std::max(1, (maxY - height) / 2);
+        int startX = std::max(1, (maxX - width) / 2);
+
+        for (int y = startY; y < startY + height; ++y) {
+            for (int x = startX; x < startX + width; ++x) {
+                mvaddch(y, x, ' ');
+            }
+        }
+
+        attron(A_BOLD);
+        mvhline(startY, startX, '-', width);
+        mvhline(startY + height - 1, startX, '-', width);
+        mvvline(startY, startX, '|', height);
+        mvvline(startY, startX + width - 1, '|', height);
+        mvprintw(startY + 1, startX + 2, "Select Scale");
+        attroff(A_BOLD);
+
+        for (int i = 0; i < optionCount; ++i) {
+            int y = startY + 3 + i;
+            const char* name = scaleDisplayName(kScaleOrder[i]);
+            bool selected = (i == sequencerScaleMenuIndex);
+            if (selected) {
+                attron(COLOR_PAIR(5) | A_BOLD);
+                mvprintw(y, startX + 2, "> %-20s", name);
+                attroff(COLOR_PAIR(5) | A_BOLD);
+            } else {
+                mvprintw(y, startX + 2, "  %-20s", name);
+            }
+        }
+
+        attron(COLOR_PAIR(3));
+        mvprintw(startY + height - 2, startX + 2, "Enter confirm, Esc cancel");
         attroff(COLOR_PAIR(3));
     }
     
@@ -2259,6 +2332,76 @@ void UI::cancelSequencerNumericInput() {
     sequencerNumericContext = SequencerNumericContext();
 }
 
+void UI::startSequencerScaleMenu() {
+    if (!sequencer) return;
+
+    numericInputActive = false;
+    numericInputBuffer.clear();
+
+    Track& track = sequencer->getCurrentTrack();
+    MusicalConstraints& constraints = track.getConstraints();
+    Scale current = constraints.getScale();
+    auto it = std::find(kScaleOrder.begin(), kScaleOrder.end(), current);
+    if (it == kScaleOrder.end()) {
+        sequencerScaleMenuIndex = 0;
+    } else {
+        sequencerScaleMenuIndex = static_cast<int>(std::distance(kScaleOrder.begin(), it));
+    }
+    sequencerScaleMenuActive = true;
+}
+
+void UI::finishSequencerScaleMenu(bool applySelection) {
+    if (!sequencerScaleMenuActive) return;
+
+    if (applySelection && sequencer && !kScaleOrder.empty()) {
+        int clampedIndex = std::clamp(sequencerScaleMenuIndex, 0,
+                                      static_cast<int>(kScaleOrder.size()) - 1);
+        Track& track = sequencer->getCurrentTrack();
+        MusicalConstraints& constraints = track.getConstraints();
+        Scale chosen = kScaleOrder[clampedIndex];
+        if (constraints.getScale() != chosen) {
+            constraints.setScale(chosen);
+            sequencer->regenerateUnlocked();
+        }
+    }
+
+    sequencerScaleMenuActive = false;
+}
+
+void UI::handleSequencerScaleMenuInput(int ch) {
+    if (!sequencerScaleMenuActive) return;
+
+    int optionCount = static_cast<int>(kScaleOrder.size());
+    if (optionCount <= 0) {
+        finishSequencerScaleMenu(false);
+        return;
+    }
+
+    switch (ch) {
+        case KEY_UP:
+        case 'k':
+        case 'K':
+            sequencerScaleMenuIndex =
+                (sequencerScaleMenuIndex - 1 + optionCount) % optionCount;
+            break;
+        case KEY_DOWN:
+        case 'j':
+        case 'J':
+            sequencerScaleMenuIndex =
+                (sequencerScaleMenuIndex + 1) % optionCount;
+            break;
+        case '\n':
+        case KEY_ENTER:
+            finishSequencerScaleMenu(true);
+            break;
+        case 27:  // Escape
+            finishSequencerScaleMenu(false);
+            break;
+        default:
+            break;
+    }
+}
+
 bool UI::handleSequencerInput(int ch) {
     if (!sequencer) {
         return false;
@@ -2403,6 +2546,8 @@ bool UI::handleSequencerInput(int ch) {
                         } else if (entry.field == SequencerInfoField::SOLO) {
                             Track& track = sequencer->getCurrentTrack();
                             track.setSolo(!track.isSolo());
+                        } else if (entry.field == SequencerInfoField::SCALE) {
+                            startSequencerScaleMenu();
                         } else {
                             startSequencerInfoNumericInput(sequencerRightSelection);
                         }
