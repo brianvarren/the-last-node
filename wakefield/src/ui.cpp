@@ -1436,7 +1436,7 @@ void UI::drawSequencerPage() {
     int infoRow = 3;
     for (const auto& info : infoValues) {
         ++infoRow;
-        int attr = info.highlight ? (COLOR_PAIR(1) | A_BOLD) : info.attr;
+        int attr = info.highlight ? (COLOR_PAIR(5) | A_BOLD) : info.attr;
         if (attr != 0) attron(attr);
         mvprintw(infoRow, rightCol, "%-12s: %s", info.def->label, info.text.c_str());
         if (attr != 0) attroff(attr);
@@ -1459,44 +1459,85 @@ void UI::drawSequencerPage() {
     for (int i = 0; i < displayRows; ++i) {
         const PatternStep& step = pattern.getStep(i);
         bool rowSelected = (!sequencerFocusRightPane && sequencerSelectedRow == i);
+        bool isCurrentStep = (playing && currentStep == i);
 
-        // Playhead marker
-        if (playing && currentStep == i) {
-            mvprintw(row, leftCol - 2, ">");
-        } else {
-            mvprintw(row, leftCol - 2, " ");
-        }
-
-        // Row selection highlight
-        if (rowSelected) {
+        // Step number - highlight active step with teal
+        if (isCurrentStep) {
             attron(COLOR_PAIR(1) | A_BOLD);
         }
-
-        // Step number
         mvprintw(row, leftCol, "%2d", i);
+        if (isCurrentStep) {
+            attroff(COLOR_PAIR(1) | A_BOLD);
+        }
 
-        // Lock indicator
+        // Lock indicator - with selection highlight
+        bool lockSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::LOCK);
+        if (lockSelected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+        }
         if (step.locked) {
             mvprintw(row, leftCol + 3, "L");
         } else {
             mvprintw(row, leftCol + 3, " ");
         }
-
-        // Note, velocity, gate, probability
-        if (step.active) {
-            mvprintw(row, leftCol + 5, "%-6s %3d %3d%% %3d%%",
-                     midiNoteToString(step.midiNote).c_str(),
-                     step.velocity,
-                     static_cast<int>(step.gateLength * 100.0f),
-                     static_cast<int>(step.probability * 100.0f));
-        } else {
-            attron(COLOR_PAIR(8));
-            mvprintw(row, leftCol + 5, "---    ---  ---  ---");
-            attroff(COLOR_PAIR(8));
+        if (lockSelected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
         }
 
-        if (rowSelected) {
-            attroff(COLOR_PAIR(1) | A_BOLD);
+        // Note field
+        bool noteSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::NOTE);
+        if (noteSelected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+        }
+        if (step.active) {
+            mvprintw(row, leftCol + 5, "%-6s", midiNoteToString(step.midiNote).c_str());
+        } else {
+            mvprintw(row, leftCol + 5, "---   ");
+        }
+        if (noteSelected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        // Velocity field
+        bool velSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::VELOCITY);
+        if (velSelected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+        }
+        if (step.active) {
+            mvprintw(row, leftCol + 12, "%3d", step.velocity);
+        } else {
+            mvprintw(row, leftCol + 12, "---");
+        }
+        if (velSelected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        // Gate field
+        bool gateSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::GATE);
+        if (gateSelected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+        }
+        if (step.active) {
+            mvprintw(row, leftCol + 16, "%3d%%", static_cast<int>(step.gateLength * 100.0f));
+        } else {
+            mvprintw(row, leftCol + 16, "--- ");
+        }
+        if (gateSelected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        // Probability field
+        bool probSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::PROBABILITY);
+        if (probSelected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+        }
+        if (step.active) {
+            mvprintw(row, leftCol + 21, "%3d%%", static_cast<int>(step.probability * 100.0f));
+        } else {
+            mvprintw(row, leftCol + 21, "--- ");
+        }
+        if (probSelected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
         }
 
         row++;
