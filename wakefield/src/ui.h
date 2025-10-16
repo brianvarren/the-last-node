@@ -150,21 +150,18 @@ public:
 
     // Sequencer info field identifiers (exposed for shared lookup tables)
     enum class SequencerInfoField {
-        TRACK = 0,
-        STATUS,
-        TEMPO,
-        STEP,
-        SCALE,
+        TEMPO = 0,
         ROOT,
+        SCALE,
         EUCLID_HITS,
         EUCLID_STEPS,
         EUCLID_ROTATION,
         SUBDIVISION,
+        MUTATE_AMOUNT,
         MUTED,
         SOLO,
         ACTIVE_COUNT,
-        LOCKED_COUNT,
-        LOCK_FLAG
+        LOCKED_COUNT
     };
     
     
@@ -273,6 +270,7 @@ private:
     bool handleSequencerInput(int ch);
     void adjustSequencerTrackerField(int row, int column, int direction);
     void adjustSequencerInfoField(int infoIndex, int direction);
+    void executeSequencerAction(int actionRow, int actionColumn);
     void startSequencerNumericInput(int row, int column);
     void startSequencerInfoNumericInput(int infoIndex);
     void applySequencerNumericInput(const std::string& text);
@@ -318,6 +316,7 @@ private:
         EUCLID_STEPS,
         EUCLID_ROTATION,
         SUBDIVISION,
+        MUTATE_AMOUNT,
         MUTED,
         SOLO
     };
@@ -338,6 +337,13 @@ private:
     int sequencerSelectedColumn;
     bool sequencerFocusRightPane;
     int sequencerRightSelection;
+    float sequencerMutateAmount;  // Percentage 0-100
+
+    // Actions section state (below parameters)
+    bool sequencerFocusActionsPane;
+    int sequencerActionsRow;     // 0=Generate, 1=Randomize, 2=Mutate, 3=Clear, 4=Rotate
+    int sequencerActionsColumn;  // 0=All, 1=Note, 2=Vel, 3=Gate, 4=Prob
+
     bool numericInputIsSequencer;
     SequencerNumericContext sequencerNumericContext;
 };

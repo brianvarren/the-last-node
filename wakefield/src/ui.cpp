@@ -23,21 +23,18 @@ struct SequencerInfoEntryDef {
 };
 
 static const std::vector<SequencerInfoEntryDef> kSequencerInfoEntries = {
-    {UI::SequencerInfoField::TRACK,       "Track",        false},
-    {UI::SequencerInfoField::STATUS,      "Status",       false},
     {UI::SequencerInfoField::TEMPO,       "Tempo",        true},
-    {UI::SequencerInfoField::STEP,        "Step",         false},
-    {UI::SequencerInfoField::SCALE,       "Scale",        true},
     {UI::SequencerInfoField::ROOT,        "Root",         true},
+    {UI::SequencerInfoField::SCALE,       "Scale",        true},
     {UI::SequencerInfoField::EUCLID_HITS, "Euclid Hits",  true},
     {UI::SequencerInfoField::EUCLID_STEPS,"Euclid Steps", true},
     {UI::SequencerInfoField::EUCLID_ROTATION, "Rotation", true},
-    {UI::SequencerInfoField::SUBDIVISION, "Subdivision", true},
+    {UI::SequencerInfoField::SUBDIVISION, "Subdivision",  true},
+    {UI::SequencerInfoField::MUTATE_AMOUNT, "Mutate %",   true},
     {UI::SequencerInfoField::MUTED,       "Muted",        true},
     {UI::SequencerInfoField::SOLO,        "Solo",         true},
     {UI::SequencerInfoField::ACTIVE_COUNT,"Active",       false},
-    {UI::SequencerInfoField::LOCKED_COUNT,"Locked",       false},
-    {UI::SequencerInfoField::LOCK_FLAG,   "Lock Flag",    false}
+    {UI::SequencerInfoField::LOCKED_COUNT,"Locked",       false}
 };
 
 static const std::vector<Scale> kScaleOrder = {
@@ -516,6 +513,10 @@ UI::UI(Synth* synth, SynthParameters* params)
     , sequencerSelectedColumn(static_cast<int>(SequencerTrackerColumn::NOTE))
     , sequencerFocusRightPane(false)
     , sequencerRightSelection(0)
+    , sequencerMutateAmount(20.0f)
+    , sequencerFocusActionsPane(false)
+    , sequencerActionsRow(0)
+    , sequencerActionsColumn(0)
     , numericInputIsSequencer(false) {
     
     // Load available presets
@@ -1327,6 +1328,14 @@ void UI::drawSequencerPage() {
     if (rightCol < leftCol + 38) rightCol = leftCol + 38;
     if (rightCol > cols - 12) rightCol = cols - 12;
 
+    // Status indicators at top
+    int statusAttr = playing ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(4) | A_BOLD);
+    attron(statusAttr);
+    mvprintw(row, leftCol, "[%s]", playing ? "PLAYING" : "STOPPED");
+    attroff(statusAttr);
+    mvprintw(row, leftCol + 12, "Step: %d/%d", currentStep + 1, patternLength);
+    row++;
+
     attron(A_BOLD);
     mvprintw(row, leftCol, "SEQUENCER - Track %d", trackIdx + 1);
     attroff(A_BOLD);
@@ -1354,35 +1363,25 @@ void UI::drawSequencerPage() {
         std::string text;
 
         switch (def.field) {
-            case SequencerInfoField::TRACK: {
-                char buf[32];
-                std::snprintf(buf, sizeof(buf), "%d/%d", trackIdx + 1, sequencer->getTrackCount());
-                text = buf;
-                break;
-            }
-            case SequencerInfoField::STATUS: {
-                text = playing ? "PLAYING" : "STOPPED";
-                attr = playing ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(4) | A_BOLD);
-                break;
-            }
             case SequencerInfoField::TEMPO: {
                 char buf[32];
-                std::snprintf(buf, sizeof(buf), "%5.1f BPM", tempo);
+                std::snprintf(buf, sizeof(buf), "%.1f BPM", tempo);
                 text = buf;
-                break;
-            }
-            case SequencerInfoField::STEP: {
-                char buf[32];
-                std::snprintf(buf, sizeof(buf), "%3d / %3d", currentStep + 1, patternLength);
-                text = buf;
-                break;
-            }
-            case SequencerInfoField::SCALE: {
-                text = constraints.getScaleName();
                 break;
             }
             case SequencerInfoField::ROOT: {
                 text = rootNoteToString(constraints.getRootNote());
+                break;
+            }
+            case SequencerInfoField::SCALE: {
+                // Extract scale name without root
+                std::string fullName = constraints.getScaleName();
+                size_t spacePos = fullName.find(' ');
+                if (spacePos != std::string::npos) {
+                    text = fullName.substr(spacePos + 1);  // Skip "Root " part
+                } else {
+                    text = fullName;
+                }
                 break;
             }
             case SequencerInfoField::EUCLID_HITS: {
@@ -1401,10 +1400,16 @@ void UI::drawSequencerPage() {
                 text = subdivisionToString(pattern.getResolution());
                 break;
             }
+            case SequencerInfoField::MUTATE_AMOUNT: {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "%.0f%%", sequencerMutateAmount);
+                text = buf;
+                break;
+            }
             case SequencerInfoField::MUTED: {
                 bool muted = track.isMuted();
                 text = muted ? "YES" : "NO";
-                attr = muted ? (COLOR_PAIR(4) | A_BOLD) : (COLOR_PAIR(1) | A_BOLD);
+                attr = muted ? (COLOR_PAIR(4) | A_BOLD) : 0;
                 break;
             }
             case SequencerInfoField::SOLO: {
@@ -1419,10 +1424,6 @@ void UI::drawSequencerPage() {
             }
             case SequencerInfoField::LOCKED_COUNT: {
                 text = std::to_string(pattern.getLockedStepCount());
-                break;
-            }
-            case SequencerInfoField::LOCK_FLAG: {
-                text = "L = locked";
                 break;
             }
             default:
@@ -1440,6 +1441,48 @@ void UI::drawSequencerPage() {
         if (attr != 0) attron(attr);
         mvprintw(infoRow, rightCol, "%-12s: %s", info.def->label, info.text.c_str());
         if (attr != 0) attroff(attr);
+    }
+
+    // Actions section below parameters
+    infoRow += 2;
+    attron(A_BOLD);
+    mvprintw(infoRow, rightCol, "ACTIONS");
+    attroff(A_BOLD);
+    infoRow++;
+
+    // Generate button (full width)
+    bool generateSelected = sequencerFocusActionsPane && sequencerActionsRow == 0;
+    if (generateSelected) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+    }
+    mvprintw(infoRow, rightCol, "[Generate Pattern]");
+    if (generateSelected) {
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    }
+    infoRow += 2;
+
+    // Actions grid header
+    mvprintw(infoRow, rightCol, "            All  Note Vel  Gate Prob");
+    infoRow++;
+
+    // Actions grid rows
+    const char* actionLabels[] = {"Randomize", "Mutate   ", "Clear    ", "Rotate   "};
+    for (int aRow = 0; aRow < 4; ++aRow) {
+        mvprintw(infoRow, rightCol, "%-10s", actionLabels[aRow]);
+        for (int aCol = 0; aCol < 5; ++aCol) {
+            bool cellSelected = sequencerFocusActionsPane &&
+                                sequencerActionsRow == (aRow + 1) &&
+                                sequencerActionsColumn == aCol;
+            int xPos = rightCol + 12 + aCol * 5;
+            if (cellSelected) {
+                attron(COLOR_PAIR(5) | A_BOLD);
+            }
+            mvprintw(infoRow, xPos, "[ ]");
+            if (cellSelected) {
+                attroff(COLOR_PAIR(5) | A_BOLD);
+            }
+        }
+        infoRow++;
     }
 
     // Simple tracker display - cap at 16 steps
@@ -1461,18 +1504,18 @@ void UI::drawSequencerPage() {
         bool rowSelected = (!sequencerFocusRightPane && sequencerSelectedRow == i);
         bool isCurrentStep = (playing && currentStep == i);
 
-        // Step number - highlight active step with teal
+        // Apply cyan color to entire row if it's the current step
         if (isCurrentStep) {
             attron(COLOR_PAIR(1) | A_BOLD);
         }
-        mvprintw(row, leftCol, "%2d", i);
-        if (isCurrentStep) {
-            attroff(COLOR_PAIR(1) | A_BOLD);
-        }
+
+        // Step number (1-based)
+        mvprintw(row, leftCol, "%2d", i + 1);
 
         // Lock indicator - with selection highlight
         bool lockSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::LOCK);
-        if (lockSelected) {
+        if (!isCurrentStep && lockSelected) {
+            attroff(COLOR_PAIR(1) | A_BOLD);  // Turn off cyan if needed
             attron(COLOR_PAIR(5) | A_BOLD);
         }
         if (step.locked) {
@@ -1480,13 +1523,15 @@ void UI::drawSequencerPage() {
         } else {
             mvprintw(row, leftCol + 3, " ");
         }
-        if (lockSelected) {
+        if (!isCurrentStep && lockSelected) {
             attroff(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_PAIR(1) | A_BOLD);  // Restore cyan if needed
         }
 
         // Note field
         bool noteSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::NOTE);
-        if (noteSelected) {
+        if (!isCurrentStep && noteSelected) {
+            attroff(COLOR_PAIR(1) | A_BOLD);
             attron(COLOR_PAIR(5) | A_BOLD);
         }
         if (step.active) {
@@ -1494,13 +1539,15 @@ void UI::drawSequencerPage() {
         } else {
             mvprintw(row, leftCol + 5, "---   ");
         }
-        if (noteSelected) {
+        if (!isCurrentStep && noteSelected) {
             attroff(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_PAIR(1) | A_BOLD);
         }
 
         // Velocity field
         bool velSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::VELOCITY);
-        if (velSelected) {
+        if (!isCurrentStep && velSelected) {
+            attroff(COLOR_PAIR(1) | A_BOLD);
             attron(COLOR_PAIR(5) | A_BOLD);
         }
         if (step.active) {
@@ -1508,13 +1555,15 @@ void UI::drawSequencerPage() {
         } else {
             mvprintw(row, leftCol + 12, "---");
         }
-        if (velSelected) {
+        if (!isCurrentStep && velSelected) {
             attroff(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_PAIR(1) | A_BOLD);
         }
 
         // Gate field
         bool gateSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::GATE);
-        if (gateSelected) {
+        if (!isCurrentStep && gateSelected) {
+            attroff(COLOR_PAIR(1) | A_BOLD);
             attron(COLOR_PAIR(5) | A_BOLD);
         }
         if (step.active) {
@@ -1522,13 +1571,15 @@ void UI::drawSequencerPage() {
         } else {
             mvprintw(row, leftCol + 16, "--- ");
         }
-        if (gateSelected) {
+        if (!isCurrentStep && gateSelected) {
             attroff(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_PAIR(1) | A_BOLD);
         }
 
         // Probability field
         bool probSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::PROBABILITY);
-        if (probSelected) {
+        if (!isCurrentStep && probSelected) {
+            attroff(COLOR_PAIR(1) | A_BOLD);
             attron(COLOR_PAIR(5) | A_BOLD);
         }
         if (step.active) {
@@ -1536,8 +1587,14 @@ void UI::drawSequencerPage() {
         } else {
             mvprintw(row, leftCol + 21, "--- ");
         }
-        if (probSelected) {
+        if (!isCurrentStep && probSelected) {
             attroff(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_PAIR(1) | A_BOLD);
+        }
+
+        // Turn off cyan color at end of row
+        if (isCurrentStep) {
+            attroff(COLOR_PAIR(1) | A_BOLD);
         }
 
         row++;
@@ -1767,13 +1824,14 @@ void UI::draw(int activeVoices) {
                 case SequencerNumericField::VELOCITY: label = "Velocity (0-127)"; break;
                 case SequencerNumericField::GATE: label = "Gate % (0-200)"; break;
                 case SequencerNumericField::PROBABILITY: label = "Probability % (0-100)"; break;
-                case SequencerNumericField::TEMPO: label = "Tempo BPM"; break;
+                case SequencerNumericField::TEMPO: label = "Tempo BPM (0.1-999)"; break;
                 case SequencerNumericField::SCALE: label = "Scale"; break;
                 case SequencerNumericField::ROOT: label = "Root Note"; break;
                 case SequencerNumericField::EUCLID_HITS: label = "Euclid Hits"; break;
                 case SequencerNumericField::EUCLID_STEPS: label = "Euclid Steps"; break;
                 case SequencerNumericField::EUCLID_ROTATION: label = "Euclid Rotation"; break;
                 case SequencerNumericField::SUBDIVISION: label = "Subdivision (1/..)"; break;
+                case SequencerNumericField::MUTATE_AMOUNT: label = "Mutate % (0-100)"; break;
                 case SequencerNumericField::MUTED: label = "Muted (on/off)"; break;
                 case SequencerNumericField::SOLO: label = "Solo (on/off)"; break;
                 default: label = "Value"; break;
@@ -2224,23 +2282,53 @@ bool UI::handleSequencerInput(int ch) {
 
     switch (ch) {
         case KEY_UP:
-            if (sequencerFocusRightPane) {
-                sequencerRightSelection = wrapIndex(sequencerRightSelection - 1, static_cast<int>(kSequencerInfoEntries.size()));
+            if (sequencerFocusActionsPane) {
+                if (sequencerActionsRow > 0) {
+                    --sequencerActionsRow;
+                } else {
+                    // Move from actions to parameters
+                    sequencerFocusActionsPane = false;
+                    sequencerFocusRightPane = true;
+                    sequencerRightSelection = static_cast<int>(kSequencerInfoEntries.size()) - 1;
+                }
+            } else if (sequencerFocusRightPane) {
+                if (sequencerRightSelection > 0) {
+                    --sequencerRightSelection;
+                }
             } else {
                 sequencerSelectedRow = wrapIndex(sequencerSelectedRow - 1, maxRows);
             }
             return true;
 
         case KEY_DOWN:
-            if (sequencerFocusRightPane) {
-                sequencerRightSelection = wrapIndex(sequencerRightSelection + 1, static_cast<int>(kSequencerInfoEntries.size()));
+            if (sequencerFocusActionsPane) {
+                if (sequencerActionsRow < 4) {
+                    ++sequencerActionsRow;
+                }
+            } else if (sequencerFocusRightPane) {
+                if (sequencerRightSelection < static_cast<int>(kSequencerInfoEntries.size()) - 1) {
+                    ++sequencerRightSelection;
+                } else {
+                    // Move from parameters to actions
+                    sequencerFocusRightPane = false;
+                    sequencerFocusActionsPane = true;
+                    sequencerActionsRow = 0;
+                    sequencerActionsColumn = 0;
+                }
             } else {
                 sequencerSelectedRow = wrapIndex(sequencerSelectedRow + 1, maxRows);
             }
             return true;
 
         case KEY_LEFT:
-            if (sequencerFocusRightPane) {
+            if (sequencerFocusActionsPane) {
+                if (sequencerActionsRow > 0 && sequencerActionsColumn > 0) {
+                    --sequencerActionsColumn;
+                } else {
+                    // Move from actions to tracker
+                    sequencerFocusActionsPane = false;
+                }
+            } else if (sequencerFocusRightPane) {
                 sequencerFocusRightPane = false;
             } else if (sequencerSelectedColumn > static_cast<int>(SequencerTrackerColumn::LOCK)) {
                 --sequencerSelectedColumn;
@@ -2248,7 +2336,11 @@ bool UI::handleSequencerInput(int ch) {
             return true;
 
         case KEY_RIGHT:
-            if (!sequencerFocusRightPane) {
+            if (sequencerFocusActionsPane) {
+                if (sequencerActionsRow > 0 && sequencerActionsColumn < 4) {
+                    ++sequencerActionsColumn;
+                }
+            } else if (!sequencerFocusRightPane) {
                 if (sequencerSelectedColumn < static_cast<int>(SequencerTrackerColumn::PROBABILITY)) {
                     ++sequencerSelectedColumn;
                 } else {
@@ -2280,7 +2372,9 @@ bool UI::handleSequencerInput(int ch) {
 
         case '\n':
         case KEY_ENTER:
-            if (sequencerFocusRightPane) {
+            if (sequencerFocusActionsPane) {
+                executeSequencerAction(sequencerActionsRow, sequencerActionsColumn);
+            } else if (sequencerFocusRightPane) {
                 if (sequencerRightSelection >= 0 && sequencerRightSelection < static_cast<int>(kSequencerInfoEntries.size())) {
                     if (kSequencerInfoEntries[sequencerRightSelection].editable) {
                         startSequencerInfoNumericInput(sequencerRightSelection);
@@ -2365,8 +2459,17 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
     switch (entry.field) {
         case SequencerInfoField::TEMPO: {
             double tempo = sequencer->getTempo();
-            tempo = std::clamp(tempo + direction * 1.0, 20.0, 300.0);
+            tempo = std::clamp(tempo + direction * 1.0, 0.1, 999.0);
             sequencer->setTempo(tempo);
+            break;
+        }
+        case SequencerInfoField::ROOT: {
+            int root = constraints.getRootNote();
+            root = (root + direction + 12) % 12;
+            constraints.setRootNote(root);
+            int gravityOctave = constraints.getOctaveMin();
+            constraints.setGravityNote(gravityOctave * 12 + root);
+            sequencer->regenerateUnlocked();
             break;
         }
         case SequencerInfoField::SCALE: {
@@ -2376,15 +2479,6 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
             int index = static_cast<int>(std::distance(kScaleOrder.begin(), it));
             index = (index + direction + static_cast<int>(kScaleOrder.size())) % static_cast<int>(kScaleOrder.size());
             constraints.setScale(kScaleOrder[index]);
-            sequencer->regenerateUnlocked();
-            break;
-        }
-        case SequencerInfoField::ROOT: {
-            int root = constraints.getRootNote();
-            root = (root + direction + 12) % 12;
-            constraints.setRootNote(root);
-            int gravityOctave = constraints.getOctaveMin();
-            constraints.setGravityNote(gravityOctave * 12 + root);
             sequencer->regenerateUnlocked();
             break;
         }
@@ -2412,17 +2506,21 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
             auto it = std::find(kSubdivisionOrder.begin(), kSubdivisionOrder.end(), current);
             if (it == kSubdivisionOrder.end()) it = kSubdivisionOrder.begin();
             int index = static_cast<int>(std::distance(kSubdivisionOrder.begin(), it));
-            index = std::clamp(index + direction, 0, static_cast<int>(kSubdivisionOrder.size()) - 1);
+            index = (index + direction + static_cast<int>(kSubdivisionOrder.size())) % static_cast<int>(kSubdivisionOrder.size());
             Subdivision newSubdiv = kSubdivisionOrder[index];
             track.setSubdivision(newSubdiv);
             break;
         }
+        case SequencerInfoField::MUTATE_AMOUNT: {
+            sequencerMutateAmount = std::clamp(sequencerMutateAmount + direction * 5.0f, 0.0f, 100.0f);
+            break;
+        }
         case SequencerInfoField::MUTED: {
-            track.setMuted(direction > 0);
+            track.setMuted(!track.isMuted());
             break;
         }
         case SequencerInfoField::SOLO: {
-            track.setSolo(direction > 0);
+            track.setSolo(!track.isSolo());
             break;
         }
         default:
@@ -2430,6 +2528,91 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
     }
 
     ensureSequencerSelectionInRange();
+}
+
+void UI::executeSequencerAction(int actionRow, int actionColumn) {
+    if (!sequencer) return;
+
+    Pattern& pattern = sequencer->getPattern();
+    float mutateAmount = sequencerMutateAmount / 100.0f;  // Convert percentage to 0-1
+
+    // actionRow: 0=Generate, 1=Randomize, 2=Mutate, 3=Clear, 4=Rotate
+    // actionColumn: 0=All, 1=Note, 2=Vel, 3=Gate, 4=Prob
+
+    if (actionRow == 0) {
+        // Generate - global regeneration
+        sequencer->generatePattern();
+        return;
+    }
+
+    // For other actions, determine target fields
+    bool affectNote = (actionColumn == 0 || actionColumn == 1);
+    bool affectVel = (actionColumn == 0 || actionColumn == 2);
+    bool affectGate = (actionColumn == 0 || actionColumn == 3);
+    bool affectProb = (actionColumn == 0 || actionColumn == 4);
+
+    for (int i = 0; i < pattern.getLength(); ++i) {
+        PatternStep& step = pattern.getStep(i);
+        if (step.locked) continue;  // Skip locked steps
+
+        switch (actionRow) {
+            case 1: {  // Randomize
+                if (affectNote && step.active) {
+                    step.midiNote = rand() % 128;
+                }
+                if (affectVel && step.active) {
+                    step.velocity = 1 + (rand() % 127);
+                }
+                if (affectGate && step.active) {
+                    step.gateLength = 0.05f + (static_cast<float>(rand()) / RAND_MAX) * 1.95f;
+                }
+                if (affectProb && step.active) {
+                    step.probability = static_cast<float>(rand()) / RAND_MAX;
+                }
+                break;
+            }
+            case 2: {  // Mutate
+                if (affectNote && step.active) {
+                    int delta = static_cast<int>((rand() % 25) - 12) * mutateAmount;
+                    step.midiNote = std::clamp(step.midiNote + delta, 0, 127);
+                }
+                if (affectVel && step.active) {
+                    int delta = static_cast<int>((rand() % 41) - 20) * mutateAmount;
+                    step.velocity = std::clamp(step.velocity + delta, 1, 127);
+                }
+                if (affectGate && step.active) {
+                    float delta = ((static_cast<float>(rand()) / RAND_MAX) * 0.4f - 0.2f) * mutateAmount;
+                    step.gateLength = std::max(0.05f, std::min(2.0f, step.gateLength + delta));
+                }
+                if (affectProb && step.active) {
+                    float delta = ((static_cast<float>(rand()) / RAND_MAX) * 0.4f - 0.2f) * mutateAmount;
+                    step.probability = std::max(0.0f, std::min(1.0f, step.probability + delta));
+                }
+                break;
+            }
+            case 3: {  // Clear
+                if (actionColumn == 0) {
+                    // Clear all - deactivate step
+                    step.active = false;
+                } else {
+                    // Clear specific fields - reset to defaults
+                    if (affectNote) step.midiNote = 60;
+                    if (affectVel) step.velocity = 100;
+                    if (affectGate) step.gateLength = 0.75f;
+                    if (affectProb) step.probability = 1.0f;
+                }
+                break;
+            }
+            case 4: {  // Rotate
+                // For rotate, we'll rotate the pattern by 1 step
+                if (i == 0) {
+                    sequencer->rotatePattern(1);
+                    return;  // Only rotate once
+                }
+                break;
+            }
+        }
+    }
 }
 
 void UI::startSequencerNumericInput(int row, int column) {
@@ -2498,6 +2681,9 @@ void UI::startSequencerInfoNumericInput(int infoIndex) {
             break;
         case SequencerInfoField::SUBDIVISION:
             sequencerNumericContext.field = SequencerNumericField::SUBDIVISION;
+            break;
+        case SequencerInfoField::MUTATE_AMOUNT:
+            sequencerNumericContext.field = SequencerNumericField::MUTATE_AMOUNT;
             break;
         case SequencerInfoField::MUTED:
             sequencerNumericContext.field = SequencerNumericField::MUTED;
@@ -2596,7 +2782,7 @@ void UI::applySequencerNumericInput(const std::string& text) {
         case SequencerNumericField::TEMPO: {
             try {
                 double tempo = std::stod(trimmed);
-                tempo = std::clamp(tempo, 20.0, 300.0);
+                tempo = std::clamp(tempo, 0.1, 999.0);
                 sequencer->setTempo(tempo);
             } catch (...) {}
             break;
@@ -2651,6 +2837,13 @@ void UI::applySequencerNumericInput(const std::string& text) {
             if (parseSubdivisionText(trimmed, subdiv)) {
                 track.setSubdivision(subdiv);
             }
+            break;
+        }
+        case SequencerNumericField::MUTATE_AMOUNT: {
+            try {
+                float value = std::stof(trimmed);
+                sequencerMutateAmount = std::clamp(value, 0.0f, 100.0f);
+            } catch (...) {}
             break;
         }
         case SequencerNumericField::MUTED: {
