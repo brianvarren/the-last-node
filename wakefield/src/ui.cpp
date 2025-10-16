@@ -1330,7 +1330,9 @@ void UI::drawSequencerPage() {
     attron(A_BOLD);
     mvprintw(row, leftCol, "SEQUENCER - Track %d", trackIdx + 1);
     attroff(A_BOLD);
+    row += 2;
 
+    // Draw right-side info panel
     struct InfoValue {
         const SequencerInfoEntryDef* def;
         std::string text;
@@ -1431,7 +1433,7 @@ void UI::drawSequencerPage() {
         pushInfo(def, text, attr, highlight);
     }
 
-    int infoRow = row;
+    int infoRow = 3;
     for (const auto& info : infoValues) {
         ++infoRow;
         int attr = info.highlight ? (COLOR_PAIR(1) | A_BOLD) : info.attr;
@@ -1439,8 +1441,6 @@ void UI::drawSequencerPage() {
         mvprintw(infoRow, rightCol, "%-12s: %s", info.def->label, info.text.c_str());
         if (attr != 0) attroff(attr);
     }
-
-    row = infoRow + 2;
 
     // Simple tracker display - cap at 16 steps
     int displayRows = std::min(16, patternLength);
