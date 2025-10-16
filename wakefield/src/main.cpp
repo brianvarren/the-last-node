@@ -4,6 +4,7 @@
 #include <fstream>
 #include <csignal>
 #include <unistd.h>
+#include <locale.h>
 #include <cmath>
 #include <sys/stat.h>
 #include <pwd.h>
@@ -530,6 +531,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
 }
 
 int main(int argc, char** argv) {
+    setlocale(LC_ALL, "");
     // Set up signal handler for Ctrl+C
     signal(SIGINT, signalHandler);
     

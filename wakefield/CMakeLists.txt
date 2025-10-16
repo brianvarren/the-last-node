@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(RTAUDIO REQUIRED rtaudio)
 pkg_check_modules(RTMIDI REQUIRED rtmidi)
+set(CURSES_NEED_WIDE TRUE)
 find_package(Curses REQUIRED)
 
 # Create executable with multiple source files

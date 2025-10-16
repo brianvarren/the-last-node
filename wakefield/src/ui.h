@@ -1,7 +1,7 @@
 #ifndef UI_H
 #define UI_H
 
-#include <ncurses.h>
+#include <ncursesw/curses.h>
 #include <string>
 #include <atomic>
 #include <deque>
