@@ -1442,171 +1442,64 @@ void UI::drawSequencerPage() {
 
     row = infoRow + 2;
 
-    const int headerRows = 1;
+    // Simple tracker display - cap at 16 steps
     int displayRows = std::min(16, patternLength);
-    int totalRows = headerRows + displayRows;
-    int grayPair = (COLORS >= 256) ? 8 : 9;
-    if (COLORS < 8) {
-        grayPair = 0;
-    }
 
-    int gridTop = row;
-    int gridLeft = leftCol;
-    int gridHeight = totalRows + 2;
+    // Draw header
+    attron(A_BOLD);
+    mvprintw(row, leftCol, " # L Note   Vel Gate Prob");
+    attroff(A_BOLD);
+    row++;
 
-    WINDOW* trackerWin = derwin(stdscr, gridHeight, kSequencerGridWidth, gridTop, gridLeft);
-    if (trackerWin) {
-        werase(trackerWin);
-        DrawSequencerGrid(trackerWin, totalRows, kSequencerColumnWidths, kSequencerColumnBoundaries);
+    // Draw separator
+    mvprintw(row, leftCol, "----------------------------");
+    row++;
 
-        const std::array<std::wstring, 6> headerLabels = {
-            Utf8ToWide("Idx"),
-            Utf8ToWide("Lock"),
-            Utf8ToWide("Note"),
-            Utf8ToWide("Vel"),
-            Utf8ToWide("Gate"),
-            Utf8ToWide("Prob")
-        };
+    // Draw each step
+    for (int i = 0; i < displayRows; ++i) {
+        const PatternStep& step = pattern.getStep(i);
+        bool rowSelected = (!sequencerFocusRightPane && sequencerSelectedRow == i);
 
-        for (size_t col = 0; col < headerLabels.size(); ++col) {
-            CellAlign align = (col == 0) ? CellAlign::Right
-                             : (col == 1) ? CellAlign::Center
-                             : (col == 2) ? CellAlign::Left
-                             : CellAlign::Right;
-            RenderSequencerCell(trackerWin,
-                                0,
-                                static_cast<int>(col),
-                                headerLabels[col],
-                                kSequencerColumnWidths,
-                                kSequencerColumnStarts,
-                                align,
-                                false,
-                                false,
-                                grayPair);
+        // Playhead marker
+        if (playing && currentStep == i) {
+            mvprintw(row, leftCol - 2, ">");
+        } else {
+            mvprintw(row, leftCol - 2, " ");
         }
 
-        for (int i = 0; i < displayRows; ++i) {
-            const PatternStep& step = pattern.getStep(i);
-            bool rowSelected = (!sequencerFocusRightPane && sequencerSelectedRow == i);
-
-            std::wstring idxText = Utf8ToWide(std::to_string(i));
-            RenderSequencerCell(trackerWin,
-                                headerRows + i,
-                                0,
-                                idxText,
-                                kSequencerColumnWidths,
-                                kSequencerColumnStarts,
-                                CellAlign::Right,
-                                rowSelected && !sequencerFocusRightPane,
-                                false,
-                                grayPair);
-
-            bool lockSelected = rowSelected &&
-                                !sequencerFocusRightPane &&
-                                sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::LOCK);
-            if (step.locked) {
-                RenderSequencerCell(trackerWin,
-                                    headerRows + i,
-                                    1,
-                                    std::wstring(1, L'L'),
-                                    kSequencerColumnWidths,
-                                    kSequencerColumnStarts,
-                                    CellAlign::Center,
-                                    lockSelected,
-                                    false,
-                                    grayPair);
-            } else {
-                RenderSequencerCell(trackerWin,
-                                    headerRows + i,
-                                    1,
-                                    std::wstring(1, L'·'),
-                                    kSequencerColumnWidths,
-                                    kSequencerColumnStarts,
-                                    CellAlign::Center,
-                                    lockSelected,
-                                    true,
-                                    grayPair);
-            }
-
-            bool noteSelected = rowSelected &&
-                                !sequencerFocusRightPane &&
-                                sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::NOTE);
-            std::wstring noteText = step.active
-                                        ? Utf8ToWide(midiNoteToString(step.midiNote))
-                                        : std::wstring(1, L'·');
-            RenderSequencerCell(trackerWin,
-                                headerRows + i,
-                                2,
-                                noteText,
-                                kSequencerColumnWidths,
-                                kSequencerColumnStarts,
-                                CellAlign::Left,
-                                noteSelected,
-                                !step.active,
-                                grayPair);
-
-            bool velSelected = rowSelected &&
-                               !sequencerFocusRightPane &&
-                               sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::VELOCITY);
-            std::wstring velText = step.active
-                                       ? Utf8ToWide(std::to_string(step.velocity))
-                                       : std::wstring(1, L'·');
-            RenderSequencerCell(trackerWin,
-                                headerRows + i,
-                                3,
-                                velText,
-                                kSequencerColumnWidths,
-                                kSequencerColumnStarts,
-                                CellAlign::Right,
-                                velSelected,
-                                !step.active,
-                                grayPair);
-
-            bool gateSelected = rowSelected &&
-                                !sequencerFocusRightPane &&
-                                sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::GATE);
-            std::wstring gateText = step.active
-                                        ? Utf8ToWide(std::to_string(static_cast<int>(step.gateLength * 100.0f)))
-                                        : std::wstring(1, L'·');
-            RenderSequencerCell(trackerWin,
-                                headerRows + i,
-                                4,
-                                gateText,
-                                kSequencerColumnWidths,
-                                kSequencerColumnStarts,
-                                CellAlign::Right,
-                                gateSelected,
-                                !step.active,
-                                grayPair);
-
-            bool probSelected = rowSelected &&
-                                !sequencerFocusRightPane &&
-                                sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::PROBABILITY);
-            std::wstring probText = step.active
-                                        ? Utf8ToWide(std::to_string(static_cast<int>(step.probability * 100.0f)))
-                                        : std::wstring(1, L'·');
-            RenderSequencerCell(trackerWin,
-                                headerRows + i,
-                                5,
-                                probText,
-                                kSequencerColumnWidths,
-                                kSequencerColumnStarts,
-                                CellAlign::Right,
-                                probSelected,
-                                !step.active,
-                                grayPair);
+        // Row selection highlight
+        if (rowSelected) {
+            attron(COLOR_PAIR(1) | A_BOLD);
         }
 
-        wrefresh(trackerWin);
-        delwin(trackerWin);
-    }
+        // Step number
+        mvprintw(row, leftCol, "%2d", i);
 
-    int markerColumn = leftCol - 2;
-    for (int r = 0; r < totalRows; ++r) {
-        mvaddch(gridTop + 1 + r, markerColumn, ' ');
-    }
-    if (playing && currentStep >= 0 && currentStep < displayRows) {
-        mvaddch(gridTop + 1 + headerRows + currentStep, markerColumn, '>');
+        // Lock indicator
+        if (step.locked) {
+            mvprintw(row, leftCol + 3, "L");
+        } else {
+            mvprintw(row, leftCol + 3, " ");
+        }
+
+        // Note, velocity, gate, probability
+        if (step.active) {
+            mvprintw(row, leftCol + 5, "%-6s %3d %3d%% %3d%%",
+                     midiNoteToString(step.midiNote).c_str(),
+                     step.velocity,
+                     static_cast<int>(step.gateLength * 100.0f),
+                     static_cast<int>(step.probability * 100.0f));
+        } else {
+            attron(COLOR_PAIR(8));
+            mvprintw(row, leftCol + 5, "---    ---  ---  ---");
+            attroff(COLOR_PAIR(8));
+        }
+
+        if (rowSelected) {
+            attroff(COLOR_PAIR(1) | A_BOLD);
+        }
+
+        row++;
     }
 }
 
