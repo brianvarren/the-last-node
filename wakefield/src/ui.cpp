@@ -1445,13 +1445,22 @@ void UI::drawSequencerPage() {
     attroff(A_BOLD);
     infoRow++;
 
-    // Generate button (full width)
+    // Generate and Clear buttons
     bool generateSelected = sequencerFocusActionsPane && sequencerActionsRow == 0;
     if (generateSelected) {
         attron(COLOR_PAIR(5) | A_BOLD);
     }
-    mvprintw(infoRow, rightCol, "[Generate Pattern]");
+    mvprintw(infoRow, rightCol, "[Generate]");
     if (generateSelected) {
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    }
+
+    bool clearSelected = sequencerFocusActionsPane && sequencerActionsRow == 1;
+    if (clearSelected) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+    }
+    mvprintw(infoRow, rightCol + 12, "[Clear]");
+    if (clearSelected) {
         attroff(COLOR_PAIR(5) | A_BOLD);
     }
     infoRow += 2;
@@ -1460,13 +1469,13 @@ void UI::drawSequencerPage() {
     mvprintw(infoRow, rightCol, "            All  Note Vel  Gate Prob");
     infoRow++;
 
-    // Actions grid rows
-    const char* actionLabels[] = {"Randomize", "Mutate   ", "Clear    ", "Rotate   "};
-    for (int aRow = 0; aRow < 4; ++aRow) {
+    // Actions grid rows (Randomize, Mutate, Rotate only - Clear moved above)
+    const char* actionLabels[] = {"Randomize", "Mutate   ", "Rotate   "};
+    for (int aRow = 0; aRow < 3; ++aRow) {
         mvprintw(infoRow, rightCol, "%-10s", actionLabels[aRow]);
         for (int aCol = 0; aCol < 5; ++aCol) {
             bool cellSelected = sequencerFocusActionsPane &&
-                                sequencerActionsRow == (aRow + 1) &&
+                                sequencerActionsRow == (aRow + 2) &&  // +2 because 0=Generate, 1=Clear
                                 sequencerActionsColumn == aCol;
             int xPos = rightCol + 12 + aCol * 5;
             if (cellSelected) {
@@ -1499,8 +1508,10 @@ void UI::drawSequencerPage() {
         bool rowSelected = (!sequencerFocusRightPane && !sequencerFocusActionsPane && sequencerSelectedRow == i);
         bool isCurrentStep = (playing && currentStep == i);
 
-        // Reset attributes at start of row
+        // Reset attributes and clear the line
         attrset(A_NORMAL);
+        mvhline(row, leftCol, ' ', 30);  // Clear 30 chars for the row
+        move(row, leftCol);
 
         // Apply cyan color to entire row if it's the current step
         if (isCurrentStep) {
@@ -2318,7 +2329,7 @@ bool UI::handleSequencerInput(int ch) {
 
         case KEY_LEFT:
             if (sequencerFocusActionsPane) {
-                if (sequencerActionsRow > 0 && sequencerActionsColumn > 0) {
+                if (sequencerActionsRow >= 2 && sequencerActionsColumn > 0) {
                     --sequencerActionsColumn;
                 } else {
                     // Move from actions to tracker
@@ -2333,8 +2344,11 @@ bool UI::handleSequencerInput(int ch) {
 
         case KEY_RIGHT:
             if (sequencerFocusActionsPane) {
-                if (sequencerActionsRow > 0 && sequencerActionsColumn < 4) {
+                if (sequencerActionsRow >= 2 && sequencerActionsColumn < 4) {
                     ++sequencerActionsColumn;
+                } else if (sequencerActionsRow < 2) {
+                    // On Generate/Clear, move right to next button
+                    if (sequencerActionsRow == 0) sequencerActionsRow = 1;
                 }
             } else if (!sequencerFocusRightPane) {
                 if (sequencerSelectedColumn < static_cast<int>(SequencerTrackerColumn::PROBABILITY)) {
@@ -2545,12 +2559,22 @@ void UI::executeSequencerAction(int actionRow, int actionColumn) {
     Pattern& pattern = sequencer->getPattern();
     float mutateAmount = sequencerMutateAmount / 100.0f;  // Convert percentage to 0-1
 
-    // actionRow: 0=Generate, 1=Randomize, 2=Mutate, 3=Clear, 4=Rotate
+    // actionRow: 0=Generate, 1=Clear, 2=Randomize, 3=Mutate, 4=Rotate
     // actionColumn: 0=All, 1=Note, 2=Vel, 3=Gate, 4=Prob
 
     if (actionRow == 0) {
         // Generate - global regeneration
         sequencer->generatePattern();
+        return;
+    }
+
+    if (actionRow == 1) {
+        // Clear - deactivate all steps
+        for (int i = 0; i < pattern.getLength(); ++i) {
+            if (!pattern.getStep(i).locked) {
+                pattern.getStep(i).active = false;
+            }
+        }
         return;
     }
 
@@ -2565,7 +2589,7 @@ void UI::executeSequencerAction(int actionRow, int actionColumn) {
         if (step.locked) continue;  // Skip locked steps
 
         switch (actionRow) {
-            case 1: {  // Randomize
+            case 2: {  // Randomize
                 if (affectNote && step.active) {
                     step.midiNote = rand() % 128;
                 }
@@ -2580,7 +2604,7 @@ void UI::executeSequencerAction(int actionRow, int actionColumn) {
                 }
                 break;
             }
-            case 2: {  // Mutate
+            case 3: {  // Mutate
                 if (affectNote && step.active) {
                     int delta = static_cast<int>((rand() % 25) - 12) * mutateAmount;
                     step.midiNote = std::clamp(step.midiNote + delta, 0, 127);
@@ -2599,19 +2623,6 @@ void UI::executeSequencerAction(int actionRow, int actionColumn) {
                 }
                 break;
             }
-            case 3: {  // Clear
-                if (actionColumn == 0) {
-                    // Clear all - deactivate step
-                    step.active = false;
-                } else {
-                    // Clear specific fields - reset to defaults
-                    if (affectNote) step.midiNote = 60;
-                    if (affectVel) step.velocity = 100;
-                    if (affectGate) step.gateLength = 0.75f;
-                    if (affectProb) step.probability = 1.0f;
-                }
-                break;
-            }
             case 4: {  // Rotate
                 // Handled after loop to rotate specific fields
                 break;
@@ -2619,59 +2630,54 @@ void UI::executeSequencerAction(int actionRow, int actionColumn) {
         }
     }
 
-    // Handle rotation separately
+    // Handle rotation separately - only rotate among active steps
     if (actionRow == 4) {
         if (actionColumn == 0) {
             // Rotate all - use built-in pattern rotation
             sequencer->rotatePattern(1);
         } else {
-            // Rotate specific field(s)
+            // Rotate specific field(s) - only among active, unlocked steps
             int len = pattern.getLength();
             if (len < 2) return;
 
+            // Collect indices of active, unlocked steps
+            std::vector<int> activeIndices;
+            for (int i = 0; i < len; ++i) {
+                if (pattern.getStep(i).active && !pattern.getStep(i).locked) {
+                    activeIndices.push_back(i);
+                }
+            }
+
+            if (activeIndices.size() < 2) return;  // Need at least 2 active steps to rotate
+
+            // Rotate values among active steps only
             if (affectNote) {
-                int lastNote = pattern.getStep(len - 1).midiNote;
-                for (int i = len - 1; i > 0; --i) {
-                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
-                        pattern.getStep(i).midiNote = pattern.getStep(i - 1).midiNote;
-                    }
+                int lastNote = pattern.getStep(activeIndices.back()).midiNote;
+                for (int i = static_cast<int>(activeIndices.size()) - 1; i > 0; --i) {
+                    pattern.getStep(activeIndices[i]).midiNote = pattern.getStep(activeIndices[i - 1]).midiNote;
                 }
-                if (!pattern.getStep(0).locked) {
-                    pattern.getStep(0).midiNote = lastNote;
-                }
+                pattern.getStep(activeIndices[0]).midiNote = lastNote;
             }
             if (affectVel) {
-                int lastVel = pattern.getStep(len - 1).velocity;
-                for (int i = len - 1; i > 0; --i) {
-                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
-                        pattern.getStep(i).velocity = pattern.getStep(i - 1).velocity;
-                    }
+                int lastVel = pattern.getStep(activeIndices.back()).velocity;
+                for (int i = static_cast<int>(activeIndices.size()) - 1; i > 0; --i) {
+                    pattern.getStep(activeIndices[i]).velocity = pattern.getStep(activeIndices[i - 1]).velocity;
                 }
-                if (!pattern.getStep(0).locked) {
-                    pattern.getStep(0).velocity = lastVel;
-                }
+                pattern.getStep(activeIndices[0]).velocity = lastVel;
             }
             if (affectGate) {
-                float lastGate = pattern.getStep(len - 1).gateLength;
-                for (int i = len - 1; i > 0; --i) {
-                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
-                        pattern.getStep(i).gateLength = pattern.getStep(i - 1).gateLength;
-                    }
+                float lastGate = pattern.getStep(activeIndices.back()).gateLength;
+                for (int i = static_cast<int>(activeIndices.size()) - 1; i > 0; --i) {
+                    pattern.getStep(activeIndices[i]).gateLength = pattern.getStep(activeIndices[i - 1]).gateLength;
                 }
-                if (!pattern.getStep(0).locked) {
-                    pattern.getStep(0).gateLength = lastGate;
-                }
+                pattern.getStep(activeIndices[0]).gateLength = lastGate;
             }
             if (affectProb) {
-                float lastProb = pattern.getStep(len - 1).probability;
-                for (int i = len - 1; i > 0; --i) {
-                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
-                        pattern.getStep(i).probability = pattern.getStep(i - 1).probability;
-                    }
+                float lastProb = pattern.getStep(activeIndices.back()).probability;
+                for (int i = static_cast<int>(activeIndices.size()) - 1; i > 0; --i) {
+                    pattern.getStep(activeIndices[i]).probability = pattern.getStep(activeIndices[i - 1]).probability;
                 }
-                if (!pattern.getStep(0).locked) {
-                    pattern.getStep(0).probability = lastProb;
-                }
+                pattern.getStep(activeIndices[0]).probability = lastProb;
             }
         }
     }
