@@ -28,7 +28,6 @@ static const std::vector<SequencerInfoEntryDef> kSequencerInfoEntries = {
     {UI::SequencerInfoField::SCALE,       "Scale",        true},
     {UI::SequencerInfoField::EUCLID_HITS, "Euclid Hits",  true},
     {UI::SequencerInfoField::EUCLID_STEPS,"Euclid Steps", true},
-    {UI::SequencerInfoField::EUCLID_ROTATION, "Rotation", true},
     {UI::SequencerInfoField::SUBDIVISION, "Subdivision",  true},
     {UI::SequencerInfoField::MUTATE_AMOUNT, "Mutate %",   true},
     {UI::SequencerInfoField::MUTED,       "Muted",        true},
@@ -1392,10 +1391,6 @@ void UI::drawSequencerPage() {
                 text = std::to_string(euclidean.getSteps());
                 break;
             }
-            case SequencerInfoField::EUCLID_ROTATION: {
-                text = std::to_string(euclidean.getRotation());
-                break;
-            }
             case SequencerInfoField::SUBDIVISION: {
                 text = subdivisionToString(pattern.getResolution());
                 break;
@@ -1501,8 +1496,11 @@ void UI::drawSequencerPage() {
     // Draw each step
     for (int i = 0; i < displayRows; ++i) {
         const PatternStep& step = pattern.getStep(i);
-        bool rowSelected = (!sequencerFocusRightPane && sequencerSelectedRow == i);
+        bool rowSelected = (!sequencerFocusRightPane && !sequencerFocusActionsPane && sequencerSelectedRow == i);
         bool isCurrentStep = (playing && currentStep == i);
+
+        // Reset attributes at start of row
+        attrset(A_NORMAL);
 
         // Apply cyan color to entire row if it's the current step
         if (isCurrentStep) {
@@ -1592,10 +1590,8 @@ void UI::drawSequencerPage() {
             attron(COLOR_PAIR(1) | A_BOLD);
         }
 
-        // Turn off cyan color at end of row
-        if (isCurrentStep) {
-            attroff(COLOR_PAIR(1) | A_BOLD);
-        }
+        // Reset attributes at end of row
+        attrset(A_NORMAL);
 
         row++;
     }
@@ -2350,9 +2346,13 @@ bool UI::handleSequencerInput(int ch) {
             }
             return true;
 
-        case KEY_SR: {  // Shift + Up (increase)
+        case KEY_SR:    // Shift + Up (increase)
+        case '+':
+        case '=': {
             int direction = 1;
-            if (sequencerFocusRightPane) {
+            if (sequencerFocusActionsPane) {
+                // No adjustment in actions pane
+            } else if (sequencerFocusRightPane) {
                 adjustSequencerInfoField(sequencerRightSelection, direction);
             } else {
                 adjustSequencerTrackerField(sequencerSelectedRow, sequencerSelectedColumn, direction);
@@ -2360,9 +2360,13 @@ bool UI::handleSequencerInput(int ch) {
             return true;
         }
 
-        case KEY_SF: {  // Shift + Down (decrease)
+        case KEY_SF:    // Shift + Down (decrease)
+        case '-':
+        case '_': {
             int direction = -1;
-            if (sequencerFocusRightPane) {
+            if (sequencerFocusActionsPane) {
+                // No adjustment in actions pane
+            } else if (sequencerFocusRightPane) {
                 adjustSequencerInfoField(sequencerRightSelection, direction);
             } else {
                 adjustSequencerTrackerField(sequencerSelectedRow, sequencerSelectedColumn, direction);
@@ -2376,8 +2380,18 @@ bool UI::handleSequencerInput(int ch) {
                 executeSequencerAction(sequencerActionsRow, sequencerActionsColumn);
             } else if (sequencerFocusRightPane) {
                 if (sequencerRightSelection >= 0 && sequencerRightSelection < static_cast<int>(kSequencerInfoEntries.size())) {
-                    if (kSequencerInfoEntries[sequencerRightSelection].editable) {
-                        startSequencerInfoNumericInput(sequencerRightSelection);
+                    const auto& entry = kSequencerInfoEntries[sequencerRightSelection];
+                    if (entry.editable) {
+                        // Boolean fields toggle directly without input
+                        if (entry.field == SequencerInfoField::MUTED) {
+                            Track& track = sequencer->getCurrentTrack();
+                            track.setMuted(!track.isMuted());
+                        } else if (entry.field == SequencerInfoField::SOLO) {
+                            Track& track = sequencer->getCurrentTrack();
+                            track.setSolo(!track.isSolo());
+                        } else {
+                            startSequencerInfoNumericInput(sequencerRightSelection);
+                        }
                     }
                 }
             } else {
@@ -2496,11 +2510,6 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
             sequencer->regenerateUnlocked();
             break;
         }
-        case SequencerInfoField::EUCLID_ROTATION: {
-            int rotation = euclidean.getRotation() + direction;
-            euclidean.setRotation(rotation);
-            break;
-        }
         case SequencerInfoField::SUBDIVISION: {
             Subdivision current = pattern.getResolution();
             auto it = std::find(kSubdivisionOrder.begin(), kSubdivisionOrder.end(), current);
@@ -2604,12 +2613,65 @@ void UI::executeSequencerAction(int actionRow, int actionColumn) {
                 break;
             }
             case 4: {  // Rotate
-                // For rotate, we'll rotate the pattern by 1 step
-                if (i == 0) {
-                    sequencer->rotatePattern(1);
-                    return;  // Only rotate once
-                }
+                // Handled after loop to rotate specific fields
                 break;
+            }
+        }
+    }
+
+    // Handle rotation separately
+    if (actionRow == 4) {
+        if (actionColumn == 0) {
+            // Rotate all - use built-in pattern rotation
+            sequencer->rotatePattern(1);
+        } else {
+            // Rotate specific field(s)
+            int len = pattern.getLength();
+            if (len < 2) return;
+
+            if (affectNote) {
+                int lastNote = pattern.getStep(len - 1).midiNote;
+                for (int i = len - 1; i > 0; --i) {
+                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
+                        pattern.getStep(i).midiNote = pattern.getStep(i - 1).midiNote;
+                    }
+                }
+                if (!pattern.getStep(0).locked) {
+                    pattern.getStep(0).midiNote = lastNote;
+                }
+            }
+            if (affectVel) {
+                int lastVel = pattern.getStep(len - 1).velocity;
+                for (int i = len - 1; i > 0; --i) {
+                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
+                        pattern.getStep(i).velocity = pattern.getStep(i - 1).velocity;
+                    }
+                }
+                if (!pattern.getStep(0).locked) {
+                    pattern.getStep(0).velocity = lastVel;
+                }
+            }
+            if (affectGate) {
+                float lastGate = pattern.getStep(len - 1).gateLength;
+                for (int i = len - 1; i > 0; --i) {
+                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
+                        pattern.getStep(i).gateLength = pattern.getStep(i - 1).gateLength;
+                    }
+                }
+                if (!pattern.getStep(0).locked) {
+                    pattern.getStep(0).gateLength = lastGate;
+                }
+            }
+            if (affectProb) {
+                float lastProb = pattern.getStep(len - 1).probability;
+                for (int i = len - 1; i > 0; --i) {
+                    if (!pattern.getStep(i).locked && !pattern.getStep(i - 1).locked) {
+                        pattern.getStep(i).probability = pattern.getStep(i - 1).probability;
+                    }
+                }
+                if (!pattern.getStep(0).locked) {
+                    pattern.getStep(0).probability = lastProb;
+                }
             }
         }
     }
@@ -2675,9 +2737,6 @@ void UI::startSequencerInfoNumericInput(int infoIndex) {
             break;
         case SequencerInfoField::EUCLID_STEPS:
             sequencerNumericContext.field = SequencerNumericField::EUCLID_STEPS;
-            break;
-        case SequencerInfoField::EUCLID_ROTATION:
-            sequencerNumericContext.field = SequencerNumericField::EUCLID_ROTATION;
             break;
         case SequencerInfoField::SUBDIVISION:
             sequencerNumericContext.field = SequencerNumericField::SUBDIVISION;

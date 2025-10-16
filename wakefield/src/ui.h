@@ -155,7 +155,6 @@ public:
         SCALE,
         EUCLID_HITS,
         EUCLID_STEPS,
-        EUCLID_ROTATION,
         SUBDIVISION,
         MUTATE_AMOUNT,
         MUTED,
