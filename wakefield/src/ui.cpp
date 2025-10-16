@@ -2435,15 +2435,16 @@ bool UI::handleSequencerInput(int ch) {
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow > 0) {
                     --sequencerActionsRow;
-                } else {
-                    // Move from actions to parameters
-                    sequencerFocusActionsPane = false;
-                    sequencerFocusRightPane = true;
-                    sequencerRightSelection = static_cast<int>(kSequencerInfoEntries.size()) - 1;
                 }
             } else if (sequencerFocusRightPane) {
                 if (sequencerRightSelection > 0) {
                     --sequencerRightSelection;
+                } else {
+                    // Move from parameters back to actions (bottom row)
+                    sequencerFocusRightPane = false;
+                    sequencerFocusActionsPane = true;
+                    sequencerActionsRow = 4;   // Rotate row
+                    sequencerActionsColumn = std::clamp(sequencerActionsColumn, 0, 4);
                 }
             } else {
                 sequencerSelectedRow = wrapIndex(sequencerSelectedRow - 1, maxRows);
@@ -2454,16 +2455,17 @@ bool UI::handleSequencerInput(int ch) {
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow < 4) {
                     ++sequencerActionsRow;
+                } else {
+                    // Move from actions to first parameter
+                    if (!kSequencerInfoEntries.empty()) {
+                        sequencerFocusActionsPane = false;
+                        sequencerFocusRightPane = true;
+                        sequencerRightSelection = 0;
+                    }
                 }
             } else if (sequencerFocusRightPane) {
                 if (sequencerRightSelection < static_cast<int>(kSequencerInfoEntries.size()) - 1) {
                     ++sequencerRightSelection;
-                } else {
-                    // Move from parameters to actions
-                    sequencerFocusRightPane = false;
-                    sequencerFocusActionsPane = true;
-                    sequencerActionsRow = 0;
-                    sequencerActionsColumn = 0;
                 }
             } else {
                 sequencerSelectedRow = wrapIndex(sequencerSelectedRow + 1, maxRows);
@@ -2497,8 +2499,10 @@ bool UI::handleSequencerInput(int ch) {
                 if (sequencerSelectedColumn < static_cast<int>(SequencerTrackerColumn::PROBABILITY)) {
                     ++sequencerSelectedColumn;
                 } else {
-                    sequencerFocusRightPane = true;
-                    sequencerRightSelection = 0;
+                    sequencerFocusActionsPane = true;
+                    sequencerFocusRightPane = false;
+                    sequencerActionsRow = 0;
+                    sequencerActionsColumn = 0;
                 }
             }
             return true;
