@@ -29,7 +29,7 @@ void Clock::reset() {
 }
 
 void Clock::setTempo(double bpm) {
-    tempo = std::clamp(bpm, 20.0, 300.0);
+    tempo = std::clamp(bpm, 0.1, 999.0);
     samplesPerBeat = (60.0 / tempo) * sampleRate;
 }
 
