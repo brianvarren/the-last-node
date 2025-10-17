@@ -55,15 +55,19 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
 
 void Synth::updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, float duty,
                                         int octave, bool lfoEnabled, int lfoSpeed) {
-    // Update all voice oscillators with new brainwave parameters
+    // Update all voice oscillators with new parameters
+    // For now, update all 4 oscillators in each voice the same way
+    // TODO: Make this per-oscillator once UI supports it
     for (auto& voice : voices) {
-        voice.oscillator.setMode(mode);
-        voice.oscillator.setFrequency(freq);
-        voice.oscillator.setMorph(morph);
-        voice.oscillator.setDuty(duty);
-        voice.oscillator.setOctave(octave);
-        voice.oscillator.setLFOEnabled(lfoEnabled);
-        voice.oscillator.setLFOSpeed(lfoSpeed);
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            voice.oscillators[i].setMode(mode);
+            voice.oscillators[i].setFrequency(freq);
+            voice.oscillators[i].setMorph(morph);
+            voice.oscillators[i].setDuty(duty);
+            voice.oscillators[i].setOctave(octave);
+            voice.oscillators[i].setLFOEnabled(lfoEnabled);
+            voice.oscillators[i].setLFOSpeed(lfoSpeed);
+        }
     }
 }
 
@@ -100,22 +104,25 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain) {
 void Synth::noteOn(int midiNote, int velocity) {
     // Find a free voice
     int voiceIndex = findFreeVoice();
-    
+
     if (voiceIndex == -1) {
         // No free voices - drop the note for now
         return;
     }
-    
+
     // Activate the voice
     Voice& voice = voices[voiceIndex];
     voice.active = true;
     voice.note = midiNote;
-    
+    voice.velocity = velocity;
+
     float frequency = midiNoteToFrequency(midiNote);
-    // Set note frequency for KEY mode (will be used if mode is KEY)
-    voice.oscillator.setNoteFrequency(frequency);
-    voice.oscillator.reset();  // Reset phase for new note
-    
+    // Set note frequency for KEY mode for all oscillators
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        voice.oscillators[i].setNoteFrequency(frequency);
+        voice.oscillators[i].reset();  // Reset phase for new note
+    }
+
     voice.envelope.noteOn();  // Trigger envelope attack
 }
 

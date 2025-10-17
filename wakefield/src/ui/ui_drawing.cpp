@@ -20,69 +20,80 @@ void UI::drawTabs() {
         attroff(COLOR_PAIR(6));
     }
 
-    // Brainwave tab
-    if (currentPage == UIPage::BRAINWAVE) {
+    // Oscillator tab
+    if (currentPage == UIPage::OSCILLATOR) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 6, " BRAINWAVE ");
+        mvprintw(0, 6, " OSCILLATOR ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 6, " BRAINWAVE ");
+        mvprintw(0, 6, " OSCILLATOR ");
+        attroff(COLOR_PAIR(6));
+    }
+
+    // LFO tab
+    if (currentPage == UIPage::LFO) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(0, 19, " LFO ");
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    } else {
+        attron(COLOR_PAIR(6));
+        mvprintw(0, 19, " LFO ");
         attroff(COLOR_PAIR(6));
     }
 
     // Reverb tab
     if (currentPage == UIPage::REVERB) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 17, " REVERB ");
+        mvprintw(0, 24, " REVERB ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 17, " REVERB ");
+        mvprintw(0, 24, " REVERB ");
         attroff(COLOR_PAIR(6));
     }
 
     // Filter tab
     if (currentPage == UIPage::FILTER) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 25, " FILTER ");
+        mvprintw(0, 32, " FILTER ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 25, " FILTER ");
+        mvprintw(0, 32, " FILTER ");
         attroff(COLOR_PAIR(6));
     }
 
     // Looper tab
     if (currentPage == UIPage::LOOPER) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 33, " LOOPER ");
+        mvprintw(0, 40, " LOOPER ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 33, " LOOPER ");
+        mvprintw(0, 40, " LOOPER ");
         attroff(COLOR_PAIR(6));
     }
 
     // Sequencer tab
     if (currentPage == UIPage::SEQUENCER) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 41, " SEQUENCER ");
+        mvprintw(0, 48, " SEQUENCER ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 41, " SEQUENCER ");
+        mvprintw(0, 48, " SEQUENCER ");
         attroff(COLOR_PAIR(6));
     }
 
     // Config tab
     if (currentPage == UIPage::CONFIG) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 52, " CONFIG ");
+        mvprintw(0, 59, " CONFIG ");
         attroff(COLOR_PAIR(5) | A_BOLD);
     } else {
         attron(COLOR_PAIR(6));
-        mvprintw(0, 52, " CONFIG ");
+        mvprintw(0, 59, " CONFIG ");
         attroff(COLOR_PAIR(6));
     }
 
@@ -199,8 +210,11 @@ void UI::draw(int activeVoices) {
             drawMainPage(activeVoices);
             drawConsole();  // Console only on main page
             break;
-        case UIPage::BRAINWAVE:
-            drawBrainwavePage();
+        case UIPage::OSCILLATOR:
+            drawOscillatorPage();
+            break;
+        case UIPage::LFO:
+            drawLFOPage();
             break;
         case UIPage::REVERB:
             drawReverbPage();

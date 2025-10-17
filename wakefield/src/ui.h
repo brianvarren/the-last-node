@@ -106,14 +106,14 @@ struct SynthParameters {
     std::atomic<bool> loopMidiLearnMode{false};
     std::atomic<int> loopMidiLearnTarget{-1};  // 0=rec, 1=overdub, 2=stop, 3=clear
     
-    // Brainwave oscillator parameters
-    std::atomic<int> brainwaveMode{0};         // 0=FREE, 1=KEY
-    std::atomic<float> brainwaveFreq{440.0f};  // Base frequency or offset (20-2000 Hz)
-    std::atomic<float> brainwaveMorph{0.5f};   // 0.0001-0.9999, maps to frames 0-255
-    std::atomic<float> brainwaveDuty{0.5f};    // 0.0-1.0, pulse width
-    std::atomic<int> brainwaveOctave{0};       // -3 to +3 octave offset (0 = no shift)
-    std::atomic<bool> brainwaveLFOEnabled{false};
-    std::atomic<int> brainwaveLFOSpeed{0};     // 0-9 index
+    // Oscillator parameters (will expand to 4 oscillators)
+    std::atomic<int> oscillatorMode{0};         // 0=FREE, 1=KEY
+    std::atomic<float> oscillatorFreq{440.0f};  // Base frequency or offset (20-2000 Hz)
+    std::atomic<float> oscillatorMorph{0.5f};   // 0.0001-0.9999, maps to frames 0-255
+    std::atomic<float> oscillatorDuty{0.5f};    // 0.0-1.0, pulse width
+    std::atomic<int> oscillatorOctave{0};       // -3 to +3 octave offset (0 = no shift)
+    std::atomic<bool> oscillatorLFOEnabled{false};  // TODO: Remove this
+    std::atomic<int> oscillatorLFOSpeed{0};     // 0-9 index - TODO: Remove this
 
     // Constructor to initialize CC map
     SynthParameters() {
@@ -125,7 +125,8 @@ struct SynthParameters {
 
 enum class UIPage {
     MAIN,
-    BRAINWAVE,
+    OSCILLATOR,
+    LFO,
     REVERB,
     FILTER,
     LOOPER,
@@ -255,7 +256,8 @@ private:
     void drawTabs();
     void drawMainPage(int activeVoices);
     void drawParametersPage();  // Generic parameter page drawing
-    void drawBrainwavePage();
+    void drawOscillatorPage();
+    void drawLFOPage();
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();

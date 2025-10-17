@@ -51,9 +51,9 @@ control via MIDI controllers.
 )";
             break;
 
-        case UIPage::BRAINWAVE:
+        case UIPage::OSCILLATOR:
             content = R"(
-=== BRAINWAVE OSCILLATOR ===
+=== OSCILLATOR ===
 
 CONTROLS:
   [Same global controls as MAIN page]
@@ -68,14 +68,34 @@ PARAMETERS:
   LFO Speed  - LFO rate (0-9, slow to fast)
 
 ABOUT:
-The Brainwave oscillator is a wavetable synth engine that morphs through
-256 frames of complex waveforms. In FREE mode, you control the frequency
-directly. In KEY mode, it tracks MIDI notes while the Frequency parameter
-acts as an offset or detune amount.
+The Oscillator page controls audio-rate oscillators that generate sound.
+Each voice has 4 oscillators that can be mixed together. In FREE mode,
+you control the frequency directly. In KEY mode, it tracks MIDI notes.
 
-The Morph parameter sweeps through the wavetable frames, allowing smooth
-transitions from simple to complex timbres. The LFO can modulate the morph
-parameter for evolving textures perfect for dark ambient pads and drones.
+The Morph parameter controls waveform shape using phase distortion and
+tanh-shaped synthesis. Duty controls pulse width for PWM-like effects.
+)";
+            break;
+
+        case UIPage::LFO:
+            content = R"(
+=== LFO (Low Frequency Oscillator) ===
+
+CONTROLS:
+  [Same global controls as MAIN page]
+
+PARAMETERS:
+  Period     - LFO cycle time (0.1s - 30min) with semantic input
+  Sync       - Tempo sync mode (off/on/trip/dot)
+  Morph      - Waveform shape (same as oscillator)
+  Duty       - Pulse width (same as oscillator)
+  Flip       - Polarity inversion
+  Note Reset - Restart phase on note-on
+
+ABOUT:
+LFOs are control-rate modulation sources optimized for performance.
+Unlike audio oscillators, LFOs run slower and can be tempo-synced.
+Use semantic time input like "3m39s" for precise period control.
 )";
             break;
 

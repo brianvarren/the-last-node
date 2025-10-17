@@ -127,27 +127,27 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             synthParams->masterVolume = mapCCToParameter(ccValue, 0.0f, 1.0f);
             break;
 
-        // BRAINWAVE page parameters
+        // OSCILLATOR page parameters
         case 10:  // Mode (ENUM 0-1)
-            synthParams->brainwaveMode = static_cast<int>(mapCCToParameter(ccValue, 0, 1));
+            synthParams->oscillatorMode = static_cast<int>(mapCCToParameter(ccValue, 0, 1));
             break;
         case 11:  // Frequency (logarithmic)
-            synthParams->brainwaveFreq = mapCCToParameter(ccValue, 20.0f, 2000.0f, true);
+            synthParams->oscillatorFreq = mapCCToParameter(ccValue, 20.0f, 2000.0f, true);
             break;
         case 12:  // Morph (linear)
-            synthParams->brainwaveMorph = mapCCToParameter(ccValue, 0.0001f, 0.9999f);
+            synthParams->oscillatorMorph = mapCCToParameter(ccValue, 0.0001f, 0.9999f);
             break;
         case 13:  // Duty (linear)
-            synthParams->brainwaveDuty = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            synthParams->oscillatorDuty = mapCCToParameter(ccValue, 0.0f, 1.0f);
             break;
         case 14:  // Octave (INT -3 to 3)
-            synthParams->brainwaveOctave = static_cast<int>(mapCCToParameter(ccValue, -3, 3));
+            synthParams->oscillatorOctave = static_cast<int>(mapCCToParameter(ccValue, -3, 3));
             break;
         case 15:  // LFO Enabled (BOOL)
-            synthParams->brainwaveLFOEnabled = (ccValue > 63);
+            synthParams->oscillatorLFOEnabled = (ccValue > 63);
             break;
         case 16:  // LFO Speed (INT 0-9)
-            synthParams->brainwaveLFOSpeed = static_cast<int>(mapCCToParameter(ccValue, 0, 9));
+            synthParams->oscillatorLFOSpeed = static_cast<int>(mapCCToParameter(ccValue, 0, 9));
             break;
 
         // REVERB page parameters
@@ -345,9 +345,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     static ParameterSmoother sustainSmoother;
     static ParameterSmoother releaseSmoother;
     static ParameterSmoother masterVolumeSmoother;
-    static ParameterSmoother brainwaveFreqSmoother;
-    static ParameterSmoother brainwaveMorphSmoother;
-    static ParameterSmoother brainwaveDutySmoother;
+    static ParameterSmoother oscillatorFreqSmoother;
+    static ParameterSmoother oscillatorMorphSmoother;
+    static ParameterSmoother oscillatorDutySmoother;
     static ParameterSmoother reverbDelayTimeSmoother;
     static ParameterSmoother reverbSizeSmoother;
     static ParameterSmoother reverbDampingSmoother;
@@ -381,9 +381,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             sustainSmoother.reset(synthParams->sustain.load());
             releaseSmoother.reset(synthParams->release.load());
             masterVolumeSmoother.reset(synthParams->masterVolume.load());
-            brainwaveFreqSmoother.reset(synthParams->brainwaveFreq.load());
-            brainwaveMorphSmoother.reset(synthParams->brainwaveMorph.load());
-            brainwaveDutySmoother.reset(synthParams->brainwaveDuty.load());
+            oscillatorFreqSmoother.reset(synthParams->oscillatorFreq.load());
+            oscillatorMorphSmoother.reset(synthParams->oscillatorMorph.load());
+            oscillatorDutySmoother.reset(synthParams->oscillatorDuty.load());
             reverbDelayTimeSmoother.reset(synthParams->reverbDelayTime.load());
             reverbSizeSmoother.reset(synthParams->reverbSize.load());
             reverbDampingSmoother.reset(synthParams->reverbDamping.load());
@@ -404,9 +404,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         sustainSmoother.setTarget(synthParams->sustain.load());
         releaseSmoother.setTarget(synthParams->release.load());
         masterVolumeSmoother.setTarget(synthParams->masterVolume.load());
-        brainwaveFreqSmoother.setTarget(synthParams->brainwaveFreq.load());
-        brainwaveMorphSmoother.setTarget(synthParams->brainwaveMorph.load());
-        brainwaveDutySmoother.setTarget(synthParams->brainwaveDuty.load());
+        oscillatorFreqSmoother.setTarget(synthParams->oscillatorFreq.load());
+        oscillatorMorphSmoother.setTarget(synthParams->oscillatorMorph.load());
+        oscillatorDutySmoother.setTarget(synthParams->oscillatorDuty.load());
         reverbDelayTimeSmoother.setTarget(synthParams->reverbDelayTime.load());
         reverbSizeSmoother.setTarget(synthParams->reverbSize.load());
         reverbDampingSmoother.setTarget(synthParams->reverbDamping.load());
@@ -425,9 +425,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         float smoothedSustain = sustainSmoother.process();
         float smoothedRelease = releaseSmoother.process();
         float smoothedMasterVolume = masterVolumeSmoother.process();
-        float smoothedBrainwaveFreq = brainwaveFreqSmoother.process();
-        float smoothedBrainwaveMorph = brainwaveMorphSmoother.process();
-        float smoothedBrainwaveDuty = brainwaveDutySmoother.process();
+        float smoothedOscillatorFreq = oscillatorFreqSmoother.process();
+        float smoothedOscillatorMorph = oscillatorMorphSmoother.process();
+        float smoothedOscillatorDuty = oscillatorDutySmoother.process();
         float smoothedReverbDelayTime = reverbDelayTimeSmoother.process();
         float smoothedReverbSize = reverbSizeSmoother.process();
         float smoothedReverbDamping = reverbDampingSmoother.process();
@@ -448,15 +448,15 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         );
         synth->setMasterVolume(smoothedMasterVolume);
 
-        // Update brainwave oscillator parameters (discrete params not smoothed)
+        // Update oscillator parameters (discrete params not smoothed)
         synth->updateBrainwaveParameters(
-            static_cast<BrainwaveMode>(synthParams->brainwaveMode.load()),
-            smoothedBrainwaveFreq,
-            smoothedBrainwaveMorph,
-            smoothedBrainwaveDuty,
-            synthParams->brainwaveOctave.load(),
-            synthParams->brainwaveLFOEnabled.load(),
-            synthParams->brainwaveLFOSpeed.load()
+            static_cast<BrainwaveMode>(synthParams->oscillatorMode.load()),
+            smoothedOscillatorFreq,
+            smoothedOscillatorMorph,
+            smoothedOscillatorDuty,
+            synthParams->oscillatorOctave.load(),
+            synthParams->oscillatorLFOEnabled.load(),
+            synthParams->oscillatorLFOSpeed.load()
         );
 
         // Update reverb parameters (discrete params not smoothed)

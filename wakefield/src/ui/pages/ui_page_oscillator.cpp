@@ -1,5 +1,5 @@
 #include "../../ui.h"
 
-void UI::drawBrainwavePage() {
+void UI::drawOscillatorPage() {
     drawParametersPage();
 }

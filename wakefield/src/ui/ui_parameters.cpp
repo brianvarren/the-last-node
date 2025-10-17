@@ -14,14 +14,14 @@ void UI::initializeParameters() {
     parameters.push_back({5, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
     parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
 
-    // BRAINWAVE page parameters - ALL support MIDI learn
-    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({14, ParamType::INT, "Octave", "", -3, 3, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({15, ParamType::BOOL, "LFO Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
-    parameters.push_back({16, ParamType::INT, "LFO Speed", "", 0, 9, {}, true, static_cast<int>(UIPage::BRAINWAVE)});
+    // OSCILLATOR page parameters - ALL support MIDI learn (will expand to 4x)
+    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({14, ParamType::INT, "Octave", "", -3, 3, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({15, ParamType::BOOL, "LFO Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({16, ParamType::INT, "LFO Speed", "", 0, 9, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
 
     // REVERB page parameters - ALL support MIDI learn
     parameters.push_back({20, ParamType::ENUM, "Reverb Type", "", 0, 4, {"Greyhole", "Plate", "Room", "Hall", "Spring"}, true, static_cast<int>(UIPage::REVERB)});
@@ -74,13 +74,13 @@ float UI::getParameterValue(int id) {
         case 4: return params->sustain.load();
         case 5: return params->release.load();
         case 6: return params->masterVolume.load();
-        case 10: return static_cast<float>(params->brainwaveMode.load());
-        case 11: return params->brainwaveFreq.load();
-        case 12: return params->brainwaveMorph.load();
-        case 13: return params->brainwaveDuty.load();
-        case 14: return static_cast<float>(params->brainwaveOctave.load());
-        case 15: return params->brainwaveLFOEnabled.load() ? 1.0f : 0.0f;
-        case 16: return static_cast<float>(params->brainwaveLFOSpeed.load());
+        case 10: return static_cast<float>(params->oscillatorMode.load());
+        case 11: return params->oscillatorFreq.load();
+        case 12: return params->oscillatorMorph.load();
+        case 13: return params->oscillatorDuty.load();
+        case 14: return static_cast<float>(params->oscillatorOctave.load());
+        case 15: return params->oscillatorLFOEnabled.load() ? 1.0f : 0.0f;
+        case 16: return static_cast<float>(params->oscillatorLFOSpeed.load());
         case 20: return static_cast<float>(params->reverbType.load());
         case 21: return params->reverbEnabled.load() ? 1.0f : 0.0f;
         case 22: return params->reverbDelayTime.load();
@@ -109,13 +109,13 @@ void UI::setParameterValue(int id, float value) {
         case 4: params->sustain = value; break;
         case 5: params->release = value; break;
         case 6: params->masterVolume = value; break;
-        case 10: params->brainwaveMode = static_cast<int>(value); break;
-        case 11: params->brainwaveFreq = value; break;
-        case 12: params->brainwaveMorph = value; break;
-        case 13: params->brainwaveDuty = value; break;
-        case 14: params->brainwaveOctave = static_cast<int>(value); break;
-        case 15: params->brainwaveLFOEnabled = (value > 0.5f); break;
-        case 16: params->brainwaveLFOSpeed = static_cast<int>(value); break;
+        case 10: params->oscillatorMode = static_cast<int>(value); break;
+        case 11: params->oscillatorFreq = value; break;
+        case 12: params->oscillatorMorph = value; break;
+        case 13: params->oscillatorDuty = value; break;
+        case 14: params->oscillatorOctave = static_cast<int>(value); break;
+        case 15: params->oscillatorLFOEnabled = (value > 0.5f); break;
+        case 16: params->oscillatorLFOSpeed = static_cast<int>(value); break;
         case 20: params->reverbType = static_cast<int>(value); break;
         case 21: params->reverbEnabled = (value > 0.5f); break;
         case 22: params->reverbDelayTime = value; break;
@@ -153,7 +153,7 @@ void UI::adjustParameter(int id, bool increase) {
                 } else {
                     newValue = std::max(param->min_val, currentValue / 1.1f);
                 }
-            } else if (id == 11) { // Brainwave frequency - musical scaling
+            } else if (id == 11) { // Oscillator frequency - musical scaling
                 if (increase) {
                     newValue = std::min(param->max_val, currentValue * 1.059463f); // semitone ratio
                 } else {

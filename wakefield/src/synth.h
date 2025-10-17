@@ -11,6 +11,7 @@
 class UI; // Forward declaration
 
 constexpr int MAX_VOICES = 8;
+// Note: OSCILLATORS_PER_VOICE is defined in voice.h
 
 class Synth {
 public:

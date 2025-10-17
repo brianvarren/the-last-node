@@ -84,8 +84,9 @@ void UI::handleInput(int ch) {
 
     // Tab key cycles forward through pages
     if (ch == '\t') {
-        if (currentPage == UIPage::MAIN) currentPage = UIPage::BRAINWAVE;
-        else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::REVERB;
+        if (currentPage == UIPage::MAIN) currentPage = UIPage::OSCILLATOR;
+        else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::LFO;
+        else if (currentPage == UIPage::LFO) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::SEQUENCER;
@@ -103,8 +104,9 @@ void UI::handleInput(int ch) {
     // Ctrl+Tab (KEY_BTAB or Shift+Tab) cycles backward through pages
     if (ch == KEY_BTAB || ch == 353) {  // KEY_BTAB = Shift+Tab, 353 = some terminals
         if (currentPage == UIPage::MAIN) currentPage = UIPage::CONFIG;
-        else if (currentPage == UIPage::BRAINWAVE) currentPage = UIPage::MAIN;
-        else if (currentPage == UIPage::REVERB) currentPage = UIPage::BRAINWAVE;
+        else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::MAIN;
+        else if (currentPage == UIPage::LFO) currentPage = UIPage::OSCILLATOR;
+        else if (currentPage == UIPage::REVERB) currentPage = UIPage::LFO;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::LOOPER;
