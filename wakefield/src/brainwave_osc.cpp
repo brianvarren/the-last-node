@@ -4,11 +4,12 @@
 
 // Classic Casio CZ style phase distortion for sawtooth
 // morph: 0.0 (bright PD saw) to 0.5 (sine)
-static float generatePhaseDistorted(float phase, float morph) {
+static float generatePhaseDistorted(float phase, float amount) {
     // phase is normalized [0, 1)
 
-    // Map morph (0..0.5) to point of inflection d (0 < d ≤ 0.5)
-    float d = std::max(0.0001f, std::min(morph, 0.5f));
+    // Map amount (0..1) to point of inflection d (0 < d ≤ 0.5)
+    float clamped = std::min(std::max(amount, 0.0f), 1.0f);
+    float d = 0.5f - (0.5f - 0.0001f) * clamped;
 
     float shapedPhase;
     if (phase <= d) {
@@ -27,10 +28,8 @@ static float generateTanhShaped(float phase, float morph, float duty) {
     const float twoPi = 2.0f * M_PI;
     float sine = std::sin(twoPi * phase);
 
-    // Map morph to edge parameter
-    // morph = 0.5 → edge = 0.0 (pure sine)
-    // morph = 1.0 → edge = 1.0 (hard square)
-    float edge = (morph - 0.5f) * 2.0f;
+    // Map morph to edge parameter (0 = sine, 1 = hard square)
+    float edge = std::min(std::max(morph, 0.0f), 1.0f);
     edge = std::min(std::max(edge, 0.0f), 1.0f);
 
     // When edge is very small, just return a pure sine wave.
@@ -57,6 +56,7 @@ BrainwaveOscillator::BrainwaveOscillator()
     , noteFrequency_(440.0f)
     , morphPosition_(0.5f)
     , duty_(0.5f)  // Default to 50% duty (symmetric square)
+    , shape_(BrainwaveShape::SAW)
     , ratio_(1.0f)
     , offsetHz_(0.0f)
     , velocityWeight_(0.0f)
@@ -89,18 +89,17 @@ float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos) {
     // Convert 32-bit phase accumulator to normalized phase (0.0 to 1.0)
     float normalizedPhase = static_cast<double>(phase) / 4294967296.0;
     
-    // Generate waveform based on morph position
-    if (morphPos < 0.5f) {
-        // Left side: Phase distortion (saw)
-        return generatePhaseDistorted(normalizedPhase, morphPos);
+    float morphAmount = std::min(std::max(morphPos, 0.0f), 1.0f);
+
+    if (shape_ == BrainwaveShape::SAW) {
+        return generatePhaseDistorted(normalizedPhase, morphAmount);
     }
 
-    // Right side: Tanh-shaped pulse/square with duty control
     float shiftedPhase = normalizedPhase + 0.5f;
     if (shiftedPhase >= 1.0f) {
         shiftedPhase -= 1.0f;
     }
-    return generateTanhShaped(shiftedPhase, morphPos, duty_);
+    return generateTanhShaped(shiftedPhase, morphAmount, duty_);
 }
 
 float BrainwaveOscillator::process(float sampleRate) {

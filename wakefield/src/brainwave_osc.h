@@ -10,6 +10,12 @@ enum class BrainwaveMode {
     KEY = 1    // Key-tracking, MIDI note controls frequency
 };
 
+// Oscillator waveshape families
+enum class BrainwaveShape {
+    SAW = 0,
+    PULSE = 1
+};
+
 class BrainwaveOscillator {
 public:
     BrainwaveOscillator();
@@ -34,6 +40,9 @@ public:
     void setDuty(float duty) { duty_ = std::min(std::max(duty, 0.0f), 1.0f); }
     float getDuty() const { return duty_; }
 
+    void setShape(BrainwaveShape shape) { shape_ = shape; }
+    BrainwaveShape getShape() const { return shape_; }
+
     void setVelocityWeight(float weight) { velocityWeight_ = weight; }
     float getVelocityWeight() const { return velocityWeight_; }
     void setLevel(float level) { level_ = std::min(std::max(level, 0.0f), 1.0f); }
@@ -57,6 +66,7 @@ private:
     float noteFrequency_;      // MIDI note frequency (KEY mode)
     float morphPosition_;      // 0.0 to 1.0
     float duty_;               // 0.0 to 1.0, pulse width control
+    BrainwaveShape shape_;
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
     float velocityWeight_;     // Velocity modulation weight (0-1)

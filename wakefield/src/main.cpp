@@ -453,6 +453,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         // TODO: Implement per-oscillator parameter control
         synth->updateBrainwaveParameters(
             static_cast<BrainwaveMode>(synthParams->osc1Mode.load()),
+            synthParams->osc1Shape.load(),
             smoothedOscillatorFreq,
             smoothedOscillatorMorph,
             smoothedOscillatorDuty,

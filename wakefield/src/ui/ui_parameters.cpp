@@ -16,8 +16,9 @@ void UI::initializeParameters() {
 
     // OSCILLATOR page parameters - control the currently selected oscillator
     parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({19, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
@@ -88,6 +89,7 @@ float UI::getParameterValue(int id) {
         case 5: return params->release.load();
         case 6: return params->masterVolume.load();
         case 10: return static_cast<float>(params->getOscMode(oscIndex));
+        case 19: return static_cast<float>(params->getOscShape(oscIndex));
         case 11: return params->getOscFrequency(oscIndex);
         case 12: return params->getOscMorph(oscIndex);
         case 13: return params->getOscDuty(oscIndex);
@@ -134,6 +136,7 @@ void UI::setParameterValue(int id, float value) {
         case 5: params->release = value; break;
         case 6: params->masterVolume = value; break;
         case 10: params->setOscMode(oscIndex, static_cast<int>(value)); break;
+        case 19: params->setOscShape(oscIndex, static_cast<int>(value)); break;
         case 11: params->setOscFrequency(oscIndex, value); break;
         case 12: params->setOscMorph(oscIndex, value); break;
         case 13: params->setOscDuty(oscIndex, value); break;

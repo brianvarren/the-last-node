@@ -29,7 +29,7 @@ public:
     void setUI(UI* ui_ptr) { ui = ui_ptr; }
 
     // Brainwave oscillator control
-    void updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, float duty,
+    void updateBrainwaveParameters(BrainwaveMode mode, int shape, float freq, float morph, float duty,
                                    float ratio, float offsetHz, float velocityWeight,
                                    bool flipPolarity, float level);
     

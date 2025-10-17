@@ -37,8 +37,8 @@ float computeTanhShaped(float phase, float morph, float duty) {
     return (1.0f - edge) * sine + edge * tanhPulse;
 }
 
-float computeWaveSample(float phase, float morph, float duty) {
-    if (morph < 0.5f) {
+float computeWaveSample(float phase, float morph, float duty, int shape) {
+    if (shape == 0) {
         return computePhaseDistorted(phase, morph);
     }
     float shiftedPhase = phase + 0.5f;
@@ -54,6 +54,7 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
     float morph = params->getOscMorph(currentOscillatorIndex);
     float duty = params->getOscDuty(currentOscillatorIndex);
     bool flip = params->getOscFlip(currentOscillatorIndex);
+    int shape = params->getOscShape(currentOscillatorIndex);
 
     morph = std::min(std::max(morph, 0.0001f), 0.9999f);
     duty = std::min(std::max(duty, 0.0f), 1.0f);
@@ -67,7 +68,7 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
 
     for (int x = 0; x < plotWidth; ++x) {
         float phase = (plotWidth == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(plotWidth - 1);
-        float sample = computeWaveSample(phase, morph, duty);
+        float sample = computeWaveSample(phase, morph, duty, shape);
         if (flip) {
             sample = -sample;
         }

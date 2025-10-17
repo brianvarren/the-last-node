@@ -53,15 +53,18 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
     }
 }
 
-void Synth::updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, float duty,
+void Synth::updateBrainwaveParameters(BrainwaveMode mode, int shape, float freq, float morph, float duty,
                                       float ratio, float offsetHz, float velocityWeight,
                                       bool flipPolarity, float level) {
     // Update all voice oscillators with new parameters
     // For now, update all 4 oscillators in each voice the same way
     // TODO: Make this per-oscillator once UI supports it
+    BrainwaveShape shapeEnum = (shape == 0) ? BrainwaveShape::SAW : BrainwaveShape::PULSE;
+
     for (auto& voice : voices) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             voice.oscillators[i].setMode(mode);
+            voice.oscillators[i].setShape(shapeEnum);
             voice.oscillators[i].setFrequency(freq);
             voice.oscillators[i].setMorph(morph);
             voice.oscillators[i].setDuty(duty);
