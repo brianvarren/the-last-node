@@ -26,7 +26,5 @@ void UI::drawLFOPage() {
     attroff(COLOR_PAIR(1));
 
     // Draw parameters for the currently selected LFO
-    // TODO: Implement LFO parameters once LFO class is created
-    row += 2;
-    mvprintw(row, 2, "[LFO parameters coming soon...]");
+    drawParametersPage(row + 2);
 }

@@ -14,7 +14,7 @@ void UI::initializeParameters() {
     parameters.push_back({5, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
     parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
 
-    // OSCILLATOR page parameters - Oscillator 1 only for now (will expand to per-osc control)
+    // OSCILLATOR page parameters - control the currently selected oscillator
     parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
@@ -24,6 +24,14 @@ void UI::initializeParameters() {
     parameters.push_back({16, ParamType::FLOAT, "Vel Weight", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({17, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({18, ParamType::FLOAT, "Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+
+    // LFO page parameters - control the currently selected LFO
+    parameters.push_back({200, ParamType::FLOAT, "Period", "s", 0.1f, 1800.0f, {}, true, static_cast<int>(UIPage::LFO)});
+    parameters.push_back({201, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::LFO)});
+    parameters.push_back({202, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::LFO)});
+    parameters.push_back({203, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LFO)});
+    parameters.push_back({204, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO)});
+    parameters.push_back({205, ParamType::BOOL, "Reset On Note", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO)});
 
     // REVERB page parameters - ALL support MIDI learn
     parameters.push_back({20, ParamType::ENUM, "Reverb Type", "", 0, 4, {"Greyhole", "Plate", "Room", "Hall", "Spring"}, true, static_cast<int>(UIPage::REVERB)});
@@ -69,6 +77,9 @@ std::vector<int> UI::getParameterIdsForPage(UIPage page) {
 }
 
 float UI::getParameterValue(int id) {
+    const int oscIndex = currentOscillatorIndex;
+    const int lfoIndex = currentLFOIndex;
+
     switch (id) {
         case 1: return static_cast<float>(params->waveform.load());
         case 2: return params->attack.load();
@@ -76,15 +87,21 @@ float UI::getParameterValue(int id) {
         case 4: return params->sustain.load();
         case 5: return params->release.load();
         case 6: return params->masterVolume.load();
-        case 10: return static_cast<float>(params->osc1Mode.load());
-        case 11: return params->osc1Freq.load();
-        case 12: return params->osc1Morph.load();
-        case 13: return params->osc1Duty.load();
-        case 14: return params->osc1Ratio.load();
-        case 15: return params->osc1Offset.load();
-        case 16: return params->osc1VelocityWeight.load();
-        case 17: return params->osc1Flip.load() ? 1.0f : 0.0f;
-        case 18: return params->osc1Level.load();
+        case 10: return static_cast<float>(params->getOscMode(oscIndex));
+        case 11: return params->getOscFrequency(oscIndex);
+        case 12: return params->getOscMorph(oscIndex);
+        case 13: return params->getOscDuty(oscIndex);
+        case 14: return params->getOscRatio(oscIndex);
+        case 15: return params->getOscOffset(oscIndex);
+        case 16: return params->getOscVelocityWeight(oscIndex);
+        case 17: return params->getOscFlip(oscIndex) ? 1.0f : 0.0f;
+        case 18: return params->getOscLevel(oscIndex);
+        case 200: return params->getLfoPeriod(lfoIndex);
+        case 201: return static_cast<float>(params->getLfoSyncMode(lfoIndex));
+        case 202: return params->getLfoMorph(lfoIndex);
+        case 203: return params->getLfoDuty(lfoIndex);
+        case 204: return params->getLfoFlip(lfoIndex) ? 1.0f : 0.0f;
+        case 205: return params->getLfoResetOnNote(lfoIndex) ? 1.0f : 0.0f;
         case 20: return static_cast<float>(params->reverbType.load());
         case 21: return params->reverbEnabled.load() ? 1.0f : 0.0f;
         case 22: return params->reverbDelayTime.load();
@@ -106,6 +123,9 @@ float UI::getParameterValue(int id) {
 }
 
 void UI::setParameterValue(int id, float value) {
+    const int oscIndex = currentOscillatorIndex;
+    const int lfoIndex = currentLFOIndex;
+
     switch (id) {
         case 1: params->waveform = static_cast<int>(value); break;
         case 2: params->attack = value; break;
@@ -113,15 +133,21 @@ void UI::setParameterValue(int id, float value) {
         case 4: params->sustain = value; break;
         case 5: params->release = value; break;
         case 6: params->masterVolume = value; break;
-        case 10: params->osc1Mode = static_cast<int>(value); break;
-        case 11: params->osc1Freq = value; break;
-        case 12: params->osc1Morph = value; break;
-        case 13: params->osc1Duty = value; break;
-        case 14: params->osc1Ratio = value; break;
-        case 15: params->osc1Offset = value; break;
-        case 16: params->osc1VelocityWeight = value; break;
-        case 17: params->osc1Flip = (value > 0.5f); break;
-        case 18: params->osc1Level = value; break;
+        case 10: params->setOscMode(oscIndex, static_cast<int>(value)); break;
+        case 11: params->setOscFrequency(oscIndex, value); break;
+        case 12: params->setOscMorph(oscIndex, value); break;
+        case 13: params->setOscDuty(oscIndex, value); break;
+        case 14: params->setOscRatio(oscIndex, value); break;
+        case 15: params->setOscOffset(oscIndex, value); break;
+        case 16: params->setOscVelocityWeight(oscIndex, value); break;
+        case 17: params->setOscFlip(oscIndex, value > 0.5f); break;
+        case 18: params->setOscLevel(oscIndex, value); break;
+        case 200: params->setLfoPeriod(lfoIndex, value); break;
+        case 201: params->setLfoSyncMode(lfoIndex, static_cast<int>(value)); break;
+        case 202: params->setLfoMorph(lfoIndex, value); break;
+        case 203: params->setLfoDuty(lfoIndex, value); break;
+        case 204: params->setLfoFlip(lfoIndex, value > 0.5f); break;
+        case 205: params->setLfoResetOnNote(lfoIndex, value > 0.5f); break;
         case 20: params->reverbType = static_cast<int>(value); break;
         case 21: params->reverbEnabled = (value > 0.5f); break;
         case 22: params->reverbDelayTime = value; break;
@@ -172,6 +198,12 @@ void UI::adjustParameter(int id, bool increase) {
                     newValue = std::max(param->min_val, currentValue / 1.1f);
                 }
             } else if (id == 32) { // Filter cutoff - logarithmic scaling
+                if (increase) {
+                    newValue = std::min(param->max_val, currentValue * 1.1f);
+                } else {
+                    newValue = std::max(param->min_val, currentValue / 1.1f);
+                }
+            } else if (id == 200) { // LFO period - logarithmic scaling
                 if (increase) {
                     newValue = std::min(param->max_val, currentValue * 1.1f);
                 } else {

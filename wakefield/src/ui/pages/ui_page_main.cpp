@@ -25,7 +25,7 @@ void UI::drawMainPage(int activeVoices) {
 
         // Show arrows for selected parameter
         if (paramId == selectedParameterId) {
-            mvprintw(row, 40, "← →");
+            mvprintw(row, 40, "< >");
             attroff(COLOR_PAIR(5) | A_BOLD);
         }
 

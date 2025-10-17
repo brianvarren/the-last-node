@@ -1,4 +1,88 @@
 #include "../../ui.h"
+#include <cmath>
+#include <string>
+#include <vector>
+
+namespace {
+
+float computePhaseDistorted(float phase, float morph) {
+    float alpha = 1.0f - morph;
+    alpha = std::min(std::max(alpha, 0.001f), 0.999f);
+
+    float warpedPhase;
+    if (phase < alpha) {
+        warpedPhase = phase * 0.5f / alpha;
+    } else {
+        warpedPhase = 0.5f + (phase - alpha) * 0.5f / (1.0f - alpha);
+    }
+
+    return std::sin(warpedPhase * 2.0f * static_cast<float>(M_PI));
+}
+
+float computeTanhShaped(float phase, float morph, float duty) {
+    const float twoPi = 2.0f * static_cast<float>(M_PI);
+    float sine = std::sin(twoPi * phase);
+    float edge = (morph - 0.5f) * 2.0f;
+    edge = std::min(std::max(edge, 0.0f), 1.0f);
+
+    if (edge < 1e-3f) {
+        return sine;
+    }
+
+    float theta = twoPi * (duty - 0.5f);
+    float x = sine - std::sin(theta);
+    float beta = 1.0f + 40.0f * edge;
+    float tanhPulse = std::tanh(beta * x);
+    return (1.0f - edge) * sine + edge * tanhPulse;
+}
+
+float computeWaveSample(float phase, float morph, float duty) {
+    if (morph < 0.5f) {
+        return computePhaseDistorted(phase, morph);
+    }
+    return computeTanhShaped(phase, morph, duty);
+}
+
+} // namespace
+
+void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth) {
+    float morph = params->getOscMorph(currentOscillatorIndex);
+    float duty = params->getOscDuty(currentOscillatorIndex);
+    bool flip = params->getOscFlip(currentOscillatorIndex);
+
+    morph = std::min(std::max(morph, 0.0001f), 0.9999f);
+    duty = std::min(std::max(duty, 0.0f), 1.0f);
+
+    std::vector<std::string> grid(plotHeight, std::string(plotWidth, ' '));
+
+    int axisRow = plotHeight / 2;
+    for (int x = 0; x < plotWidth; ++x) {
+        grid[axisRow][x] = '-';
+    }
+
+    for (int x = 0; x < plotWidth; ++x) {
+        float phase = (plotWidth == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(plotWidth - 1);
+        float sample = computeWaveSample(phase, morph, duty);
+        if (flip) {
+            sample = -sample;
+        }
+        sample = std::min(std::max(sample, -1.0f), 1.0f);
+        float normalized = (-sample + 1.0f) * 0.5f;
+        int row = static_cast<int>(std::round(normalized * (plotHeight - 1)));
+        row = std::min(std::max(row, 0), plotHeight - 1);
+        grid[row][x] = '*';
+    }
+
+    std::string horizontal(plotWidth, '-');
+    mvprintw(topRow - 1, leftCol, "Wave Preview");
+    mvprintw(topRow, leftCol, "+%s+", horizontal.c_str());
+    for (int y = 0; y < plotHeight; ++y) {
+        mvprintw(topRow + 1 + y, leftCol, "|");
+        mvprintw(topRow + 1 + y, leftCol + 1, "%s", grid[y].c_str());
+        mvprintw(topRow + 1 + y, leftCol + 1 + plotWidth, "|");
+    }
+    mvprintw(topRow + 1 + plotHeight, leftCol, "+%s+", horizontal.c_str());
+}
 
 void UI::drawOscillatorPage() {
     // Draw oscillator selector at top
@@ -26,5 +110,13 @@ void UI::drawOscillatorPage() {
     attroff(COLOR_PAIR(1));
 
     // Draw parameters for the currently selected oscillator
-    drawParametersPage();
+    drawParametersPage(row + 2);
+
+    // Draw waveform preview to the right
+    int cols = getmaxx(stdscr);
+    const int plotWidth = 28;
+    const int plotHeight = 10;
+    int leftCol = std::max(50, cols - (plotWidth + 4));
+    int plotTop = row + 2;
+    drawOscillatorWavePreview(plotTop, leftCol, plotHeight, plotWidth);
 }

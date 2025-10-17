@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 
-void UI::drawParametersPage() {
-    int row = 3;
+void UI::drawParametersPage(int startRow) {
+    int row = startRow;
     std::vector<int> pageParams = getParameterIdsForPage(currentPage);
 
     // Draw parameters inline with left/right control indicators
@@ -25,7 +25,7 @@ void UI::drawParametersPage() {
 
         // Show control hints for selected parameter
         if (paramId == selectedParameterId) {
-            mvprintw(row, 45, "← →");
+            mvprintw(row, 45, "< >");
             if (param->supports_midi_learn) {
                 mvprintw(row, 50, "[L]");
             }

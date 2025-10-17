@@ -126,10 +126,10 @@ struct SynthParameters {
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
     std::atomic<float> osc2VelocityWeight{0.0f};
-    std::atomic<bool> osc2Flip{false};
-    std::atomic<float> osc2Level{0.0f};        // Default: off
+   std::atomic<bool> osc2Flip{false};
+   std::atomic<float> osc2Level{0.0f};        // Default: off
 
-    // Oscillator 3 (index 2)
+   // Oscillator 3 (index 2)
     std::atomic<int> osc3Mode{0};
     std::atomic<float> osc3Freq{440.0f};
     std::atomic<float> osc3Morph{0.5f};
@@ -151,10 +151,339 @@ struct SynthParameters {
     std::atomic<bool> osc4Flip{false};
     std::atomic<float> osc4Level{0.0f};        // Default: off
 
+    // LFO parameters - 4 global modulation sources
+    std::atomic<float> lfo1Period{1.0f};
+    std::atomic<int> lfo1SyncMode{0};          // 0=Off,1=On,2=Triplet,3=Dotted
+    std::atomic<float> lfo1Morph{0.5f};
+    std::atomic<float> lfo1Duty{0.5f};
+    std::atomic<bool> lfo1Flip{false};
+    std::atomic<bool> lfo1ResetOnNote{false};
+
+    std::atomic<float> lfo2Period{1.0f};
+    std::atomic<int> lfo2SyncMode{0};
+    std::atomic<float> lfo2Morph{0.5f};
+    std::atomic<float> lfo2Duty{0.5f};
+    std::atomic<bool> lfo2Flip{false};
+    std::atomic<bool> lfo2ResetOnNote{false};
+
+    std::atomic<float> lfo3Period{1.0f};
+    std::atomic<int> lfo3SyncMode{0};
+    std::atomic<float> lfo3Morph{0.5f};
+    std::atomic<float> lfo3Duty{0.5f};
+    std::atomic<bool> lfo3Flip{false};
+    std::atomic<bool> lfo3ResetOnNote{false};
+
+    std::atomic<float> lfo4Period{1.0f};
+    std::atomic<int> lfo4SyncMode{0};
+    std::atomic<float> lfo4Morph{0.5f};
+    std::atomic<float> lfo4Duty{0.5f};
+    std::atomic<bool> lfo4Flip{false};
+    std::atomic<bool> lfo4ResetOnNote{false};
+
     // Constructor to initialize CC map
     SynthParameters() {
         for (int i = 0; i < 50; ++i) {
             parameterCCMap[i] = -1;  // -1 means no CC assigned
+        }
+    }
+
+    int getOscMode(int index) const {
+        switch (index) {
+            case 0: return osc1Mode.load();
+            case 1: return osc2Mode.load();
+            case 2: return osc3Mode.load();
+            case 3: return osc4Mode.load();
+            default: return osc1Mode.load();
+        }
+    }
+
+    void setOscMode(int index, int value) {
+        switch (index) {
+            case 0: osc1Mode = value; break;
+            case 1: osc2Mode = value; break;
+            case 2: osc3Mode = value; break;
+            case 3: osc4Mode = value; break;
+            default: osc1Mode = value; break;
+        }
+    }
+
+    float getOscFrequency(int index) const {
+        switch (index) {
+            case 0: return osc1Freq.load();
+            case 1: return osc2Freq.load();
+            case 2: return osc3Freq.load();
+            case 3: return osc4Freq.load();
+            default: return osc1Freq.load();
+        }
+    }
+
+    void setOscFrequency(int index, float value) {
+        switch (index) {
+            case 0: osc1Freq = value; break;
+            case 1: osc2Freq = value; break;
+            case 2: osc3Freq = value; break;
+            case 3: osc4Freq = value; break;
+            default: osc1Freq = value; break;
+        }
+    }
+
+    float getOscMorph(int index) const {
+        switch (index) {
+            case 0: return osc1Morph.load();
+            case 1: return osc2Morph.load();
+            case 2: return osc3Morph.load();
+            case 3: return osc4Morph.load();
+            default: return osc1Morph.load();
+        }
+    }
+
+    void setOscMorph(int index, float value) {
+        switch (index) {
+            case 0: osc1Morph = value; break;
+            case 1: osc2Morph = value; break;
+            case 2: osc3Morph = value; break;
+            case 3: osc4Morph = value; break;
+            default: osc1Morph = value; break;
+        }
+    }
+
+    float getOscDuty(int index) const {
+        switch (index) {
+            case 0: return osc1Duty.load();
+            case 1: return osc2Duty.load();
+            case 2: return osc3Duty.load();
+            case 3: return osc4Duty.load();
+            default: return osc1Duty.load();
+        }
+    }
+
+    void setOscDuty(int index, float value) {
+        switch (index) {
+            case 0: osc1Duty = value; break;
+            case 1: osc2Duty = value; break;
+            case 2: osc3Duty = value; break;
+            case 3: osc4Duty = value; break;
+            default: osc1Duty = value; break;
+        }
+    }
+
+    float getOscRatio(int index) const {
+        switch (index) {
+            case 0: return osc1Ratio.load();
+            case 1: return osc2Ratio.load();
+            case 2: return osc3Ratio.load();
+            case 3: return osc4Ratio.load();
+            default: return osc1Ratio.load();
+        }
+    }
+
+    void setOscRatio(int index, float value) {
+        switch (index) {
+            case 0: osc1Ratio = value; break;
+            case 1: osc2Ratio = value; break;
+            case 2: osc3Ratio = value; break;
+            case 3: osc4Ratio = value; break;
+            default: osc1Ratio = value; break;
+        }
+    }
+
+    float getOscOffset(int index) const {
+        switch (index) {
+            case 0: return osc1Offset.load();
+            case 1: return osc2Offset.load();
+            case 2: return osc3Offset.load();
+            case 3: return osc4Offset.load();
+            default: return osc1Offset.load();
+        }
+    }
+
+    void setOscOffset(int index, float value) {
+        switch (index) {
+            case 0: osc1Offset = value; break;
+            case 1: osc2Offset = value; break;
+            case 2: osc3Offset = value; break;
+            case 3: osc4Offset = value; break;
+            default: osc1Offset = value; break;
+        }
+    }
+
+    float getOscVelocityWeight(int index) const {
+        switch (index) {
+            case 0: return osc1VelocityWeight.load();
+            case 1: return osc2VelocityWeight.load();
+            case 2: return osc3VelocityWeight.load();
+            case 3: return osc4VelocityWeight.load();
+            default: return osc1VelocityWeight.load();
+        }
+    }
+
+    void setOscVelocityWeight(int index, float value) {
+        switch (index) {
+            case 0: osc1VelocityWeight = value; break;
+            case 1: osc2VelocityWeight = value; break;
+            case 2: osc3VelocityWeight = value; break;
+            case 3: osc4VelocityWeight = value; break;
+            default: osc1VelocityWeight = value; break;
+        }
+    }
+
+    bool getOscFlip(int index) const {
+        switch (index) {
+            case 0: return osc1Flip.load();
+            case 1: return osc2Flip.load();
+            case 2: return osc3Flip.load();
+            case 3: return osc4Flip.load();
+            default: return osc1Flip.load();
+        }
+    }
+
+    void setOscFlip(int index, bool value) {
+        switch (index) {
+            case 0: osc1Flip = value; break;
+            case 1: osc2Flip = value; break;
+            case 2: osc3Flip = value; break;
+            case 3: osc4Flip = value; break;
+            default: osc1Flip = value; break;
+        }
+    }
+
+    float getOscLevel(int index) const {
+        switch (index) {
+            case 0: return osc1Level.load();
+            case 1: return osc2Level.load();
+            case 2: return osc3Level.load();
+            case 3: return osc4Level.load();
+            default: return osc1Level.load();
+        }
+    }
+
+    void setOscLevel(int index, float value) {
+        switch (index) {
+            case 0: osc1Level = value; break;
+            case 1: osc2Level = value; break;
+            case 2: osc3Level = value; break;
+            case 3: osc4Level = value; break;
+            default: osc1Level = value; break;
+        }
+    }
+
+    float getLfoPeriod(int index) const {
+        switch (index) {
+            case 0: return lfo1Period.load();
+            case 1: return lfo2Period.load();
+            case 2: return lfo3Period.load();
+            case 3: return lfo4Period.load();
+            default: return lfo1Period.load();
+        }
+    }
+
+    void setLfoPeriod(int index, float value) {
+        switch (index) {
+            case 0: lfo1Period = value; break;
+            case 1: lfo2Period = value; break;
+            case 2: lfo3Period = value; break;
+            case 3: lfo4Period = value; break;
+            default: lfo1Period = value; break;
+        }
+    }
+
+    int getLfoSyncMode(int index) const {
+        switch (index) {
+            case 0: return lfo1SyncMode.load();
+            case 1: return lfo2SyncMode.load();
+            case 2: return lfo3SyncMode.load();
+            case 3: return lfo4SyncMode.load();
+            default: return lfo1SyncMode.load();
+        }
+    }
+
+    void setLfoSyncMode(int index, int value) {
+        switch (index) {
+            case 0: lfo1SyncMode = value; break;
+            case 1: lfo2SyncMode = value; break;
+            case 2: lfo3SyncMode = value; break;
+            case 3: lfo4SyncMode = value; break;
+            default: lfo1SyncMode = value; break;
+        }
+    }
+
+    float getLfoMorph(int index) const {
+        switch (index) {
+            case 0: return lfo1Morph.load();
+            case 1: return lfo2Morph.load();
+            case 2: return lfo3Morph.load();
+            case 3: return lfo4Morph.load();
+            default: return lfo1Morph.load();
+        }
+    }
+
+    void setLfoMorph(int index, float value) {
+        switch (index) {
+            case 0: lfo1Morph = value; break;
+            case 1: lfo2Morph = value; break;
+            case 2: lfo3Morph = value; break;
+            case 3: lfo4Morph = value; break;
+            default: lfo1Morph = value; break;
+        }
+    }
+
+    float getLfoDuty(int index) const {
+        switch (index) {
+            case 0: return lfo1Duty.load();
+            case 1: return lfo2Duty.load();
+            case 2: return lfo3Duty.load();
+            case 3: return lfo4Duty.load();
+            default: return lfo1Duty.load();
+        }
+    }
+
+    void setLfoDuty(int index, float value) {
+        switch (index) {
+            case 0: lfo1Duty = value; break;
+            case 1: lfo2Duty = value; break;
+            case 2: lfo3Duty = value; break;
+            case 3: lfo4Duty = value; break;
+            default: lfo1Duty = value; break;
+        }
+    }
+
+    bool getLfoFlip(int index) const {
+        switch (index) {
+            case 0: return lfo1Flip.load();
+            case 1: return lfo2Flip.load();
+            case 2: return lfo3Flip.load();
+            case 3: return lfo4Flip.load();
+            default: return lfo1Flip.load();
+        }
+    }
+
+    void setLfoFlip(int index, bool value) {
+        switch (index) {
+            case 0: lfo1Flip = value; break;
+            case 1: lfo2Flip = value; break;
+            case 2: lfo3Flip = value; break;
+            case 3: lfo4Flip = value; break;
+            default: lfo1Flip = value; break;
+        }
+    }
+
+    bool getLfoResetOnNote(int index) const {
+        switch (index) {
+            case 0: return lfo1ResetOnNote.load();
+            case 1: return lfo2ResetOnNote.load();
+            case 2: return lfo3ResetOnNote.load();
+            case 3: return lfo4ResetOnNote.load();
+            default: return lfo1ResetOnNote.load();
+        }
+    }
+
+    void setLfoResetOnNote(int index, bool value) {
+        switch (index) {
+            case 0: lfo1ResetOnNote = value; break;
+            case 1: lfo2ResetOnNote = value; break;
+            case 2: lfo3ResetOnNote = value; break;
+            case 3: lfo4ResetOnNote = value; break;
+            default: lfo1ResetOnNote = value; break;
         }
     }
 };
@@ -291,7 +620,7 @@ private:
     // Draw helper functions
     void drawTabs();
     void drawMainPage(int activeVoices);
-    void drawParametersPage();  // Generic parameter page drawing
+    void drawParametersPage(int startRow = 3);  // Generic parameter page drawing
     void drawOscillatorPage();
     void drawLFOPage();
     void drawReverbPage();
@@ -302,6 +631,7 @@ private:
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawConsole();
     void drawHotkeyLine();
+    void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
 
     // Sequencer helpers
     bool handleSequencerInput(int ch);

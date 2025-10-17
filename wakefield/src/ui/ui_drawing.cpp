@@ -9,97 +9,47 @@
 void UI::drawTabs() {
     int cols = getmaxx(stdscr);
 
-    // Main tab
-    if (currentPage == UIPage::MAIN) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 0, " MAIN ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 0, " MAIN ");
-        attroff(COLOR_PAIR(6));
-    }
+    struct TabInfo {
+        const char* label;
+        UIPage page;
+    };
 
-    // Oscillator tab
-    if (currentPage == UIPage::OSCILLATOR) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 6, " OSCILLATOR ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 6, " OSCILLATOR ");
-        attroff(COLOR_PAIR(6));
-    }
+    const TabInfo tabs[] = {
+        {"MAIN", UIPage::MAIN},
+        {"OSCILLATOR", UIPage::OSCILLATOR},
+        {"LFO", UIPage::LFO},
+        {"REVERB", UIPage::REVERB},
+        {"FILTER", UIPage::FILTER},
+        {"LOOPER", UIPage::LOOPER},
+        {"SEQUENCER", UIPage::SEQUENCER},
+        {"CONFIG", UIPage::CONFIG}
+    };
 
-    // LFO tab
-    if (currentPage == UIPage::LFO) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 19, " LFO ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 19, " LFO ");
-        attroff(COLOR_PAIR(6));
-    }
+    int x = 0;
+    const int tabCount = static_cast<int>(sizeof(tabs) / sizeof(tabs[0]));
+    for (int i = 0; i < tabCount; ++i) {
+        std::string text = " " + std::string(tabs[i].label) + " ";
+        int textLen = static_cast<int>(text.size());
 
-    // Reverb tab
-    if (currentPage == UIPage::REVERB) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 24, " REVERB ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 24, " REVERB ");
-        attroff(COLOR_PAIR(6));
-    }
+        if (currentPage == tabs[i].page) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(0, x, "%s", text.c_str());
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        } else {
+            attron(COLOR_PAIR(6));
+            mvprintw(0, x, "%s", text.c_str());
+            attroff(COLOR_PAIR(6));
+        }
 
-    // Filter tab
-    if (currentPage == UIPage::FILTER) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 32, " FILTER ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 32, " FILTER ");
-        attroff(COLOR_PAIR(6));
+        x += textLen;
+        if (i < tabCount - 1) {
+            mvaddch(0, x, ' ');
+            ++x;
+        }
     }
-
-    // Looper tab
-    if (currentPage == UIPage::LOOPER) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 40, " LOOPER ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 40, " LOOPER ");
-        attroff(COLOR_PAIR(6));
-    }
-
-    // Sequencer tab
-    if (currentPage == UIPage::SEQUENCER) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 48, " SEQUENCER ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 48, " SEQUENCER ");
-        attroff(COLOR_PAIR(6));
-    }
-
-    // Config tab
-    if (currentPage == UIPage::CONFIG) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(0, 59, " CONFIG ");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-    } else {
-        attron(COLOR_PAIR(6));
-        mvprintw(0, 59, " CONFIG ");
-        attroff(COLOR_PAIR(6));
-    }
-
 
     // Fill rest of line
-    for (int i = 60; i < cols; ++i) {
+    for (int i = x; i < cols; ++i) {
         mvaddch(0, i, ' ');
     }
 
