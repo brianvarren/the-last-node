@@ -30,7 +30,8 @@ public:
 
     // Brainwave oscillator control
     void updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, float duty,
-                                     int octave, bool lfoEnabled, int lfoSpeed);
+                                   float ratio, float offsetHz, float velocityWeight,
+                                   bool flipPolarity, float level);
     
     // Reverb control
     void setReverbEnabled(bool enabled) { reverbEnabled = enabled; }

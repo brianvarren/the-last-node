@@ -21,6 +21,10 @@ public:
     // Frequency control
     void setFrequency(float freq) { baseFrequency_ = freq; }
     float getFrequency() const { return baseFrequency_; }
+    void setRatio(float ratio) { ratio_ = ratio; }
+    float getRatio() const { return ratio_; }
+    void setOffset(float offsetHz) { offsetHz_ = offsetHz; }
+    float getOffset() const { return offsetHz_; }
     
     // Morph control (0.0 to 1.0, maps to frames 0-255)
     void setMorph(float morph) { morphPosition_ = morph; }
@@ -29,16 +33,13 @@ public:
     // Duty control (0.0 to 1.0, pulse width for square/pulse waves)
     void setDuty(float duty) { duty_ = std::min(std::max(duty, 0.0f), 1.0f); }
     float getDuty() const { return duty_; }
-    
-    // Octave control (-3 to +3, bipolar offset)
-    void setOctave(int octave) { octaveOffset_ = octave; }
-    int getOctave() const { return octaveOffset_; }
-    
-    // LFO control
-    void setLFOEnabled(bool enabled) { lfoEnabled_ = enabled; }
-    bool getLFOEnabled() const { return lfoEnabled_; }
-    void setLFOSpeed(int speed);  // 0-9 index
-    int getLFOSpeed() const { return lfoSpeedIndex_; }
+
+    void setVelocityWeight(float weight) { velocityWeight_ = weight; }
+    float getVelocityWeight() const { return velocityWeight_; }
+    void setLevel(float level) { level_ = std::min(std::max(level, 0.0f), 1.0f); }
+    float getLevel() const { return level_; }
+    void setFlipPolarity(bool flip) { flipPolarity_ = flip; }
+    bool getFlipPolarity() const { return flipPolarity_; }
     
     // Note control (for KEY mode)
     void setNoteFrequency(float freq) { noteFrequency_ = freq; }
@@ -48,7 +49,7 @@ public:
     float process(float sampleRate);
     
     // Reset phase
-    void reset() { phaseAccumulator_ = 0; lfoPhase_ = 0.0f; }
+    void reset() { phaseAccumulator_ = 0; }
     
 private:
     BrainwaveMode mode_;
@@ -56,27 +57,18 @@ private:
     float noteFrequency_;      // MIDI note frequency (KEY mode)
     float morphPosition_;      // 0.0 to 1.0
     float duty_;               // 0.0 to 1.0, pulse width control
-    int octaveOffset_;         // 0 to 8
-    
-    // LFO
-    bool lfoEnabled_;
-    int lfoSpeedIndex_;        // 0-9
-    float lfoPhase_;           // LFO phase (0.0 to 1.0)
+    float ratio_;              // Frequency multiplier
+    float offsetHz_;           // Frequency offset in Hz
+    float velocityWeight_;     // Velocity modulation weight (0-1)
+    float level_;              // Output level (0-1)
+    bool flipPolarity_;        // Invert waveform polarity
     
     // Phase accumulator (32-bit for high precision)
     uint32_t phaseAccumulator_;
     
-    // LFO frequency lookup table
-    static constexpr int LFO_STEPS = 10;
-    static constexpr float LFO_MIN_PERIOD = 0.2f;
-    static constexpr float LFO_MAX_PERIOD = 1200.0f;
-    float lfoFreqLUT_[LFO_STEPS];
-    
     // Helper functions
-    void buildLFOLUT();
     float calculateEffectiveFrequency(float sampleRate);
     float generateSample(uint32_t phase, float morphPos);
 };
 
 #endif // BRAINWAVE_OSC_H
-

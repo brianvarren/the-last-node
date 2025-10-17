@@ -54,7 +54,8 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
 }
 
 void Synth::updateBrainwaveParameters(BrainwaveMode mode, float freq, float morph, float duty,
-                                        int octave, bool lfoEnabled, int lfoSpeed) {
+                                      float ratio, float offsetHz, float velocityWeight,
+                                      bool flipPolarity, float level) {
     // Update all voice oscillators with new parameters
     // For now, update all 4 oscillators in each voice the same way
     // TODO: Make this per-oscillator once UI supports it
@@ -64,9 +65,11 @@ void Synth::updateBrainwaveParameters(BrainwaveMode mode, float freq, float morp
             voice.oscillators[i].setFrequency(freq);
             voice.oscillators[i].setMorph(morph);
             voice.oscillators[i].setDuty(duty);
-            voice.oscillators[i].setOctave(octave);
-            voice.oscillators[i].setLFOEnabled(lfoEnabled);
-            voice.oscillators[i].setLFOSpeed(lfoSpeed);
+            voice.oscillators[i].setRatio(ratio);
+            voice.oscillators[i].setOffset(offsetHz);
+            voice.oscillators[i].setVelocityWeight(velocityWeight);
+            voice.oscillators[i].setFlipPolarity(flipPolarity);
+            voice.oscillators[i].setLevel(level);
         }
     }
 }

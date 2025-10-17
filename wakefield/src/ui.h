@@ -106,14 +106,50 @@ struct SynthParameters {
     std::atomic<bool> loopMidiLearnMode{false};
     std::atomic<int> loopMidiLearnTarget{-1};  // 0=rec, 1=overdub, 2=stop, 3=clear
     
-    // Oscillator parameters (will expand to 4 oscillators)
-    std::atomic<int> oscillatorMode{0};         // 0=FREE, 1=KEY
-    std::atomic<float> oscillatorFreq{440.0f};  // Base frequency or offset (20-2000 Hz)
-    std::atomic<float> oscillatorMorph{0.5f};   // 0.0001-0.9999, maps to frames 0-255
-    std::atomic<float> oscillatorDuty{0.5f};    // 0.0-1.0, pulse width
-    std::atomic<int> oscillatorOctave{0};       // -3 to +3 octave offset (0 = no shift)
-    std::atomic<bool> oscillatorLFOEnabled{false};  // TODO: Remove this
-    std::atomic<int> oscillatorLFOSpeed{0};     // 0-9 index - TODO: Remove this
+    // Oscillator parameters - 4 independent oscillators per voice
+    // Oscillator 1 (index 0)
+    std::atomic<int> osc1Mode{0};              // 0=FREE, 1=KEY
+    std::atomic<float> osc1Freq{440.0f};       // Base frequency (20-2000 Hz)
+    std::atomic<float> osc1Morph{0.5f};        // Waveform morph (0.0001-0.9999)
+    std::atomic<float> osc1Duty{0.5f};         // Pulse width (0.0-1.0)
+    std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
+    std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
+    std::atomic<float> osc1VelocityWeight{0.0f}; // Velocity modulation amount (0.0-1.0)
+    std::atomic<bool> osc1Flip{false};         // Polarity inversion
+    std::atomic<float> osc1Level{1.0f};        // Oscillator level/gain (0.0-1.0)
+
+    // Oscillator 2 (index 1)
+    std::atomic<int> osc2Mode{0};
+    std::atomic<float> osc2Freq{440.0f};
+    std::atomic<float> osc2Morph{0.5f};
+    std::atomic<float> osc2Duty{0.5f};
+    std::atomic<float> osc2Ratio{1.0f};
+    std::atomic<float> osc2Offset{0.0f};
+    std::atomic<float> osc2VelocityWeight{0.0f};
+    std::atomic<bool> osc2Flip{false};
+    std::atomic<float> osc2Level{0.0f};        // Default: off
+
+    // Oscillator 3 (index 2)
+    std::atomic<int> osc3Mode{0};
+    std::atomic<float> osc3Freq{440.0f};
+    std::atomic<float> osc3Morph{0.5f};
+    std::atomic<float> osc3Duty{0.5f};
+    std::atomic<float> osc3Ratio{1.0f};
+    std::atomic<float> osc3Offset{0.0f};
+    std::atomic<float> osc3VelocityWeight{0.0f};
+    std::atomic<bool> osc3Flip{false};
+    std::atomic<float> osc3Level{0.0f};        // Default: off
+
+    // Oscillator 4 (index 3)
+    std::atomic<int> osc4Mode{0};
+    std::atomic<float> osc4Freq{440.0f};
+    std::atomic<float> osc4Morph{0.5f};
+    std::atomic<float> osc4Duty{0.5f};
+    std::atomic<float> osc4Ratio{1.0f};
+    std::atomic<float> osc4Offset{0.0f};
+    std::atomic<float> osc4VelocityWeight{0.0f};
+    std::atomic<bool> osc4Flip{false};
+    std::atomic<float> osc4Level{0.0f};        // Default: off
 
     // Constructor to initialize CC map
     SynthParameters() {
@@ -297,6 +333,10 @@ private:
     void finishNumericInput();
     void startMidiLearn(int id);
     void finishMidiLearn();
+
+    // Oscillator/LFO UI state
+    int currentOscillatorIndex;  // 0-3: which oscillator is selected on OSCILLATOR page
+    int currentLFOIndex;          // 0-3: which LFO is selected on LFO page
 
     // Sequencer UI state
     enum class SequencerTrackerColumn {

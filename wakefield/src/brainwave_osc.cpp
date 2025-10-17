@@ -59,85 +59,30 @@ BrainwaveOscillator::BrainwaveOscillator()
     , noteFrequency_(440.0f)
     , morphPosition_(0.5f)
     , duty_(0.5f)  // Default to 50% duty (symmetric square)
-    , octaveOffset_(0)  // Default to 0 (no octave shift)
-    , lfoEnabled_(false)
-    , lfoSpeedIndex_(0)
-    , lfoPhase_(0.0f)
+    , ratio_(1.0f)
+    , offsetHz_(0.0f)
+    , velocityWeight_(0.0f)
+    , level_(1.0f)
+    , flipPolarity_(false)
     , phaseAccumulator_(0) {
-    
-    buildLFOLUT();
-}
-
-void BrainwaveOscillator::buildLFOLUT() {
-    // Build logarithmic LFO frequency lookup table
-    // Frequency range from fastest (LFO_MIN_PERIOD) to slowest (LFO_MAX_PERIOD)
-    float minFreq = 1.0f / LFO_MAX_PERIOD;  // Slowest
-    float maxFreq = 1.0f / LFO_MIN_PERIOD;  // Fastest
-    
-    for (int i = 0; i < LFO_STEPS; ++i) {
-        float t = i / static_cast<float>(LFO_STEPS - 1);
-        // Logarithmic interpolation (reversed so index 0 is slow, 9 is fast)
-        lfoFreqLUT_[i] = minFreq * std::pow(maxFreq / minFreq, 1.0f - t);
-    }
-}
-
-void BrainwaveOscillator::setLFOSpeed(int speed) {
-    lfoSpeedIndex_ = std::clamp(speed, 0, LFO_STEPS - 1);
 }
 
 float BrainwaveOscillator::calculateEffectiveFrequency(float sampleRate) {
     float freq = 0.0f;
     
     if (mode_ == BrainwaveMode::FREE) {
-        // FREE mode: use base frequency with octave offset
+        // FREE mode: use user-defined frequency
         freq = baseFrequency_;
-        
-        // Apply octave offset (bipolar: -3 to +3)
-        if (octaveOffset_ > 0) {
-            freq *= (1 << octaveOffset_);  // Multiply by 2^octave
-        } else if (octaveOffset_ < 0) {
-            freq /= (1 << (-octaveOffset_));  // Divide by 2^|octave|
-        }
-        // If octaveOffset_ == 0, freq stays unchanged
-        
-        // Apply LFO modulation
-        if (lfoEnabled_) {
-            float lfoFreq = lfoFreqLUT_[lfoSpeedIndex_];
-            lfoPhase_ += lfoFreq / sampleRate;
-            if (lfoPhase_ >= 1.0f) lfoPhase_ -= 1.0f;
-            
-            // LFO creates +/- 50% modulation
-            float lfoValue = std::sin(lfoPhase_ * 2.0f * M_PI);
-            freq *= (1.0f + 0.5f * lfoValue);
-        }
     } else {
-        // KEY mode: use note frequency with base as offset
+        // KEY mode: use note-derived frequency
         freq = noteFrequency_;
-        
-        // Apply frequency offset (base frequency acts as detune in cents/Hz)
-        float offset = (baseFrequency_ - 440.0f) * 0.1f;  // Scale down the offset
-        freq += offset;
-        
-        // Apply octave offset (bipolar: -3 to +3)
-        if (octaveOffset_ > 0) {
-            freq *= (1 << octaveOffset_);  // Multiply by 2^octave
-        } else if (octaveOffset_ < 0) {
-            freq /= (1 << (-octaveOffset_));  // Divide by 2^|octave|
-        }
-        // If octaveOffset_ == 0, freq stays unchanged
-        
-        // Apply LFO modulation (LFO speed scales with note frequency)
-        if (lfoEnabled_) {
-            float baseLFOFreq = lfoFreqLUT_[lfoSpeedIndex_];
-            // Scale LFO frequency based on note frequency (higher notes = faster LFO)
-            float lfoFreq = baseLFOFreq * (noteFrequency_ / 440.0f);
-            lfoPhase_ += lfoFreq / sampleRate;
-            if (lfoPhase_ >= 1.0f) lfoPhase_ -= 1.0f;
-            
-            float lfoValue = std::sin(lfoPhase_ * 2.0f * M_PI);
-            freq *= (1.0f + 0.3f * lfoValue);  // Slightly less modulation in KEY mode
-        }
     }
+
+    // Apply FM8-style ratio and offset
+    freq = freq * ratio_ + offsetHz_;
+
+    // Prevent negative or zero frequency
+    freq = std::max(freq, 0.01f);
     
     return freq;
 }
@@ -168,10 +113,12 @@ float BrainwaveOscillator::process(float sampleRate) {
     
     // Generate current sample using real-time algorithm
     float sample = generateSample(phaseAccumulator_, morphPosition_);
+    if (flipPolarity_) {
+        sample = -sample;
+    }
     
     // Advance phase
     phaseAccumulator_ += phaseIncrement;
     
     return sample;
 }
-

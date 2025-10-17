@@ -127,27 +127,27 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             synthParams->masterVolume = mapCCToParameter(ccValue, 0.0f, 1.0f);
             break;
 
-        // OSCILLATOR page parameters
+        // OSCILLATOR page parameters (Oscillator 1 for now)
         case 10:  // Mode (ENUM 0-1)
-            synthParams->oscillatorMode = static_cast<int>(mapCCToParameter(ccValue, 0, 1));
+            synthParams->osc1Mode = static_cast<int>(mapCCToParameter(ccValue, 0, 1));
             break;
         case 11:  // Frequency (logarithmic)
-            synthParams->oscillatorFreq = mapCCToParameter(ccValue, 20.0f, 2000.0f, true);
+            synthParams->osc1Freq = mapCCToParameter(ccValue, 20.0f, 2000.0f, true);
             break;
         case 12:  // Morph (linear)
-            synthParams->oscillatorMorph = mapCCToParameter(ccValue, 0.0001f, 0.9999f);
+            synthParams->osc1Morph = mapCCToParameter(ccValue, 0.0001f, 0.9999f);
             break;
         case 13:  // Duty (linear)
-            synthParams->oscillatorDuty = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            synthParams->osc1Duty = mapCCToParameter(ccValue, 0.0f, 1.0f);
             break;
-        case 14:  // Octave (INT -3 to 3)
-            synthParams->oscillatorOctave = static_cast<int>(mapCCToParameter(ccValue, -3, 3));
+        case 14:  // Ratio (logarithmic, 0.125-16.0)
+            synthParams->osc1Ratio = mapCCToParameter(ccValue, 0.125f, 16.0f, true);
             break;
-        case 15:  // LFO Enabled (BOOL)
-            synthParams->oscillatorLFOEnabled = (ccValue > 63);
+        case 15:  // Offset (linear, -1000 to 1000 Hz)
+            synthParams->osc1Offset = mapCCToParameter(ccValue, -1000.0f, 1000.0f);
             break;
-        case 16:  // LFO Speed (INT 0-9)
-            synthParams->oscillatorLFOSpeed = static_cast<int>(mapCCToParameter(ccValue, 0, 9));
+        case 16:  // Velocity Weight (linear, 0-1)
+            synthParams->osc1VelocityWeight = mapCCToParameter(ccValue, 0.0f, 1.0f);
             break;
 
         // REVERB page parameters
@@ -381,9 +381,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             sustainSmoother.reset(synthParams->sustain.load());
             releaseSmoother.reset(synthParams->release.load());
             masterVolumeSmoother.reset(synthParams->masterVolume.load());
-            oscillatorFreqSmoother.reset(synthParams->oscillatorFreq.load());
-            oscillatorMorphSmoother.reset(synthParams->oscillatorMorph.load());
-            oscillatorDutySmoother.reset(synthParams->oscillatorDuty.load());
+            oscillatorFreqSmoother.reset(synthParams->osc1Freq.load());
+            oscillatorMorphSmoother.reset(synthParams->osc1Morph.load());
+            oscillatorDutySmoother.reset(synthParams->osc1Duty.load());
             reverbDelayTimeSmoother.reset(synthParams->reverbDelayTime.load());
             reverbSizeSmoother.reset(synthParams->reverbSize.load());
             reverbDampingSmoother.reset(synthParams->reverbDamping.load());
@@ -404,9 +404,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         sustainSmoother.setTarget(synthParams->sustain.load());
         releaseSmoother.setTarget(synthParams->release.load());
         masterVolumeSmoother.setTarget(synthParams->masterVolume.load());
-        oscillatorFreqSmoother.setTarget(synthParams->oscillatorFreq.load());
-        oscillatorMorphSmoother.setTarget(synthParams->oscillatorMorph.load());
-        oscillatorDutySmoother.setTarget(synthParams->oscillatorDuty.load());
+        oscillatorFreqSmoother.setTarget(synthParams->osc1Freq.load());
+        oscillatorMorphSmoother.setTarget(synthParams->osc1Morph.load());
+        oscillatorDutySmoother.setTarget(synthParams->osc1Duty.load());
         reverbDelayTimeSmoother.setTarget(synthParams->reverbDelayTime.load());
         reverbSizeSmoother.setTarget(synthParams->reverbSize.load());
         reverbDampingSmoother.setTarget(synthParams->reverbDamping.load());
@@ -449,14 +449,18 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         synth->setMasterVolume(smoothedMasterVolume);
 
         // Update oscillator parameters (discrete params not smoothed)
+        // For now, use osc1 parameters for all oscillators
+        // TODO: Implement per-oscillator parameter control
         synth->updateBrainwaveParameters(
-            static_cast<BrainwaveMode>(synthParams->oscillatorMode.load()),
+            static_cast<BrainwaveMode>(synthParams->osc1Mode.load()),
             smoothedOscillatorFreq,
             smoothedOscillatorMorph,
             smoothedOscillatorDuty,
-            synthParams->oscillatorOctave.load(),
-            synthParams->oscillatorLFOEnabled.load(),
-            synthParams->oscillatorLFOSpeed.load()
+            synthParams->osc1Ratio.load(),
+            synthParams->osc1Offset.load(),
+            synthParams->osc1VelocityWeight.load(),
+            synthParams->osc1Flip.load(),
+            synthParams->osc1Level.load()
         );
 
         // Update reverb parameters (discrete params not smoothed)

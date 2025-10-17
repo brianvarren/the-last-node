@@ -38,10 +38,18 @@ struct Voice {
 
         // Mix all oscillators (simple average for now)
         float mixedSample = 0.0f;
+        float totalWeight = 0.0f;
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            mixedSample += oscillators[i].process(sampleRate);
+            float level = oscillators[i].getLevel();
+            if (level <= 0.0f) {
+                continue;
+            }
+            mixedSample += oscillators[i].process(sampleRate) * level;
+            totalWeight += level;
         }
-        mixedSample /= OSCILLATORS_PER_VOICE;
+        if (totalWeight > 0.0f) {
+            mixedSample /= totalWeight;
+        }
 
         // Apply envelope
         return mixedSample * envLevel;

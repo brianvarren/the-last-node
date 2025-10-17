@@ -190,6 +190,26 @@ void UI::handleInput(int ch) {
         return;
     }
 
+    // Oscillator selection (1-4 keys on OSCILLATOR page)
+    if (currentPage == UIPage::OSCILLATOR) {
+        switch (ch) {
+            case '1': currentOscillatorIndex = 0; addConsoleMessage("Oscillator 1 selected"); return;
+            case '2': currentOscillatorIndex = 1; addConsoleMessage("Oscillator 2 selected"); return;
+            case '3': currentOscillatorIndex = 2; addConsoleMessage("Oscillator 3 selected"); return;
+            case '4': currentOscillatorIndex = 3; addConsoleMessage("Oscillator 4 selected"); return;
+        }
+    }
+
+    // LFO selection (1-4 keys on LFO page)
+    if (currentPage == UIPage::LFO) {
+        switch (ch) {
+            case '1': currentLFOIndex = 0; addConsoleMessage("LFO 1 selected"); return;
+            case '2': currentLFOIndex = 1; addConsoleMessage("LFO 2 selected"); return;
+            case '3': currentLFOIndex = 2; addConsoleMessage("LFO 3 selected"); return;
+            case '4': currentLFOIndex = 3; addConsoleMessage("LFO 4 selected"); return;
+        }
+    }
+
     // Looper-specific hotkeys (only active on looper page)
     if (currentPage == UIPage::LOOPER) {
         switch (ch) {
