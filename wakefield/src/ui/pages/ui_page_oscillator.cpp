@@ -1,7 +1,6 @@
 #include "../../ui.h"
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -60,61 +59,40 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
     morph = std::min(std::max(morph, 0.0f), 1.0f);
     duty = std::min(std::max(duty, 0.0f), 1.0f);
 
-    const int cellsWide = plotWidth;
-    const int cellsHigh = std::max(1, plotHeight);
-    const int microCols = cellsWide * 2;
-    const int microRows = cellsHigh * 4;
+    int width = plotWidth + static_cast<int>(plotWidth * 0.15f);
+    int height = plotHeight + std::max(1, static_cast<int>(plotHeight * 0.15f));
+    width = std::max(width, plotWidth);
+    height = std::max(height, 4);
 
-    std::vector<std::vector<bool>> micro(microRows, std::vector<bool>(microCols, false));
+    std::vector<std::string> grid(height, std::string(width, ' '));
 
-    int axisRow = microRows / 2;
-    for (int x = 0; x < microCols; ++x) {
-        micro[axisRow][x] = true;
+    int axisRow = height / 2;
+    for (int x = 0; x < width; ++x) {
+        grid[axisRow][x] = '-';
     }
 
-    for (int x = 0; x < microCols; ++x) {
-        float phase = (microCols == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(microCols - 1);
+    for (int x = 0; x < width; ++x) {
+        float phase = (width == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(width - 1);
         float sample = computeWaveSample(phase, morph, duty, shape);
         if (flip) {
             sample = -sample;
         }
         sample = std::min(std::max(sample, -1.0f), 1.0f);
         float normalized = (-sample + 1.0f) * 0.5f;
-        int row = static_cast<int>(std::round(normalized * (microRows - 1)));
-        row = std::min(std::max(row, 0), microRows - 1);
-        micro[row][x] = true;
+        int row = static_cast<int>(std::round(normalized * (height - 1)));
+        row = std::min(std::max(row, 0), height - 1);
+        grid[row][x] = '*';
     }
 
-    mvprintw(topRow - 1, leftCol, "Wave Preview (braille)");
-
-    for (int cellRow = 0; cellRow < cellsHigh; ++cellRow) {
-        std::string line;
-        line.reserve(cellsWide * 3);
-        int baseRow = cellRow * 4;
-        for (int cellCol = 0; cellCol < cellsWide; ++cellCol) {
-            int baseCol = cellCol * 2;
-            unsigned char dots = 0;
-            if (micro[baseRow + 0][baseCol + 0]) dots |= 0x01;
-            if (micro[baseRow + 1][baseCol + 0]) dots |= 0x02;
-            if (micro[baseRow + 2][baseCol + 0]) dots |= 0x04;
-            if (micro[baseRow + 3][baseCol + 0]) dots |= 0x40;
-            if (micro[baseRow + 0][baseCol + 1]) dots |= 0x08;
-            if (micro[baseRow + 1][baseCol + 1]) dots |= 0x10;
-            if (micro[baseRow + 2][baseCol + 1]) dots |= 0x20;
-            if (micro[baseRow + 3][baseCol + 1]) dots |= 0x80;
-            wchar_t wc = static_cast<wchar_t>(0x2800 + dots);
-            char buf[MB_CUR_MAX];
-            int len = wctomb(buf, wc);
-            if (len < 0) {
-                // Reset conversion state and fall back to ASCII placeholder
-                wctomb(nullptr, 0);
-                line.push_back('.');
-            } else {
-                line.append(buf, len);
-            }
-        }
-        mvprintw(topRow + cellRow, leftCol, "%s", line.c_str());
+    std::string horizontal(width, '-');
+    mvprintw(topRow - 1, leftCol, "Wave Preview");
+    mvprintw(topRow, leftCol, "+%s+", horizontal.c_str());
+    for (int y = 0; y < height; ++y) {
+        mvprintw(topRow + 1 + y, leftCol, "|");
+        mvprintw(topRow + 1 + y, leftCol + 1, "%s", grid[y].c_str());
+        mvprintw(topRow + 1 + y, leftCol + 1 + width, "|");
     }
+    mvprintw(topRow + 1 + height, leftCol, "+%s+", horizontal.c_str());
 }
 
 void UI::drawOscillatorPage() {
