@@ -1,4 +1,5 @@
 #include "../../ui.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -6,17 +7,17 @@
 namespace {
 
 float computePhaseDistorted(float phase, float morph) {
-    float alpha = 1.0f - morph;
-    alpha = std::min(std::max(alpha, 0.001f), 0.999f);
+    float d = std::max(0.0001f, std::min(morph, 0.5f));
 
-    float warpedPhase;
-    if (phase < alpha) {
-        warpedPhase = phase * 0.5f / alpha;
+    float shapedPhase;
+    if (phase <= d) {
+        shapedPhase = phase / (2.0f * d);
     } else {
-        warpedPhase = 0.5f + (phase - alpha) * 0.5f / (1.0f - alpha);
+        float denom = std::max(1e-6f, 1.0f - d);
+        shapedPhase = 0.5f * (1.0f + ((phase - d) / denom));
     }
 
-    return std::sin(warpedPhase * 2.0f * static_cast<float>(M_PI));
+    return -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
 }
 
 float computeTanhShaped(float phase, float morph, float duty) {

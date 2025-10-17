@@ -3,24 +3,22 @@
 #include <cmath>
 
 // Classic Casio CZ style phase distortion for sawtooth
-// morph: 0.0 (saw) to 0.5 (sine)
+// morph: 0.0 (bright PD saw) to 0.5 (sine)
 static float generatePhaseDistorted(float phase, float morph) {
     // phase is normalized [0, 1)
-    
-    // map morph to alpha
-    // morph=0   -> alpha=1 (saw)
-    // morph=0.5 -> alpha=0.5 (sine)
-    float alpha = 1.0f - morph;
-    alpha = std::min(std::max(alpha, 0.001f), 0.999f);
 
-    float warped_phase;
-    if (phase < alpha) {
-        warped_phase = phase * 0.5f / alpha;
+    // Map morph (0..0.5) to point of inflection d (0 < d ≤ 0.5)
+    float d = std::max(0.0001f, std::min(morph, 0.5f));
+
+    float shapedPhase;
+    if (phase <= d) {
+        shapedPhase = phase / (2.0f * d);
     } else {
-        warped_phase = 0.5f + (phase - alpha) * 0.5f / (1.0f - alpha);
+        float denom = std::max(1e-6f, 1.0f - d);
+        shapedPhase = 0.5f * (1.0f + ((phase - d) / denom));
     }
-    
-    return std::sin(warped_phase * 2.0f * M_PI);
+
+    return -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
 }
 
 // Generate waveform with tanh-shaped pulse (morph 0.5 to 1.0)
