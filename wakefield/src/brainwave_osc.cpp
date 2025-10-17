@@ -93,10 +93,14 @@ float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos) {
     if (morphPos < 0.5f) {
         // Left side: Phase distortion (saw)
         return generatePhaseDistorted(normalizedPhase, morphPos);
-    } else {
-        // Right side: Tanh-shaped pulse/square with duty control
-        return generateTanhShaped(normalizedPhase, morphPos, duty_);
     }
+
+    // Right side: Tanh-shaped pulse/square with duty control
+    float shiftedPhase = normalizedPhase + 0.5f;
+    if (shiftedPhase >= 1.0f) {
+        shiftedPhase -= 1.0f;
+    }
+    return generateTanhShaped(shiftedPhase, morphPos, duty_);
 }
 
 float BrainwaveOscillator::process(float sampleRate) {

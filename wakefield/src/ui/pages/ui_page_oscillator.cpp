@@ -41,7 +41,11 @@ float computeWaveSample(float phase, float morph, float duty) {
     if (morph < 0.5f) {
         return computePhaseDistorted(phase, morph);
     }
-    return computeTanhShaped(phase, morph, duty);
+    float shiftedPhase = phase + 0.5f;
+    if (shiftedPhase >= 1.0f) {
+        shiftedPhase -= 1.0f;
+    }
+    return computeTanhShaped(shiftedPhase, morph, duty);
 }
 
 } // namespace
