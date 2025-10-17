@@ -17,7 +17,6 @@ add_executable(synth
     src/synth.cpp
     src/midi.cpp
     src/envelope.cpp
-    src/ui.cpp
     src/oscillator.cpp
     src/brainwave_osc.cpp
     src/reverb.cpp
@@ -30,6 +29,29 @@ add_executable(synth
     src/pattern.cpp
     src/track.cpp
     src/sequencer.cpp
+    # UI core files
+    src/ui.cpp
+    src/ui/ui_utils.cpp
+    src/ui/ui_core.cpp
+    src/ui/ui_parameters.cpp
+    src/ui/ui_presets.cpp
+    src/ui/ui_help.cpp
+    src/ui/ui_input.cpp
+    src/ui/ui_drawing.cpp
+    # UI page files
+    src/ui/pages/ui_page_main.cpp
+    src/ui/pages/ui_page_parameters.cpp
+    src/ui/pages/ui_page_brainwave.cpp
+    src/ui/pages/ui_page_reverb.cpp
+    src/ui/pages/ui_page_filter.cpp
+    src/ui/pages/ui_page_looper.cpp
+    src/ui/pages/ui_page_config.cpp
+    # UI sequencer files
+    src/ui/sequencer/ui_sequencer_state.cpp
+    src/ui/sequencer/ui_sequencer_drawing.cpp
+    src/ui/sequencer/ui_sequencer_fields.cpp
+    src/ui/sequencer/ui_sequencer_actions.cpp
+    src/ui/sequencer/ui_sequencer_input.cpp
 )
 
 # Include directories
