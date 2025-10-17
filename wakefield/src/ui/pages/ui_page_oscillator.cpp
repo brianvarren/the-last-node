@@ -1,9 +1,9 @@
 #include "../../ui.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <string>
 #include <vector>
-#include <cwchar>
 
 namespace {
 
@@ -88,8 +88,8 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
     mvprintw(topRow - 1, leftCol, "Wave Preview (braille)");
 
     for (int cellRow = 0; cellRow < cellsHigh; ++cellRow) {
-        std::wstring line;
-        line.reserve(cellsWide);
+        std::string line;
+        line.reserve(cellsWide * 3);
         int baseRow = cellRow * 4;
         for (int cellCol = 0; cellCol < cellsWide; ++cellCol) {
             int baseCol = cellCol * 2;
@@ -102,9 +102,18 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
             if (micro[baseRow + 1][baseCol + 1]) dots |= 0x10;
             if (micro[baseRow + 2][baseCol + 1]) dots |= 0x20;
             if (micro[baseRow + 3][baseCol + 1]) dots |= 0x80;
-            line.push_back(static_cast<wchar_t>(0x2800 + dots));
+            wchar_t wc = static_cast<wchar_t>(0x2800 + dots);
+            char buf[MB_CUR_MAX];
+            int len = wctomb(buf, wc);
+            if (len < 0) {
+                // Reset conversion state and fall back to ASCII placeholder
+                wctomb(nullptr, 0);
+                line.push_back('.');
+            } else {
+                line.append(buf, len);
+            }
         }
-        mvaddwstr(topRow + cellRow, leftCol, line.c_str());
+        mvprintw(topRow + cellRow, leftCol, "%s", line.c_str());
     }
 }
 
