@@ -47,8 +47,29 @@ void UI::drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWi
         }
     };
 
-    // Draw envelope curve
+    // Draw envelope curve with line interpolation for smoother appearance
+    auto drawLine = [&](int x1, int y1, int x2, int y2) {
+        // Simple line drawing using Bresenham-like algorithm
+        int dx = x2 - x1;
+        int dy = y2 - y1;
+        int steps = std::max(std::abs(dx), std::abs(dy));
+        if (steps == 0) {
+            if (x1 >= 0 && x1 < plotWidth && y1 >= 0 && y1 < plotHeight) {
+                grid[y1][x1] = '*';
+            }
+            return;
+        }
+        for (int i = 0; i <= steps; ++i) {
+            int x = x1 + (dx * i) / steps;
+            int y = y1 + (dy * i) / steps;
+            if (x >= 0 && x < plotWidth && y >= 0 && y < plotHeight) {
+                grid[y][x] = '*';
+            }
+        }
+    };
+
     int x = 0;
+    int prevRow = plotHeight - 1; // Start at bottom
 
     // Attack phase
     for (int i = 0; i < attackWidth && x < plotWidth; ++i, ++x) {
@@ -57,7 +78,9 @@ void UI::drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWi
         float amplitude = bentT; // 0 to 1
         int row = plotHeight - 1 - static_cast<int>(std::round(amplitude * (plotHeight - 1)));
         row = std::min(std::max(row, 0), plotHeight - 1);
-        grid[row][x] = '*';
+        if (x > 0) drawLine(x - 1, prevRow, x, row);
+        else grid[row][x] = '*';
+        prevRow = row;
     }
 
     // Decay phase
@@ -67,14 +90,16 @@ void UI::drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWi
         float amplitude = 1.0f - bentT * (1.0f - sustain); // 1 to sustain
         int row = plotHeight - 1 - static_cast<int>(std::round(amplitude * (plotHeight - 1)));
         row = std::min(std::max(row, 0), plotHeight - 1);
-        grid[row][x] = '*';
+        drawLine(x - 1, prevRow, x, row);
+        prevRow = row;
     }
 
     // Sustain phase
     for (int i = 0; i < sustainWidth && x < plotWidth; ++i, ++x) {
         int row = plotHeight - 1 - static_cast<int>(std::round(sustain * (plotHeight - 1)));
         row = std::min(std::max(row, 0), plotHeight - 1);
-        grid[row][x] = '*';
+        drawLine(x - 1, prevRow, x, row);
+        prevRow = row;
     }
 
     // Release phase
@@ -84,7 +109,8 @@ void UI::drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWi
         float amplitude = sustain * (1.0f - bentT); // sustain to 0
         int row = plotHeight - 1 - static_cast<int>(std::round(amplitude * (plotHeight - 1)));
         row = std::min(std::max(row, 0), plotHeight - 1);
-        grid[row][x] = '*';
+        drawLine(x - 1, prevRow, x, row);
+        prevRow = row;
     }
 
     // Draw the grid
@@ -135,8 +161,38 @@ void UI::drawEnvelopePage() {
     mvprintw(row, 2, "Envelope %d Parameters:", currentEnvelopeIndex + 1);
     attroff(COLOR_PAIR(1));
 
-    // Draw parameters for the currently selected envelope
-    drawParametersPage(row + 2);
+    // Draw parameters for the currently selected envelope only (6 params per envelope)
+    int startParamId = 300 + (currentEnvelopeIndex * 6);
+    int paramRow = row + 2;
+    for (int i = 0; i < 6; ++i) {
+        int paramId = startParamId + i;
+        InlineParameter* param = getParameter(paramId);
+        if (!param) continue;
+
+        // Highlight selected parameter
+        if (paramId == selectedParameterId) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(paramRow, 2, ">");
+        } else {
+            mvprintw(paramRow, 2, " ");
+        }
+
+        // Parameter name and value
+        std::string displayValue = getParameterDisplayString(paramId);
+        mvprintw(paramRow, 4, "%-18s: %s", param->name.c_str(), displayValue.c_str());
+
+        // Show control hints for selected parameter
+        if (paramId == selectedParameterId) {
+            mvprintw(paramRow, 45, "< >");
+            if (param->supports_midi_learn) {
+                mvprintw(paramRow, 50, "[L]");
+            }
+            mvprintw(paramRow, 55, "[Enter]");
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        paramRow++;
+    }
 
     // Draw envelope preview in the bottom portion, leaving room for parameters
     int rows = getmaxy(stdscr);
