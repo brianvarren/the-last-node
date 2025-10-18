@@ -2,13 +2,14 @@
 #include "ui.h"
 #include <iostream>
 
-Synth::Synth(float sampleRate) 
+Synth::Synth(float sampleRate)
     : sampleRate(sampleRate)
     , masterVolume(0.5f)
     , reverbEnabled(false)
     , filterEnabled(false)
     , currentFilterType(0)
     , ui(nullptr)
+    , params(nullptr)
     , reverb(sampleRate)
     , filterL(sampleRate)
     , filterR(sampleRate) {
@@ -128,6 +129,7 @@ void Synth::noteOn(int midiNote, int velocity) {
         voice.oscillators[i].setNoteFrequency(frequency);
         voice.oscillators[i].reset();  // Reset phase for new note
     }
+    voice.resetFMHistory();
 
     voice.envelope.noteOn();  // Trigger envelope attack
 }
@@ -227,5 +229,38 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             output[i * 2] = leftChannel[i];
             output[i * 2 + 1] = rightChannel[i];
         }
+    }
+}
+
+void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, float morph,
+                                 float duty, bool flip, bool resetOnNote, float tempo) {
+    if (lfoIndex < 0 || lfoIndex >= 4) return;
+
+    lfos[lfoIndex].setPeriod(period);
+    lfos[lfoIndex].setSyncMode(static_cast<LFOSyncMode>(syncMode));
+    lfos[lfoIndex].setMorph(morph);
+    lfos[lfoIndex].setDuty(duty);
+    lfos[lfoIndex].setFlipPolarity(flip);
+    lfos[lfoIndex].setResetOnNote(resetOnNote);
+    lfos[lfoIndex].setTempo(tempo);
+}
+
+void Synth::processLFOs(float sampleRate) {
+    // Process all 4 LFOs once per audio buffer
+    for (int i = 0; i < 4; ++i) {
+        lfos[i].process(sampleRate);
+    }
+}
+
+float Synth::getLFOOutput(int lfoIndex) const {
+    if (lfoIndex < 0 || lfoIndex >= 4) return 0.0f;
+    return lfos[lfoIndex].getCurrentValue();
+}
+
+void Synth::setParams(SynthParameters* params_ptr) {
+    params = params_ptr;
+    // Update all voice param pointers for FM matrix access
+    for (auto& voice : voices) {
+        voice.params = params_ptr;
     }
 }

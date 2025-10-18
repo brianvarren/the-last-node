@@ -87,7 +87,8 @@ void UI::handleInput(int ch) {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::OSCILLATOR;
         else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::LFO;
         else if (currentPage == UIPage::LFO) currentPage = UIPage::ENV;
-        else if (currentPage == UIPage::ENV) currentPage = UIPage::REVERB;
+        else if (currentPage == UIPage::ENV) currentPage = UIPage::FM;
+        else if (currentPage == UIPage::FM) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::SEQUENCER;
@@ -108,7 +109,8 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::MAIN;
         else if (currentPage == UIPage::LFO) currentPage = UIPage::OSCILLATOR;
         else if (currentPage == UIPage::ENV) currentPage = UIPage::LFO;
-        else if (currentPage == UIPage::REVERB) currentPage = UIPage::ENV;
+        else if (currentPage == UIPage::FM) currentPage = UIPage::ENV;
+        else if (currentPage == UIPage::REVERB) currentPage = UIPage::FM;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::LOOPER;
@@ -219,6 +221,82 @@ void UI::handleInput(int ch) {
             case '2': currentEnvelopeIndex = 1; addConsoleMessage("Envelope 2 selected"); return;
             case '3': currentEnvelopeIndex = 2; addConsoleMessage("Envelope 3 selected"); return;
             case '4': currentEnvelopeIndex = 3; addConsoleMessage("Envelope 4 selected"); return;
+        }
+    }
+
+    // FM Matrix navigation and editing
+    if (currentPage == UIPage::FM) {
+        switch (ch) {
+            case KEY_UP:
+                fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 4) % 4;
+                // Skip diagonal (self-modulation)
+                if (fmMatrixCursorRow == fmMatrixCursorCol) {
+                    fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 4) % 4;
+                }
+                return;
+
+            case KEY_DOWN:
+                fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 4;
+                // Skip diagonal (self-modulation)
+                if (fmMatrixCursorRow == fmMatrixCursorCol) {
+                    fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 4;
+                }
+                return;
+
+            case KEY_LEFT:
+                fmMatrixCursorCol = (fmMatrixCursorCol - 1 + 4) % 4;
+                // Skip diagonal (self-modulation)
+                if (fmMatrixCursorRow == fmMatrixCursorCol) {
+                    fmMatrixCursorCol = (fmMatrixCursorCol - 1 + 4) % 4;
+                }
+                // Also decrease FM depth
+                if (fmMatrixCursorRow != fmMatrixCursorCol) {
+                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
+                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::max(0.0f, depth - 0.05f));
+                }
+                return;
+
+            case KEY_RIGHT:
+                fmMatrixCursorCol = (fmMatrixCursorCol + 1) % 4;
+                // Skip diagonal (self-modulation)
+                if (fmMatrixCursorRow == fmMatrixCursorCol) {
+                    fmMatrixCursorCol = (fmMatrixCursorCol + 1) % 4;
+                }
+                // Also increase FM depth
+                if (fmMatrixCursorRow != fmMatrixCursorCol) {
+                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
+                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::min(1.0f, depth + 0.05f));
+                }
+                return;
+
+            case '+':
+            case '=':
+                if (fmMatrixCursorRow != fmMatrixCursorCol) {
+                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
+                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::min(1.0f, depth + 0.1f));
+                }
+                return;
+
+            case '-':
+            case '_':
+                if (fmMatrixCursorRow != fmMatrixCursorCol) {
+                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
+                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::max(0.0f, depth - 0.1f));
+                }
+                return;
+
+            case ' ':  // Space bar: quick presets (0%, 50%, 100%)
+                if (fmMatrixCursorRow != fmMatrixCursorCol) {
+                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
+                    if (depth < 0.01f) {
+                        params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 0.5f);
+                    } else if (depth < 0.75f) {
+                        params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 1.0f);
+                    } else {
+                        params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 0.0f);
+                    }
+                }
+                return;
         }
     }
 

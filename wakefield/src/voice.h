@@ -4,6 +4,9 @@
 #include "envelope.h"
 #include "brainwave_osc.h"
 
+// Forward declaration
+struct SynthParameters;
+
 constexpr int OSCILLATORS_PER_VOICE = 4;
 
 struct Voice {
@@ -12,51 +15,29 @@ struct Voice {
     int velocity;         // MIDI velocity (0-127)
     BrainwaveOscillator oscillators[OSCILLATORS_PER_VOICE]; // 4 oscillators per voice
     Envelope envelope;     // Amplitude envelope
+    SynthParameters* params;  // Pointer to FM matrix and other params
 
     Voice(float sampleRate)
         : active(false)
         , note(-1)
         , velocity(64)
         , envelope(sampleRate)
-        , sampleRate(sampleRate) {
-    }
-
-    // Generate one sample for this voice
-    float generateSample() {
-        if (!active) {
-            return 0.0f;
-        }
-
-        // Get envelope level
-        float envLevel = envelope.process();
-
-        // If envelope finished, deactivate voice
-        if (!envelope.isActive()) {
-            active = false;
-            return 0.0f;
-        }
-
-        // Mix all oscillators (simple average for now)
-        float mixedSample = 0.0f;
-        float totalWeight = 0.0f;
+        , sampleRate(sampleRate)
+        , params(nullptr) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            float level = oscillators[i].getLevel();
-            if (level <= 0.0f) {
-                continue;
-            }
-            mixedSample += oscillators[i].process(sampleRate) * level;
-            totalWeight += level;
+            lastOscOutputs[i] = 0.0f;
         }
-        if (totalWeight > 0.0f) {
-            mixedSample /= totalWeight;
-        }
-
-        // Apply envelope
-        return mixedSample * envLevel;
     }
+
+    // Generate one sample for this voice (implemented in voice.cpp)
+    float generateSample();
+
+    // Clear cached oscillator outputs (used when voice retriggers)
+    void resetFMHistory();
 
 private:
     float sampleRate;
+    float lastOscOutputs[OSCILLATORS_PER_VOICE];
 };
 
 #endif // VOICE_H

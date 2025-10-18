@@ -214,10 +214,21 @@ struct SynthParameters {
     std::atomic<float> env4AttackBend{0.5f};
     std::atomic<float> env4ReleaseBend{0.5f};
 
-    // Constructor to initialize CC map
+    // FM Matrix - audio-rate frequency modulation routing
+    // fmMatrix[target][source] = depth (0.0 to 1.0)
+    // Example: fmMatrix[2][0] = 0.5 means OSC1 modulates OSC3 at 50% depth
+    std::atomic<float> fmMatrix[4][4];  // 4 targets × 4 sources
+
+    // Constructor to initialize CC map and FM matrix
     SynthParameters() {
         for (int i = 0; i < 50; ++i) {
             parameterCCMap[i] = -1;  // -1 means no CC assigned
+        }
+        // Initialize FM matrix to zero (no FM routing by default)
+        for (int target = 0; target < 4; ++target) {
+            for (int source = 0; source < 4; ++source) {
+                fmMatrix[target][source] = 0.0f;
+            }
         }
     }
 
@@ -661,6 +672,17 @@ struct SynthParameters {
             default: env1ReleaseBend = value; break;
         }
     }
+
+    // FM Matrix accessors
+    float getFMDepth(int target, int source) const {
+        if (target < 0 || target >= 4 || source < 0 || source >= 4) return 0.0f;
+        return fmMatrix[target][source].load();
+    }
+
+    void setFMDepth(int target, int source, float depth) {
+        if (target < 0 || target >= 4 || source < 0 || source >= 4) return;
+        fmMatrix[target][source] = std::max(0.0f, std::min(1.0f, depth));
+    }
 };
 
 enum class UIPage {
@@ -668,6 +690,7 @@ enum class UIPage {
     OSCILLATOR,
     LFO,
     ENV,
+    FM,
     REVERB,
     FILTER,
     LOOPER,
@@ -807,6 +830,7 @@ private:
     void drawOscillatorPage();
     void drawLFOPage();
     void drawEnvelopePage();
+    void drawFMPage();
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();
@@ -853,6 +877,10 @@ private:
     int currentOscillatorIndex;  // 0-3: which oscillator is selected on OSCILLATOR page
     int currentLFOIndex;          // 0-3: which LFO is selected on LFO page
     int currentEnvelopeIndex;     // 0-3: which envelope is selected on ENV page
+
+    // FM Matrix UI state
+    int fmMatrixCursorRow;        // 0-3: source oscillator (row)
+    int fmMatrixCursorCol;        // 0-3: target oscillator (column)
 
     // Sequencer UI state
     enum class SequencerTrackerColumn {

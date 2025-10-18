@@ -484,6 +484,26 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             smoothedFilterCutoff,
             smoothedFilterGain
         );
+
+        // Update LFO parameters
+        // Get tempo from sequencer for LFO sync
+        float currentTempo = 120.0f;  // Default tempo
+        if (sequencer) {
+            currentTempo = sequencer->getTempo();
+        }
+
+        for (int i = 0; i < 4; ++i) {
+            synth->updateLFOParameters(
+                i,
+                synthParams->getLfoPeriod(i),
+                synthParams->getLfoSyncMode(i),
+                synthParams->getLfoMorph(i),
+                synthParams->getLfoDuty(i),
+                synthParams->getLfoFlip(i),
+                synthParams->getLfoResetOnNote(i),
+                currentTempo
+            );
+        }
     }
 
     // Update looper parameters
@@ -498,6 +518,12 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         sequencer->process(nFrames);
     }
 
+    // Process LFOs (once per buffer, before synthesis)
+    // Note: Sample rate is passed as 48000.0f (hardcoded for now)
+    if (synth) {
+        synth->processLFOs(48000.0f);
+    }
+
     // Generate audio from synth (with effects) into temp buffer
     if (synth && loopManager) {
         // Resize temp buffers if needed
@@ -507,7 +533,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             tempL.resize(nFrames);
             tempR.resize(nFrames);
         }
-        
+
         // Process synth into temp buffer
         synth->process(tempBuffer.data(), nFrames, 2);
         
@@ -613,6 +639,9 @@ int main(int argc, char** argv) {
     
     // Link synth to UI for oscilloscope
     synth->setUI(ui);
+
+    // Link synth to parameters for FM matrix access
+    synth->setParams(synthParams);
 
     // Set UI pointer for MIDI error messages
     midiHandler->setUI(ui);

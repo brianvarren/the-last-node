@@ -19,6 +19,7 @@ void UI::drawTabs() {
         {"OSCILLATOR", UIPage::OSCILLATOR},
         {"LFO", UIPage::LFO},
         {"ENV", UIPage::ENV},
+        {"FM", UIPage::FM},
         {"REVERB", UIPage::REVERB},
         {"FILTER", UIPage::FILTER},
         {"LOOPER", UIPage::LOOPER},
@@ -205,6 +206,9 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::ENV:
             drawEnvelopePage();
+            break;
+        case UIPage::FM:
+            drawFMPage();
             break;
         case UIPage::REVERB:
             drawReverbPage();

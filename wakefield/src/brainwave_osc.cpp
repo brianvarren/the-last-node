@@ -62,6 +62,7 @@ BrainwaveOscillator::BrainwaveOscillator()
     , velocityWeight_(0.0f)
     , level_(1.0f)
     , flipPolarity_(false)
+    , fmSensitivity_(0.5f)  // Default FM sensitivity
     , phaseAccumulator_(0) {
 }
 
@@ -102,24 +103,40 @@ float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos) {
     return generateTanhShaped(shiftedPhase, morphAmount, duty_);
 }
 
-float BrainwaveOscillator::process(float sampleRate) {
+float BrainwaveOscillator::process(float sampleRate, float fmInput) {
     // Calculate effective frequency with all modulations
-    float freq = calculateEffectiveFrequency(sampleRate);
-    
-    // Calculate phase increment using double precision to avoid overflow
-    // phase_increment = (frequency * 2^32) / sample_rate
-    // Use double to maintain precision for large intermediate values
-    double phaseIncrementDouble = (static_cast<double>(freq) * 4294967296.0) / static_cast<double>(sampleRate);
+    float baseFreq = calculateEffectiveFrequency(sampleRate);
+
+    // Apply Through-Zero FM: modulate frequency directly
+    // FM input is bipolar (-1 to +1), scaled by sensitivity
+    // TZFM allows frequency to go negative (phase reversal)
+    float fmAmount = fmInput * fmSensitivity_ * baseFreq;  // Scale FM by base frequency
+    float modulatedFreq = baseFreq + fmAmount;
+
+    // TZFM: Allow negative frequencies (through-zero)
+    // Negative frequency = phase runs backward
+    bool isNegative = modulatedFreq < 0.0f;
+    float absFreq = std::abs(modulatedFreq);
+
+    // Prevent extremely high frequencies that could cause aliasing
+    absFreq = std::min(absFreq, sampleRate * 0.45f);  // Nyquist limit with margin
+
+    // Calculate phase increment using double precision
+    double phaseIncrementDouble = (static_cast<double>(absFreq) * 4294967296.0) / static_cast<double>(sampleRate);
     uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementDouble);
-    
-    // Generate current sample using real-time algorithm
+
+    // Generate current sample
     float sample = generateSample(phaseAccumulator_, morphPosition_);
     if (flipPolarity_) {
         sample = -sample;
     }
-    
-    // Advance phase
-    phaseAccumulator_ += phaseIncrement;
-    
+
+    // Advance or reverse phase depending on frequency sign (TZFM)
+    if (isNegative) {
+        phaseAccumulator_ -= phaseIncrement;  // Reverse phase direction
+    } else {
+        phaseAccumulator_ += phaseIncrement;  // Normal phase advancement
+    }
+
     return sample;
 }

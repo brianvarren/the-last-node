@@ -53,10 +53,14 @@ public:
     // Note control (for KEY mode)
     void setNoteFrequency(float freq) { noteFrequency_ = freq; }
     float getNoteFrequency() const { return noteFrequency_; }
-    
-    // Generate one sample and advance phase
-    float process(float sampleRate);
-    
+
+    // FM control (Through-Zero FM support)
+    void setFMSensitivity(float sensitivity) { fmSensitivity_ = sensitivity; }
+    float getFMSensitivity() const { return fmSensitivity_; }
+
+    // Generate one sample and advance phase (with optional FM input)
+    float process(float sampleRate, float fmInput = 0.0f);
+
     // Reset phase
     void reset() { phaseAccumulator_ = 0; }
     
@@ -72,7 +76,8 @@ private:
     float velocityWeight_;     // Velocity modulation weight (0-1)
     float level_;              // Output level (0-1)
     bool flipPolarity_;        // Invert waveform polarity
-    
+    float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)
+
     // Phase accumulator (32-bit for high precision)
     uint32_t phaseAccumulator_;
     

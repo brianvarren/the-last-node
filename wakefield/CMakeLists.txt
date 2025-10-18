@@ -19,6 +19,8 @@ add_executable(synth
     src/envelope.cpp
     src/oscillator.cpp
     src/brainwave_osc.cpp
+    src/lfo.cpp
+    src/voice.cpp
     src/reverb.cpp
     src/preset.cpp
     src/loop_manager.cpp
@@ -45,6 +47,7 @@ add_executable(synth
     src/ui/pages/ui_page_oscillator.cpp
     src/ui/pages/ui_page_lfo.cpp
     src/ui/pages/ui_page_envelope.cpp
+    src/ui/pages/ui_page_fm.cpp
     src/ui/pages/ui_page_reverb.cpp
     src/ui/pages/ui_page_filter.cpp
     src/ui/pages/ui_page_looper.cpp
