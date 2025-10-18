@@ -2,8 +2,6 @@
 #include "../sequencer.h"
 #include "ui_utils.h"
 #include <algorithm>
-#include <deque>
-#include <mutex>
 #include <string>
 
 void UI::drawTabs() {
@@ -85,42 +83,6 @@ void UI::drawBar(int y, int x, const char* label, float value, float min, float 
     mvaddch(y, barStart + width + 1, ']');
 
     mvprintw(y, barStart + width + 3, "%.3f", value);
-}
-
-void UI::addConsoleMessage(const std::string& message) {
-    std::lock_guard<std::mutex> lock(consoleMutex);
-    consoleMessages.push_back(message);
-    if (consoleMessages.size() > 5) {  // Keep only last 5 messages
-        consoleMessages.pop_front();
-    }
-}
-
-void UI::drawConsole() {
-    int maxY = getmaxy(stdscr);
-    int maxX = getmaxx(stdscr);
-
-    // Console starts 7 lines from bottom
-    int consoleStart = maxY - 7;
-
-    // Draw separator
-    attron(COLOR_PAIR(1));
-    mvhline(consoleStart, 0, '-', maxX);
-    attroff(COLOR_PAIR(1));
-
-    // Draw console title
-    attron(A_BOLD);
-    mvprintw(consoleStart + 1, 1, "CONSOLE");
-    attroff(A_BOLD);
-
-    // Draw messages
-    std::lock_guard<std::mutex> lock(consoleMutex);
-    int row = consoleStart + 2;
-    for (const auto& msg : consoleMessages) {
-        if (row >= maxY - 2) break;  // Don't overwrite hotkey line
-        attron(COLOR_PAIR(2));
-        mvprintw(row++, 2, "%s", msg.c_str());
-        attroff(COLOR_PAIR(2));
-    }
 }
 
 void UI::drawCPUOverlay() {
@@ -226,7 +188,6 @@ void UI::draw(int activeVoices) {
             break;
     }
 
-    drawConsole();
     drawHotkeyLine();  // Always draw hotkey line at bottom
 
     // Draw input overlays if active

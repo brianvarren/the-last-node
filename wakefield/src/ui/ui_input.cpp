@@ -163,6 +163,23 @@ void UI::handleInput(int ch) {
             return;
     }
 
+    if (currentPage == UIPage::MOD) {
+        switch (ch) {
+            case KEY_UP:
+                modMatrixCursorRow = (modMatrixCursorRow + 15) % 16;
+                return;
+            case KEY_DOWN:
+                modMatrixCursorRow = (modMatrixCursorRow + 1) % 16;
+                return;
+            case KEY_LEFT:
+                modMatrixCursorCol = (modMatrixCursorCol + 4) % 5;
+                return;
+            case KEY_RIGHT:
+                modMatrixCursorCol = (modMatrixCursorCol + 1) % 5;
+                return;
+        }
+    }
+
     // Up/Down arrows navigate between parameters on current page
     if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_UP) {
         if (!pageParams.empty()) {

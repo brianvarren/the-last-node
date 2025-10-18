@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <string>
 #include <atomic>
-#include <deque>
-#include <mutex>
 #include <vector>
 #include <functional>
 #include "oscillator.h"
@@ -734,8 +732,7 @@ public:
     void setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId);
     void setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort);
     
-    // Add message to console
-    void addConsoleMessage(const std::string& message);
+    void addConsoleMessage(const std::string&) {}
 
     // Get parameter name by ID (public for MIDI handler)
     std::string getParameterName(int id);
@@ -775,11 +772,6 @@ private:
     std::vector<std::pair<int, std::string>> availableAudioDevices;  // id, name
     std::vector<std::pair<int, std::string>> availableMidiDevices;   // port, name
     
-    // Console message system
-    std::deque<std::string> consoleMessages;
-    std::mutex consoleMutex;
-    static const int MAX_CONSOLE_MESSAGES = 5;
-    
     // Parameter navigation state  
     int selectedParameterId;
     bool numericInputActive;
@@ -794,8 +786,6 @@ private:
     static const int WAVEFORM_BUFFER_SIZE = 8192;
     std::vector<float> waveformBuffer;
     std::atomic<int> waveformBufferWritePos;
-    std::vector<std::deque<float>> lfoWaveHistory;
-    std::vector<float> lfoPhaseSnapshot;
     
     // Device change request
     bool deviceChangeRequested;
@@ -836,7 +826,6 @@ private:
     void drawSequencerPage();
     void drawConfigPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
-    void drawConsole();
     void drawHotkeyLine();
     void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
     void drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float phase);
@@ -881,6 +870,10 @@ private:
     // FM Matrix UI state
     int fmMatrixCursorRow;        // 0-3: source oscillator (row)
     int fmMatrixCursorCol;        // 0-3: target oscillator (column)
+
+    // MOD Matrix UI state
+    int modMatrixCursorRow;       // 0-15: modulation slot
+    int modMatrixCursorCol;       // 0-4: column within slot (Source/Curve/Amount/Destination/Type)
 
     // Sequencer UI state
     enum class SequencerTrackerColumn {
