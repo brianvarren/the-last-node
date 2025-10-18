@@ -2,21 +2,28 @@
 #include <algorithm>
 #include <cmath>
 
-// Classic Casio CZ style phase distortion for sawtooth
-// morph: 0.0 (bright PD saw) to 0.5 (sine)
+// Classic Casio CZ style phase distortion for sawtooth with extended morph range
 static float generatePhaseDistorted(float phase, float amount) {
     // phase is normalized [0, 1)
 
-    // Map amount (0..1) to point of inflection d (0 < d ≤ 0.5)
     float clamped = std::min(std::max(amount, 0.0f), 1.0f);
-    float d = 0.5f - (0.5f - 0.0001f) * clamped;
+    float pivot;
+    if (clamped <= 0.5f) {
+        float t = clamped * 2.0f;
+        pivot = 0.5f - (0.5f - 0.0001f) * t;
+    } else {
+        float t = (clamped - 0.5f) * 2.0f;
+        pivot = 0.5f + 0.4999f * t;
+    }
+    pivot = std::min(std::max(pivot, 0.0001f), 0.9999f);
 
     float shapedPhase;
-    if (phase <= d) {
-        shapedPhase = phase / (2.0f * d);
+    if (phase <= pivot) {
+        float denom = std::max(1e-6f, 2.0f * pivot);
+        shapedPhase = phase / denom;
     } else {
-        float denom = std::max(1e-6f, 1.0f - d);
-        shapedPhase = 0.5f * (1.0f + ((phase - d) / denom));
+        float denom = std::max(1e-6f, 1.0f - pivot);
+        shapedPhase = 0.5f * (1.0f + ((phase - pivot) / denom));
     }
 
     return -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
@@ -42,7 +49,7 @@ static float generateTanhShaped(float phase, float morph, float duty) {
     float x = sine - std::sin(theta);
     
     // Edge hardness control
-    float beta = 1.0f + 40.0f * edge;
+    float beta = 1.0f + 80.0f * edge;
     
     float tanh_pulse = std::tanh(beta * x);
 
@@ -51,7 +58,7 @@ static float generateTanhShaped(float phase, float morph, float duty) {
 }
 
 BrainwaveOscillator::BrainwaveOscillator()
-    : mode_(BrainwaveMode::FREE)
+    : mode_(BrainwaveMode::KEY)
     , baseFrequency_(440.0f)
     , noteFrequency_(440.0f)
     , morphPosition_(0.5f)
@@ -59,7 +66,6 @@ BrainwaveOscillator::BrainwaveOscillator()
     , shape_(BrainwaveShape::SAW)
     , ratio_(1.0f)
     , offsetHz_(0.0f)
-    , velocityWeight_(0.0f)
     , level_(1.0f)
     , flipPolarity_(false)
     , fmSensitivity_(0.5f)  // Default FM sensitivity

@@ -6,13 +6,8 @@
 void UI::initializeParameters() {
     parameters.clear();
 
-    // MAIN page parameters - ALL support MIDI learn
-    parameters.push_back({1, ParamType::ENUM, "Waveform", "", 0, 3, {"Sine", "Square", "Sawtooth", "Triangle"}, true, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({2, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({3, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({4, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({5, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::MAIN)});
-    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
+    // Global parameters
+    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CONFIG)});
 
     // OSCILLATOR page parameters - control the currently selected oscillator
     parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR)});
@@ -22,7 +17,6 @@ void UI::initializeParameters() {
     parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({16, ParamType::FLOAT, "Vel Weight", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({17, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({18, ParamType::FLOAT, "Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
 
@@ -116,11 +110,6 @@ float UI::getParameterValue(int id) {
     const int envIndex = currentEnvelopeIndex;
 
     switch (id) {
-        case 1: return static_cast<float>(params->waveform.load());
-        case 2: return params->attack.load();
-        case 3: return params->decay.load();
-        case 4: return params->sustain.load();
-        case 5: return params->release.load();
         case 6: return params->masterVolume.load();
         case 10: return static_cast<float>(params->getOscMode(oscIndex));
         case 19: return static_cast<float>(params->getOscShape(oscIndex));
@@ -129,7 +118,6 @@ float UI::getParameterValue(int id) {
         case 13: return params->getOscDuty(oscIndex);
         case 14: return params->getOscRatio(oscIndex);
         case 15: return params->getOscOffset(oscIndex);
-        case 16: return params->getOscVelocityWeight(oscIndex);
         case 17: return params->getOscFlip(oscIndex) ? 1.0f : 0.0f;
         case 18: return params->getOscLevel(oscIndex);
         case 200: return params->getLfoPeriod(lfoIndex);
@@ -191,11 +179,6 @@ void UI::setParameterValue(int id, float value) {
     const int envIndex = currentEnvelopeIndex;
 
     switch (id) {
-        case 1: params->waveform = static_cast<int>(value); break;
-        case 2: params->attack = value; break;
-        case 3: params->decay = value; break;
-        case 4: params->sustain = value; break;
-        case 5: params->release = value; break;
         case 6: params->masterVolume = value; break;
         case 10: params->setOscMode(oscIndex, static_cast<int>(value)); break;
         case 19: params->setOscShape(oscIndex, static_cast<int>(value)); break;
@@ -204,7 +187,6 @@ void UI::setParameterValue(int id, float value) {
         case 13: params->setOscDuty(oscIndex, value); break;
         case 14: params->setOscRatio(oscIndex, value); break;
         case 15: params->setOscOffset(oscIndex, value); break;
-        case 16: params->setOscVelocityWeight(oscIndex, value); break;
         case 17: params->setOscFlip(oscIndex, value > 0.5f); break;
         case 18: params->setOscLevel(oscIndex, value); break;
         case 200: params->setLfoPeriod(lfoIndex, value); break;
@@ -232,10 +214,10 @@ void UI::setParameterValue(int id, float value) {
         // CONFIG page parameters
         case 400: cpuMonitor.setEnabled(value > 0.5f); break;
         // ENV page parameters (300-323)
-        case 300: params->setEnvAttack(0, value); break;
-        case 301: params->setEnvDecay(0, value); break;
-        case 302: params->setEnvSustain(0, value); break;
-        case 303: params->setEnvRelease(0, value); break;
+        case 300: params->setEnvAttack(0, value); params->attack = value; break;
+        case 301: params->setEnvDecay(0, value); params->decay = value; break;
+        case 302: params->setEnvSustain(0, value); params->sustain = value; break;
+        case 303: params->setEnvRelease(0, value); params->release = value; break;
         case 304: params->setEnvAttackBend(0, value); break;
         case 305: params->setEnvReleaseBend(0, value); break;
         case 306: params->setEnvAttack(1, value); break;
@@ -271,8 +253,7 @@ void UI::adjustParameter(int id, bool increase) {
             float step = (param->max_val - param->min_val) * 0.01f; // 1% steps
 
             // Special exponential handling for certain parameters
-            if (id == 2 || id == 3 || id == 5 || // MAIN page Attack, Decay, Release
-                (id >= 300 && id <= 323 && (id % 6 == 0 || id % 6 == 1 || id % 6 == 3))) { // ENV Attack, Decay, Release - exponential scaling
+            if (id >= 300 && id <= 323 && (id % 6 == 0 || id % 6 == 1 || id % 6 == 3)) { // ENV Attack, Decay, Release - exponential scaling
                 if (increase) {
                     newValue = std::min(param->max_val, currentValue * 1.1f);
                 } else {

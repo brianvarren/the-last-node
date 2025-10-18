@@ -128,10 +128,26 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
                 else if (value == "TRIANGLE") params->waveform = static_cast<int>(Waveform::TRIANGLE);
             }
         } else if (currentSection == "envelope") {
-            if (key == "attack") params->attack = std::stof(value);
-            else if (key == "decay") params->decay = std::stof(value);
-            else if (key == "sustain") params->sustain = std::stof(value);
-            else if (key == "release") params->release = std::stof(value);
+            if (key == "attack") {
+                float mapped = std::stof(value);
+                params->attack = mapped;
+                params->setEnvAttack(0, mapped);
+            }
+            else if (key == "decay") {
+                float mapped = std::stof(value);
+                params->decay = mapped;
+                params->setEnvDecay(0, mapped);
+            }
+            else if (key == "sustain") {
+                float mapped = std::stof(value);
+                params->sustain = mapped;
+                params->setEnvSustain(0, mapped);
+            }
+            else if (key == "release") {
+                float mapped = std::stof(value);
+                params->release = mapped;
+                params->setEnvRelease(0, mapped);
+            }
         } else if (currentSection == "master") {
             if (key == "volume") params->masterVolume = std::stof(value);
         } else if (currentSection == "filter") {
@@ -191,10 +207,10 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     
     // Envelope section
     file << "[envelope]\n";
-    file << "attack=" << params->attack.load() << "\n";
-    file << "decay=" << params->decay.load() << "\n";
-    file << "sustain=" << params->sustain.load() << "\n";
-    file << "release=" << params->release.load() << "\n";
+    file << "attack=" << params->getEnvAttack(0) << "\n";
+    file << "decay=" << params->getEnvDecay(0) << "\n";
+    file << "sustain=" << params->getEnvSustain(0) << "\n";
+    file << "release=" << params->getEnvRelease(0) << "\n";
     file << "\n";
     
     // Master section
@@ -255,4 +271,3 @@ bool PresetManager::loadPreset(const std::string& name, SynthParameters* params)
     std::string filepath = getPresetPath(name);
     return parsePresetFile(filepath, params);
 }
-

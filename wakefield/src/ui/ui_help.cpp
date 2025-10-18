@@ -19,44 +19,16 @@ std::string UI::getHelpContent(UIPage page) {
     std::string content;
 
     switch (page) {
-        case UIPage::MAIN:
+        case UIPage::OSCILLATOR:
             content = R"(
-=== MAIN PAGE ===
+=== OSCILLATOR ===
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
   Up/Down        - Select parameter
   Left/Right     - Adjust parameter value
   Enter          - Type exact value
-  L              - MIDI Learn (assign MIDI CC to parameter)
-  H              - Show this help
-  Q              - Quit application
-
-PARAMETERS:
-  Waveform   - Oscillator waveform type
-  Attack     - Envelope attack time (0.001-30s)
-  Decay      - Envelope decay time (0.001-30s)
-  Sustain    - Envelope sustain level (0-100%)
-  Release    - Envelope release time (0.001-30s)
-  Volume     - Master output volume
-
-ABOUT:
-Wakefield is a polyphonic wavetable synthesizer with brainwave oscillators,
-built-in reverb, filters, loopers, and a generative MIDI sequencer for
-creating dark ambient soundscapes.
-
-The MAIN page controls the basic synthesis parameters including envelope
-(ADSR) and master volume. All parameters support MIDI learn for external
-control via MIDI controllers.
-)";
-            break;
-
-        case UIPage::OSCILLATOR:
-            content = R"(
-=== OSCILLATOR ===
-
-CONTROLS:
-  [Same global controls as MAIN page]
+  L              - MIDI Learn (assign MIDI CC)
 
 PARAMETERS:
   Mode       - FREE (manual freq) or KEY (MIDI tracking)
@@ -82,7 +54,11 @@ tanh-shaped synthesis. Duty controls pulse width for PWM-like effects.
 === LFO (Low Frequency Oscillator) ===
 
 CONTROLS:
-  [Same global controls as MAIN page]
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select parameter
+  Left/Right     - Adjust parameter value
+  Enter          - Type exact value
+  L              - MIDI Learn (assign MIDI CC)
 
 PARAMETERS:
   Period     - LFO cycle time (0.1s - 30min) with semantic input
@@ -104,7 +80,11 @@ Use semantic time input like "3m39s" for precise period control.
 === ENVELOPE ===
 
 CONTROLS:
-  [Same global controls as MAIN page]
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select parameter
+  Left/Right     - Adjust parameter value
+  Enter          - Type exact value
+  L              - MIDI Learn (assign MIDI CC)
   1-4        - Select envelope (4 independent envelopes)
 
 PARAMETERS:
@@ -134,7 +114,21 @@ Release (R) sections.
 FUTURE:
 These envelopes will be available as modulation sources in the upcoming
 modulation matrix, allowing any envelope to modulate any parameter.
-Currently, Envelope 1 controls the amplitude envelope (MAIN page params).
+Currently, Envelope 1 drives the primary amplitude envelope for each voice.
+)";
+            break;
+
+        case UIPage::MOD:
+            content = R"(
+=== MODULATION MATRIX ===
+
+CONTROLS:
+  Tab/Shift+Tab  - Navigate between pages
+
+ABOUT:
+The modulation matrix will route envelopes, LFOs, and other control-rate
+sources to any destination. The UI scaffolding is in place and routing
+controls will arrive in an upcoming update.
 )";
             break;
 
@@ -143,7 +137,11 @@ Currently, Envelope 1 controls the amplitude envelope (MAIN page params).
 === REVERB ===
 
 CONTROLS:
-  [Same global controls as MAIN page]
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select parameter
+  Left/Right     - Adjust parameter value
+  Enter          - Type exact value
+  L              - MIDI Learn (assign MIDI CC)
 
 PARAMETERS:
   Type       - Reverb algorithm (Greyhole, Plate, Room, Hall, Spring)
@@ -173,7 +171,11 @@ reverb tail, creating shimmering, ethereal textures that never sound static.
 === FILTER ===
 
 CONTROLS:
-  [Same global controls as MAIN page]
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select parameter
+  Left/Right     - Adjust parameter value
+  Enter          - Type exact value
+  L              - MIDI Learn (assign MIDI CC)
 
 PARAMETERS:
   Type    - Lowpass, Highpass, High Shelf, Low Shelf

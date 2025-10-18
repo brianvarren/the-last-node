@@ -43,8 +43,6 @@ public:
     void setShape(BrainwaveShape shape) { shape_ = shape; }
     BrainwaveShape getShape() const { return shape_; }
 
-    void setVelocityWeight(float weight) { velocityWeight_ = weight; }
-    float getVelocityWeight() const { return velocityWeight_; }
     void setLevel(float level) { level_ = std::min(std::max(level, 0.0f), 1.0f); }
     float getLevel() const { return level_; }
     void setFlipPolarity(bool flip) { flipPolarity_ = flip; }
@@ -73,7 +71,6 @@ private:
     BrainwaveShape shape_;
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
-    float velocityWeight_;     // Velocity modulation weight (0-1)
     float level_;              // Output level (0-1)
     bool flipPolarity_;        // Invert waveform polarity
     float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)

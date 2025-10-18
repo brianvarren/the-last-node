@@ -50,6 +50,8 @@ public:
     // Get current output value without advancing (for modulation matrix)
     float getCurrentValue() const { return currentOutput_; }
 
+    float getPhase() const;
+
 private:
     float period_;            // Period in seconds (for free-running mode)
     LFOSyncMode syncMode_;    // Sync mode

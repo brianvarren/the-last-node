@@ -2,6 +2,7 @@
 #define UI_H
 
 #include <ncursesw/curses.h>
+#include <algorithm>
 #include <string>
 #include <atomic>
 #include <deque>
@@ -109,50 +110,46 @@ struct SynthParameters {
     
     // Oscillator parameters - 4 independent oscillators per voice
     // Oscillator 1 (index 0)
-    std::atomic<int> osc1Mode{0};              // 0=FREE, 1=KEY
+    std::atomic<int> osc1Mode{1};              // 0=FREE, 1=KEY
     std::atomic<float> osc1Freq{440.0f};       // Base frequency (20-2000 Hz)
     std::atomic<float> osc1Morph{0.5f};        // Waveform morph (0.0001-0.9999)
     std::atomic<int> osc1Shape{0};            // 0=Saw, 1=Pulse
     std::atomic<float> osc1Duty{0.5f};         // Pulse width (0.0-1.0)
     std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
     std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
-    std::atomic<float> osc1VelocityWeight{0.0f}; // Velocity modulation amount (0.0-1.0)
     std::atomic<bool> osc1Flip{false};         // Polarity inversion
     std::atomic<float> osc1Level{1.0f};        // Oscillator level/gain (0.0-1.0)
 
     // Oscillator 2 (index 1)
-    std::atomic<int> osc2Mode{0};
+    std::atomic<int> osc2Mode{1};
     std::atomic<float> osc2Freq{440.0f};
     std::atomic<float> osc2Morph{0.5f};
     std::atomic<int> osc2Shape{0};
     std::atomic<float> osc2Duty{0.5f};
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
-    std::atomic<float> osc2VelocityWeight{0.0f};
-   std::atomic<bool> osc2Flip{false};
-   std::atomic<float> osc2Level{0.0f};        // Default: off
+    std::atomic<bool> osc2Flip{false};
+    std::atomic<float> osc2Level{0.0f};        // Default: off
 
-   // Oscillator 3 (index 2)
-    std::atomic<int> osc3Mode{0};
+    // Oscillator 3 (index 2)
+    std::atomic<int> osc3Mode{1};
     std::atomic<float> osc3Freq{440.0f};
     std::atomic<float> osc3Morph{0.5f};
     std::atomic<int> osc3Shape{0};
     std::atomic<float> osc3Duty{0.5f};
     std::atomic<float> osc3Ratio{1.0f};
     std::atomic<float> osc3Offset{0.0f};
-    std::atomic<float> osc3VelocityWeight{0.0f};
     std::atomic<bool> osc3Flip{false};
     std::atomic<float> osc3Level{0.0f};        // Default: off
 
     // Oscillator 4 (index 3)
-    std::atomic<int> osc4Mode{0};
+    std::atomic<int> osc4Mode{1};
     std::atomic<float> osc4Freq{440.0f};
     std::atomic<float> osc4Morph{0.5f};
     std::atomic<int> osc4Shape{0};
     std::atomic<float> osc4Duty{0.5f};
     std::atomic<float> osc4Ratio{1.0f};
     std::atomic<float> osc4Offset{0.0f};
-    std::atomic<float> osc4VelocityWeight{0.0f};
     std::atomic<bool> osc4Flip{false};
     std::atomic<float> osc4Level{0.0f};        // Default: off
 
@@ -184,6 +181,25 @@ struct SynthParameters {
     std::atomic<float> lfo4Duty{0.5f};
     std::atomic<bool> lfo4Flip{false};
     std::atomic<bool> lfo4ResetOnNote{false};
+
+    std::atomic<float> lfoVisualValue[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    std::atomic<float> lfoVisualPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    float getLfoVisualValue(int index) const {
+        if (index < 0 || index >= 4) return 0.0f;
+        return lfoVisualValue[index].load();
+    }
+
+    float getLfoVisualPhase(int index) const {
+        if (index < 0 || index >= 4) return 0.0f;
+        return lfoVisualPhase[index].load();
+    }
+
+    void setLfoVisualState(int index, float value, float phase) {
+        if (index < 0 || index >= 4) return;
+        lfoVisualValue[index].store(value);
+        lfoVisualPhase[index].store(phase);
+    }
 
     // Envelope parameters - 4 independent modulation envelopes
     std::atomic<float> env1Attack{0.01f};
@@ -372,26 +388,6 @@ struct SynthParameters {
         }
     }
 
-    float getOscVelocityWeight(int index) const {
-        switch (index) {
-            case 0: return osc1VelocityWeight.load();
-            case 1: return osc2VelocityWeight.load();
-            case 2: return osc3VelocityWeight.load();
-            case 3: return osc4VelocityWeight.load();
-            default: return osc1VelocityWeight.load();
-        }
-    }
-
-    void setOscVelocityWeight(int index, float value) {
-        switch (index) {
-            case 0: osc1VelocityWeight = value; break;
-            case 1: osc2VelocityWeight = value; break;
-            case 2: osc3VelocityWeight = value; break;
-            case 3: osc4VelocityWeight = value; break;
-            default: osc1VelocityWeight = value; break;
-        }
-    }
-
     bool getOscFlip(int index) const {
         switch (index) {
             case 0: return osc1Flip.load();
@@ -565,7 +561,7 @@ struct SynthParameters {
 
     void setEnvAttack(int index, float value) {
         switch (index) {
-            case 0: env1Attack = value; break;
+            case 0: env1Attack = value; attack = value; break;
             case 1: env2Attack = value; break;
             case 2: env3Attack = value; break;
             case 3: env4Attack = value; break;
@@ -585,7 +581,7 @@ struct SynthParameters {
 
     void setEnvDecay(int index, float value) {
         switch (index) {
-            case 0: env1Decay = value; break;
+            case 0: env1Decay = value; decay = value; break;
             case 1: env2Decay = value; break;
             case 2: env3Decay = value; break;
             case 3: env4Decay = value; break;
@@ -605,7 +601,7 @@ struct SynthParameters {
 
     void setEnvSustain(int index, float value) {
         switch (index) {
-            case 0: env1Sustain = value; break;
+            case 0: env1Sustain = value; sustain = value; break;
             case 1: env2Sustain = value; break;
             case 2: env3Sustain = value; break;
             case 3: env4Sustain = value; break;
@@ -625,7 +621,7 @@ struct SynthParameters {
 
     void setEnvRelease(int index, float value) {
         switch (index) {
-            case 0: env1Release = value; break;
+            case 0: env1Release = value; release = value; break;
             case 1: env2Release = value; break;
             case 2: env3Release = value; break;
             case 3: env4Release = value; break;
@@ -687,11 +683,11 @@ struct SynthParameters {
 };
 
 enum class UIPage {
-    MAIN,
     OSCILLATOR,
     LFO,
     ENV,
     FM,
+    MOD,
     REVERB,
     FILTER,
     LOOPER,
@@ -798,6 +794,8 @@ private:
     static const int WAVEFORM_BUFFER_SIZE = 8192;
     std::vector<float> waveformBuffer;
     std::atomic<int> waveformBufferWritePos;
+    std::vector<std::deque<float>> lfoWaveHistory;
+    std::vector<float> lfoPhaseSnapshot;
     
     // Device change request
     bool deviceChangeRequested;
@@ -826,12 +824,12 @@ private:
     
     // Draw helper functions
     void drawTabs();
-    void drawMainPage(int activeVoices);
-    void drawParametersPage(int startRow = 3);  // Generic parameter page drawing
+    void drawParametersPage(int startRow = 3, int startCol = 2);  // Generic parameter page drawing
     void drawOscillatorPage();
     void drawLFOPage();
     void drawEnvelopePage();
     void drawFMPage();
+    void drawModPage();
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();
@@ -841,6 +839,7 @@ private:
     void drawConsole();
     void drawHotkeyLine();
     void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
+    void drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float phase);
     void drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
 
     // Sequencer helpers

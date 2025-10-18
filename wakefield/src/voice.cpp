@@ -30,7 +30,7 @@ float Voice::generateSample() {
             for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
                 float fmDepth = params->getFMDepth(target, source);
                 if (fmDepth != 0.0f) {
-                    totalFM += lastOscOutputs[source] * fmDepth;
+                    totalFM += lastOscOutputs[source] * (fmDepth * 100.0f);
                 }
             }
             fmInputs[target] = totalFM;

@@ -42,12 +42,12 @@ add_executable(synth
     src/ui/ui_input.cpp
     src/ui/ui_drawing.cpp
     # UI page files
-    src/ui/pages/ui_page_main.cpp
     src/ui/pages/ui_page_parameters.cpp
     src/ui/pages/ui_page_oscillator.cpp
     src/ui/pages/ui_page_lfo.cpp
     src/ui/pages/ui_page_envelope.cpp
     src/ui/pages/ui_page_fm.cpp
+    src/ui/pages/ui_page_mod.cpp
     src/ui/pages/ui_page_reverb.cpp
     src/ui/pages/ui_page_filter.cpp
     src/ui/pages/ui_page_looper.cpp

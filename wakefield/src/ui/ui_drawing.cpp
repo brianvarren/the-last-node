@@ -15,11 +15,11 @@ void UI::drawTabs() {
     };
 
     const TabInfo tabs[] = {
-        {"MAIN", UIPage::MAIN},
-        {"OSCILLATOR", UIPage::OSCILLATOR},
+        {"OSC", UIPage::OSCILLATOR},
         {"LFO", UIPage::LFO},
         {"ENV", UIPage::ENV},
         {"FM", UIPage::FM},
+        {"MOD", UIPage::MOD},
         {"REVERB", UIPage::REVERB},
         {"FILTER", UIPage::FILTER},
         {"LOOPER", UIPage::LOOPER},
@@ -194,10 +194,6 @@ void UI::draw(int activeVoices) {
     drawCPUOverlay();  // Always draw CPU overlay on top bar
 
     switch (currentPage) {
-        case UIPage::MAIN:
-            drawMainPage(activeVoices);
-            drawConsole();  // Console only on main page
-            break;
         case UIPage::OSCILLATOR:
             drawOscillatorPage();
             break;
@@ -209,6 +205,9 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::FM:
             drawFMPage();
+            break;
+        case UIPage::MOD:
+            drawModPage();
             break;
         case UIPage::REVERB:
             drawReverbPage();
@@ -227,6 +226,7 @@ void UI::draw(int activeVoices) {
             break;
     }
 
+    drawConsole();
     drawHotkeyLine();  // Always draw hotkey line at bottom
 
     // Draw input overlays if active

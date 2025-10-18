@@ -55,7 +55,7 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
 }
 
 void Synth::updateBrainwaveParameters(BrainwaveMode mode, int shape, float freq, float morph, float duty,
-                                      float ratio, float offsetHz, float velocityWeight,
+                                      float ratio, float offsetHz,
                                       bool flipPolarity, float level) {
     // Update all voice oscillators with new parameters
     // For now, update all 4 oscillators in each voice the same way
@@ -71,7 +71,6 @@ void Synth::updateBrainwaveParameters(BrainwaveMode mode, int shape, float freq,
             voice.oscillators[i].setDuty(duty);
             voice.oscillators[i].setRatio(ratio);
             voice.oscillators[i].setOffset(offsetHz);
-            voice.oscillators[i].setVelocityWeight(velocityWeight);
             voice.oscillators[i].setFlipPolarity(flipPolarity);
             voice.oscillators[i].setLevel(level);
         }
@@ -248,7 +247,10 @@ void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, float 
 void Synth::processLFOs(float sampleRate) {
     // Process all 4 LFOs once per audio buffer
     for (int i = 0; i < 4; ++i) {
-        lfos[i].process(sampleRate);
+        float value = lfos[i].process(sampleRate);
+        if (params) {
+            params->setLfoVisualState(i, value, lfos[i].getPhase());
+        }
     }
 }
 

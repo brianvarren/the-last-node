@@ -82,50 +82,89 @@ void UI::handleInput(int ch) {
         pageParams = getParameterIdsForPage(currentPage);
     }
 
-    // Tab key cycles forward through pages
-    if (ch == '\t') {
-        if (currentPage == UIPage::MAIN) currentPage = UIPage::OSCILLATOR;
-        else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::LFO;
-        else if (currentPage == UIPage::LFO) currentPage = UIPage::ENV;
-        else if (currentPage == UIPage::ENV) currentPage = UIPage::FM;
-        else if (currentPage == UIPage::FM) currentPage = UIPage::REVERB;
-        else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
-        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::SEQUENCER;
-        else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::CONFIG;
-        else currentPage = UIPage::MAIN;
-
-        // Set selected parameter to first parameter on new page
+    auto setPage = [&](UIPage target) {
+        currentPage = target;
         std::vector<int> newPageParams = getParameterIdsForPage(currentPage);
         if (!newPageParams.empty()) {
             selectedParameterId = newPageParams[0];
         }
+    };
+
+    // Tab key cycles forward through pages
+    if (ch == '\t') {
+        if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::LFO);
+        else if (currentPage == UIPage::LFO) setPage(UIPage::ENV);
+        else if (currentPage == UIPage::ENV) setPage(UIPage::FM);
+        else if (currentPage == UIPage::FM) setPage(UIPage::MOD);
+        else if (currentPage == UIPage::MOD) setPage(UIPage::REVERB);
+        else if (currentPage == UIPage::REVERB) setPage(UIPage::FILTER);
+        else if (currentPage == UIPage::FILTER) setPage(UIPage::LOOPER);
+        else if (currentPage == UIPage::LOOPER) setPage(UIPage::SEQUENCER);
+        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CONFIG);
+        else setPage(UIPage::OSCILLATOR);
         return;
     }
 
     // Ctrl+Tab (KEY_BTAB or Shift+Tab) cycles backward through pages
     if (ch == KEY_BTAB || ch == 353) {  // KEY_BTAB = Shift+Tab, 353 = some terminals
-        if (currentPage == UIPage::MAIN) currentPage = UIPage::CONFIG;
-        else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::MAIN;
-        else if (currentPage == UIPage::LFO) currentPage = UIPage::OSCILLATOR;
-        else if (currentPage == UIPage::ENV) currentPage = UIPage::LFO;
-        else if (currentPage == UIPage::FM) currentPage = UIPage::ENV;
-        else if (currentPage == UIPage::REVERB) currentPage = UIPage::FM;
-        else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
-        else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
-        else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::LOOPER;
-        else if (currentPage == UIPage::CONFIG) currentPage = UIPage::SEQUENCER;
-
-        // Set selected parameter to first parameter on new page
-        std::vector<int> newPageParams = getParameterIdsForPage(currentPage);
-        if (!newPageParams.empty()) {
-            selectedParameterId = newPageParams[0];
-        }
+        if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::CONFIG);
+        else if (currentPage == UIPage::LFO) setPage(UIPage::OSCILLATOR);
+        else if (currentPage == UIPage::ENV) setPage(UIPage::LFO);
+        else if (currentPage == UIPage::FM) setPage(UIPage::ENV);
+        else if (currentPage == UIPage::MOD) setPage(UIPage::FM);
+        else if (currentPage == UIPage::REVERB) setPage(UIPage::MOD);
+        else if (currentPage == UIPage::FILTER) setPage(UIPage::REVERB);
+        else if (currentPage == UIPage::LOOPER) setPage(UIPage::FILTER);
+        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::LOOPER);
+        else if (currentPage == UIPage::CONFIG) setPage(UIPage::SEQUENCER);
         return;
     }
 
+    // Function keys jump directly to pages
+    switch (ch) {
+        case KEY_F(1):
+            setPage(UIPage::LOOPER);
+            addConsoleMessage("Sampler page pending – showing Looper page");
+            return;
+        case KEY_F(2):
+            setPage(UIPage::OSCILLATOR);
+            return;
+        case KEY_F(3):
+            setPage(UIPage::ENV);
+            return;
+        case KEY_F(4):
+            setPage(UIPage::LFO);
+            return;
+        case KEY_F(5):
+            setPage(UIPage::REVERB);
+            return;
+        case KEY_F(6):
+            setPage(UIPage::FILTER);
+            return;
+        case KEY_F(7):
+            setPage(UIPage::FM);
+            addConsoleMessage("Mix page pending – showing FM routing page");
+            return;
+        case KEY_F(8):
+            setPage(UIPage::MOD);
+            return;
+        case KEY_F(9):
+            setPage(UIPage::SEQUENCER);
+            addConsoleMessage("Chaos page pending – showing Sequencer");
+            return;
+        case KEY_F(10):
+            setPage(UIPage::FM);
+            return;
+        case KEY_F(11):
+            setPage(UIPage::MOD);
+            return;
+        case KEY_F(12):
+            setPage(UIPage::CONFIG);
+            return;
+    }
+
     // Up/Down arrows navigate between parameters on current page
-    if (currentPage != UIPage::SEQUENCER && ch == KEY_UP) {
+    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_UP) {
         if (!pageParams.empty()) {
             auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
             if (it != pageParams.end() && it != pageParams.begin()) {
@@ -135,7 +174,7 @@ void UI::handleInput(int ch) {
             }
         }
         return;
-    } else if (currentPage != UIPage::SEQUENCER && ch == KEY_DOWN) {
+    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_DOWN) {
         if (!pageParams.empty()) {
             auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
             if (it != pageParams.end() && (it + 1) != pageParams.end()) {
@@ -148,10 +187,10 @@ void UI::handleInput(int ch) {
     }
 
     // Left/Right arrows adjust parameter values
-    if (currentPage != UIPage::SEQUENCER && ch == KEY_LEFT) {
+    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_LEFT) {
         adjustParameter(selectedParameterId, false);
         return;
-    } else if (currentPage != UIPage::SEQUENCER && ch == KEY_RIGHT) {
+    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_RIGHT) {
         adjustParameter(selectedParameterId, true);
         return;
     }

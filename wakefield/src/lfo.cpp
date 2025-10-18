@@ -6,14 +6,23 @@
 float LFO::generatePhaseDistorted(float phase, float morph) {
     // phase is normalized [0, 1)
     float clamped = std::min(std::max(morph, 0.0f), 1.0f);
-    float d = 0.5f - (0.5f - 0.0001f) * clamped;
+    float pivot;
+    if (clamped <= 0.5f) {
+        float t = clamped * 2.0f;
+        pivot = 0.5f - (0.5f - 0.0001f) * t;
+    } else {
+        float t = (clamped - 0.5f) * 2.0f;
+        pivot = 0.5f + 0.4999f * t;
+    }
+    pivot = std::min(std::max(pivot, 0.0001f), 0.9999f);
 
     float shapedPhase;
-    if (phase <= d) {
-        shapedPhase = phase / (2.0f * d);
+    if (phase <= pivot) {
+        float denom = std::max(1e-6f, 2.0f * pivot);
+        shapedPhase = phase / denom;
     } else {
-        float denom = std::max(1e-6f, 1.0f - d);
-        shapedPhase = 0.5f * (1.0f + ((phase - d) / denom));
+        float denom = std::max(1e-6f, 1.0f - pivot);
+        shapedPhase = 0.5f * (1.0f + ((phase - pivot) / denom));
     }
 
     return -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
@@ -32,7 +41,7 @@ float LFO::generateTanhShaped(float phase, float morph, float duty) {
 
     float theta = twoPi * (duty - 0.5f);
     float x = sine - std::sin(theta);
-    float beta = 1.0f + 40.0f * edge;
+    float beta = 1.0f + 80.0f * edge;
     float tanhPulse = std::tanh(beta * x);
 
     return (1.0f - edge) * sine + edge * tanhPulse;
@@ -138,4 +147,8 @@ float LFO::process(float sampleRate) {
 void LFO::reset() {
     phaseAccumulator_ = 0;
     currentOutput_ = 0.0f;
+}
+
+float LFO::getPhase() const {
+    return static_cast<double>(phaseAccumulator_) / 4294967296.0;
 }

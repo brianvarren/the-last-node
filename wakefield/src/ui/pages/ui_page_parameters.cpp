@@ -2,8 +2,9 @@
 #include <string>
 #include <vector>
 
-void UI::drawParametersPage(int startRow) {
+void UI::drawParametersPage(int startRow, int startCol) {
     int row = startRow;
+    int col = startCol;
     std::vector<int> pageParams = getParameterIdsForPage(currentPage);
 
     // Draw parameters inline with left/right control indicators
@@ -14,22 +15,16 @@ void UI::drawParametersPage(int startRow) {
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
             attron(COLOR_PAIR(5) | A_BOLD);
-            mvprintw(row, 2, ">");
+            mvprintw(row, col, ">");
         } else {
-            mvprintw(row, 2, " ");
+            mvprintw(row, col, " ");
         }
 
         // Parameter name and value
         std::string displayValue = getParameterDisplayString(paramId);
-        mvprintw(row, 4, "%-18s: %s", param->name.c_str(), displayValue.c_str());
+        mvprintw(row, col + 2, "%-18s: %s", param->name.c_str(), displayValue.c_str());
 
-        // Show control hints for selected parameter
         if (paramId == selectedParameterId) {
-            mvprintw(row, 45, "< >");
-            if (param->supports_midi_learn) {
-                mvprintw(row, 50, "[L]");
-            }
-            mvprintw(row, 55, "[Enter]");
             attroff(COLOR_PAIR(5) | A_BOLD);
         }
 

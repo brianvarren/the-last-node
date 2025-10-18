@@ -107,21 +107,37 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
     if (!synthParams) return;
 
     switch (paramId) {
-        // MAIN page parameters
+        // Global parameters
         case 1:  // Waveform (ENUM 0-3)
             synthParams->waveform = static_cast<int>(mapCCToParameter(ccValue, 0, 3));
             break;
         case 2:  // Attack (exponential)
-            synthParams->attack = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+            {
+                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+                synthParams->attack = mapped;
+                synthParams->setEnvAttack(0, mapped);
+            }
             break;
         case 3:  // Decay (exponential)
-            synthParams->decay = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+            {
+                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+                synthParams->decay = mapped;
+                synthParams->setEnvDecay(0, mapped);
+            }
             break;
         case 4:  // Sustain (linear)
-            synthParams->sustain = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            {
+                float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
+                synthParams->sustain = mapped;
+                synthParams->setEnvSustain(0, mapped);
+            }
             break;
         case 5:  // Release (exponential)
-            synthParams->release = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+            {
+                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+                synthParams->release = mapped;
+                synthParams->setEnvRelease(0, mapped);
+            }
             break;
         case 6:  // Master Volume (linear)
             synthParams->masterVolume = mapCCToParameter(ccValue, 0.0f, 1.0f);
@@ -146,10 +162,6 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
         case 15:  // Offset (linear, -1000 to 1000 Hz)
             synthParams->osc1Offset = mapCCToParameter(ccValue, -1000.0f, 1000.0f);
             break;
-        case 16:  // Velocity Weight (linear, 0-1)
-            synthParams->osc1VelocityWeight = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-
         // REVERB page parameters
         case 20:  // Reverb Type (ENUM 0-4)
             synthParams->reverbType = static_cast<int>(mapCCToParameter(ccValue, 0, 4));
@@ -459,7 +471,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             smoothedOscillatorDuty,
             synthParams->osc1Ratio.load(),
             synthParams->osc1Offset.load(),
-            synthParams->osc1VelocityWeight.load(),
             synthParams->osc1Flip.load(),
             synthParams->osc1Level.load()
         );

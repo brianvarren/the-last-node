@@ -7,7 +7,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     : synth(synth)
     , params(params)
     , initialized(false)
-    , currentPage(UIPage::MAIN)
+    , currentPage(UIPage::OSCILLATOR)
     , audioDeviceName("Unknown")
     , audioSampleRate(0)
     , audioBufferSize(0)
@@ -29,6 +29,8 @@ UI::UI(Synth* synth, SynthParameters* params)
     , currentEnvelopeIndex(0)
     , fmMatrixCursorRow(0)
     , fmMatrixCursorCol(1)  // Start at 0→1 (first valid FM routing)
+    , lfoWaveHistory(4)
+    , lfoPhaseSnapshot(4, 0.0f)
     , waveformBuffer(WAVEFORM_BUFFER_SIZE, 0.0f)
     , waveformBufferWritePos(0)
     , sequencerSelectedRow(0)
@@ -50,9 +52,9 @@ UI::UI(Synth* synth, SynthParameters* params)
     initializeParameters();
 
     // Set initial selected parameter to first parameter on main page
-    std::vector<int> mainParams = getParameterIdsForPage(UIPage::MAIN);
-    if (!mainParams.empty()) {
-        selectedParameterId = mainParams[0];  // Start with first parameter
+    std::vector<int> initialParams = getParameterIdsForPage(UIPage::OSCILLATOR);
+    if (!initialParams.empty()) {
+        selectedParameterId = initialParams[0];  // Start with first parameter
     }
 
 }
