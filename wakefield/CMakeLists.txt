@@ -43,6 +43,7 @@ add_executable(synth
     src/ui/pages/ui_page_parameters.cpp
     src/ui/pages/ui_page_oscillator.cpp
     src/ui/pages/ui_page_lfo.cpp
+    src/ui/pages/ui_page_envelope.cpp
     src/ui/pages/ui_page_reverb.cpp
     src/ui/pages/ui_page_filter.cpp
     src/ui/pages/ui_page_looper.cpp

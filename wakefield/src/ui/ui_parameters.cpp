@@ -55,6 +55,36 @@ void UI::initializeParameters() {
     // LOOPER page parameters - ALL support MIDI learn
     parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
     parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LOOPER)});
+
+    // ENV page parameters - control the currently selected envelope (300-323)
+    // Envelope 1: 300-305
+    parameters.push_back({300, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({301, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({302, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({303, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({304, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({305, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    // Envelope 2: 306-311
+    parameters.push_back({306, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({307, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({308, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({309, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({310, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({311, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    // Envelope 3: 312-317
+    parameters.push_back({312, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({313, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({314, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({315, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({316, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({317, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    // Envelope 4: 318-323
+    parameters.push_back({318, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({319, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({320, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({321, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({322, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({323, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
 }
 
 InlineParameter* UI::getParameter(int id) {
@@ -80,6 +110,7 @@ std::vector<int> UI::getParameterIdsForPage(UIPage page) {
 float UI::getParameterValue(int id) {
     const int oscIndex = currentOscillatorIndex;
     const int lfoIndex = currentLFOIndex;
+    const int envIndex = currentEnvelopeIndex;
 
     switch (id) {
         case 1: return static_cast<float>(params->waveform.load());
@@ -120,6 +151,31 @@ float UI::getParameterValue(int id) {
         case 33: return params->filterGain.load();
         case 40: return static_cast<float>(params->currentLoop.load());
         case 41: return params->overdubMix.load();
+        // ENV page parameters (300-323)
+        case 300: return params->getEnvAttack(0);
+        case 301: return params->getEnvDecay(0);
+        case 302: return params->getEnvSustain(0);
+        case 303: return params->getEnvRelease(0);
+        case 304: return params->getEnvAttackBend(0);
+        case 305: return params->getEnvReleaseBend(0);
+        case 306: return params->getEnvAttack(1);
+        case 307: return params->getEnvDecay(1);
+        case 308: return params->getEnvSustain(1);
+        case 309: return params->getEnvRelease(1);
+        case 310: return params->getEnvAttackBend(1);
+        case 311: return params->getEnvReleaseBend(1);
+        case 312: return params->getEnvAttack(2);
+        case 313: return params->getEnvDecay(2);
+        case 314: return params->getEnvSustain(2);
+        case 315: return params->getEnvRelease(2);
+        case 316: return params->getEnvAttackBend(2);
+        case 317: return params->getEnvReleaseBend(2);
+        case 318: return params->getEnvAttack(3);
+        case 319: return params->getEnvDecay(3);
+        case 320: return params->getEnvSustain(3);
+        case 321: return params->getEnvRelease(3);
+        case 322: return params->getEnvAttackBend(3);
+        case 323: return params->getEnvReleaseBend(3);
         default: return 0.0f;
     }
 }
@@ -127,6 +183,7 @@ float UI::getParameterValue(int id) {
 void UI::setParameterValue(int id, float value) {
     const int oscIndex = currentOscillatorIndex;
     const int lfoIndex = currentLFOIndex;
+    const int envIndex = currentEnvelopeIndex;
 
     switch (id) {
         case 1: params->waveform = static_cast<int>(value); break;
@@ -167,6 +224,31 @@ void UI::setParameterValue(int id, float value) {
         case 33: params->filterGain = value; break;
         case 40: params->currentLoop = static_cast<int>(value); break;
         case 41: params->overdubMix = value; break;
+        // ENV page parameters (300-323)
+        case 300: params->setEnvAttack(0, value); break;
+        case 301: params->setEnvDecay(0, value); break;
+        case 302: params->setEnvSustain(0, value); break;
+        case 303: params->setEnvRelease(0, value); break;
+        case 304: params->setEnvAttackBend(0, value); break;
+        case 305: params->setEnvReleaseBend(0, value); break;
+        case 306: params->setEnvAttack(1, value); break;
+        case 307: params->setEnvDecay(1, value); break;
+        case 308: params->setEnvSustain(1, value); break;
+        case 309: params->setEnvRelease(1, value); break;
+        case 310: params->setEnvAttackBend(1, value); break;
+        case 311: params->setEnvReleaseBend(1, value); break;
+        case 312: params->setEnvAttack(2, value); break;
+        case 313: params->setEnvDecay(2, value); break;
+        case 314: params->setEnvSustain(2, value); break;
+        case 315: params->setEnvRelease(2, value); break;
+        case 316: params->setEnvAttackBend(2, value); break;
+        case 317: params->setEnvReleaseBend(2, value); break;
+        case 318: params->setEnvAttack(3, value); break;
+        case 319: params->setEnvDecay(3, value); break;
+        case 320: params->setEnvSustain(3, value); break;
+        case 321: params->setEnvRelease(3, value); break;
+        case 322: params->setEnvAttackBend(3, value); break;
+        case 323: params->setEnvReleaseBend(3, value); break;
     }
 }
 
@@ -182,7 +264,8 @@ void UI::adjustParameter(int id, bool increase) {
             float step = (param->max_val - param->min_val) * 0.01f; // 1% steps
 
             // Special exponential handling for certain parameters
-            if (id == 2 || id == 3 || id == 5) { // Attack, Decay, Release - exponential scaling
+            if (id == 2 || id == 3 || id == 5 || // MAIN page Attack, Decay, Release
+                (id >= 300 && id <= 323 && (id % 6 == 0 || id % 6 == 1 || id % 6 == 3))) { // ENV Attack, Decay, Release - exponential scaling
                 if (increase) {
                     newValue = std::min(param->max_val, currentValue * 1.1f);
                 } else {

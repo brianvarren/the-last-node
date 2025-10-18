@@ -99,6 +99,45 @@ Use semantic time input like "3m39s" for precise period control.
 )";
             break;
 
+        case UIPage::ENV:
+            content = R"(
+=== ENVELOPE ===
+
+CONTROLS:
+  [Same global controls as MAIN page]
+  1-4        - Select envelope (4 independent envelopes)
+
+PARAMETERS:
+  Attack     - Attack time (0.001-30s) with exponential scaling
+  Decay      - Decay time (0.001-30s) with exponential scaling
+  Sustain    - Sustain level (0-1, linear)
+  Release    - Release time (0.001-30s) with exponential scaling
+  Atk Bend   - Attack curve shape (0-1, 0.5=linear, <0.5=concave, >0.5=convex)
+  Rel Bend   - Release curve shape (0-1, affects both decay and release)
+
+ABOUT:
+The ENV page provides 4 independent ADSR envelopes with adjustable bend curves
+for precise control over amplitude, filter, or modulation shaping.
+
+CURVE BENDING:
+  - Attack Bend controls the curvature during the attack phase
+  - Release Bend affects both decay and release phases
+  - Values < 0.5 create concave (logarithmic) curves - slow start, fast finish
+  - Values > 0.5 create convex (exponential) curves - fast start, slow finish
+  - Value = 0.5 creates linear curves (default)
+
+ENVELOPE PREVIEW:
+The bottom preview shows the complete ADSR envelope with the current bend
+settings applied. Labels indicate Attack (A), Decay (D), Sustain (S), and
+Release (R) sections.
+
+FUTURE:
+These envelopes will be available as modulation sources in the upcoming
+modulation matrix, allowing any envelope to modulate any parameter.
+Currently, Envelope 1 controls the amplitude envelope (MAIN page params).
+)";
+            break;
+
         case UIPage::REVERB:
             content = R"(
 === REVERB ===

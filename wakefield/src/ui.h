@@ -184,6 +184,35 @@ struct SynthParameters {
     std::atomic<bool> lfo4Flip{false};
     std::atomic<bool> lfo4ResetOnNote{false};
 
+    // Envelope parameters - 4 independent modulation envelopes
+    std::atomic<float> env1Attack{0.01f};
+    std::atomic<float> env1Decay{0.1f};
+    std::atomic<float> env1Sustain{0.7f};
+    std::atomic<float> env1Release{0.2f};
+    std::atomic<float> env1AttackBend{0.5f};
+    std::atomic<float> env1ReleaseBend{0.5f};
+
+    std::atomic<float> env2Attack{0.01f};
+    std::atomic<float> env2Decay{0.1f};
+    std::atomic<float> env2Sustain{0.7f};
+    std::atomic<float> env2Release{0.2f};
+    std::atomic<float> env2AttackBend{0.5f};
+    std::atomic<float> env2ReleaseBend{0.5f};
+
+    std::atomic<float> env3Attack{0.01f};
+    std::atomic<float> env3Decay{0.1f};
+    std::atomic<float> env3Sustain{0.7f};
+    std::atomic<float> env3Release{0.2f};
+    std::atomic<float> env3AttackBend{0.5f};
+    std::atomic<float> env3ReleaseBend{0.5f};
+
+    std::atomic<float> env4Attack{0.01f};
+    std::atomic<float> env4Decay{0.1f};
+    std::atomic<float> env4Sustain{0.7f};
+    std::atomic<float> env4Release{0.2f};
+    std::atomic<float> env4AttackBend{0.5f};
+    std::atomic<float> env4ReleaseBend{0.5f};
+
     // Constructor to initialize CC map
     SynthParameters() {
         for (int i = 0; i < 50; ++i) {
@@ -510,12 +539,134 @@ struct SynthParameters {
             default: lfo1ResetOnNote = value; break;
         }
     }
+
+    // Envelope getters/setters
+    float getEnvAttack(int index) const {
+        switch (index) {
+            case 0: return env1Attack.load();
+            case 1: return env2Attack.load();
+            case 2: return env3Attack.load();
+            case 3: return env4Attack.load();
+            default: return env1Attack.load();
+        }
+    }
+
+    void setEnvAttack(int index, float value) {
+        switch (index) {
+            case 0: env1Attack = value; break;
+            case 1: env2Attack = value; break;
+            case 2: env3Attack = value; break;
+            case 3: env4Attack = value; break;
+            default: env1Attack = value; break;
+        }
+    }
+
+    float getEnvDecay(int index) const {
+        switch (index) {
+            case 0: return env1Decay.load();
+            case 1: return env2Decay.load();
+            case 2: return env3Decay.load();
+            case 3: return env4Decay.load();
+            default: return env1Decay.load();
+        }
+    }
+
+    void setEnvDecay(int index, float value) {
+        switch (index) {
+            case 0: env1Decay = value; break;
+            case 1: env2Decay = value; break;
+            case 2: env3Decay = value; break;
+            case 3: env4Decay = value; break;
+            default: env1Decay = value; break;
+        }
+    }
+
+    float getEnvSustain(int index) const {
+        switch (index) {
+            case 0: return env1Sustain.load();
+            case 1: return env2Sustain.load();
+            case 2: return env3Sustain.load();
+            case 3: return env4Sustain.load();
+            default: return env1Sustain.load();
+        }
+    }
+
+    void setEnvSustain(int index, float value) {
+        switch (index) {
+            case 0: env1Sustain = value; break;
+            case 1: env2Sustain = value; break;
+            case 2: env3Sustain = value; break;
+            case 3: env4Sustain = value; break;
+            default: env1Sustain = value; break;
+        }
+    }
+
+    float getEnvRelease(int index) const {
+        switch (index) {
+            case 0: return env1Release.load();
+            case 1: return env2Release.load();
+            case 2: return env3Release.load();
+            case 3: return env4Release.load();
+            default: return env1Release.load();
+        }
+    }
+
+    void setEnvRelease(int index, float value) {
+        switch (index) {
+            case 0: env1Release = value; break;
+            case 1: env2Release = value; break;
+            case 2: env3Release = value; break;
+            case 3: env4Release = value; break;
+            default: env1Release = value; break;
+        }
+    }
+
+    float getEnvAttackBend(int index) const {
+        switch (index) {
+            case 0: return env1AttackBend.load();
+            case 1: return env2AttackBend.load();
+            case 2: return env3AttackBend.load();
+            case 3: return env4AttackBend.load();
+            default: return env1AttackBend.load();
+        }
+    }
+
+    void setEnvAttackBend(int index, float value) {
+        switch (index) {
+            case 0: env1AttackBend = value; break;
+            case 1: env2AttackBend = value; break;
+            case 2: env3AttackBend = value; break;
+            case 3: env4AttackBend = value; break;
+            default: env1AttackBend = value; break;
+        }
+    }
+
+    float getEnvReleaseBend(int index) const {
+        switch (index) {
+            case 0: return env1ReleaseBend.load();
+            case 1: return env2ReleaseBend.load();
+            case 2: return env3ReleaseBend.load();
+            case 3: return env4ReleaseBend.load();
+            default: return env1ReleaseBend.load();
+        }
+    }
+
+    void setEnvReleaseBend(int index, float value) {
+        switch (index) {
+            case 0: env1ReleaseBend = value; break;
+            case 1: env2ReleaseBend = value; break;
+            case 2: env3ReleaseBend = value; break;
+            case 3: env4ReleaseBend = value; break;
+            default: env1ReleaseBend = value; break;
+        }
+    }
 };
 
 enum class UIPage {
     MAIN,
     OSCILLATOR,
     LFO,
+    ENV,
     REVERB,
     FILTER,
     LOOPER,
@@ -647,6 +798,7 @@ private:
     void drawParametersPage(int startRow = 3);  // Generic parameter page drawing
     void drawOscillatorPage();
     void drawLFOPage();
+    void drawEnvelopePage();
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();
@@ -656,6 +808,7 @@ private:
     void drawConsole();
     void drawHotkeyLine();
     void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
+    void drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
 
     // Sequencer helpers
     bool handleSequencerInput(int ch);
@@ -688,9 +841,10 @@ private:
     void startMidiLearn(int id);
     void finishMidiLearn();
 
-    // Oscillator/LFO UI state
+    // Oscillator/LFO/Envelope UI state
     int currentOscillatorIndex;  // 0-3: which oscillator is selected on OSCILLATOR page
     int currentLFOIndex;          // 0-3: which LFO is selected on LFO page
+    int currentEnvelopeIndex;     // 0-3: which envelope is selected on ENV page
 
     // Sequencer UI state
     enum class SequencerTrackerColumn {

@@ -86,7 +86,8 @@ void UI::handleInput(int ch) {
     if (ch == '\t') {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::OSCILLATOR;
         else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::LFO;
-        else if (currentPage == UIPage::LFO) currentPage = UIPage::REVERB;
+        else if (currentPage == UIPage::LFO) currentPage = UIPage::ENV;
+        else if (currentPage == UIPage::ENV) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::REVERB) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::LOOPER;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::SEQUENCER;
@@ -106,7 +107,8 @@ void UI::handleInput(int ch) {
         if (currentPage == UIPage::MAIN) currentPage = UIPage::CONFIG;
         else if (currentPage == UIPage::OSCILLATOR) currentPage = UIPage::MAIN;
         else if (currentPage == UIPage::LFO) currentPage = UIPage::OSCILLATOR;
-        else if (currentPage == UIPage::REVERB) currentPage = UIPage::LFO;
+        else if (currentPage == UIPage::ENV) currentPage = UIPage::LFO;
+        else if (currentPage == UIPage::REVERB) currentPage = UIPage::ENV;
         else if (currentPage == UIPage::FILTER) currentPage = UIPage::REVERB;
         else if (currentPage == UIPage::LOOPER) currentPage = UIPage::FILTER;
         else if (currentPage == UIPage::SEQUENCER) currentPage = UIPage::LOOPER;
@@ -207,6 +209,16 @@ void UI::handleInput(int ch) {
             case '2': currentLFOIndex = 1; addConsoleMessage("LFO 2 selected"); return;
             case '3': currentLFOIndex = 2; addConsoleMessage("LFO 3 selected"); return;
             case '4': currentLFOIndex = 3; addConsoleMessage("LFO 4 selected"); return;
+        }
+    }
+
+    // Envelope selection (1-4 keys on ENV page)
+    if (currentPage == UIPage::ENV) {
+        switch (ch) {
+            case '1': currentEnvelopeIndex = 0; addConsoleMessage("Envelope 1 selected"); return;
+            case '2': currentEnvelopeIndex = 1; addConsoleMessage("Envelope 2 selected"); return;
+            case '3': currentEnvelopeIndex = 2; addConsoleMessage("Envelope 3 selected"); return;
+            case '4': currentEnvelopeIndex = 3; addConsoleMessage("Envelope 4 selected"); return;
         }
     }
 
