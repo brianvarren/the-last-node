@@ -122,6 +122,41 @@ void UI::drawConsole() {
     }
 }
 
+void UI::drawCPUOverlay() {
+    if (!cpuMonitor.isEnabled()) {
+        return;
+    }
+
+    int maxX = getmaxx(stdscr);
+    float cpuUsage = cpuMonitor.getCPUUsage();
+
+    // Draw in top-right corner, right after the tabs
+    int x = maxX - 15;  // Reserve 15 chars for "CPU: 100.0%"
+
+    if (x < 0) {
+        return;  // Terminal too narrow
+    }
+
+    // Format: "CPU: XX.X%"
+    attron(COLOR_PAIR(1));
+    mvprintw(0, x, "CPU:");
+    attroff(COLOR_PAIR(1));
+
+    // Color code based on usage
+    int colorPair;
+    if (cpuUsage < 50.0f) {
+        colorPair = 2;  // Green - low usage
+    } else if (cpuUsage < 80.0f) {
+        colorPair = 3;  // Yellow - medium usage
+    } else {
+        colorPair = 4;  // Red - high usage
+    }
+
+    attron(COLOR_PAIR(colorPair) | A_BOLD);
+    mvprintw(0, x + 5, "%5.1f%%", cpuUsage);
+    attroff(COLOR_PAIR(colorPair) | A_BOLD);
+}
+
 void UI::drawHotkeyLine() {
     int maxY = getmaxy(stdscr);
     int maxX = getmaxx(stdscr);
@@ -155,6 +190,7 @@ void UI::draw(int activeVoices) {
     }
 
     drawTabs();
+    drawCPUOverlay();  // Always draw CPU overlay on top bar
 
     switch (currentPage) {
         case UIPage::MAIN:

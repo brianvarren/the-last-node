@@ -56,4 +56,15 @@ void UI::drawConfigPage() {
     mvprintw(row++, 2, "Waveforms: Sine, Square, Sawtooth, Triangle");
     mvprintw(row++, 2, "Filters: Lowpass, Highpass, Shelving");
     mvprintw(row++, 2, "Reverb: Greyhole (Faust 2.37.3)");
+
+    row += 2;
+
+    // UI Settings
+    attron(A_BOLD);
+    mvprintw(row++, 1, "UI SETTINGS");
+    attroff(A_BOLD);
+    row++;
+
+    // Draw CPU monitor toggle using standard parameter display
+    drawParametersPage(row);
 }

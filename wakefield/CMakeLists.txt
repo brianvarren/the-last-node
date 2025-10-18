@@ -29,6 +29,7 @@ add_executable(synth
     src/pattern.cpp
     src/track.cpp
     src/sequencer.cpp
+    src/cpu_monitor.cpp
     # UI core files
     src/ui.cpp
     src/ui/ui_utils.cpp

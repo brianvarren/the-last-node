@@ -56,6 +56,9 @@ void UI::initializeParameters() {
     parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
     parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LOOPER)});
 
+    // CONFIG page parameters
+    parameters.push_back({400, ParamType::BOOL, "CPU Monitor", "", 0, 1, {}, false, static_cast<int>(UIPage::CONFIG)});
+
     // ENV page parameters - control the currently selected envelope (300-323)
     // Envelope 1: 300-305
     parameters.push_back({300, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
@@ -151,6 +154,8 @@ float UI::getParameterValue(int id) {
         case 33: return params->filterGain.load();
         case 40: return static_cast<float>(params->currentLoop.load());
         case 41: return params->overdubMix.load();
+        // CONFIG page parameters
+        case 400: return cpuMonitor.isEnabled() ? 1.0f : 0.0f;
         // ENV page parameters (300-323)
         case 300: return params->getEnvAttack(0);
         case 301: return params->getEnvDecay(0);
@@ -224,6 +229,8 @@ void UI::setParameterValue(int id, float value) {
         case 33: params->filterGain = value; break;
         case 40: params->currentLoop = static_cast<int>(value); break;
         case 41: params->overdubMix = value; break;
+        // CONFIG page parameters
+        case 400: cpuMonitor.setEnabled(value > 0.5f); break;
         // ENV page parameters (300-323)
         case 300: params->setEnvAttack(0, value); break;
         case 301: params->setEnvDecay(0, value); break;

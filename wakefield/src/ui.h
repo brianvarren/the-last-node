@@ -9,6 +9,7 @@
 #include <vector>
 #include <functional>
 #include "oscillator.h"
+#include "cpu_monitor.h"
 
 class Synth;  // Forward declaration
 
@@ -718,9 +719,12 @@ public:
 
     // Get parameter name by ID (public for MIDI handler)
     std::string getParameterName(int id);
-    
+
     // Waveform buffer for oscilloscope
     void writeToWaveformBuffer(float sample);
+
+    // CPU monitor access
+    CPUMonitor& getCPUMonitor() { return cpuMonitor; }
 
     // Preset management
     void loadPreset(const std::string& filename);
@@ -783,6 +787,10 @@ private:
     void hideHelp();
     void drawHelpPage();
     std::string getHelpContent(UIPage page);
+
+    // CPU monitor
+    CPUMonitor cpuMonitor;
+    void drawCPUOverlay();
 
     // Text input for preset names
     void startTextInput();

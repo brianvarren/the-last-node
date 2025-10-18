@@ -97,6 +97,9 @@ bool UI::initialize() {
         }
     }
 
+    // Start CPU monitoring
+    cpuMonitor.start();
+
     initialized = true;
     return true;
 }
