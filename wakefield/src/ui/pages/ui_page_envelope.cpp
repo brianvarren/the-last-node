@@ -138,13 +138,18 @@ void UI::drawEnvelopePage() {
     // Draw parameters for the currently selected envelope
     drawParametersPage(row + 2);
 
-    // Draw envelope preview at the bottom of the screen, full width
+    // Draw envelope preview in the bottom portion, leaving room for parameters
     int rows = getmaxy(stdscr);
     int cols = getmaxx(stdscr);
-    const int plotHeight = 15;
-    const int plotWidth = cols - 8; // Leave some margin
-    int bottomMargin = 2;
-    int plotTop = rows - plotHeight - bottomMargin - 4; // Space for labels and border
+
+    // Calculate preview dimensions: use about 35% of screen height for preview
+    // This leaves plenty of room for parameters at top
+    int availableHeight = rows - (row + 2) - 2; // Subtract top content and bottom margin
+    int plotHeight = std::min(12, availableHeight / 3); // Max 12 rows or 1/3 available space
+    int plotWidth = cols - 8; // Leave some margin
+
+    // Position preview: leave space after parameters (about 10 rows) plus border/label space
+    int plotTop = row + 2 + 10; // Start after parameter list with some spacing
     int leftCol = 4;
 
     drawEnvelopePreview(plotTop, leftCol, plotHeight, plotWidth);
