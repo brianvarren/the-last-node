@@ -681,7 +681,8 @@ struct SynthParameters {
 
     void setFMDepth(int target, int source, float depth) {
         if (target < 0 || target >= 4 || source < 0 || source >= 4) return;
-        fmMatrix[target][source] = std::max(0.0f, std::min(1.0f, depth));
+        const float clamped = std::max(-0.99f, std::min(0.99f, depth));
+        fmMatrix[target][source] = clamped;
     }
 };
 

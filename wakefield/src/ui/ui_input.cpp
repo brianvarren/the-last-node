@@ -226,74 +226,48 @@ void UI::handleInput(int ch) {
 
     // FM Matrix navigation and editing
     if (currentPage == UIPage::FM) {
+        auto adjustFMDepth = [&](float delta) {
+            float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
+            depth = std::max(-0.99f, std::min(0.99f, depth + delta));
+            params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, depth);
+        };
+
         switch (ch) {
             case KEY_UP:
                 fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 4) % 4;
-                // Skip diagonal (self-modulation)
-                if (fmMatrixCursorRow == fmMatrixCursorCol) {
-                    fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 4) % 4;
-                }
                 return;
 
             case KEY_DOWN:
                 fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 4;
-                // Skip diagonal (self-modulation)
-                if (fmMatrixCursorRow == fmMatrixCursorCol) {
-                    fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 4;
-                }
                 return;
 
             case KEY_LEFT:
                 fmMatrixCursorCol = (fmMatrixCursorCol - 1 + 4) % 4;
-                // Skip diagonal (self-modulation)
-                if (fmMatrixCursorRow == fmMatrixCursorCol) {
-                    fmMatrixCursorCol = (fmMatrixCursorCol - 1 + 4) % 4;
-                }
-                // Also decrease FM depth
-                if (fmMatrixCursorRow != fmMatrixCursorCol) {
-                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
-                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::max(0.0f, depth - 0.05f));
-                }
                 return;
 
             case KEY_RIGHT:
                 fmMatrixCursorCol = (fmMatrixCursorCol + 1) % 4;
-                // Skip diagonal (self-modulation)
-                if (fmMatrixCursorRow == fmMatrixCursorCol) {
-                    fmMatrixCursorCol = (fmMatrixCursorCol + 1) % 4;
-                }
-                // Also increase FM depth
-                if (fmMatrixCursorRow != fmMatrixCursorCol) {
-                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
-                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::min(1.0f, depth + 0.05f));
-                }
                 return;
 
             case '+':
             case '=':
-                if (fmMatrixCursorRow != fmMatrixCursorCol) {
-                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
-                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::min(1.0f, depth + 0.1f));
-                }
+                adjustFMDepth(0.05f);
                 return;
 
             case '-':
             case '_':
-                if (fmMatrixCursorRow != fmMatrixCursorCol) {
-                    float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
-                    params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, std::max(0.0f, depth - 0.1f));
-                }
+                adjustFMDepth(-0.05f);
                 return;
 
-            case ' ':  // Space bar: quick presets (0%, 50%, 100%)
-                if (fmMatrixCursorRow != fmMatrixCursorCol) {
+            case ' ':  // Space bar: cycle 0 -> +99 -> -99 -> 0
+                {
                     float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
-                    if (depth < 0.01f) {
-                        params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 0.5f);
-                    } else if (depth < 0.75f) {
-                        params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 1.0f);
-                    } else {
+                    if (depth > 0.05f) {
+                        params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, -0.99f);
+                    } else if (depth < -0.05f) {
                         params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 0.0f);
+                    } else {
+                        params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 0.99f);
                     }
                 }
                 return;

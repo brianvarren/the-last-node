@@ -22,15 +22,12 @@ float Voice::generateSample() {
         return 0.0f;
     }
 
-    // Determine FM input for each oscillator using previous outputs
+    // Determine FM input for each oscillator using previous outputs (1-sample delay)
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
     if (params) {
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-                if (source == target) {
-                    continue;  // No self-modulation
-                }
                 float fmDepth = params->getFMDepth(target, source);
                 if (fmDepth != 0.0f) {
                     totalFM += lastOscOutputs[source] * fmDepth;
