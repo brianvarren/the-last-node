@@ -48,7 +48,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     , modMatrixMenuActive(false)
     , modMatrixMenuIndex(0)
     , modMatrixMenuColumn(0)
-    , lfoScopeXZoom(100)
+    , lfoScopeXZoom(200)  // Show more samples by default for smoother display
     , lfoScopeYZoom(1) {
 
     // Initialize LFO history buffers

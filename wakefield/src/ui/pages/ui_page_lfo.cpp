@@ -34,12 +34,21 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
     int prevCol = -1;
 
     for (int x = 0; x < width; ++x) {
-        // Map x position to history buffer
+        // Map x position to history buffer with sub-sample precision
         // x=0 is oldest sample in window, x=width-1 is newest
-        int historyOffset = samplesToShow - 1 - ((x * samplesToShow) / width);
-        int bufferIndex = (writePos - 1 - historyOffset + historySize) % historySize;
+        float historyOffsetFloat = static_cast<float>(samplesToShow - 1) * (1.0f - static_cast<float>(x) / static_cast<float>(width - 1));
+        int historyOffset = static_cast<int>(std::floor(historyOffsetFloat));
+        float frac = historyOffsetFloat - static_cast<float>(historyOffset);
 
-        float amplitude = lfoHistoryBuffer[lfoIndex][bufferIndex];
+        // Get two adjacent samples for interpolation
+        int bufferIndex1 = (writePos - 1 - historyOffset + historySize) % historySize;
+        int bufferIndex2 = (writePos - 1 - historyOffset - 1 + historySize) % historySize;
+
+        float amplitude1 = lfoHistoryBuffer[lfoIndex][bufferIndex1];
+        float amplitude2 = lfoHistoryBuffer[lfoIndex][bufferIndex2];
+
+        // Linear interpolation for smooth display
+        float amplitude = amplitude1 + frac * (amplitude2 - amplitude1);
 
         // Apply Y zoom
         amplitude *= yScale;

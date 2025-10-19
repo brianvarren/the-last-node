@@ -205,10 +205,10 @@ void UI::handleInput(int ch) {
     // LFO page zoom controls
     if (currentPage == UIPage::LFO) {
         if (ch == '[') {
-            lfoScopeXZoom = std::max(10, lfoScopeXZoom - 10);
+            lfoScopeXZoom = std::max(20, lfoScopeXZoom - 10);
             return;
         } else if (ch == ']') {
-            lfoScopeXZoom = std::min(500, lfoScopeXZoom + 10);
+            lfoScopeXZoom = std::min(2048, lfoScopeXZoom + 10);  // Match LFO_HISTORY_SIZE
             return;
         } else if (ch == '{') {
             lfoScopeYZoom = std::max(1, lfoScopeYZoom - 1);

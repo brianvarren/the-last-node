@@ -820,7 +820,8 @@ private:
     std::atomic<int> waveformBufferWritePos;
 
     // LFO amplitude history for rolling scope view
-    static const int LFO_HISTORY_SIZE = 512;
+    // Increased from 512 to 2048 for better resolution at fast LFO rates
+    static const int LFO_HISTORY_SIZE = 2048;
     std::vector<float> lfoHistoryBuffer[4];  // One per LFO
     int lfoHistoryWritePos[4];
 
