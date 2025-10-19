@@ -825,6 +825,17 @@ private:
     std::vector<float> lfoHistoryBuffer[4];  // One per LFO
     int lfoHistoryWritePos[4];
 
+    struct LFOScopeState {
+        std::vector<float> columnAmplitudes;
+        int width = 0;
+        int height = 0;
+        int lastSamplesToShow = -1;
+        int lastWritePos = 0;
+        bool initialized = false;
+    };
+
+    LFOScopeState lfoScopeState[4];
+
     // Device change request
     bool deviceChangeRequested;
     int requestedAudioDeviceId;

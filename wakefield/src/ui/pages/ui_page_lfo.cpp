@@ -3,7 +3,7 @@
 #include <cmath>
 #include <vector>
 
-void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float phaseHead) {
+void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float /*phaseHead*/) {
     // Rolling history scope view - newest sample on right, history scrolls left
     int width = std::max(16, plotWidth);
     int height = std::max(6, plotHeight);
@@ -24,36 +24,109 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
 
     int writePos = lfoHistoryWritePos[lfoIndex];
     int historySize = lfoHistoryBuffer[lfoIndex].size();
-    if (historySize == 0) {
-        return;
-    }
 
     // X zoom: how many history samples to display across the width
     // Y zoom: vertical scaling factor (1 = full range, 2 = 2x zoom, etc)
-    int samplesToShow = std::min(lfoScopeXZoom, historySize);
+    int samplesToShow = historySize > 0 ? std::min(lfoScopeXZoom, historySize) : 1;
     float yScale = static_cast<float>(lfoScopeYZoom);
 
+    int denominator = std::max(1, width - 1);
+    int sampleSpan = std::max(0, samplesToShow - 1);
+    float columnsPerSample = (sampleSpan > 0) ? static_cast<float>(denominator) / static_cast<float>(sampleSpan) : 0.0f;
+    int newestIndex = (historySize > 0) ? (writePos - 1 + historySize) % historySize : 0;
+
+    auto sampleHistory = [&](float offsetFloat) -> float {
+        if (historySize == 0) {
+            return 0.0f;
+        }
+        int baseOffset = static_cast<int>(std::floor(offsetFloat));
+        float frac = offsetFloat - static_cast<float>(baseOffset);
+
+        int index1 = (newestIndex - baseOffset + historySize) % historySize;
+        float sample1 = lfoHistoryBuffer[lfoIndex][index1];
+
+        if (historySize == 1) {
+            return sample1;
+        }
+
+        int index2 = (index1 - 1 + historySize) % historySize;
+        float sample2 = lfoHistoryBuffer[lfoIndex][index2];
+        return sample1 + frac * (sample2 - sample1);
+    };
+
+    auto& state = lfoScopeState[lfoIndex];
+    bool needReinit = !state.initialized || state.width != width || state.height != height ||
+                      state.lastSamplesToShow != samplesToShow ||
+                      static_cast<int>(state.columnAmplitudes.size()) != width;
+
+    auto initializeAmplitudes = [&]() {
+        state.columnAmplitudes.assign(width, 0.0f);
+        if (historySize > 0) {
+            for (int col = 0; col < width; ++col) {
+                float t = (denominator > 0) ? static_cast<float>(col) / static_cast<float>(denominator) : 0.0f;
+                float historyOffsetFloat = static_cast<float>(sampleSpan) * (1.0f - t);
+                state.columnAmplitudes[col] = sampleHistory(historyOffsetFloat);
+            }
+        }
+        state.width = width;
+        state.height = height;
+        state.lastSamplesToShow = samplesToShow;
+        state.lastWritePos = writePos;
+        state.initialized = true;
+    };
+
+    if (needReinit) {
+        initializeAmplitudes();
+    } else if (historySize > 0) {
+        int deltaSamples = (writePos - state.lastWritePos + historySize) % historySize;
+        state.lastWritePos = writePos;
+
+        float shiftAmount = columnsPerSample * static_cast<float>(deltaSamples);
+
+        if (shiftAmount >= static_cast<float>(width)) {
+            initializeAmplitudes();
+        } else if (shiftAmount > 0.0f && !state.columnAmplitudes.empty()) {
+            std::vector<float> shifted(width, 0.0f);
+            for (int dst = 0; dst < width; ++dst) {
+                float srcPos = static_cast<float>(dst) + shiftAmount;
+                if (srcPos <= static_cast<float>(width - 1)) {
+                    int idx0 = static_cast<int>(std::floor(srcPos));
+                    int idx1 = std::min(width - 1, idx0 + 1);
+                    float frac = srcPos - static_cast<float>(idx0);
+                    float value0 = state.columnAmplitudes[idx0];
+                    float value1 = state.columnAmplitudes[idx1];
+                    shifted[dst] = value0 + frac * (value1 - value0);
+                }
+            }
+
+            int newColumns = std::min(width, static_cast<int>(std::ceil(shiftAmount)));
+            int startCol = std::max(0, width - newColumns);
+            for (int col = startCol; col < width; ++col) {
+                float t = (denominator > 0) ? static_cast<float>(col) / static_cast<float>(denominator) : 0.0f;
+                float historyOffsetFloat = static_cast<float>(sampleSpan) * (1.0f - t);
+                shifted[col] = sampleHistory(historyOffsetFloat);
+            }
+
+            state.columnAmplitudes.swap(shifted);
+        }
+    } else {
+        // No history data yet; ensure amplitudes vector matches width
+        if (static_cast<int>(state.columnAmplitudes.size()) != width) {
+            state.columnAmplitudes.assign(width, 0.0f);
+        }
+        state.width = width;
+        state.height = height;
+        state.lastSamplesToShow = samplesToShow;
+        state.lastWritePos = writePos;
+        state.initialized = true;
+    }
+
+    // Build the display grid from the current amplitude state
     int prevRow = -1;
     int prevCol = -1;
 
-    // Snapshot the newest history index once so the scope shifts in lockstep each update
-    int newestIndex = (writePos - 1 + historySize) % historySize;
-    int denominator = std::max(1, width - 1);
-    int sampleSpan = std::max(0, samplesToShow - 1);
-
     for (int x = 0; x < width; ++x) {
-        // Map column to a discrete history offset so every column advances together
-        int columnsFromRight = width - 1 - x;
-        int historyOffset;
-        if (width == 1) {
-            historyOffset = 0;
-        } else {
-            // Round to nearest to evenly distribute samples across the scope width
-            historyOffset = (sampleSpan * columnsFromRight + denominator / 2) / denominator;
-        }
-
-        int bufferIndex = (newestIndex - historyOffset + historySize) % historySize;
-        float amplitude = lfoHistoryBuffer[lfoIndex][bufferIndex];
+        float amplitude = (x < static_cast<int>(state.columnAmplitudes.size())) ? state.columnAmplitudes[x] : 0.0f;
 
         // Apply Y zoom
         amplitude *= yScale;
