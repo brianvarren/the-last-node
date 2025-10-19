@@ -1,5 +1,6 @@
 #include "voice.h"
-#include "ui.h"  // For SynthParameters definition
+#include "synth.h"  // For Synth::getOscillatorBaseLevel()
+#include "ui.h"    // For SynthParameters definition
 
 void Voice::resetFMHistory() {
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
@@ -42,15 +43,15 @@ float Voice::generateSample() {
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         currentOutputs[i] = oscillators[i].process(sampleRate, fmInputs[i],
                                                     pitchMod[i], morphMod[i], dutyMod[i],
-                                                    ratioMod[i], offsetMod[i], levelMod[i]);
+                                                    ratioMod[i], offsetMod[i]);
     }
 
-    // Mix all oscillators (weighted average) with modulation applied
+    // Mix all oscillators with base level + modulation
     float mixedSample = 0.0f;
     float totalWeight = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        // Apply level modulation (additive)
-        float baseLevel = oscillators[i].getLevel();
+        // Get base level from synth (control-rate) and add level modulation
+        float baseLevel = synth ? synth->getOscillatorBaseLevel(i) : 0.0f;
         float modulatedLevel = std::min(std::max(baseLevel + levelMod[i], 0.0f), 1.0f);
 
         if (modulatedLevel <= 0.0f) {

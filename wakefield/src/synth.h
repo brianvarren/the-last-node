@@ -93,6 +93,12 @@ public:
     void setOscillatorState(int index, BrainwaveMode mode, int shape,
                             float baseFreq, float morph, float duty,
                             float ratio, float offsetHz, bool flipPolarity, float level);
+
+    // Get oscillator base level (for voice mixing)
+    float getOscillatorBaseLevel(int index) const {
+        if (index < 0 || index >= OSCILLATORS_PER_VOICE) return 0.0f;
+        return oscillatorBaseLevels[index];
+    }
     
 private:
     float sampleRate;
@@ -116,21 +122,10 @@ private:
     OnePoleHighShelfBLT highShelfR;
     OnePoleLowShelfBLT lowShelfL;
     OnePoleLowShelfBLT lowShelfR;
-    
-    struct OscillatorState {
-        BrainwaveMode mode = BrainwaveMode::KEY;  // Match BrainwaveOscillator default
-        BrainwaveShape shape = BrainwaveShape::SAW;
-        float baseFrequency = 440.0f;
-        float morph = 0.5f;
-        float duty = 0.5f;
-        float ratio = 1.0f;
-        float offsetHz = 0.0f;
-        float level = 1.0f;  // Match BrainwaveOscillator default (was 0.0f)
-        bool flipPolarity = false;
-        bool initialized = false;
-    };
 
-    OscillatorState oscillatorStates[OSCILLATORS_PER_VOICE];
+    // Per-oscillator base levels (control-rate, set from UI/params)
+    // These are combined with levelMod in voice mixing
+    float oscillatorBaseLevels[OSCILLATORS_PER_VOICE] = {1.0f, 0.0f, 0.0f, 0.0f};
     
     int findFreeVoice();
     float midiNoteToFrequency(int midiNote);

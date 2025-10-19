@@ -43,8 +43,6 @@ public:
     void setShape(BrainwaveShape shape) { shape_ = shape; }
     BrainwaveShape getShape() const { return shape_; }
 
-    void setLevel(float level) { level_ = std::min(std::max(level, 0.0f), 1.0f); }
-    float getLevel() const { return level_; }
     void setFlipPolarity(bool flip) { flipPolarity_ = flip; }
     bool getFlipPolarity() const { return flipPolarity_; }
     
@@ -57,9 +55,10 @@ public:
     float getFMSensitivity() const { return fmSensitivity_; }
 
     // Generate one sample and advance phase (with optional FM input and modulation offsets)
+    // Note: Level is NOT applied here - it's handled at mixing stage in voice
     float process(float sampleRate, float fmInput = 0.0f,
                   float pitchMod = 0.0f, float morphMod = 0.0f, float dutyMod = 0.0f,
-                  float ratioMod = 0.0f, float offsetMod = 0.0f, float levelMod = 0.0f);
+                  float ratioMod = 0.0f, float offsetMod = 0.0f);
 
     // Reset phase
     void reset() { phaseAccumulator_ = 0; }
@@ -73,7 +72,6 @@ private:
     BrainwaveShape shape_;
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
-    float level_;              // Output level (0-1)
     bool flipPolarity_;        // Invert waveform polarity
     float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)
 

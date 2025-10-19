@@ -66,7 +66,6 @@ BrainwaveOscillator::BrainwaveOscillator()
     , shape_(BrainwaveShape::SAW)
     , ratio_(1.0f)
     , offsetHz_(0.0f)
-    , level_(1.0f)
     , flipPolarity_(false)
     , fmSensitivity_(0.5f)  // Default FM sensitivity
     , phaseAccumulator_(0) {
@@ -111,7 +110,7 @@ float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos) {
 
 float BrainwaveOscillator::process(float sampleRate, float fmInput,
                                    float pitchMod, float morphMod, float dutyMod,
-                                   float ratioMod, float offsetMod, float levelMod) {
+                                   float ratioMod, float offsetMod) {
     // Calculate base frequency (FREE or KEY mode)
     float freq = 0.0f;
     if (mode_ == BrainwaveMode::FREE) {
@@ -164,9 +163,6 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     if (flipPolarity_) {
         sample = -sample;
     }
-
-    // Note: Level modulation is NOT applied here - it's handled by the voice mixer
-    // The voice.cpp mixing code already multiplies by level, so applying it here would be redundant
 
     // Advance or reverse phase depending on frequency sign (TZFM)
     if (isNegative) {

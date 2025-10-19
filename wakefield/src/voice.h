@@ -4,8 +4,9 @@
 #include "envelope.h"
 #include "brainwave_osc.h"
 
-// Forward declaration
+// Forward declarations
 struct SynthParameters;
+class Synth;
 
 constexpr int OSCILLATORS_PER_VOICE = 4;
 
@@ -16,6 +17,7 @@ struct Voice {
     BrainwaveOscillator oscillators[OSCILLATORS_PER_VOICE]; // 4 oscillators per voice
     Envelope envelope;     // Amplitude envelope
     SynthParameters* params;  // Pointer to FM matrix and other params
+    Synth* synth;          // Pointer to synth for base level access
 
     // Modulation storage (set once per buffer by Synth::process)
     float pitchMod[OSCILLATORS_PER_VOICE];
@@ -31,7 +33,8 @@ struct Voice {
         , velocity(64)
         , envelope(sampleRate)
         , sampleRate(sampleRate)
-        , params(nullptr) {
+        , params(nullptr)
+        , synth(nullptr) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             lastOscOutputs[i] = 0.0f;
             pitchMod[i] = 0.0f;

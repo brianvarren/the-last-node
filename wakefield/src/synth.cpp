@@ -61,38 +61,8 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
         return;
     }
 
-    OscillatorState& state = oscillatorStates[index];
-
-    auto floatsDiffer = [](float a, float b) {
-        return std::fabs(a - b) > 1e-6f;
-    };
-
-    bool changed = !state.initialized ||
-                   state.mode != mode ||
-                   state.shape != static_cast<BrainwaveShape>(shape) ||
-                   floatsDiffer(state.baseFrequency, baseFreq) ||
-                   floatsDiffer(state.morph, morph) ||
-                   floatsDiffer(state.duty, duty) ||
-                   floatsDiffer(state.ratio, ratio) ||
-                   floatsDiffer(state.offsetHz, offsetHz) ||
-                   floatsDiffer(state.level, level) ||
-                   state.flipPolarity != flipPolarity;
-
-    if (!changed) {
-        return;
-    }
-
-    state.mode = mode;
-    state.shape = static_cast<BrainwaveShape>(shape);
-    state.baseFrequency = baseFreq;
-    state.morph = morph;
-    state.duty = duty;
-    state.ratio = ratio;
-    state.offsetHz = offsetHz;
-    state.level = level;
-    state.flipPolarity = flipPolarity;
-    state.initialized = true;
-
+    // No change detection - always update for real-time control
+    // The oscillator setters are simple and cheap to call every frame
     BrainwaveShape shapeEnum = (shape == 0) ? BrainwaveShape::SAW : BrainwaveShape::PULSE;
 
     for (auto& voice : voices) {
@@ -105,8 +75,10 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
         osc.setRatio(ratio);
         osc.setOffset(offsetHz);
         osc.setFlipPolarity(flipPolarity);
-        osc.setLevel(level);
     }
+
+    // Store base level at control rate (used in voice mixing)
+    oscillatorBaseLevels[index] = level;
 }
 
 void Synth::updateReverbParameters(float delayTime, float size, float damping, float mix, float decay,
@@ -485,8 +457,9 @@ Synth::ModulationOutputs Synth::processModulationMatrix() {
 
 void Synth::setParams(SynthParameters* params_ptr) {
     params = params_ptr;
-    // Update all voice param pointers for FM matrix access
+    // Update all voice pointers for FM matrix access and base levels
     for (auto& voice : voices) {
         voice.params = params_ptr;
+        voice.synth = this;
     }
 }
