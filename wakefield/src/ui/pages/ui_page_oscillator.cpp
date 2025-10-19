@@ -62,7 +62,6 @@ float computeWaveSample(float phase, float morph, float duty, int shape) {
 void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth) {
     float morph = params->getOscMorph(currentOscillatorIndex);
     float duty = params->getOscDuty(currentOscillatorIndex);
-    bool flip = params->getOscFlip(currentOscillatorIndex);
     int shape = params->getOscShape(currentOscillatorIndex);
 
     morph = std::min(std::max(morph, 0.0f), 1.0f);
@@ -89,9 +88,6 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
     for (int x = 0; x < width; ++x) {
         float phase = (width == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(width - 1);
         float sample = computeWaveSample(phase, morph, duty, shape);
-        if (flip) {
-            sample = -sample;
-        }
         sample = std::min(std::max(sample, -1.0f), 1.0f);
         float normalized = (-sample + 1.0f) * 0.5f;
         int row = static_cast<int>(std::round(normalized * (height - 1)));

@@ -56,7 +56,7 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
 
 void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
                                float baseFreq, float morph, float duty,
-                               float ratio, float offsetHz, bool flipPolarity, float level) {
+                               float ratio, float offsetHz, float level) {
     if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
         return;
     }
@@ -74,7 +74,6 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
         osc.setDuty(duty);
         osc.setRatio(ratio);
         osc.setOffset(offsetHz);
-        osc.setFlipPolarity(flipPolarity);
     }
 
     // Store base level at control rate (used in voice mixing)

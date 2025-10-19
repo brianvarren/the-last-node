@@ -116,7 +116,6 @@ struct SynthParameters {
     std::atomic<float> osc1Duty{0.5f};         // Pulse width (0.0-1.0)
     std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
     std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
-    std::atomic<bool> osc1Flip{false};         // Polarity inversion
     std::atomic<float> osc1Level{1.0f};        // Oscillator level/gain (0.0-1.0)
 
     // Oscillator 2 (index 1)
@@ -127,7 +126,6 @@ struct SynthParameters {
     std::atomic<float> osc2Duty{0.5f};
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
-    std::atomic<bool> osc2Flip{false};
     std::atomic<float> osc2Level{0.0f};        // Default: off
 
     // Oscillator 3 (index 2)
@@ -138,7 +136,6 @@ struct SynthParameters {
     std::atomic<float> osc3Duty{0.5f};
     std::atomic<float> osc3Ratio{1.0f};
     std::atomic<float> osc3Offset{0.0f};
-    std::atomic<bool> osc3Flip{false};
     std::atomic<float> osc3Level{0.0f};        // Default: off
 
     // Oscillator 4 (index 3)
@@ -149,7 +146,6 @@ struct SynthParameters {
     std::atomic<float> osc4Duty{0.5f};
     std::atomic<float> osc4Ratio{1.0f};
     std::atomic<float> osc4Offset{0.0f};
-    std::atomic<bool> osc4Flip{false};
     std::atomic<float> osc4Level{0.0f};        // Default: off
 
     // LFO parameters - 4 global modulation sources
@@ -391,25 +387,6 @@ struct SynthParameters {
         }
     }
 
-    bool getOscFlip(int index) const {
-        switch (index) {
-            case 0: return osc1Flip.load();
-            case 1: return osc2Flip.load();
-            case 2: return osc3Flip.load();
-            case 3: return osc4Flip.load();
-            default: return osc1Flip.load();
-        }
-    }
-
-    void setOscFlip(int index, bool value) {
-        switch (index) {
-            case 0: osc1Flip = value; break;
-            case 1: osc2Flip = value; break;
-            case 2: osc3Flip = value; break;
-            case 3: osc4Flip = value; break;
-            default: osc1Flip = value; break;
-        }
-    }
 
     float getOscLevel(int index) const {
         switch (index) {

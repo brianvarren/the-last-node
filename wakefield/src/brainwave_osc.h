@@ -42,9 +42,6 @@ public:
 
     void setShape(BrainwaveShape shape) { shape_ = shape; }
     BrainwaveShape getShape() const { return shape_; }
-
-    void setFlipPolarity(bool flip) { flipPolarity_ = flip; }
-    bool getFlipPolarity() const { return flipPolarity_; }
     
     // Note control (for KEY mode)
     void setNoteFrequency(float freq) { noteFrequency_ = freq; }
@@ -72,7 +69,6 @@ private:
     BrainwaveShape shape_;
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
-    bool flipPolarity_;        // Invert waveform polarity
     float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)
 
     // Phase accumulator (32-bit for high precision)

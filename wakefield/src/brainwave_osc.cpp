@@ -5,14 +5,27 @@
 // Classic Casio CZ style phase distortion for sawtooth with extended morph range
 static float generatePhaseDistorted(float phase, float amount) {
     // phase is normalized [0, 1)
+    // amount: 0.5 = sine wave (centered peak)
+    // amount > 0.5 = peak shifts right
+    // amount < 0.5 = peak shifts left (by inverting the waveform)
 
     float clamped = std::min(std::max(amount, 0.0f), 1.0f);
+    bool invert = false;
+    float morphAmount = clamped;
+
+    // For morph 0.0-0.5, we invert and remap to 0.5-1.0 range
+    if (clamped < 0.5f) {
+        invert = true;
+        morphAmount = 1.0f - clamped * 2.0f;  // 0.0 -> 1.0, 0.5 -> 0.0
+        morphAmount = 0.5f + morphAmount * 0.5f;  // Map to 0.5-1.0
+    }
+
     float pivot;
-    if (clamped <= 0.5f) {
-        float t = clamped * 2.0f;
+    if (morphAmount <= 0.5f) {
+        float t = morphAmount * 2.0f;
         pivot = 0.5f - (0.5f - 0.0001f) * t;
     } else {
-        float t = (clamped - 0.5f) * 2.0f;
+        float t = (morphAmount - 0.5f) * 2.0f;
         pivot = 0.5f + 0.4999f * t;
     }
     pivot = std::min(std::max(pivot, 0.0001f), 0.9999f);
@@ -26,7 +39,8 @@ static float generatePhaseDistorted(float phase, float amount) {
         shapedPhase = 0.5f * (1.0f + ((phase - pivot) / denom));
     }
 
-    return -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
+    float output = -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
+    return invert ? -output : output;
 }
 
 // Generate waveform with tanh-shaped pulse (morph 0.5 to 1.0)
@@ -66,7 +80,6 @@ BrainwaveOscillator::BrainwaveOscillator()
     , shape_(BrainwaveShape::SAW)
     , ratio_(1.0f)
     , offsetHz_(0.0f)
-    , flipPolarity_(false)
     , fmSensitivity_(0.5f)  // Default FM sensitivity
     , phaseAccumulator_(0) {
 }
@@ -159,10 +172,6 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     duty_ = modulatedDuty;
     float sample = generateSample(phaseAccumulator_, modulatedMorph);
     duty_ = savedDuty;
-
-    if (flipPolarity_) {
-        sample = -sample;
-    }
 
     // Advance or reverse phase depending on frequency sign (TZFM)
     if (isNegative) {

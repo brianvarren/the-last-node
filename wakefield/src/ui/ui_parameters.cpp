@@ -17,7 +17,6 @@ void UI::initializeParameters() {
     parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({17, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({18, ParamType::FLOAT, "Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
 
     // LFO page parameters - control the currently selected LFO
@@ -119,7 +118,6 @@ float UI::getParameterValue(int id) {
         case 13: return params->getOscDuty(oscIndex);
         case 14: return params->getOscRatio(oscIndex);
         case 15: return params->getOscOffset(oscIndex);
-        case 17: return params->getOscFlip(oscIndex) ? 1.0f : 0.0f;
         case 18: return params->getOscLevel(oscIndex);
         case 200: return params->getLfoPeriod(lfoIndex);
         case 201: return static_cast<float>(params->getLfoSyncMode(lfoIndex));
@@ -189,7 +187,6 @@ void UI::setParameterValue(int id, float value) {
         case 13: params->setOscDuty(oscIndex, value); break;
         case 14: params->setOscRatio(oscIndex, value); break;
         case 15: params->setOscOffset(oscIndex, value); break;
-        case 17: params->setOscFlip(oscIndex, value > 0.5f); break;
         case 18: params->setOscLevel(oscIndex, value); break;
         case 200: params->setLfoPeriod(lfoIndex, value); break;
         case 201: params->setLfoSyncMode(lfoIndex, static_cast<int>(value)); break;

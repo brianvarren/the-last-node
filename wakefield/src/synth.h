@@ -92,7 +92,7 @@ public:
     int getActiveVoiceCount() const;
     void setOscillatorState(int index, BrainwaveMode mode, int shape,
                             float baseFreq, float morph, float duty,
-                            float ratio, float offsetHz, bool flipPolarity, float level);
+                            float ratio, float offsetHz, float level);
 
     // Get oscillator base level (for voice mixing)
     float getOscillatorBaseLevel(int index) const {

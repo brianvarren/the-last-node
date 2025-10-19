@@ -469,7 +469,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             float duty = (oscIndex == 0) ? smoothedOscillatorDuty : synthParams->getOscDuty(oscIndex);
             float ratio = synthParams->getOscRatio(oscIndex);
             float offset = synthParams->getOscOffset(oscIndex);
-            bool flip = synthParams->getOscFlip(oscIndex);
             float level = synthParams->getOscLevel(oscIndex);
 
             synth->setOscillatorState(
@@ -481,7 +480,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
                 duty,
                 ratio,
                 offset,
-                flip,
                 level
             );
         }
