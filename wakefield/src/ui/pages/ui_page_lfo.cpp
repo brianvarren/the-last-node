@@ -24,6 +24,9 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
 
     int writePos = lfoHistoryWritePos[lfoIndex];
     int historySize = lfoHistoryBuffer[lfoIndex].size();
+    if (historySize == 0) {
+        return;
+    }
 
     // X zoom: how many history samples to display across the width
     // Y zoom: vertical scaling factor (1 = full range, 2 = 2x zoom, etc)
@@ -33,22 +36,24 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
     int prevRow = -1;
     int prevCol = -1;
 
+    // Snapshot the newest history index once so the scope shifts in lockstep each update
+    int newestIndex = (writePos - 1 + historySize) % historySize;
+    int denominator = std::max(1, width - 1);
+    int sampleSpan = std::max(0, samplesToShow - 1);
+
     for (int x = 0; x < width; ++x) {
-        // Map x position to history buffer with sub-sample precision
-        // x=0 is oldest sample in window, x=width-1 is newest
-        float historyOffsetFloat = static_cast<float>(samplesToShow - 1) * (1.0f - static_cast<float>(x) / static_cast<float>(width - 1));
-        int historyOffset = static_cast<int>(std::floor(historyOffsetFloat));
-        float frac = historyOffsetFloat - static_cast<float>(historyOffset);
+        // Map column to a discrete history offset so every column advances together
+        int columnsFromRight = width - 1 - x;
+        int historyOffset;
+        if (width == 1) {
+            historyOffset = 0;
+        } else {
+            // Round to nearest to evenly distribute samples across the scope width
+            historyOffset = (sampleSpan * columnsFromRight + denominator / 2) / denominator;
+        }
 
-        // Get two adjacent samples for interpolation
-        int bufferIndex1 = (writePos - 1 - historyOffset + historySize) % historySize;
-        int bufferIndex2 = (writePos - 1 - historyOffset - 1 + historySize) % historySize;
-
-        float amplitude1 = lfoHistoryBuffer[lfoIndex][bufferIndex1];
-        float amplitude2 = lfoHistoryBuffer[lfoIndex][bufferIndex2];
-
-        // Linear interpolation for smooth display
-        float amplitude = amplitude1 + frac * (amplitude2 - amplitude1);
+        int bufferIndex = (newestIndex - historyOffset + historySize) % historySize;
+        float amplitude = lfoHistoryBuffer[lfoIndex][bufferIndex];
 
         // Apply Y zoom
         amplitude *= yScale;
