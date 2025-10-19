@@ -202,6 +202,23 @@ void UI::handleInput(int ch) {
         }
     }
 
+    // LFO page zoom controls
+    if (currentPage == UIPage::LFO) {
+        if (ch == '[') {
+            lfoScopeXZoom = std::max(10, lfoScopeXZoom - 10);
+            return;
+        } else if (ch == ']') {
+            lfoScopeXZoom = std::min(500, lfoScopeXZoom + 10);
+            return;
+        } else if (ch == '{') {
+            lfoScopeYZoom = std::max(1, lfoScopeYZoom - 1);
+            return;
+        } else if (ch == '}') {
+            lfoScopeYZoom = std::min(4, lfoScopeYZoom + 1);
+            return;
+        }
+    }
+
     // Up/Down arrows navigate between parameters on current page
     if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_UP) {
         if (!pageParams.empty()) {

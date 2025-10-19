@@ -47,7 +47,9 @@ UI::UI(Synth* synth, SynthParameters* params)
     , numericInputIsSequencer(false)
     , modMatrixMenuActive(false)
     , modMatrixMenuIndex(0)
-    , modMatrixMenuColumn(0) {
+    , modMatrixMenuColumn(0)
+    , lfoScopeXZoom(100)
+    , lfoScopeYZoom(1) {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {

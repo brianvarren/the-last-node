@@ -23,7 +23,7 @@ void UI::initializeParameters() {
     // LFO page parameters - control the currently selected LFO
     parameters.push_back({200, ParamType::FLOAT, "Period", "s", 0.1f, 1800.0f, {}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({201, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::LFO)});
-    parameters.push_back({206, ParamType::ENUM, "Shape", "", 0, 1, {"PD", "Pulse"}, true, static_cast<int>(UIPage::LFO)});
+    parameters.push_back({206, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({202, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({203, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({204, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO)});

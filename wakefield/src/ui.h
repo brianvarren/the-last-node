@@ -980,6 +980,10 @@ private:
 
     // MOD matrix data (16 modulation slots)
     ModulationSlot modulationSlots[16];
+
+    // LFO scope zoom controls (samples to display)
+    int lfoScopeXZoom;  // Number of history samples to display horizontally (default 100)
+    int lfoScopeYZoom;  // Vertical zoom (1-4, default 1 = full range -1 to +1)
 };
 
 #endif // UI_H
