@@ -34,10 +34,6 @@ public:
     void setParams(SynthParameters* params_ptr);
 
     // Brainwave oscillator control
-    void updateBrainwaveParameters(BrainwaveMode mode, int shape, float freq, float morph, float duty,
-                                   float ratio, float offsetHz,
-                                   bool flipPolarity, float level);
-    
     // Reverb control
     void setReverbEnabled(bool enabled) { reverbEnabled = enabled; }
     void updateReverbParameters(float delayTime, float size, float damping, float mix, float decay, 
@@ -94,6 +90,9 @@ public:
     float getModulationSource(int sourceIndex);
 
     int getActiveVoiceCount() const;
+    void setOscillatorState(int index, BrainwaveMode mode, int shape,
+                            float baseFreq, float morph, float duty,
+                            float ratio, float offsetHz, bool flipPolarity, float level);
     
 private:
     float sampleRate;
@@ -117,6 +116,21 @@ private:
     OnePoleHighShelfBLT highShelfR;
     OnePoleLowShelfBLT lowShelfL;
     OnePoleLowShelfBLT lowShelfR;
+    
+    struct OscillatorState {
+        BrainwaveMode mode = BrainwaveMode::FREE;
+        BrainwaveShape shape = BrainwaveShape::SAW;
+        float baseFrequency = 440.0f;
+        float morph = 0.5f;
+        float duty = 0.5f;
+        float ratio = 1.0f;
+        float offsetHz = 0.0f;
+        float level = 0.0f;
+        bool flipPolarity = false;
+        bool initialized = false;
+    };
+
+    OscillatorState oscillatorStates[OSCILLATORS_PER_VOICE];
     
     int findFreeVoice();
     float midiNoteToFrequency(int midiNote);

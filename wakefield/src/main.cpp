@@ -460,20 +460,31 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         );
         synth->setMasterVolume(smoothedMasterVolume);
 
-        // Update oscillator parameters (discrete params not smoothed)
-        // For now, use osc1 parameters for all oscillators
-        // TODO: Implement per-oscillator parameter control
-        synth->updateBrainwaveParameters(
-            static_cast<BrainwaveMode>(synthParams->osc1Mode.load()),
-            synthParams->osc1Shape.load(),
-            smoothedOscillatorFreq,
-            smoothedOscillatorMorph,
-            smoothedOscillatorDuty,
-            synthParams->osc1Ratio.load(),
-            synthParams->osc1Offset.load(),
-            synthParams->osc1Flip.load(),
-            synthParams->osc1Level.load()
-        );
+        // Update per-oscillator parameters (oscillator 1 uses smoothed values)
+        for (int oscIndex = 0; oscIndex < OSCILLATORS_PER_VOICE; ++oscIndex) {
+            BrainwaveMode mode = static_cast<BrainwaveMode>(synthParams->getOscMode(oscIndex));
+            int shape = synthParams->getOscShape(oscIndex);
+            float baseFreq = (oscIndex == 0) ? smoothedOscillatorFreq : synthParams->getOscFrequency(oscIndex);
+            float morph = (oscIndex == 0) ? smoothedOscillatorMorph : synthParams->getOscMorph(oscIndex);
+            float duty = (oscIndex == 0) ? smoothedOscillatorDuty : synthParams->getOscDuty(oscIndex);
+            float ratio = synthParams->getOscRatio(oscIndex);
+            float offset = synthParams->getOscOffset(oscIndex);
+            bool flip = synthParams->getOscFlip(oscIndex);
+            float level = synthParams->getOscLevel(oscIndex);
+
+            synth->setOscillatorState(
+                oscIndex,
+                mode,
+                shape,
+                baseFreq,
+                morph,
+                duty,
+                ratio,
+                offset,
+                flip,
+                level
+            );
+        }
 
         // Update reverb parameters (discrete params not smoothed)
         synth->setReverbEnabled(synthParams->reverbEnabled.load());

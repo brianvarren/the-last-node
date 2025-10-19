@@ -54,26 +54,58 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
     }
 }
 
-void Synth::updateBrainwaveParameters(BrainwaveMode mode, int shape, float freq, float morph, float duty,
-                                      float ratio, float offsetHz,
-                                      bool flipPolarity, float level) {
-    // Update all voice oscillators with new parameters
-    // For now, update all 4 oscillators in each voice the same way
-    // TODO: Make this per-oscillator once UI supports it
+void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
+                               float baseFreq, float morph, float duty,
+                               float ratio, float offsetHz, bool flipPolarity, float level) {
+    if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
+        return;
+    }
+
+    OscillatorState& state = oscillatorStates[index];
+
+    auto floatsDiffer = [](float a, float b) {
+        return std::fabs(a - b) > 1e-6f;
+    };
+
+    bool changed = !state.initialized ||
+                   state.mode != mode ||
+                   state.shape != static_cast<BrainwaveShape>(shape) ||
+                   floatsDiffer(state.baseFrequency, baseFreq) ||
+                   floatsDiffer(state.morph, morph) ||
+                   floatsDiffer(state.duty, duty) ||
+                   floatsDiffer(state.ratio, ratio) ||
+                   floatsDiffer(state.offsetHz, offsetHz) ||
+                   floatsDiffer(state.level, level) ||
+                   state.flipPolarity != flipPolarity;
+
+    if (!changed) {
+        return;
+    }
+
+    state.mode = mode;
+    state.shape = static_cast<BrainwaveShape>(shape);
+    state.baseFrequency = baseFreq;
+    state.morph = morph;
+    state.duty = duty;
+    state.ratio = ratio;
+    state.offsetHz = offsetHz;
+    state.level = level;
+    state.flipPolarity = flipPolarity;
+    state.initialized = true;
+
     BrainwaveShape shapeEnum = (shape == 0) ? BrainwaveShape::SAW : BrainwaveShape::PULSE;
 
     for (auto& voice : voices) {
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            voice.oscillators[i].setMode(mode);
-            voice.oscillators[i].setShape(shapeEnum);
-            voice.oscillators[i].setFrequency(freq);
-            voice.oscillators[i].setMorph(morph);
-            voice.oscillators[i].setDuty(duty);
-            voice.oscillators[i].setRatio(ratio);
-            voice.oscillators[i].setOffset(offsetHz);
-            voice.oscillators[i].setFlipPolarity(flipPolarity);
-            voice.oscillators[i].setLevel(level);
-        }
+        BrainwaveOscillator& osc = voice.oscillators[index];
+        osc.setMode(mode);
+        osc.setShape(shapeEnum);
+        osc.setFrequency(baseFreq);
+        osc.setMorph(morph);
+        osc.setDuty(duty);
+        osc.setRatio(ratio);
+        osc.setOffset(offsetHz);
+        osc.setFlipPolarity(flipPolarity);
+        osc.setLevel(level);
     }
 }
 
@@ -123,10 +155,16 @@ void Synth::noteOn(int midiNote, int velocity) {
     voice.velocity = velocity;
 
     float frequency = midiNoteToFrequency(midiNote);
-    // Set note frequency for KEY mode for all oscillators
+    // Update note frequency for oscillators in KEY mode and reset phase
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         voice.oscillators[i].setNoteFrequency(frequency);
         voice.oscillators[i].reset();  // Reset phase for new note
+        voice.pitchMod[i] = 0.0f;
+        voice.morphMod[i] = 0.0f;
+        voice.dutyMod[i] = 0.0f;
+        voice.ratioMod[i] = 0.0f;
+        voice.offsetMod[i] = 0.0f;
+        voice.levelMod[i] = 0.0f;
     }
     voice.resetFMHistory();
 
