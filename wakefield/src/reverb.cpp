@@ -1,5 +1,10 @@
 #include "reverb.h"
+
+// The Faust DSP generates a global class named UI. Our application defines its own
+// UI class, so we temporarily rename the Faust one to avoid an ODR clash.
+#define UI GreyholeDSPUI
 #include "../reverb/greyhole.cpp"
+#undef UI
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -53,7 +58,7 @@ void GreyholeReverb::updateParameters() {
     // Note: We need to access these through a setter method or directly
     // For now, we'll create a simple UI class to set parameters
     
-    class SimpleUI : public UI {
+    class SimpleUI : public GreyholeDSPUI {
     public:
         float* damping;
         float* diffusion;
