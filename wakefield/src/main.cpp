@@ -795,6 +795,9 @@ int main(int argc, char** argv) {
 
     // Nullify pointers before cleanup to prevent dangling pointer access
     synth->setUI(nullptr);
+    if (midiHandler) {
+        midiHandler->setUI(nullptr);
+    }
 
     // Clean up
     delete ui;
