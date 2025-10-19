@@ -39,12 +39,17 @@ void UI::handleInput(int ch) {
     // Handle numeric input mode for parameters
     if (numericInputActive) {
         if (ch == '\n' || ch == KEY_ENTER) {
-            finishNumericInput();
+            if (numericInputIsMod) {
+                finishModMatrixAmountInput();
+            } else {
+                finishNumericInput();
+            }
         } else if (ch == 27) {  // Escape key
             if (numericInputIsSequencer) {
                 cancelSequencerNumericInput();
             }
             numericInputActive = false;
+            numericInputIsMod = false;
             numericInputBuffer.clear();
             clear();  // Clear screen to refresh properly
         } else if (ch == KEY_BACKSPACE || ch == 127) {
@@ -164,6 +169,13 @@ void UI::handleInput(int ch) {
     }
 
     if (currentPage == UIPage::MOD) {
+        // Handle MOD matrix menu if active
+        if (modMatrixMenuActive) {
+            handleModMatrixMenuInput(ch);
+            // Don't return if 'q'/'Q' - let it propagate to quit check
+            if (ch != 'q' && ch != 'Q') return;
+        }
+
         switch (ch) {
             case KEY_UP:
                 modMatrixCursorRow = (modMatrixCursorRow + 15) % 16;
@@ -176,6 +188,16 @@ void UI::handleInput(int ch) {
                 return;
             case KEY_RIGHT:
                 modMatrixCursorCol = (modMatrixCursorCol + 1) % 5;
+                return;
+            case '\n':
+            case KEY_ENTER:
+                // Column 2 is Amount - use numeric input
+                if (modMatrixCursorCol == 2) {
+                    startModMatrixAmountInput();
+                } else {
+                    // All other columns use menu selection
+                    startModMatrixMenu();
+                }
                 return;
         }
     }

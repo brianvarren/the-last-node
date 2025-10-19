@@ -17,6 +17,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     , currentMidiPortNum(-1)
     , selectedParameterId(0)
     , numericInputActive(false)
+    , numericInputIsMod(false)
     , currentPresetName("None")
     , textInputActive(false)
     , deviceChangeRequested(false)
@@ -43,7 +44,10 @@ UI::UI(Synth* synth, SynthParameters* params)
     , sequencerActionsColumn(0)
     , sequencerScaleMenuActive(false)
     , sequencerScaleMenuIndex(0)
-    , numericInputIsSequencer(false) {
+    , numericInputIsSequencer(false)
+    , modMatrixMenuActive(false)
+    , modMatrixMenuIndex(0)
+    , modMatrixMenuColumn(0) {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {

@@ -775,10 +775,11 @@ private:
     std::vector<std::pair<int, std::string>> availableAudioDevices;  // id, name
     std::vector<std::pair<int, std::string>> availableMidiDevices;   // port, name
     
-    // Parameter navigation state  
+    // Parameter navigation state
     int selectedParameterId;
     bool numericInputActive;
     std::string numericInputBuffer;
+    bool numericInputIsMod;  // True if numeric input is for MOD matrix Amount
     
     // Preset management
     std::string currentPresetName;
@@ -852,7 +853,14 @@ private:
     void handleSequencerScaleMenuInput(int ch);
     void finishSequencerScaleMenu(bool applySelection);
     void ensureSequencerSelectionInRange();
-    
+
+    // MOD matrix menu helpers
+    void startModMatrixMenu();
+    void handleModMatrixMenuInput(int ch);
+    void finishModMatrixMenu(bool applySelection);
+    void startModMatrixAmountInput();
+    void finishModMatrixAmountInput();
+
     // Preset management helpers
     void refreshPresetList();
     
@@ -939,6 +947,11 @@ private:
 
     bool numericInputIsSequencer;
     SequencerNumericContext sequencerNumericContext;
+
+    // MOD matrix selection menu
+    bool modMatrixMenuActive;
+    int modMatrixMenuIndex;
+    int modMatrixMenuColumn;  // Which column the menu is for (0=Source, 1=Curve, 3=Dest, 4=Type)
 };
 
 #endif // UI_H
