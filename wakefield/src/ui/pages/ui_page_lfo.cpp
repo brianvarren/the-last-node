@@ -4,8 +4,7 @@
 #include <vector>
 
 void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float phaseHead) {
-    // Rolling history scope view - shows amplitude over time
-    // Current amplitude on right edge, history scrolling left
+    // Rolling history scope view that fits one cycle to the window width.
     int width = std::max(16, plotWidth);
     int height = std::max(6, plotHeight);
 
@@ -23,20 +22,29 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
         }
     };
 
-    // Read from circular history buffer
-    // Most recent samples are at writePos-1, oldest at writePos
+    // Get current LFO period to determine zoom level.
+    float period = params->getLfoPeriod(lfoIndex);
+    const float LFO_UI_SAMPLE_RATE = 1000.0f; // Corresponds to usleep(1000) in the LFO thread.
+    float samplesPerCycle = period * LFO_UI_SAMPLE_RATE;
+
+    // Prevent division by zero or extreme values.
+    if (samplesPerCycle < 1.0f) {
+        samplesPerCycle = 1.0f;
+    }
+
+    // Calculate the step size to sample one full cycle across the window width.
+    float step = samplesPerCycle / static_cast<float>(width);
+
     int writePos = lfoHistoryWritePos[lfoIndex];
     int historySize = lfoHistoryBuffer[lfoIndex].size();
 
-    // Draw from history buffer, newest on right
     int prevRow = -1;
     int prevCol = -1;
 
     for (int x = 0; x < width; ++x) {
-        // Map x position to history buffer index
-        // x=0 shows oldest sample in window, x=width-1 shows newest
-        int historyOffset = width - 1 - x;
-        int bufferIndex = (writePos - 1 - historyOffset + historySize) % historySize;
+        // Map x position to a point within the last cycle in the history buffer.
+        float historyOffset = (width - 1 - x) * step;
+        int bufferIndex = (writePos - 1 - static_cast<int>(historyOffset) + historySize) % historySize;
 
         float amplitude = lfoHistoryBuffer[lfoIndex][bufferIndex];
 
@@ -53,9 +61,9 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
             int dx = x - prevCol;
             int dy = row - prevRow;
             int steps = std::max(std::abs(dx), std::abs(dy));
-            for (int step = 1; step <= steps; ++step) {
-                int px = prevCol + (dx * step) / steps;
-                int py = prevRow + (dy * step) / steps;
+            for (int step_i = 1; step_i <= steps; ++step_i) { // use step_i to avoid shadowing
+                int px = prevCol + (dx * step_i) / steps;
+                int py = prevRow + (dy * step_i) / steps;
                 plotPoint(px, py);
             }
         }
@@ -66,7 +74,7 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
 
     // Draw the preview box
     std::string horizontal(width, '-');
-    mvprintw(topRow - 1, leftCol, "LFO Scope");
+    mvprintw(topRow - 1, leftCol, "LFO Scope (1 cycle)");
     mvprintw(topRow, leftCol, "+%s+", horizontal.c_str());
     for (int y = 0; y < height; ++y) {
         mvprintw(topRow + 1 + y, leftCol, "|");
