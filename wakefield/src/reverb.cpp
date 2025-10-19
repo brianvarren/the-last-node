@@ -84,22 +84,20 @@ void GreyholeReverb::updateParameters() {
         }
     };
     
-    static SimpleUI ui;
-    static bool initialized = false;
-    
-    if (!initialized) {
-        dsp->buildUserInterface(&ui);
-        initialized = true;
+    static SimpleUI* ui = nullptr;
+    if (!ui) {
+        ui = new SimpleUI();
+        dsp->buildUserInterface(ui);
     }
     
     // Set the parameters
-    *ui.damping = damping;
-    *ui.diffusion = diffusion;
-    *ui.feedback = feedback;
-    *ui.modDepth = modDepth;
-    *ui.modFreq = modFreq;
-    *ui.delayTime = delayTime;
-    *ui.size = size;
+    *ui->damping = damping;
+    *ui->diffusion = diffusion;
+    *ui->feedback = feedback;
+    *ui->modDepth = modDepth;
+    *ui->modFreq = modFreq;
+    *ui->delayTime = delayTime;
+    *ui->size = size;
 }
 
 void GreyholeReverb::setDelayTime(float t) {
