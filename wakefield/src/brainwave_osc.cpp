@@ -109,15 +109,35 @@ float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos) {
     return generateTanhShaped(shiftedPhase, morphAmount, duty_);
 }
 
-float BrainwaveOscillator::process(float sampleRate, float fmInput) {
-    // Calculate effective frequency with all modulations
-    float baseFreq = calculateEffectiveFrequency(sampleRate);
+float BrainwaveOscillator::process(float sampleRate, float fmInput,
+                                   float pitchMod, float morphMod, float dutyMod,
+                                   float ratioMod, float offsetMod, float levelMod) {
+    // Calculate base frequency (FREE or KEY mode)
+    float freq = 0.0f;
+    if (mode_ == BrainwaveMode::FREE) {
+        freq = baseFrequency_;
+    } else {
+        freq = noteFrequency_;
+    }
+
+    // Apply pitch modulation as frequency multiplier (pitchMod is in octaves)
+    // This applies AFTER mode selection but BEFORE ratio/offset
+    float pitchMultiplier = std::pow(2.0f, pitchMod);
+    freq *= pitchMultiplier;
+
+    // Apply modulated ratio and offset
+    float modulatedRatio = ratio_ + ratioMod;
+    float modulatedOffset = offsetHz_ + offsetMod;
+    freq = freq * modulatedRatio + modulatedOffset;
+
+    // Prevent negative or zero frequency
+    freq = std::max(freq, 0.01f);
 
     // Apply Through-Zero FM: modulate frequency directly
     // FM input is bipolar (-1 to +1), scaled by sensitivity
     // TZFM allows frequency to go negative (phase reversal)
-    float fmAmount = fmInput * fmSensitivity_ * baseFreq;  // Scale FM by base frequency
-    float modulatedFreq = baseFreq + fmAmount;
+    float fmAmount = fmInput * fmSensitivity_ * freq;  // Scale FM by current frequency
+    float modulatedFreq = freq + fmAmount;
 
     // TZFM: Allow negative frequencies (through-zero)
     // Negative frequency = phase runs backward
@@ -131,11 +151,28 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput) {
     double phaseIncrementDouble = (static_cast<double>(absFreq) * 4294967296.0) / static_cast<double>(sampleRate);
     uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementDouble);
 
-    // Generate current sample
-    float sample = generateSample(phaseAccumulator_, morphPosition_);
+    // Apply morph and duty modulation
+    float modulatedMorph = std::min(std::max(morphPosition_ + morphMod, 0.0f), 1.0f);
+    float modulatedDuty = std::min(std::max(duty_ + dutyMod, 0.0f), 1.0f);
+
+    // Generate current sample with modulated parameters
+    float sample = generateSample(phaseAccumulator_, modulatedMorph);
+
+    // Note: duty modulation is applied by passing modulatedDuty to generateSample
+    // but generateSample doesn't accept duty parameter, it uses the member variable
+    // We need to temporarily override duty_ for this sample
+    float savedDuty = duty_;
+    duty_ = modulatedDuty;
+    sample = generateSample(phaseAccumulator_, modulatedMorph);
+    duty_ = savedDuty;
+
     if (flipPolarity_) {
         sample = -sample;
     }
+
+    // Apply level modulation (additive)
+    float modulatedLevel = std::min(std::max(level_ + levelMod, 0.0f), 1.0f);
+    sample *= modulatedLevel;
 
     // Advance or reverse phase depending on frequency sign (TZFM)
     if (isNegative) {

@@ -17,6 +17,14 @@ struct Voice {
     Envelope envelope;     // Amplitude envelope
     SynthParameters* params;  // Pointer to FM matrix and other params
 
+    // Modulation storage (set once per buffer by Synth::process)
+    float pitchMod[OSCILLATORS_PER_VOICE];
+    float morphMod[OSCILLATORS_PER_VOICE];
+    float dutyMod[OSCILLATORS_PER_VOICE];
+    float ratioMod[OSCILLATORS_PER_VOICE];
+    float offsetMod[OSCILLATORS_PER_VOICE];
+    float levelMod[OSCILLATORS_PER_VOICE];
+
     Voice(float sampleRate)
         : active(false)
         , note(-1)
@@ -26,6 +34,12 @@ struct Voice {
         , params(nullptr) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             lastOscOutputs[i] = 0.0f;
+            pitchMod[i] = 0.0f;
+            morphMod[i] = 0.0f;
+            dutyMod[i] = 0.0f;
+            ratioMod[i] = 0.0f;
+            offsetMod[i] = 0.0f;
+            levelMod[i] = 0.0f;
         }
     }
 

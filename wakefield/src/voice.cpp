@@ -37,10 +37,12 @@ float Voice::generateSample() {
         }
     }
 
-    // Generate current oscillator outputs with FM applied
+    // Generate current oscillator outputs with FM and modulation applied
     float currentOutputs[OSCILLATORS_PER_VOICE];
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        currentOutputs[i] = oscillators[i].process(sampleRate, fmInputs[i]);
+        currentOutputs[i] = oscillators[i].process(sampleRate, fmInputs[i],
+                                                    pitchMod[i], morphMod[i], dutyMod[i],
+                                                    ratioMod[i], offsetMod[i], levelMod[i]);
     }
 
     // Mix all oscillators (weighted average)

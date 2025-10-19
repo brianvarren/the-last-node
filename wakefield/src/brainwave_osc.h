@@ -56,8 +56,10 @@ public:
     void setFMSensitivity(float sensitivity) { fmSensitivity_ = sensitivity; }
     float getFMSensitivity() const { return fmSensitivity_; }
 
-    // Generate one sample and advance phase (with optional FM input)
-    float process(float sampleRate, float fmInput = 0.0f);
+    // Generate one sample and advance phase (with optional FM input and modulation offsets)
+    float process(float sampleRate, float fmInput = 0.0f,
+                  float pitchMod = 0.0f, float morphMod = 0.0f, float dutyMod = 0.0f,
+                  float ratioMod = 0.0f, float offsetMod = 0.0f, float levelMod = 0.0f);
 
     // Reset phase
     void reset() { phaseAccumulator_ = 0; }

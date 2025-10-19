@@ -161,7 +161,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     // Process modulation matrix once per buffer
     ModulationOutputs modOutputs = processModulationMatrix();
 
-    // Apply modulation to active voices
+    // Copy modulation values to active voices (used per-sample by oscillators)
     for (int v = 0; v < MAX_VOICES; ++v) {
         if (!voices[v].active) {
             continue;
@@ -169,21 +169,36 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
         Voice& voice = voices[v];
 
-        // Apply pitch modulation to each oscillator
-        // Pitch modulation is in octaves: modValue * 12 semitones
-        float baseFreq = midiNoteToFrequency(voice.note);
-        float pitchMods[4] = {modOutputs.osc1Pitch, modOutputs.osc2Pitch,
-                              modOutputs.osc3Pitch, modOutputs.osc4Pitch};
+        // Set modulation values for all oscillators (in octaves for pitch)
+        voice.pitchMod[0] = modOutputs.osc1Pitch;
+        voice.pitchMod[1] = modOutputs.osc2Pitch;
+        voice.pitchMod[2] = modOutputs.osc3Pitch;
+        voice.pitchMod[3] = modOutputs.osc4Pitch;
 
-        for (int osc = 0; osc < OSCILLATORS_PER_VOICE; ++osc) {
-            // Convert modulation value to frequency multiplier
-            // pitchMod is in octaves (-1 to +1 = ±1 octave with bidirectional)
-            float semitones = pitchMods[osc] * 12.0f;  // Convert octaves to semitones
-            float freqMultiplier = std::pow(2.0f, semitones / 12.0f);
-            voice.oscillators[osc].setFrequency(baseFreq * freqMultiplier);
+        voice.morphMod[0] = modOutputs.osc1Morph;
+        voice.morphMod[1] = modOutputs.osc2Morph;
+        voice.morphMod[2] = modOutputs.osc3Morph;
+        voice.morphMod[3] = modOutputs.osc4Morph;
 
-            // TODO: Apply morph and level modulation
-        }
+        voice.dutyMod[0] = modOutputs.osc1Duty;
+        voice.dutyMod[1] = modOutputs.osc2Duty;
+        voice.dutyMod[2] = modOutputs.osc3Duty;
+        voice.dutyMod[3] = modOutputs.osc4Duty;
+
+        voice.ratioMod[0] = modOutputs.osc1Ratio;
+        voice.ratioMod[1] = modOutputs.osc2Ratio;
+        voice.ratioMod[2] = modOutputs.osc3Ratio;
+        voice.ratioMod[3] = modOutputs.osc4Ratio;
+
+        voice.offsetMod[0] = modOutputs.osc1Offset;
+        voice.offsetMod[1] = modOutputs.osc2Offset;
+        voice.offsetMod[2] = modOutputs.osc3Offset;
+        voice.offsetMod[3] = modOutputs.osc4Offset;
+
+        voice.levelMod[0] = modOutputs.osc1Level;
+        voice.levelMod[1] = modOutputs.osc2Level;
+        voice.levelMod[2] = modOutputs.osc3Level;
+        voice.levelMod[3] = modOutputs.osc4Level;
     }
 
     // Process each active voice and mix into output
@@ -382,30 +397,48 @@ Synth::ModulationOutputs Synth::processModulationMatrix() {
 
         // Apply to destination
         // Destination indices from ui_mod.cpp:
-        // 0-2: OSC 1 Pitch/Morph/Level
-        // 3-5: OSC 2 Pitch/Morph/Level
-        // 6-8: OSC 3 Pitch/Morph/Level
-        // 9-11: OSC 4 Pitch/Morph/Level
-        // 12-13: Filter Cutoff/Resonance
-        // 14-15: Reverb Mix/Size
+        // 0-5: OSC 1 Pitch/Morph/Duty/Ratio/Offset/Level
+        // 6-11: OSC 2 Pitch/Morph/Duty/Ratio/Offset/Level
+        // 12-17: OSC 3 Pitch/Morph/Duty/Ratio/Offset/Level
+        // 18-23: OSC 4 Pitch/Morph/Duty/Ratio/Offset/Level
+        // 24-25: Filter Cutoff/Resonance
+        // 26-27: Reverb Mix/Size
 
         switch (slot.destination) {
+            // OSC 1
             case 0: outputs.osc1Pitch += modValue; break;
             case 1: outputs.osc1Morph += modValue; break;
-            case 2: outputs.osc1Level += modValue; break;
-            case 3: outputs.osc2Pitch += modValue; break;
-            case 4: outputs.osc2Morph += modValue; break;
-            case 5: outputs.osc2Level += modValue; break;
-            case 6: outputs.osc3Pitch += modValue; break;
-            case 7: outputs.osc3Morph += modValue; break;
-            case 8: outputs.osc3Level += modValue; break;
-            case 9: outputs.osc4Pitch += modValue; break;
-            case 10: outputs.osc4Morph += modValue; break;
-            case 11: outputs.osc4Level += modValue; break;
-            case 12: outputs.filterCutoff += modValue; break;
-            case 13: outputs.filterResonance += modValue; break;
-            case 14: outputs.reverbMix += modValue; break;
-            case 15: outputs.reverbSize += modValue; break;
+            case 2: outputs.osc1Duty += modValue; break;
+            case 3: outputs.osc1Ratio += modValue; break;
+            case 4: outputs.osc1Offset += modValue; break;
+            case 5: outputs.osc1Level += modValue; break;
+            // OSC 2
+            case 6: outputs.osc2Pitch += modValue; break;
+            case 7: outputs.osc2Morph += modValue; break;
+            case 8: outputs.osc2Duty += modValue; break;
+            case 9: outputs.osc2Ratio += modValue; break;
+            case 10: outputs.osc2Offset += modValue; break;
+            case 11: outputs.osc2Level += modValue; break;
+            // OSC 3
+            case 12: outputs.osc3Pitch += modValue; break;
+            case 13: outputs.osc3Morph += modValue; break;
+            case 14: outputs.osc3Duty += modValue; break;
+            case 15: outputs.osc3Ratio += modValue; break;
+            case 16: outputs.osc3Offset += modValue; break;
+            case 17: outputs.osc3Level += modValue; break;
+            // OSC 4
+            case 18: outputs.osc4Pitch += modValue; break;
+            case 19: outputs.osc4Morph += modValue; break;
+            case 20: outputs.osc4Duty += modValue; break;
+            case 21: outputs.osc4Ratio += modValue; break;
+            case 22: outputs.osc4Offset += modValue; break;
+            case 23: outputs.osc4Level += modValue; break;
+            // Filter
+            case 24: outputs.filterCutoff += modValue; break;
+            case 25: outputs.filterResonance += modValue; break;
+            // Reverb
+            case 26: outputs.reverbMix += modValue; break;
+            case 27: outputs.reverbSize += modValue; break;
         }
     }
 

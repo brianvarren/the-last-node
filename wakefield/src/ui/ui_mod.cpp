@@ -21,10 +21,14 @@ const std::vector<ModOption> kModCurves = {
 };
 
 const std::vector<ModOption> kModDestinations = {
-    {"OSC 1 Pitch", "O1:Pitch"}, {"OSC 1 Morph", "O1:Morph"}, {"OSC 1 Level", "O1:Level"},
-    {"OSC 2 Pitch", "O2:Pitch"}, {"OSC 2 Morph", "O2:Morph"}, {"OSC 2 Level", "O2:Level"},
-    {"OSC 3 Pitch", "O3:Pitch"}, {"OSC 3 Morph", "O3:Morph"}, {"OSC 3 Level", "O3:Level"},
-    {"OSC 4 Pitch", "O4:Pitch"}, {"OSC 4 Morph", "O4:Morph"}, {"OSC 4 Level", "O4:Level"},
+    {"OSC 1 Pitch", "O1:Pitch"}, {"OSC 1 Morph", "O1:Morph"}, {"OSC 1 Duty", "O1:Duty"},
+    {"OSC 1 Ratio", "O1:Ratio"}, {"OSC 1 Offset", "O1:Offset"}, {"OSC 1 Level", "O1:Level"},
+    {"OSC 2 Pitch", "O2:Pitch"}, {"OSC 2 Morph", "O2:Morph"}, {"OSC 2 Duty", "O2:Duty"},
+    {"OSC 2 Ratio", "O2:Ratio"}, {"OSC 2 Offset", "O2:Offset"}, {"OSC 2 Level", "O2:Level"},
+    {"OSC 3 Pitch", "O3:Pitch"}, {"OSC 3 Morph", "O3:Morph"}, {"OSC 3 Duty", "O3:Duty"},
+    {"OSC 3 Ratio", "O3:Ratio"}, {"OSC 3 Offset", "O3:Offset"}, {"OSC 3 Level", "O3:Level"},
+    {"OSC 4 Pitch", "O4:Pitch"}, {"OSC 4 Morph", "O4:Morph"}, {"OSC 4 Duty", "O4:Duty"},
+    {"OSC 4 Ratio", "O4:Ratio"}, {"OSC 4 Offset", "O4:Offset"}, {"OSC 4 Level", "O4:Level"},
     {"Filter Cutoff", "Flt:Cut"}, {"Filter Resonance", "Flt:Res"},
     {"Reverb Mix", "Rvb:Mix"}, {"Reverb Size", "Rvb:Size"}
 };
