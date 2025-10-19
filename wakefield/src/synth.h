@@ -57,6 +57,30 @@ public:
     // Get LFO outputs (for modulation matrix)
     float getLFOOutput(int lfoIndex) const;
 
+    // Modulation matrix processing
+    struct ModulationOutputs {
+        float osc1Pitch = 0.0f;
+        float osc2Pitch = 0.0f;
+        float osc3Pitch = 0.0f;
+        float osc4Pitch = 0.0f;
+        float osc1Morph = 0.0f;
+        float osc2Morph = 0.0f;
+        float osc3Morph = 0.0f;
+        float osc4Morph = 0.0f;
+        float osc1Level = 0.0f;
+        float osc2Level = 0.0f;
+        float osc3Level = 0.0f;
+        float osc4Level = 0.0f;
+        float filterCutoff = 0.0f;
+        float filterResonance = 0.0f;
+        float reverbMix = 0.0f;
+        float reverbSize = 0.0f;
+    };
+
+    ModulationOutputs processModulationMatrix();
+    float applyModCurve(float input, int curveType);
+    float getModulationSource(int sourceIndex);
+
     int getActiveVoiceCount() const;
     
 private:

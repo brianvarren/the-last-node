@@ -157,13 +157,41 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
         output[i] = 0.0f;
     }
-    
+
+    // Process modulation matrix once per buffer
+    ModulationOutputs modOutputs = processModulationMatrix();
+
+    // Apply modulation to active voices
+    for (int v = 0; v < MAX_VOICES; ++v) {
+        if (!voices[v].active) {
+            continue;
+        }
+
+        Voice& voice = voices[v];
+
+        // Apply pitch modulation to each oscillator
+        // Pitch modulation is in octaves: modValue * 12 semitones
+        float baseFreq = midiNoteToFrequency(voice.note);
+        float pitchMods[4] = {modOutputs.osc1Pitch, modOutputs.osc2Pitch,
+                              modOutputs.osc3Pitch, modOutputs.osc4Pitch};
+
+        for (int osc = 0; osc < OSCILLATORS_PER_VOICE; ++osc) {
+            // Convert modulation value to frequency multiplier
+            // pitchMod is in octaves (-1 to +1 = ±1 octave with bidirectional)
+            float semitones = pitchMods[osc] * 12.0f;  // Convert octaves to semitones
+            float freqMultiplier = std::pow(2.0f, semitones / 12.0f);
+            voice.oscillators[osc].setFrequency(baseFreq * freqMultiplier);
+
+            // TODO: Apply morph and level modulation
+        }
+    }
+
     // Process each active voice and mix into output
     for (int v = 0; v < MAX_VOICES; ++v) {
         if (!voices[v].active) {
             continue;
         }
-        
+
         // Generate samples for this voice
         for (unsigned int i = 0; i < nFrames; ++i) {
             float sample = voices[v].generateSample();
@@ -262,6 +290,126 @@ void Synth::processLFOs(float sampleRate) {
 float Synth::getLFOOutput(int lfoIndex) const {
     if (lfoIndex < 0 || lfoIndex >= 4) return 0.0f;
     return lfos[lfoIndex].getCurrentValue();
+}
+
+float Synth::getModulationSource(int sourceIndex) {
+    // Source indices from ui_mod.cpp:
+    // 0-3: LFO 1-4
+    // 4-7: ENV 1-4
+    // 8: Velocity, 9: Aftertouch, 10: Mod Wheel, 11: Pitch Bend
+
+    if (sourceIndex >= 0 && sourceIndex <= 3) {
+        // LFO 1-4
+        return getLFOOutput(sourceIndex);
+    } else if (sourceIndex >= 4 && sourceIndex <= 7) {
+        // ENV 1-4 - TODO: implement envelope outputs
+        return 0.0f;
+    } else if (sourceIndex == 8) {
+        // Velocity - TODO: implement
+        return 0.0f;
+    } else if (sourceIndex == 9) {
+        // Aftertouch - TODO: implement
+        return 0.0f;
+    } else if (sourceIndex == 10) {
+        // Mod Wheel - TODO: implement
+        return 0.0f;
+    } else if (sourceIndex == 11) {
+        // Pitch Bend - TODO: implement
+        return 0.0f;
+    }
+
+    return 0.0f;
+}
+
+float Synth::applyModCurve(float input, int curveType) {
+    // Curve types from ui_mod.cpp:
+    // 0: Linear, 1: Exponential, 2: Logarithmic, 3: S-Curve
+
+    switch (curveType) {
+        case 0: // Linear
+            return input;
+
+        case 1: // Exponential
+            if (input >= 0.0f) {
+                return (std::exp(input) - 1.0f) / (std::exp(1.0f) - 1.0f);
+            } else {
+                return -(std::exp(-input) - 1.0f) / (std::exp(1.0f) - 1.0f);
+            }
+
+        case 2: // Logarithmic
+            if (input >= 0.0f) {
+                return std::log(1.0f + input) / std::log(2.0f);
+            } else {
+                return -std::log(1.0f - input) / std::log(2.0f);
+            }
+
+        case 3: // S-Curve (tanh)
+            return std::tanh(input * 2.0f);
+
+        default:
+            return input;
+    }
+}
+
+Synth::ModulationOutputs Synth::processModulationMatrix() {
+    ModulationOutputs outputs;
+
+    if (!ui) return outputs;
+
+    // Process all 16 modulation slots
+    for (int i = 0; i < 16; ++i) {
+        const ModulationSlot& slot = ui->modulationSlots[i];
+
+        // Skip empty or incomplete slots
+        if (!slot.isComplete()) continue;
+
+        // Get source value (-1 to +1)
+        float sourceValue = getModulationSource(slot.source);
+
+        // Apply curve shaping
+        float shapedValue = applyModCurve(sourceValue, slot.curve);
+
+        // Apply amount scaling (-99 to +99 maps to a reasonable modulation range)
+        float amount = static_cast<float>(slot.amount) / 99.0f;
+        float modValue = shapedValue * amount;
+
+        // Handle bidirectional vs unidirectional
+        // Type 0 = Unidirectional (-->), Type 1 = Bidirectional (<->)
+        if (slot.type == 0) {
+            // Unidirectional: map -1..+1 to 0..+1
+            modValue = (modValue + 1.0f) * 0.5f * amount;
+        }
+
+        // Apply to destination
+        // Destination indices from ui_mod.cpp:
+        // 0-2: OSC 1 Pitch/Morph/Level
+        // 3-5: OSC 2 Pitch/Morph/Level
+        // 6-8: OSC 3 Pitch/Morph/Level
+        // 9-11: OSC 4 Pitch/Morph/Level
+        // 12-13: Filter Cutoff/Resonance
+        // 14-15: Reverb Mix/Size
+
+        switch (slot.destination) {
+            case 0: outputs.osc1Pitch += modValue; break;
+            case 1: outputs.osc1Morph += modValue; break;
+            case 2: outputs.osc1Level += modValue; break;
+            case 3: outputs.osc2Pitch += modValue; break;
+            case 4: outputs.osc2Morph += modValue; break;
+            case 5: outputs.osc2Level += modValue; break;
+            case 6: outputs.osc3Pitch += modValue; break;
+            case 7: outputs.osc3Morph += modValue; break;
+            case 8: outputs.osc3Level += modValue; break;
+            case 9: outputs.osc4Pitch += modValue; break;
+            case 10: outputs.osc4Morph += modValue; break;
+            case 11: outputs.osc4Level += modValue; break;
+            case 12: outputs.filterCutoff += modValue; break;
+            case 13: outputs.filterResonance += modValue; break;
+            case 14: outputs.reverbMix += modValue; break;
+            case 15: outputs.reverbSize += modValue; break;
+        }
+    }
+
+    return outputs;
 }
 
 void Synth::setParams(SynthParameters* params_ptr) {

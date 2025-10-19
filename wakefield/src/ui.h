@@ -780,7 +780,10 @@ public:
     int getRequestedAudioDevice() const { return requestedAudioDeviceId; }
     int getRequestedMidiDevice() const { return requestedMidiPortNum; }
     void clearDeviceChangeRequest() { deviceChangeRequested = false; }
-    
+
+    // MOD matrix data (16 modulation slots) - public for Synth access
+    ModulationSlot modulationSlots[16];
+
 private:
     Synth* synth;
     SynthParameters* params;
@@ -977,9 +980,6 @@ private:
     bool modMatrixMenuActive;
     int modMatrixMenuIndex;
     int modMatrixMenuColumn;  // Which column the menu is for (0=Source, 1=Curve, 3=Dest, 4=Type)
-
-    // MOD matrix data (16 modulation slots)
-    ModulationSlot modulationSlots[16];
 
     // LFO scope zoom controls (samples to display)
     int lfoScopeXZoom;  // Number of history samples to display horizontally (default 100)
