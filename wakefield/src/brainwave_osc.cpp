@@ -165,9 +165,8 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
         sample = -sample;
     }
 
-    // Apply level modulation (additive)
-    float modulatedLevel = std::min(std::max(level_ + levelMod, 0.0f), 1.0f);
-    sample *= modulatedLevel;
+    // Note: Level modulation is NOT applied here - it's handled by the voice mixer
+    // The voice.cpp mixing code already multiplies by level, so applying it here would be redundant
 
     // Advance or reverse phase depending on frequency sign (TZFM)
     if (isNegative) {

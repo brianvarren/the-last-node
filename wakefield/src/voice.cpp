@@ -45,16 +45,19 @@ float Voice::generateSample() {
                                                     ratioMod[i], offsetMod[i], levelMod[i]);
     }
 
-    // Mix all oscillators (weighted average)
+    // Mix all oscillators (weighted average) with modulation applied
     float mixedSample = 0.0f;
     float totalWeight = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        float level = oscillators[i].getLevel();
-        if (level <= 0.0f) {
+        // Apply level modulation (additive)
+        float baseLevel = oscillators[i].getLevel();
+        float modulatedLevel = std::min(std::max(baseLevel + levelMod[i], 0.0f), 1.0f);
+
+        if (modulatedLevel <= 0.0f) {
             continue;
         }
-        mixedSample += currentOutputs[i] * level;
-        totalWeight += level;
+        mixedSample += currentOutputs[i] * modulatedLevel;
+        totalWeight += modulatedLevel;
     }
     if (totalWeight > 0.0f) {
         mixedSample /= totalWeight;
