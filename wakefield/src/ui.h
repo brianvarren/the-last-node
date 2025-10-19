@@ -824,6 +824,7 @@ private:
     static const int LFO_HISTORY_SIZE = 2048;
     std::vector<float> lfoHistoryBuffer[4];  // One per LFO
     int lfoHistoryWritePos[4];
+    float lfoScopePhase[4];  // Continuous phase for smooth scrolling (0.0 = newest sample)
 
     // Device change request
     bool deviceChangeRequested;

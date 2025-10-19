@@ -55,6 +55,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     for (int i = 0; i < 4; ++i) {
         lfoHistoryBuffer[i].resize(LFO_HISTORY_SIZE, 0.0f);
         lfoHistoryWritePos[i] = 0;
+        lfoScopePhase[i] = 0.0f;
     }
 
     // Load available presets

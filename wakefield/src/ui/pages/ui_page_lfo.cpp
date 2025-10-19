@@ -36,24 +36,47 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
     int prevRow = -1;
     int prevCol = -1;
 
-    // Snapshot the newest history index once so the scope shifts in lockstep each update
-    int newestIndex = (writePos - 1 + historySize) % historySize;
-    int denominator = std::max(1, width - 1);
-    int sampleSpan = std::max(0, samplesToShow - 1);
+    // Advance scope phase smoothly for synchronized scrolling
+    // Each frame, advance based on typical UI refresh (~60 FPS = ~16ms)
+    // At 48kHz sample rate with buffer size 256, we get ~187 FPS (~5.33ms per frame)
+    // We want the scope to scroll at a rate that matches new sample arrival
+    // Advance by approximately 1 sample position per frame (will be tuned by visual feedback)
+    lfoScopePhase[lfoIndex] += 1.0f;
+
+    // Wrap phase to stay within history buffer range
+    while (lfoScopePhase[lfoIndex] >= static_cast<float>(historySize)) {
+        lfoScopePhase[lfoIndex] -= static_cast<float>(historySize);
+    }
+
+    // Use continuous phase for smooth temporal positioning
+    float scopePhase = lfoScopePhase[lfoIndex];
+    float sampleSpan = static_cast<float>(std::max(0, samplesToShow - 1));
 
     for (int x = 0; x < width; ++x) {
-        // Map column to a discrete history offset so every column advances together
-        int columnsFromRight = width - 1 - x;
-        int historyOffset;
+        // Map column to continuous history position
+        float columnsFromRight = static_cast<float>(width - 1 - x);
+        float historyOffsetFloat;
+
         if (width == 1) {
-            historyOffset = 0;
+            historyOffsetFloat = scopePhase;
         } else {
-            // Round to nearest to evenly distribute samples across the scope width
-            historyOffset = (sampleSpan * columnsFromRight + denominator / 2) / denominator;
+            // Linear mapping from column to history position
+            historyOffsetFloat = scopePhase + (sampleSpan * columnsFromRight) / static_cast<float>(width - 1);
         }
 
-        int bufferIndex = (newestIndex - historyOffset + historySize) % historySize;
-        float amplitude = lfoHistoryBuffer[lfoIndex][bufferIndex];
+        // Get integer and fractional parts for interpolation
+        int historyOffset = static_cast<int>(std::floor(historyOffsetFloat));
+        float frac = historyOffsetFloat - static_cast<float>(historyOffset);
+
+        // Get two adjacent samples from history buffer
+        int bufferIndex1 = (writePos - 1 - historyOffset + historySize * 2) % historySize;
+        int bufferIndex2 = (writePos - 1 - historyOffset - 1 + historySize * 2) % historySize;
+
+        float amplitude1 = lfoHistoryBuffer[lfoIndex][bufferIndex1];
+        float amplitude2 = lfoHistoryBuffer[lfoIndex][bufferIndex2];
+
+        // Linear interpolation for smooth temporal transitions
+        float amplitude = amplitude1 + frac * (amplitude2 - amplitude1);
 
         // Apply Y zoom
         amplitude *= yScale;
