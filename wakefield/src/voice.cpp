@@ -47,21 +47,15 @@ float Voice::generateSample() {
     }
 
     // Mix all oscillators with base level + modulation
+    // Simple additive mixing (not weighted average)
     float mixedSample = 0.0f;
-    float totalWeight = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Get base level from synth (control-rate) and add level modulation
         float baseLevel = synth ? synth->getOscillatorBaseLevel(i) : 0.0f;
         float modulatedLevel = std::min(std::max(baseLevel + levelMod[i], 0.0f), 1.0f);
 
-        if (modulatedLevel <= 0.0f) {
-            continue;
-        }
+        // Simple multiply: level acts as amplitude control
         mixedSample += currentOutputs[i] * modulatedLevel;
-        totalWeight += modulatedLevel;
-    }
-    if (totalWeight > 0.0f) {
-        mixedSample /= totalWeight;
     }
 
     // Cache outputs for next sample's FM routing
