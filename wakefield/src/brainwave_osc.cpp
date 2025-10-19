@@ -155,15 +155,10 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     float modulatedMorph = std::min(std::max(morphPosition_ + morphMod, 0.0f), 1.0f);
     float modulatedDuty = std::min(std::max(duty_ + dutyMod, 0.0f), 1.0f);
 
-    // Generate current sample with modulated parameters
-    float sample = generateSample(phaseAccumulator_, modulatedMorph);
-
-    // Note: duty modulation is applied by passing modulatedDuty to generateSample
-    // but generateSample doesn't accept duty parameter, it uses the member variable
-    // We need to temporarily override duty_ for this sample
+    // Temporarily override duty_ for this sample (generateSample uses member variable)
     float savedDuty = duty_;
     duty_ = modulatedDuty;
-    sample = generateSample(phaseAccumulator_, modulatedMorph);
+    float sample = generateSample(phaseAccumulator_, modulatedMorph);
     duty_ = savedDuty;
 
     if (flipPolarity_) {
