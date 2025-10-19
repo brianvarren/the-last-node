@@ -47,15 +47,12 @@ UI::UI(Synth* synth, SynthParameters* params)
     , numericInputIsSequencer(false)
     , modMatrixMenuActive(false)
     , modMatrixMenuIndex(0)
-    , modMatrixMenuColumn(0)
-    , lfoScopeXZoom(200)  // Show more samples by default for smoother display
-    , lfoScopeYZoom(1) {
+    , modMatrixMenuColumn(0) {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {
         lfoHistoryBuffer[i].resize(LFO_HISTORY_SIZE, 0.0f);
         lfoHistoryWritePos[i] = 0;
-        lfoScopePhase[i] = 0.0f;
     }
 
     // Load available presets

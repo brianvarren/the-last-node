@@ -202,22 +202,7 @@ void UI::handleInput(int ch) {
         }
     }
 
-    // LFO page zoom controls
-    if (currentPage == UIPage::LFO) {
-        if (ch == '[') {
-            lfoScopeXZoom = std::max(20, lfoScopeXZoom - 10);
-            return;
-        } else if (ch == ']') {
-            lfoScopeXZoom = std::min(2048, lfoScopeXZoom + 10);  // Match LFO_HISTORY_SIZE
-            return;
-        } else if (ch == '{') {
-            lfoScopeYZoom = std::max(1, lfoScopeYZoom - 1);
-            return;
-        } else if (ch == '}') {
-            lfoScopeYZoom = std::min(4, lfoScopeYZoom + 1);
-            return;
-        }
-    }
+    // LFO page no longer has zoom controls (using static waveform preview now)
 
     // Up/Down arrows navigate between parameters on current page
     if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_UP) {

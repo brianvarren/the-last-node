@@ -819,12 +819,10 @@ private:
     std::vector<float> waveformBuffer;
     std::atomic<int> waveformBufferWritePos;
 
-    // LFO amplitude history for rolling scope view
-    // Increased from 512 to 2048 for better resolution at fast LFO rates
+    // LFO amplitude history (no longer used for display, kept for potential future use)
     static const int LFO_HISTORY_SIZE = 2048;
     std::vector<float> lfoHistoryBuffer[4];  // One per LFO
     int lfoHistoryWritePos[4];
-    float lfoScopePhase[4];  // Continuous phase for smooth scrolling (0.0 = newest sample)
 
     // Device change request
     bool deviceChangeRequested;
@@ -982,10 +980,6 @@ private:
     bool modMatrixMenuActive;
     int modMatrixMenuIndex;
     int modMatrixMenuColumn;  // Which column the menu is for (0=Source, 1=Curve, 3=Dest, 4=Type)
-
-    // LFO scope zoom controls (samples to display)
-    int lfoScopeXZoom;  // Number of history samples to display horizontally (default 100)
-    int lfoScopeYZoom;  // Vertical zoom (1-4, default 1 = full range -1 to +1)
 };
 
 #endif // UI_H
