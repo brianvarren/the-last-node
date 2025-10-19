@@ -231,15 +231,16 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     }
 }
 
-void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, float morph,
+void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, int shape, float morph,
                                  float duty, bool flip, bool resetOnNote, float tempo) {
     if (lfoIndex < 0 || lfoIndex >= 4) return;
 
     lfos[lfoIndex].setPeriod(period);
     lfos[lfoIndex].setSyncMode(static_cast<LFOSyncMode>(syncMode));
+    lfos[lfoIndex].setShape(shape);
     lfos[lfoIndex].setMorph(morph);
     lfos[lfoIndex].setDuty(duty);
-    lfos[lfoIndex].setFlipPolarity(flip);
+    lfos[lfoIndex].setFlip(flip);
     lfos[lfoIndex].setResetOnNote(resetOnNote);
     lfos[lfoIndex].setTempo(tempo);
 }

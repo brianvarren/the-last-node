@@ -23,6 +23,7 @@ void UI::initializeParameters() {
     // LFO page parameters - control the currently selected LFO
     parameters.push_back({200, ParamType::FLOAT, "Period", "s", 0.1f, 1800.0f, {}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({201, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::LFO)});
+    parameters.push_back({206, ParamType::ENUM, "Shape", "", 0, 1, {"PD", "Pulse"}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({202, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({203, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LFO)});
     parameters.push_back({204, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO)});
@@ -126,6 +127,7 @@ float UI::getParameterValue(int id) {
         case 203: return params->getLfoDuty(lfoIndex);
         case 204: return params->getLfoFlip(lfoIndex) ? 1.0f : 0.0f;
         case 205: return params->getLfoResetOnNote(lfoIndex) ? 1.0f : 0.0f;
+        case 206: return static_cast<float>(params->getLfoShape(lfoIndex));
         case 20: return static_cast<float>(params->reverbType.load());
         case 21: return params->reverbEnabled.load() ? 1.0f : 0.0f;
         case 22: return params->reverbDelayTime.load();
@@ -195,6 +197,7 @@ void UI::setParameterValue(int id, float value) {
         case 203: params->setLfoDuty(lfoIndex, value); break;
         case 204: params->setLfoFlip(lfoIndex, value > 0.5f); break;
         case 205: params->setLfoResetOnNote(lfoIndex, value > 0.5f); break;
+        case 206: params->setLfoShape(lfoIndex, static_cast<int>(value)); break;
         case 20: params->reverbType = static_cast<int>(value); break;
         case 21: params->reverbEnabled = (value > 0.5f); break;
         case 22: params->reverbDelayTime = value; break;

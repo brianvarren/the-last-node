@@ -48,7 +48,7 @@ public:
     void updateFilterParameters(int type, float cutoff, float gain);
 
     // LFO control
-    void updateLFOParameters(int lfoIndex, float period, int syncMode, float morph,
+    void updateLFOParameters(int lfoIndex, float period, int syncMode, int shape, float morph,
                              float duty, bool flip, bool resetOnNote, float tempo);
 
     // LFO processing (called per audio buffer)

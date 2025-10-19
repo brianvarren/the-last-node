@@ -159,6 +159,7 @@ struct SynthParameters {
     std::atomic<float> lfo1Duty{0.5f};
     std::atomic<bool> lfo1Flip{false};
     std::atomic<bool> lfo1ResetOnNote{false};
+    std::atomic<int> lfo1Shape{0}; // 0=PD, 1=Pulse
 
     std::atomic<float> lfo2Period{1.0f};
     std::atomic<int> lfo2SyncMode{0};
@@ -166,6 +167,7 @@ struct SynthParameters {
     std::atomic<float> lfo2Duty{0.5f};
     std::atomic<bool> lfo2Flip{false};
     std::atomic<bool> lfo2ResetOnNote{false};
+    std::atomic<int> lfo2Shape{0}; // 0=PD, 1=Pulse
 
     std::atomic<float> lfo3Period{1.0f};
     std::atomic<int> lfo3SyncMode{0};
@@ -173,6 +175,7 @@ struct SynthParameters {
     std::atomic<float> lfo3Duty{0.5f};
     std::atomic<bool> lfo3Flip{false};
     std::atomic<bool> lfo3ResetOnNote{false};
+    std::atomic<int> lfo3Shape{0}; // 0=PD, 1=Pulse
 
     std::atomic<float> lfo4Period{1.0f};
     std::atomic<int> lfo4SyncMode{0};
@@ -180,6 +183,7 @@ struct SynthParameters {
     std::atomic<float> lfo4Duty{0.5f};
     std::atomic<bool> lfo4Flip{false};
     std::atomic<bool> lfo4ResetOnNote{false};
+    std::atomic<int> lfo4Shape{0}; // 0=PD, 1=Pulse
 
     std::atomic<float> lfoVisualValue[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     std::atomic<float> lfoVisualPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -544,6 +548,26 @@ struct SynthParameters {
             case 2: lfo3ResetOnNote = value; break;
             case 3: lfo4ResetOnNote = value; break;
             default: lfo1ResetOnNote = value; break;
+        }
+    }
+
+    int getLfoShape(int index) const {
+        switch (index) {
+            case 0: return lfo1Shape.load();
+            case 1: return lfo2Shape.load();
+            case 2: return lfo3Shape.load();
+            case 3: return lfo4Shape.load();
+            default: return lfo1Shape.load();
+        }
+    }
+
+    void setLfoShape(int index, int value) {
+        switch (index) {
+            case 0: lfo1Shape = value; break;
+            case 1: lfo2Shape = value; break;
+            case 2: lfo3Shape = value; break;
+            case 3: lfo4Shape = value; break;
+            default: lfo1Shape = value; break;
         }
     }
 

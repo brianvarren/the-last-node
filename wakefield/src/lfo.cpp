@@ -48,8 +48,9 @@ float LFO::generateTanhShaped(float phase, float morph, float duty) {
 }
 
 LFO::LFO()
-    : period_(1.0f)
+    : period_(3.0f)
     , syncMode_(LFOSyncMode::OFF)
+    , shape_(0)
     , tempo_(120.0f)
     , morphPosition_(0.5f)
     , duty_(0.5f)
@@ -96,30 +97,22 @@ float LFO::calculateFrequency(float sampleRate) {
 }
 
 float LFO::generateSample(uint32_t phase) {
-    // Convert 32-bit phase to normalized phase (0.0 to 1.0)
-    float normalizedPhase = static_cast<double>(phase) / 4294967296.0;
+    // Convert 32-bit phase to float 0.0-1.0
+    float floatPhase = static_cast<float>(phase) / static_cast<float>(0xFFFFFFFF);
 
-    float morphAmount = std::min(std::max(morphPosition_, 0.0f), 1.0f);
-
-    // Determine waveform based on morph position
-    // 0.0 - 0.5: Phase distorted saw
-    // 0.5 - 1.0: Tanh-shaped pulse
     float sample;
-    if (morphAmount < 0.5f) {
-        // Map 0.0-0.5 to full phase distortion range
-        sample = generatePhaseDistorted(normalizedPhase, morphAmount * 2.0f);
+    if (shape_ == 0) {
+        // Phase-distorted sine wave
+        sample = generatePhaseDistorted(floatPhase, morphPosition_);
     } else {
-        // Shift phase by 180 degrees for pulse wave
-        float shiftedPhase = normalizedPhase + 0.5f;
+        // Tanh-shaped pulse wave (with phase shift to match oscillator)
+        float shiftedPhase = floatPhase + 0.5f;
         if (shiftedPhase >= 1.0f) {
             shiftedPhase -= 1.0f;
         }
-        // Map 0.5-1.0 to full tanh shaping range
-        float tanhMorph = (morphAmount - 0.5f) * 2.0f;
-        sample = generateTanhShaped(shiftedPhase, tanhMorph, duty_);
+        sample = generateTanhShaped(shiftedPhase, morphPosition_, duty_);
     }
 
-    // Apply polarity flip if enabled
     if (flipPolarity_) {
         sample = -sample;
     }
