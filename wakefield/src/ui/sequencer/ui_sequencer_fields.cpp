@@ -96,8 +96,6 @@ void UI::handleSequencerScaleMenuInput(int ch) {
             finishSequencerScaleMenu(true);
             break;
         case 27:  // Escape
-        case 'q':  // Q also cancels
-        case 'Q':
             finishSequencerScaleMenu(false);
             break;
         default:

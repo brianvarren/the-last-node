@@ -9,9 +9,6 @@ extern LoopManager* loopManager;
 extern Sequencer* sequencer;
 
 void UI::handleInput(int ch) {
-    // Note: 'q' and 'Q' are checked in UI::update() for quit, so we don't consume them here
-    // except in help mode where 'q' closes help instead of quitting
-
     // Handle help mode
     if (helpActive) {
         if (ch == 'h' || ch == 'H' || ch == 27 || ch == 'q' || ch == 'Q') {  // H, Esc, or Q to close
@@ -31,55 +28,45 @@ void UI::handleInput(int ch) {
     // Handle preset text input mode
     if (textInputActive) {
         handleTextInput(ch);
-        // Don't return if 'q'/'Q' - let it propagate to quit check
-        if (ch != 'q' && ch != 'Q') return;
+        return;
     }
 
     if (sequencerScaleMenuActive) {
         handleSequencerScaleMenuInput(ch);
-        // Don't return if 'q'/'Q' - let it propagate to quit check
-        if (ch != 'q' && ch != 'Q') return;
+        return;
     }
 
     // Handle numeric input mode for parameters
     if (numericInputActive) {
         if (ch == '\n' || ch == KEY_ENTER) {
             finishNumericInput();
-        } else if (ch == 27 || ch == 'q' || ch == 'Q') {  // Escape or Q key cancels and quits
+        } else if (ch == 27) {  // Escape key
             if (numericInputIsSequencer) {
                 cancelSequencerNumericInput();
             }
             numericInputActive = false;
             numericInputBuffer.clear();
             clear();  // Clear screen to refresh properly
-            // Don't return - let 'q'/'Q' propagate to quit check
-            if (ch == 27) return;  // Escape only cancels, doesn't quit
         } else if (ch == KEY_BACKSPACE || ch == 127) {
             if (!numericInputBuffer.empty()) {
                 numericInputBuffer.pop_back();
             }
-            return;
         } else if (ch >= 32 && ch < 127) {  // Printable characters
             if (numericInputBuffer.length() < 20) {
                 numericInputBuffer += static_cast<char>(ch);
             }
-            return;
         }
-        // Note: 'q'/'Q' falls through to be handled by quit check in UI::update()
-        if (ch != 'q' && ch != 'Q') return;
+        return;
     }
 
-    // Handle MIDI learn mode - allow Escape or Q to cancel
+    // Handle MIDI learn mode - allow Escape to cancel
     if (params->midiLearnActive.load()) {
-        if (ch == 27 || ch == 'q' || ch == 'Q') {  // Escape or Q key
+        if (ch == 27) {  // Escape key
             finishMidiLearn();
             addConsoleMessage("MIDI Learn cancelled");
             clear();  // Clear screen to refresh properly
-            // Let 'q'/'Q' propagate to quit check
-            if (ch == 27) return;
-        } else {
-            return;  // Don't process other keys during MIDI learn
         }
+        return;  // Don't process other keys during MIDI learn
     }
 
     // Sequencer-specific navigation and editing
