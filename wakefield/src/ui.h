@@ -740,6 +740,9 @@ public:
     // Waveform buffer for oscilloscope
     void writeToWaveformBuffer(float sample);
 
+    // LFO amplitude history for rolling scope view
+    void writeToLFOHistory(int lfoIndex, float amplitude);
+
     // CPU monitor access
     CPUMonitor& getCPUMonitor() { return cpuMonitor; }
 
@@ -786,7 +789,12 @@ private:
     static const int WAVEFORM_BUFFER_SIZE = 8192;
     std::vector<float> waveformBuffer;
     std::atomic<int> waveformBufferWritePos;
-    
+
+    // LFO amplitude history for rolling scope view
+    static const int LFO_HISTORY_SIZE = 512;
+    std::vector<float> lfoHistoryBuffer[4];  // One per LFO
+    int lfoHistoryWritePos[4];
+
     // Device change request
     bool deviceChangeRequested;
     int requestedAudioDeviceId;

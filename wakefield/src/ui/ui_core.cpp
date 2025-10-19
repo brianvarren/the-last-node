@@ -45,6 +45,12 @@ UI::UI(Synth* synth, SynthParameters* params)
     , sequencerScaleMenuIndex(0)
     , numericInputIsSequencer(false) {
 
+    // Initialize LFO history buffers
+    for (int i = 0; i < 4; ++i) {
+        lfoHistoryBuffer[i].resize(LFO_HISTORY_SIZE, 0.0f);
+        lfoHistoryWritePos[i] = 0;
+    }
+
     // Load available presets
     refreshPresetList();
 
@@ -159,4 +165,12 @@ void UI::writeToWaveformBuffer(float sample) {
     int pos = waveformBufferWritePos.load(std::memory_order_relaxed);
     waveformBuffer[pos] = sample;
     waveformBufferWritePos.store((pos + 1) % WAVEFORM_BUFFER_SIZE, std::memory_order_relaxed);
+}
+
+void UI::writeToLFOHistory(int lfoIndex, float amplitude) {
+    if (lfoIndex < 0 || lfoIndex >= 4) return;
+
+    int pos = lfoHistoryWritePos[lfoIndex];
+    lfoHistoryBuffer[lfoIndex][pos] = amplitude;
+    lfoHistoryWritePos[lfoIndex] = (pos + 1) % LFO_HISTORY_SIZE;
 }

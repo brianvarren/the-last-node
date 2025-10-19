@@ -251,6 +251,10 @@ void Synth::processLFOs(float sampleRate) {
         if (params) {
             params->setLfoVisualState(i, value, lfos[i].getPhase());
         }
+        // Write to UI's LFO history buffer for rolling scope view
+        if (ui) {
+            ui->writeToLFOHistory(i, value);
+        }
     }
 }
 
