@@ -30,9 +30,10 @@ void UI::handleTextInput(int ch) {
             savePreset(textInputBuffer);
         }
         finishTextInput();
-    } else if (ch == 27) {  // Escape
+    } else if (ch == 27 || ch == 'q' || ch == 'Q') {  // Escape or Q cancels
         finishTextInput();
         clear();  // Clear screen to refresh properly
+        // Note: 'q'/'Q' will propagate to quit check in UI::update() since we don't return in UI::handleInput
     } else if (ch == KEY_BACKSPACE || ch == 127) {
         if (!textInputBuffer.empty()) {
             textInputBuffer.pop_back();
