@@ -118,14 +118,14 @@ private:
     OnePoleLowShelfBLT lowShelfR;
     
     struct OscillatorState {
-        BrainwaveMode mode = BrainwaveMode::FREE;
+        BrainwaveMode mode = BrainwaveMode::KEY;  // Match BrainwaveOscillator default
         BrainwaveShape shape = BrainwaveShape::SAW;
         float baseFrequency = 440.0f;
         float morph = 0.5f;
         float duty = 0.5f;
         float ratio = 1.0f;
         float offsetHz = 0.0f;
-        float level = 0.0f;
+        float level = 1.0f;  // Match BrainwaveOscillator default (was 0.0f)
         bool flipPolarity = false;
         bool initialized = false;
     };
