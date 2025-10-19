@@ -48,7 +48,7 @@ public:
                              float duty, bool flip, bool resetOnNote, float tempo);
 
     // LFO processing (called per audio buffer)
-    void processLFOs(float sampleRate);
+    void processLFOs(float sampleRate, unsigned int nFrames);
 
     // Get LFO outputs (for modulation matrix)
     float getLFOOutput(int lfoIndex) const;

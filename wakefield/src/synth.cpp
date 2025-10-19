@@ -298,10 +298,10 @@ void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, int sh
     lfos[lfoIndex].setTempo(tempo);
 }
 
-void Synth::processLFOs(float sampleRate) {
+void Synth::processLFOs(float sampleRate, unsigned int nFrames) {
     // Process all 4 LFOs once per audio buffer
     for (int i = 0; i < 4; ++i) {
-        float value = lfos[i].process(sampleRate);
+        float value = lfos[i].process(sampleRate, nFrames);
         if (params) {
             params->setLfoVisualState(i, value, lfos[i].getPhase());
         }

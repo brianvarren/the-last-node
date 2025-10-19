@@ -120,19 +120,20 @@ float LFO::generateSample(uint32_t phase) {
     return sample;
 }
 
-float LFO::process(float sampleRate) {
+float LFO::process(float sampleRate, unsigned int nFrames) {
     // Calculate frequency based on mode
     float frequency = calculateFrequency(sampleRate);
 
-    // Calculate phase increment (32-bit unsigned for high precision)
+    // Calculate phase increment per sample (32-bit unsigned for high precision)
     double phaseIncrementDouble = (frequency / sampleRate) * 4294967296.0;
     uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementDouble);
 
     // Generate sample at current phase
     currentOutput_ = generateSample(phaseAccumulator_);
 
-    // Advance phase
-    phaseAccumulator_ += phaseIncrement;
+    // Advance phase by the number of frames that have elapsed
+    // This is called once per audio buffer at control rate
+    phaseAccumulator_ += phaseIncrement * nFrames;
 
     return currentOutput_;
 }

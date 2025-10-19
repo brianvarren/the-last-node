@@ -40,8 +40,9 @@ public:
     void setResetOnNote(bool reset) { resetOnNote_ = reset; }
     bool getResetOnNote() const { return resetOnNote_; }
 
-    // Processing
-    float process(float sampleRate);
+    // Processing (called once per audio buffer)
+    // nFrames: number of samples that have elapsed since last call
+    float process(float sampleRate, unsigned int nFrames = 1);
 
     // Reset phase (called on note-on if resetOnNote is true)
     void reset();
