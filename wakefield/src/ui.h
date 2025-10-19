@@ -9,6 +9,7 @@
 #include <functional>
 #include "oscillator.h"
 #include "cpu_monitor.h"
+#include "modulation.h"
 
 class Synth;  // Forward declaration
 
@@ -952,6 +953,9 @@ private:
     bool modMatrixMenuActive;
     int modMatrixMenuIndex;
     int modMatrixMenuColumn;  // Which column the menu is for (0=Source, 1=Curve, 3=Dest, 4=Type)
+
+    // MOD matrix data (16 modulation slots)
+    ModulationSlot modulationSlots[16];
 };
 
 #endif // UI_H

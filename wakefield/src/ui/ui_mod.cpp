@@ -4,28 +4,33 @@
 
 namespace {
 
-// MOD matrix menu option lists
-const std::vector<std::string> kModSources = {
-    "LFO 1", "LFO 2", "LFO 3", "LFO 4",
-    "ENV 1", "ENV 2", "ENV 3", "ENV 4",
-    "Velocity", "Aftertouch", "Mod Wheel", "Pitch Bend"
+struct ModOption {
+    const char* displayName;  // Full name for menu
+    const char* symbol;       // Abbreviated symbol for cell
 };
 
-const std::vector<std::string> kModCurves = {
-    "Linear", "Exponential", "Logarithmic", "S-Curve"
+// MOD matrix menu option lists with abbreviated symbols
+const std::vector<ModOption> kModSources = {
+    {"LFO 1", "LFO1"}, {"LFO 2", "LFO2"}, {"LFO 3", "LFO3"}, {"LFO 4", "LFO4"},
+    {"ENV 1", "ENV1"}, {"ENV 2", "ENV2"}, {"ENV 3", "ENV3"}, {"ENV 4", "ENV4"},
+    {"Velocity", "Vel"}, {"Aftertouch", "AT"}, {"Mod Wheel", "MW"}, {"Pitch Bend", "PB"}
 };
 
-const std::vector<std::string> kModDestinations = {
-    "OSC 1 Pitch", "OSC 1 Morph", "OSC 1 Level",
-    "OSC 2 Pitch", "OSC 2 Morph", "OSC 2 Level",
-    "OSC 3 Pitch", "OSC 3 Morph", "OSC 3 Level",
-    "OSC 4 Pitch", "OSC 4 Morph", "OSC 4 Level",
-    "Filter Cutoff", "Filter Resonance",
-    "Reverb Mix", "Reverb Size"
+const std::vector<ModOption> kModCurves = {
+    {"Linear", "Lin"}, {"Exponential", "Exp"}, {"Logarithmic", "Log"}, {"S-Curve", "S"}
 };
 
-const std::vector<std::string> kModTypes = {
-    "Bipolar", "Unipolar"
+const std::vector<ModOption> kModDestinations = {
+    {"OSC 1 Pitch", "O1:Pitch"}, {"OSC 1 Morph", "O1:Morph"}, {"OSC 1 Level", "O1:Level"},
+    {"OSC 2 Pitch", "O2:Pitch"}, {"OSC 2 Morph", "O2:Morph"}, {"OSC 2 Level", "O2:Level"},
+    {"OSC 3 Pitch", "O3:Pitch"}, {"OSC 3 Morph", "O3:Morph"}, {"OSC 3 Level", "O3:Level"},
+    {"OSC 4 Pitch", "O4:Pitch"}, {"OSC 4 Morph", "O4:Morph"}, {"OSC 4 Level", "O4:Level"},
+    {"Filter Cutoff", "Flt:Cut"}, {"Filter Resonance", "Flt:Res"},
+    {"Reverb Mix", "Rvb:Mix"}, {"Reverb Size", "Rvb:Size"}
+};
+
+const std::vector<ModOption> kModTypes = {
+    {"Unidirectional", "-->"}, {"Bidirectional", "<->"}
 };
 
 } // namespace
@@ -40,7 +45,7 @@ void UI::handleModMatrixMenuInput(int ch) {
     if (!modMatrixMenuActive) return;
 
     // Get the appropriate option list for the current column
-    const std::vector<std::string>* options = nullptr;
+    const std::vector<ModOption>* options = nullptr;
     if (modMatrixMenuColumn == 0) {
         options = &kModSources;
     } else if (modMatrixMenuColumn == 1) {
@@ -87,11 +92,49 @@ void UI::finishModMatrixMenu(bool applySelection) {
     if (!modMatrixMenuActive) return;
 
     if (applySelection) {
-        // TODO: Apply the selected value to the modulation matrix
-        // For now, this is a placeholder until the actual mod matrix backend is implemented
-    }
+        ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
 
-    modMatrixMenuActive = false;
+        // Apply the selected value to the appropriate field
+        if (modMatrixMenuColumn == 0) {
+            slot.source = modMatrixMenuIndex;
+        } else if (modMatrixMenuColumn == 1) {
+            slot.curve = modMatrixMenuIndex;
+        } else if (modMatrixMenuColumn == 3) {
+            slot.destination = modMatrixMenuIndex;
+        } else if (modMatrixMenuColumn == 4) {
+            slot.type = modMatrixMenuIndex;
+        }
+
+        modMatrixMenuActive = false;
+
+        // Check if slot is still incomplete and advance to next empty field ("bus" workflow)
+        if (!slot.isComplete()) {
+            // Find next empty field in order: Source -> Curve -> Amount -> Dest -> Type
+            if (slot.source == -1) {
+                modMatrixCursorCol = 0;
+                startModMatrixMenu();
+                return;
+            } else if (slot.curve == -1) {
+                modMatrixCursorCol = 1;
+                startModMatrixMenu();
+                return;
+            } else if (slot.amount == 0 && modMatrixMenuColumn != 2) {
+                modMatrixCursorCol = 2;
+                startModMatrixAmountInput();
+                return;
+            } else if (slot.destination == -1) {
+                modMatrixCursorCol = 3;
+                startModMatrixMenu();
+                return;
+            } else if (slot.type == -1) {
+                modMatrixCursorCol = 4;
+                startModMatrixMenu();
+                return;
+            }
+        }
+    } else {
+        modMatrixMenuActive = false;
+    }
 }
 
 void UI::startModMatrixAmountInput() {
@@ -103,17 +146,40 @@ void UI::startModMatrixAmountInput() {
 void UI::finishModMatrixAmountInput() {
     if (!numericInputActive || !numericInputIsMod) return;
 
+    ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+
     if (!numericInputBuffer.empty()) {
         try {
             int amount = std::stoi(numericInputBuffer);
-            amount = std::max(-99, std::min(99, amount));  // Clamp to -99..99
-            // TODO: Apply amount to modulation matrix
+            slot.amount = std::max(-99, std::min(99, amount));  // Clamp to -99..99
         } catch (...) {
-            // Invalid input, ignore
+            // Invalid input, use default of 0
+            slot.amount = 0;
         }
     }
 
     numericInputActive = false;
     numericInputIsMod = false;
     numericInputBuffer.clear();
+
+    // Continue bus workflow if slot still incomplete
+    if (!slot.isComplete()) {
+        if (slot.source == -1) {
+            modMatrixCursorCol = 0;
+            startModMatrixMenu();
+            return;
+        } else if (slot.curve == -1) {
+            modMatrixCursorCol = 1;
+            startModMatrixMenu();
+            return;
+        } else if (slot.destination == -1) {
+            modMatrixCursorCol = 3;
+            startModMatrixMenu();
+            return;
+        } else if (slot.type == -1) {
+            modMatrixCursorCol = 4;
+            startModMatrixMenu();
+            return;
+        }
+    }
 }
