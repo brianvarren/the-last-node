@@ -169,6 +169,7 @@ void UI::writeToWaveformBuffer(float sample) {
 
 void UI::writeToLFOHistory(int lfoIndex, float amplitude) {
     if (lfoIndex < 0 || lfoIndex >= 4) return;
+    if (lfoHistoryBuffer[lfoIndex].empty()) return;  // Safety check during shutdown
 
     int pos = lfoHistoryWritePos[lfoIndex];
     lfoHistoryBuffer[lfoIndex][pos] = amplitude;

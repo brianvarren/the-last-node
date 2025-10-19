@@ -792,7 +792,10 @@ int main(int argc, char** argv) {
             audio.closeStream();
         }
     }
-    
+
+    // Nullify pointers before cleanup to prevent dangling pointer access
+    synth->setUI(nullptr);
+
     // Clean up
     delete ui;
     delete sequencer;
