@@ -97,7 +97,8 @@ void UI::handleInput(int ch) {
 
     // Tab key cycles forward through pages
     if (ch == '\t') {
-        if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::LFO);
+        if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::SAMPLER);
+        else if (currentPage == UIPage::SAMPLER) setPage(UIPage::LFO);
         else if (currentPage == UIPage::LFO) setPage(UIPage::ENV);
         else if (currentPage == UIPage::ENV) setPage(UIPage::FM);
         else if (currentPage == UIPage::FM) setPage(UIPage::MOD);
@@ -113,7 +114,8 @@ void UI::handleInput(int ch) {
     // Ctrl+Tab (KEY_BTAB or Shift+Tab) cycles backward through pages
     if (ch == KEY_BTAB || ch == 353) {  // KEY_BTAB = Shift+Tab, 353 = some terminals
         if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::CONFIG);
-        else if (currentPage == UIPage::LFO) setPage(UIPage::OSCILLATOR);
+        else if (currentPage == UIPage::SAMPLER) setPage(UIPage::OSCILLATOR);
+        else if (currentPage == UIPage::LFO) setPage(UIPage::SAMPLER);
         else if (currentPage == UIPage::ENV) setPage(UIPage::LFO);
         else if (currentPage == UIPage::FM) setPage(UIPage::ENV);
         else if (currentPage == UIPage::MOD) setPage(UIPage::FM);
