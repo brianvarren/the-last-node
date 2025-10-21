@@ -60,6 +60,26 @@ float Voice::generateSample() {
         mixedSample += currentOutputs[i] * modulatedLevel;
     }
 
+    // Process all samplers and mix
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        // FM input for samplers can come from oscillator outputs (simple sum)
+        float fmInput = 0.0f;
+        for (int j = 0; j < OSCILLATORS_PER_VOICE; ++j) {
+            fmInput += currentOutputs[j];
+        }
+        // Normalize FM input
+        fmInput /= OSCILLATORS_PER_VOICE;
+
+        // Process sampler with modulation
+        float samplerOut = samplers[i].process(sampleRate, fmInput,
+                                              samplerPitchMod[i],
+                                              samplerLoopStartMod[i],
+                                              samplerLoopLengthMod[i],
+                                              samplerCrossfadeMod[i],
+                                              samplerLevelMod[i]);
+        mixedSample += samplerOut;
+    }
+
     // Cache outputs for next sample's FM routing
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         lastOscOutputs[i] = currentOutputs[i];

@@ -304,6 +304,16 @@ void UI::handleInput(int ch) {
         }
     }
 
+    // Sampler selection (1-4 keys on SAMPLER page)
+    if (currentPage == UIPage::SAMPLER) {
+        switch (ch) {
+            case '1': currentSamplerIndex = 0; addConsoleMessage("Sampler 1 selected"); return;
+            case '2': currentSamplerIndex = 1; addConsoleMessage("Sampler 2 selected"); return;
+            case '3': currentSamplerIndex = 2; addConsoleMessage("Sampler 3 selected"); return;
+            case '4': currentSamplerIndex = 3; addConsoleMessage("Sampler 4 selected"); return;
+        }
+    }
+
     // FM Matrix navigation and editing
     if (currentPage == UIPage::FM) {
         auto adjustFMDepth = [&](float delta) {

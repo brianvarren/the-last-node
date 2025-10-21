@@ -32,6 +32,9 @@ add_executable(synth
     src/track.cpp
     src/sequencer.cpp
     src/cpu_monitor.cpp
+    # Sampler files
+    src/sampler.cpp
+    src/sample_bank.cpp
     # UI core files
     src/ui.cpp
     src/ui/ui_utils.cpp
@@ -45,6 +48,7 @@ add_executable(synth
     # UI page files
     src/ui/pages/ui_page_parameters.cpp
     src/ui/pages/ui_page_oscillator.cpp
+    src/ui/pages/ui_page_sampler.cpp
     src/ui/pages/ui_page_lfo.cpp
     src/ui/pages/ui_page_envelope.cpp
     src/ui/pages/ui_page_fm.cpp

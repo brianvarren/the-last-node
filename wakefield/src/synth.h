@@ -8,12 +8,13 @@
 #include "lfo.h"
 #include "reverb.h"
 #include "filters.hpp"
+#include "sample_bank.h"
 
 class UI; // Forward declaration
 struct SynthParameters;  // Forward declaration
 
 constexpr int MAX_VOICES = 8;
-// Note: OSCILLATORS_PER_VOICE is defined in voice.h
+// Note: OSCILLATORS_PER_VOICE and SAMPLERS_PER_VOICE are defined in voice.h
 
 class Synth {
 public:
@@ -99,6 +100,29 @@ public:
         if (index < 0 || index >= OSCILLATORS_PER_VOICE) return 0.0f;
         return oscillatorBaseLevels[index];
     }
+
+    // Sample bank management
+    SampleBank* getSampleBank() { return &sampleBank; }
+    const SampleBank* getSampleBank() const { return &sampleBank; }
+
+    // Sampler control
+    void setSamplerSample(int samplerIndex, int sampleIndex);
+    void setSamplerLoopStart(int samplerIndex, float normalized);
+    void setSamplerLoopLength(int samplerIndex, float normalized);
+    void setSamplerCrossfadeLength(int samplerIndex, float normalized);
+    void setSamplerPlaybackSpeed(int samplerIndex, float speed);
+    void setSamplerTZFMDepth(int samplerIndex, float depth);
+    void setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode);
+    void setSamplerLevel(int samplerIndex, float level);
+
+    // Get sampler state (for UI)
+    float getSamplerLoopStart(int samplerIndex) const;
+    float getSamplerLoopLength(int samplerIndex) const;
+    float getSamplerCrossfadeLength(int samplerIndex) const;
+    float getSamplerPlaybackSpeed(int samplerIndex) const;
+    float getSamplerTZFMDepth(int samplerIndex) const;
+    PlaybackMode getSamplerPlaybackMode(int samplerIndex) const;
+    float getSamplerLevel(int samplerIndex) const;
     
 private:
     float sampleRate;
@@ -126,6 +150,12 @@ private:
     // Per-oscillator base levels (control-rate, set from UI/params)
     // These are combined with levelMod in voice mixing
     float oscillatorBaseLevels[OSCILLATORS_PER_VOICE] = {1.0f, 0.0f, 0.0f, 0.0f};
+
+    // Sample bank for all voices
+    SampleBank sampleBank;
+
+    // Current sample index for each sampler (shared across all voices)
+    int currentSampleIndices[SAMPLERS_PER_VOICE] = {-1, -1, -1, -1};
     
     int findFreeVoice();
     float midiNoteToFrequency(int midiNote);

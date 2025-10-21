@@ -3,29 +3,39 @@
 
 #include "envelope.h"
 #include "brainwave_osc.h"
+#include "sampler.h"
 
 // Forward declarations
 struct SynthParameters;
 class Synth;
 
 constexpr int OSCILLATORS_PER_VOICE = 4;
+constexpr int SAMPLERS_PER_VOICE = 4;
 
 struct Voice {
     bool active;           // Is this voice currently playing?
     int note;             // MIDI note number
     int velocity;         // MIDI velocity (0-127)
     BrainwaveOscillator oscillators[OSCILLATORS_PER_VOICE]; // 4 oscillators per voice
+    Sampler samplers[SAMPLERS_PER_VOICE]; // 4 samplers per voice
     Envelope envelope;     // Amplitude envelope
     SynthParameters* params;  // Pointer to FM matrix and other params
     Synth* synth;          // Pointer to synth for base level access
 
-    // Modulation storage (set once per buffer by Synth::process)
+    // Oscillator modulation storage (set once per buffer by Synth::process)
     float pitchMod[OSCILLATORS_PER_VOICE];
     float morphMod[OSCILLATORS_PER_VOICE];
     float dutyMod[OSCILLATORS_PER_VOICE];
     float ratioMod[OSCILLATORS_PER_VOICE];
     float offsetMod[OSCILLATORS_PER_VOICE];
     float levelMod[OSCILLATORS_PER_VOICE];
+
+    // Sampler modulation storage
+    float samplerPitchMod[SAMPLERS_PER_VOICE];
+    float samplerLoopStartMod[SAMPLERS_PER_VOICE];
+    float samplerLoopLengthMod[SAMPLERS_PER_VOICE];
+    float samplerCrossfadeMod[SAMPLERS_PER_VOICE];
+    float samplerLevelMod[SAMPLERS_PER_VOICE];
 
     Voice(float sampleRate)
         : active(false)
@@ -44,6 +54,13 @@ struct Voice {
             ratioMod[i] = 0.0f;
             offsetMod[i] = 0.0f;
             levelMod[i] = 0.0f;
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            samplerPitchMod[i] = 0.0f;
+            samplerLoopStartMod[i] = 0.0f;
+            samplerLoopLengthMod[i] = 0.0f;
+            samplerCrossfadeMod[i] = 0.0f;
+            samplerLevelMod[i] = 0.0f;
         }
     }
 

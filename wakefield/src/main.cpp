@@ -640,6 +640,15 @@ int main(int argc, char** argv) {
     // Create synth instance
     synth = new Synth(static_cast<float>(sampleRate));
 
+    // Load samples from build/samples directory
+    std::cout << "Loading samples from build/samples..." << std::endl;
+    int samplesLoaded = synth->getSampleBank()->loadSamplesFromDirectory("build/samples");
+    if (samplesLoaded > 0) {
+        std::cout << "Loaded " << samplesLoaded << " samples successfully" << std::endl;
+    } else {
+        std::cout << "Warning: No samples found in build/samples directory" << std::endl;
+    }
+
     // Create looper manager
     loopManager = new LoopManager(static_cast<float>(sampleRate));
 

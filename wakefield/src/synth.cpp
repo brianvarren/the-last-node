@@ -479,3 +479,139 @@ void Synth::setParams(SynthParameters* params_ptr) {
         voice.synth = this;
     }
 }
+
+// ── Sampler Control Methods ─────────────────────────────────────────────────
+
+void Synth::setSamplerSample(int samplerIndex, int sampleIndex) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    const SampleData* sample = sampleBank.getSample(sampleIndex);
+    currentSampleIndices[samplerIndex] = sampleIndex;
+
+    // Apply to all voices
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setSample(sample);
+    }
+}
+
+void Synth::setSamplerLoopStart(int samplerIndex, float normalized) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setLoopStart(normalized);
+    }
+}
+
+void Synth::setSamplerLoopLength(int samplerIndex, float normalized) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setLoopLength(normalized);
+    }
+}
+
+void Synth::setSamplerCrossfadeLength(int samplerIndex, float normalized) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setCrossfadeLength(normalized);
+    }
+}
+
+void Synth::setSamplerPlaybackSpeed(int samplerIndex, float speed) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setPlaybackSpeed(speed);
+    }
+}
+
+void Synth::setSamplerTZFMDepth(int samplerIndex, float depth) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setTZFMDepth(depth);
+    }
+}
+
+void Synth::setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setPlaybackMode(mode);
+    }
+}
+
+void Synth::setSamplerLevel(int samplerIndex, float level) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setLevel(level);
+    }
+}
+
+// Get sampler state (from first voice as they're all synced)
+float Synth::getSamplerLoopStart(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
+        return 0.0f;
+    }
+    return voices[0].samplers[samplerIndex].getLoopStart();
+}
+
+float Synth::getSamplerLoopLength(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
+        return 1.0f;
+    }
+    return voices[0].samplers[samplerIndex].getLoopLength();
+}
+
+float Synth::getSamplerCrossfadeLength(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
+        return 0.1f;
+    }
+    return voices[0].samplers[samplerIndex].getCrossfadeLength();
+}
+
+float Synth::getSamplerPlaybackSpeed(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
+        return 1.0f;
+    }
+    return voices[0].samplers[samplerIndex].getPlaybackSpeed();
+}
+
+float Synth::getSamplerTZFMDepth(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
+        return 0.0f;
+    }
+    return voices[0].samplers[samplerIndex].getTZFMDepth();
+}
+
+PlaybackMode Synth::getSamplerPlaybackMode(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
+        return PlaybackMode::FORWARD;
+    }
+    return voices[0].samplers[samplerIndex].getPlaybackMode();
+}
+
+float Synth::getSamplerLevel(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
+        return 1.0f;
+    }
+    return voices[0].samplers[samplerIndex].getLevel();
+}

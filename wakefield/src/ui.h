@@ -684,6 +684,7 @@ struct SynthParameters {
 
 enum class UIPage {
     OSCILLATOR,
+    SAMPLER,
     LFO,
     ENV,
     FM,
@@ -830,6 +831,7 @@ private:
     void drawTabs();
     void drawParametersPage(int startRow = 3, int startCol = 2);  // Generic parameter page drawing
     void drawOscillatorPage();
+    void drawSamplerPage();
     void drawLFOPage();
     void drawEnvelopePage();
     void drawFMPage();
@@ -886,6 +888,7 @@ private:
 
     // Oscillator/LFO/Envelope UI state
     int currentOscillatorIndex;  // 0-3: which oscillator is selected on OSCILLATOR page
+    int currentSamplerIndex;     // 0-3: which sampler is selected on SAMPLER page
     int currentLFOIndex;          // 0-3: which LFO is selected on LFO page
     int currentEnvelopeIndex;     // 0-3: which envelope is selected on ENV page
 
