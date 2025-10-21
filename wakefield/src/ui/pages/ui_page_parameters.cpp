@@ -12,6 +12,9 @@ void UI::drawParametersPage(int startRow, int startCol) {
         InlineParameter* param = getParameter(paramId);
         if (!param) continue;
 
+        // Check if parameter is modulated
+        bool isModulated = isParameterModulated(paramId);
+
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
             attron(COLOR_PAIR(5) | A_BOLD);
@@ -20,9 +23,18 @@ void UI::drawParametersPage(int startRow, int startCol) {
             mvprintw(row, col, " ");
         }
 
+        // Use green color for modulated parameters
+        if (isModulated) {
+            attron(COLOR_PAIR(2));  // Green
+        }
+
         // Parameter name and value
         std::string displayValue = getParameterDisplayString(paramId);
         mvprintw(row, col + 2, "%-18s: %s", param->name.c_str(), displayValue.c_str());
+
+        if (isModulated) {
+            attroff(COLOR_PAIR(2));
+        }
 
         if (paramId == selectedParameterId) {
             attroff(COLOR_PAIR(5) | A_BOLD);

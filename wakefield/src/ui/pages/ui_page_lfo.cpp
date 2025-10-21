@@ -5,29 +5,45 @@
 
 namespace {
 
-// LFO waveform generation (matches LFO class implementation)
+// LFO waveform generation (matches oscillator implementation)
 float computeLFOPhaseDistorted(float phase, float morph) {
+    // morph: 0.0 = sawtooth pointing top-left (peak at left)
+    // morph: 0.5 = sine wave (centered peak)
+    // morph: 1.0 = sawtooth pointing top-right (peak at right)
+
     float clamped = std::min(std::max(morph, 0.0f), 1.0f);
-    float pivot;
-    if (clamped <= 0.5f) {
-        float t = clamped * 2.0f;
-        pivot = 0.5f - (0.5f - 0.0001f) * t;
-    } else {
-        float t = (clamped - 0.5f) * 2.0f;
-        pivot = 0.5f + 0.4999f * t;
+    bool mirror = false;
+    float morphAmount = clamped;
+
+    // For morph 0.0-0.5, we mirror the phase and remap to 0.5-1.0 range
+    if (clamped < 0.5f) {
+        mirror = true;
+        morphAmount = 1.0f - clamped * 2.0f;  // 0.0 -> 1.0, 0.5 -> 0.0
+        morphAmount = 0.5f + morphAmount * 0.5f;  // Map to 0.5-1.0
     }
+
+    // After remapping, morphAmount is always in range [0.5, 1.0]
+    // morphAmount 0.5 -> pivot 0.5 (sine wave)
+    // morphAmount 1.0 -> pivot 0.9999 (sharp sawtooth)
+    float t = (morphAmount - 0.5f) * 2.0f;  // 0 at morphAmount=0.5, 1 at morphAmount=1.0
+    float pivot = 0.5f + 0.4999f * t;
     pivot = std::min(std::max(pivot, 0.0001f), 0.9999f);
 
+    // Mirror phase for left-side morphing (flip horizontally)
+    float workingPhase = mirror ? (1.0f - phase) : phase;
+
     float shapedPhase;
-    if (phase <= pivot) {
+    if (workingPhase <= pivot) {
         float denom = std::max(1e-6f, 2.0f * pivot);
-        shapedPhase = phase / denom;
+        shapedPhase = workingPhase / denom;
     } else {
         float denom = std::max(1e-6f, 1.0f - pivot);
-        shapedPhase = 0.5f * (1.0f + ((phase - pivot) / denom));
+        shapedPhase = 0.5f * (1.0f + ((workingPhase - pivot) / denom));
     }
 
-    return -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
+    // No vertical inversion - just horizontal mirroring via phase
+    float output = -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
+    return output;
 }
 
 float computeLFOTanhShaped(float phase, float morph, float duty) {

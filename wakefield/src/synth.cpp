@@ -326,7 +326,24 @@ float Synth::getModulationSource(int sourceIndex) {
         // LFO 1-4
         return getLFOOutput(sourceIndex);
     } else if (sourceIndex >= 4 && sourceIndex <= 7) {
-        // ENV 1-4 - TODO: implement envelope outputs
+        // ENV 1-4
+        // For now, only ENV 1 (index 4) is implemented using per-voice envelopes
+        // We'll return the envelope value from the most recently triggered voice
+        // (or the first active voice we find)
+        if (sourceIndex == 4) {  // ENV 1
+            // Find most recently active voice with envelope output
+            float maxEnv = 0.0f;
+            for (int i = MAX_VOICES - 1; i >= 0; --i) {
+                if (voices[i].active) {
+                    float env = voices[i].getEnvelopeValue();
+                    if (env > maxEnv) {
+                        maxEnv = env;
+                    }
+                }
+            }
+            return maxEnv;
+        }
+        // ENV 2-4 not yet implemented (would need synth-level envelope generators)
         return 0.0f;
     } else if (sourceIndex == 8) {
         // Velocity - TODO: implement

@@ -17,7 +17,7 @@ void UI::initializeParameters() {
     parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
     parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({18, ParamType::FLOAT, "Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    parameters.push_back({18, ParamType::FLOAT, "Level", "", -1.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
 
     // LFO page parameters - control the currently selected LFO
     parameters.push_back({200, ParamType::FLOAT, "Period", "s", 0.1f, 1800.0f, {}, true, static_cast<int>(UIPage::LFO)});
@@ -414,4 +414,66 @@ void UI::finishMidiLearn() {
 std::string UI::getParameterName(int id) {
     InlineParameter* param = getParameter(id);
     return param ? param->name : "Unknown";
+}
+
+bool UI::isParameterModulated(int id) {
+    // Map parameter ID to modulation destination index
+    // Modulation destinations are:
+    // 0-5:   OSC 1 (Pitch, Morph, Duty, Ratio, Offset, Level)
+    // 6-11:  OSC 2 (Pitch, Morph, Duty, Ratio, Offset, Level)
+    // 12-17: OSC 3 (Pitch, Morph, Duty, Ratio, Offset, Level)
+    // 18-23: OSC 4 (Pitch, Morph, Duty, Ratio, Offset, Level)
+    // 24: Filter Cutoff
+    // 25: Filter Resonance (not implemented yet)
+    // 26: Reverb Mix
+    // 27: Reverb Size
+
+    int modDestination = -1;
+
+    // Determine modulation destination based on parameter ID and current oscillator index
+    switch (id) {
+        // Oscillator parameters (ID 10-18) - need to map to correct osc based on currentOscillatorIndex
+        case 10: // Mode - not modulatable
+        case 19: // Shape - not modulatable
+            return false;
+        case 11: // Frequency/Pitch
+            modDestination = currentOscillatorIndex * 6 + 0;
+            break;
+        case 12: // Morph
+            modDestination = currentOscillatorIndex * 6 + 1;
+            break;
+        case 13: // Duty
+            modDestination = currentOscillatorIndex * 6 + 2;
+            break;
+        case 14: // Ratio
+            modDestination = currentOscillatorIndex * 6 + 3;
+            break;
+        case 15: // Offset
+            modDestination = currentOscillatorIndex * 6 + 4;
+            break;
+        case 18: // Level
+            modDestination = currentOscillatorIndex * 6 + 5;
+            break;
+        case 32: // Filter Cutoff
+            modDestination = 24;
+            break;
+        case 25: // Reverb Mix
+            modDestination = 26;
+            break;
+        case 23: // Reverb Size
+            modDestination = 27;
+            break;
+        default:
+            return false;
+    }
+
+    // Check all 16 modulation slots for this destination
+    for (int i = 0; i < 16; ++i) {
+        const ModulationSlot& slot = modulationSlots[i];
+        if (slot.isComplete() && slot.destination == modDestination && slot.amount != 0) {
+            return true;
+        }
+    }
+
+    return false;
 }

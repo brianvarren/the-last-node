@@ -10,15 +10,17 @@ void Voice::resetFMHistory() {
 
 float Voice::generateSample() {
     if (!active) {
+        envelopeValue = 0.0f;
         return 0.0f;
     }
 
-    // Get envelope level
-    float envLevel = envelope.process();
+    // Get envelope level and cache for modulation routing
+    envelopeValue = envelope.process();
 
     // If envelope finished, deactivate voice and clear FM history
     if (!envelope.isActive()) {
         active = false;
+        envelopeValue = 0.0f;
         resetFMHistory();
         return 0.0f;
     }
@@ -52,7 +54,7 @@ float Voice::generateSample() {
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Get base level from synth (control-rate) and add level modulation
         float baseLevel = synth ? synth->getOscillatorBaseLevel(i) : 0.0f;
-        float modulatedLevel = std::min(std::max(baseLevel + levelMod[i], 0.0f), 1.0f);
+        float modulatedLevel = std::min(std::max(baseLevel + levelMod[i], -1.0f), 1.0f);
 
         // Simple multiply: level acts as amplitude control
         mixedSample += currentOutputs[i] * modulatedLevel;
@@ -63,6 +65,7 @@ float Voice::generateSample() {
         lastOscOutputs[i] = currentOutputs[i];
     }
 
-    // Apply envelope
-    return mixedSample * envLevel;
+    // Return mixed sample WITHOUT envelope multiplication
+    // Envelope is now routed through modulation matrix to oscillator levels
+    return mixedSample;
 }

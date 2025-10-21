@@ -34,7 +34,8 @@ struct Voice {
         , envelope(sampleRate)
         , sampleRate(sampleRate)
         , params(nullptr)
-        , synth(nullptr) {
+        , synth(nullptr)
+        , envelopeValue(0.0f) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             lastOscOutputs[i] = 0.0f;
             pitchMod[i] = 0.0f;
@@ -52,9 +53,15 @@ struct Voice {
     // Clear cached oscillator outputs (used when voice retriggers)
     void resetFMHistory();
 
+    // Get current envelope value (for modulation routing)
+    float getEnvelopeValue() const {
+        return envelopeValue;
+    }
+
 private:
     float sampleRate;
     float lastOscOutputs[OSCILLATORS_PER_VOICE];
+    float envelopeValue;  // Current envelope output (cached for modulation)
 };
 
 #endif // VOICE_H

@@ -882,6 +882,7 @@ private:
     void finishNumericInput();
     void startMidiLearn(int id);
     void finishMidiLearn();
+    bool isParameterModulated(int id);  // Check if parameter has active modulation
 
     // Oscillator/LFO/Envelope UI state
     int currentOscillatorIndex;  // 0-3: which oscillator is selected on OSCILLATOR page

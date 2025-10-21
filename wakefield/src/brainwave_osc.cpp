@@ -5,42 +5,44 @@
 // Classic Casio CZ style phase distortion for sawtooth with extended morph range
 static float generatePhaseDistorted(float phase, float amount) {
     // phase is normalized [0, 1)
+    // amount: 0.0 = sawtooth pointing top-left (peak at left)
     // amount: 0.5 = sine wave (centered peak)
-    // amount > 0.5 = peak shifts right
-    // amount < 0.5 = peak shifts left (by inverting the waveform)
+    // amount: 1.0 = sawtooth pointing top-right (peak at right)
+    // Creates visually symmetrical morphing
 
     float clamped = std::min(std::max(amount, 0.0f), 1.0f);
-    bool invert = false;
+    bool mirror = false;
     float morphAmount = clamped;
 
-    // For morph 0.0-0.5, we invert and remap to 0.5-1.0 range
+    // For morph 0.0-0.5, we mirror the phase and remap to 0.5-1.0 range
     if (clamped < 0.5f) {
-        invert = true;
+        mirror = true;
         morphAmount = 1.0f - clamped * 2.0f;  // 0.0 -> 1.0, 0.5 -> 0.0
         morphAmount = 0.5f + morphAmount * 0.5f;  // Map to 0.5-1.0
     }
 
-    float pivot;
-    if (morphAmount <= 0.5f) {
-        float t = morphAmount * 2.0f;
-        pivot = 0.5f - (0.5f - 0.0001f) * t;
-    } else {
-        float t = (morphAmount - 0.5f) * 2.0f;
-        pivot = 0.5f + 0.4999f * t;
-    }
+    // After remapping, morphAmount is always in range [0.5, 1.0]
+    // morphAmount 0.5 -> pivot 0.5 (sine wave)
+    // morphAmount 1.0 -> pivot 0.9999 (sharp sawtooth)
+    float t = (morphAmount - 0.5f) * 2.0f;  // 0 at morphAmount=0.5, 1 at morphAmount=1.0
+    float pivot = 0.5f + 0.4999f * t;
     pivot = std::min(std::max(pivot, 0.0001f), 0.9999f);
 
+    // Mirror phase for left-side morphing (flip horizontally)
+    float workingPhase = mirror ? (1.0f - phase) : phase;
+
     float shapedPhase;
-    if (phase <= pivot) {
+    if (workingPhase <= pivot) {
         float denom = std::max(1e-6f, 2.0f * pivot);
-        shapedPhase = phase / denom;
+        shapedPhase = workingPhase / denom;
     } else {
         float denom = std::max(1e-6f, 1.0f - pivot);
-        shapedPhase = 0.5f * (1.0f + ((phase - pivot) / denom));
+        shapedPhase = 0.5f * (1.0f + ((workingPhase - pivot) / denom));
     }
 
+    // No vertical inversion - just horizontal mirroring via phase
     float output = -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
-    return invert ? -output : output;
+    return output;
 }
 
 // Generate waveform with tanh-shaped pulse (morph 0.5 to 1.0)
