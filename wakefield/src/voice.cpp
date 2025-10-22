@@ -68,6 +68,10 @@ float Voice::generateSample() {
 
     // Process all samplers and mix
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        if (!samplers[i].isKeyMode()) {
+            continue;
+        }
+
         // FM input for samplers can come from oscillator outputs (simple sum)
         float fmInput = 0.0f;
         for (int j = 0; j < OSCILLATORS_PER_VOICE; ++j) {

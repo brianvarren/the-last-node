@@ -78,7 +78,8 @@ void UI::drawSamplerPage() {
     attroff(COLOR_PAIR(5) | A_BOLD);
 
     // Get parameters from synth
-    PlaybackMode mode = synth->getSamplerPlaybackMode(currentSamplerIndex);
+    bool keyMode = synth->getSamplerKeyMode(currentSamplerIndex);
+    PlaybackMode direction = synth->getSamplerPlaybackMode(currentSamplerIndex);
     // loopStart and loopLength already declared above for loop indicator
     float crossfade = synth->getSamplerCrossfadeLength(currentSamplerIndex);
     float ratio = synth->getSamplerPlaybackSpeed(currentSamplerIndex);
@@ -86,7 +87,13 @@ void UI::drawSamplerPage() {
     int syncMode = 0; // TODO: Add sync parameter
     bool noteReset = true; // TODO: Add note reset parameter
 
-    const char* modeStr = (mode == PlaybackMode::FORWARD) ? "KEY" : "FREE";
+    const char* keyModeStr = keyMode ? "KEY" : "FREE";
+    const char* directionStr = "Forward";
+    if (direction == PlaybackMode::REVERSE) {
+        directionStr = "Reverse";
+    } else if (direction == PlaybackMode::ALTERNATE) {
+        directionStr = "Ping-Pong";
+    }
 
     const char* syncStr = "Off";
     if (syncMode == 1) syncStr = "On";
@@ -98,12 +105,11 @@ void UI::drawSamplerPage() {
     const int col2 = leftCol + 40;
     int paramRow = row;
 
-    // Column 1 parameters (IDs 60-63)
-    const int paramIds1[] = {60, 61, 62, 63};
-    const char* labels1[] = {"Mode:       ", "Loop Start: ", "Loop Length:", "Xfade:      "};
-    const char* values1[] = {modeStr, nullptr, nullptr, nullptr};
+    // Column 1 parameters
+    const int paramIds1[] = {60, 68, 61, 62, 63};
+    const char* labels1[] = {"Key Mode:   ", "Direction:  ", "Loop Start: ", "Loop Length:", "Xfade:      "};
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         if (paramIds1[i] == selectedParameterId) {
             attron(COLOR_PAIR(5) | A_BOLD);
             mvprintw(paramRow, col1, ">");
@@ -114,12 +120,14 @@ void UI::drawSamplerPage() {
         mvprintw(paramRow, col1 + 2, "%s", labels1[i]);
 
         if (i == 0) {
-            printw("%s", modeStr);
+            printw("%s", keyModeStr);
         } else if (i == 1) {
-            printw("%.1f%%", loopStart * 100.0f);
+            printw("%s", directionStr);
         } else if (i == 2) {
-            printw("%.1f%%", loopLength * 100.0f);
+            printw("%.1f%%", loopStart * 100.0f);
         } else if (i == 3) {
+            printw("%.1f%%", loopLength * 100.0f);
+        } else if (i == 4) {
             printw("%.1f%%", crossfade * 100.0f);
         }
 
@@ -164,7 +172,7 @@ void UI::drawSamplerPage() {
 
     // Instructions
     attron(COLOR_PAIR(8));
-    mvprintw(row++, leftCol, "Keys 1-4: Select sampler | Enter: Load sample | Arrow keys: Adjust");
+    mvprintw(row++, leftCol, "Keys 1-4: Select sampler | Enter: Load sample | -/= coarse, Shift for fine");
     attroff(COLOR_PAIR(8));
 }
 

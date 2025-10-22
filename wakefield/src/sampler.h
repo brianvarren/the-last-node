@@ -50,6 +50,7 @@ public:
     void setTZFMDepth(float depth);         // 0.0 to 1.0
     void setPlaybackMode(PlaybackMode mode);
     void setLevel(float level);             // 0.0 to 1.0
+    void setKeyMode(bool enabled);
 
     // Parameter getters
     float getLoopStart() const { return loopStartNorm; }
@@ -59,12 +60,15 @@ public:
     float getTZFMDepth() const { return tzfmDepth; }
     PlaybackMode getPlaybackMode() const { return mode; }
     float getLevel() const { return level; }
+    bool isKeyMode() const { return keyMode; }
 
     // Get current playback position (0.0 to 1.0)
     float getPlayheadPosition() const;
 
     // Reset phase to beginning of loop
     void reset();
+    void requestRestart();          // Force playback to restart at next process call
+    void stopPlayback();            // Immediately silence output (used when leaving FREE mode)
 
     // Get sample name (for UI)
     const char* getSampleName() const;
@@ -80,7 +84,8 @@ private:
     float playbackSpeed;        // Speed multiplier
     float tzfmDepth;            // TZFM depth (0.0 to 1.0)
     float level;                // Output level (0.0 to 1.0)
-    PlaybackMode mode;
+    PlaybackMode mode;          // Playback direction (Forward/Reverse/Alternate)
+    bool keyMode;               // true = respond to MIDI notes, false = free-run
 
     // Dual-voice crossfading state
     SamplerVoice voiceA;
@@ -96,10 +101,11 @@ private:
     // Pending loop parameters (calculated once per process call)
     uint32_t pendingStart;
     uint32_t pendingEnd;
+    bool pendingLoopValid;
+    bool restartRequested;
 
     // Zone detection (prevents retriggering crossfade)
     bool wasInZoneLastSample;
-    bool loopBoundariesCalculated;
 
     // TZFM smoothing
     float modulatorSmoothed;
@@ -107,7 +113,9 @@ private:
 
     // Helper functions
     void calculateLoopBoundaries(float startMod, float lengthMod);
-    void wrapPhase(SamplerVoice* voice) const;
+    void ensurePendingLoop(float startMod, float lengthMod);
+    void applyPendingLoopToVoice(SamplerVoice* voice);
+    bool wrapPhase(SamplerVoice* voice) const;
     int16_t getSample(const SamplerVoice* voice, bool isReverse) const;
     int64_t calculateIncrement(float sampleRate, float fmInput, float pitchMod, bool isReverse, int midiNote);
     bool isInCrossfadeZone(uint64_t phase, uint32_t loopStart, uint32_t loopEnd,

@@ -24,6 +24,10 @@ Synth::Synth(float sampleRate)
     for (int i = 0; i < MAX_VOICES; ++i) {
         voices.emplace_back(sampleRate);
     }
+
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        freeSamplers[i].setKeyMode(false);
+    }
 }
 
 float Synth::midiNoteToFrequency(int midiNote) {
@@ -141,9 +145,15 @@ void Synth::noteOn(int midiNote, int velocity) {
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         voice.samplerPitchMod[i] = 0.0f;
         voice.samplerLoopStartMod[i] = 0.0f;
-        voice.samplerLoopLengthMod[i] = 0.0f;
+       voice.samplerLoopLengthMod[i] = 0.0f;
         voice.samplerCrossfadeMod[i] = 0.0f;
         voice.samplerLevelMod[i] = 0.0f;
+        voice.samplers[i].setKeyMode(samplerKeyModes[i]);
+        if (samplerKeyModes[i]) {
+            voice.samplers[i].requestRestart();
+        } else {
+            voice.samplers[i].stopPlayback();
+        }
     }
     voice.resetFMHistory();
 
@@ -262,6 +272,63 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             // Scale by 0.5 to prevent clipping when multiple voices play
             for (unsigned int ch = 0; ch < nChannels; ++ch) {
                 output[i * nChannels + ch] += sample * 0.5f * masterVolume;
+            }
+        }
+    }
+    
+    bool anyFreeSamplers = false;
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        if (!samplerKeyModes[i]) {
+            anyFreeSamplers = true;
+            break;
+        }
+    }
+
+    if (anyFreeSamplers) {
+        float samplerPitchMods[SAMPLERS_PER_VOICE] = {
+            modOutputs.samp1Pitch, modOutputs.samp2Pitch,
+            modOutputs.samp3Pitch, modOutputs.samp4Pitch
+        };
+        float samplerLoopStartMods[SAMPLERS_PER_VOICE] = {
+            modOutputs.samp1LoopStart, modOutputs.samp2LoopStart,
+            modOutputs.samp3LoopStart, modOutputs.samp4LoopStart
+        };
+        float samplerLoopLengthMods[SAMPLERS_PER_VOICE] = {
+            modOutputs.samp1LoopLength, modOutputs.samp2LoopLength,
+            modOutputs.samp3LoopLength, modOutputs.samp4LoopLength
+        };
+        float samplerCrossfadeMods[SAMPLERS_PER_VOICE] = {
+            modOutputs.samp1Crossfade, modOutputs.samp2Crossfade,
+            modOutputs.samp3Crossfade, modOutputs.samp4Crossfade
+        };
+        float samplerLevelMods[SAMPLERS_PER_VOICE] = {
+            modOutputs.samp1Amp, modOutputs.samp2Amp,
+            modOutputs.samp3Amp, modOutputs.samp4Amp
+        };
+
+        for (unsigned int i = 0; i < nFrames; ++i) {
+            float freeMix = 0.0f;
+            for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+                if (samplerKeyModes[s]) {
+                    continue;
+                }
+                float samplerOut = freeSamplers[s].process(
+                    sampleRate,
+                    0.0f,                            // No FM input
+                    samplerPitchMods[s],
+                    samplerLoopStartMods[s],
+                    samplerLoopLengthMods[s],
+                    samplerCrossfadeMods[s],
+                    samplerLevelMods[s],
+                    60                                // Reference MIDI note (ignored in FREE mode)
+                );
+                freeMix += samplerOut;
+            }
+
+            if (freeMix != 0.0f) {
+                for (unsigned int ch = 0; ch < nChannels; ++ch) {
+                    output[i * nChannels + ch] += freeMix * 0.5f * masterVolume;
+                }
             }
         }
     }
@@ -555,6 +622,7 @@ void Synth::setSamplerSample(int samplerIndex, int sampleIndex) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setSample(sample);
     }
+    freeSamplers[samplerIndex].setSample(sample);
 }
 
 void Synth::setSamplerLoopStart(int samplerIndex, float normalized) {
@@ -565,6 +633,7 @@ void Synth::setSamplerLoopStart(int samplerIndex, float normalized) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setLoopStart(normalized);
     }
+    freeSamplers[samplerIndex].setLoopStart(normalized);
 }
 
 void Synth::setSamplerLoopLength(int samplerIndex, float normalized) {
@@ -575,6 +644,7 @@ void Synth::setSamplerLoopLength(int samplerIndex, float normalized) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setLoopLength(normalized);
     }
+    freeSamplers[samplerIndex].setLoopLength(normalized);
 }
 
 void Synth::setSamplerCrossfadeLength(int samplerIndex, float normalized) {
@@ -585,6 +655,7 @@ void Synth::setSamplerCrossfadeLength(int samplerIndex, float normalized) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setCrossfadeLength(normalized);
     }
+    freeSamplers[samplerIndex].setCrossfadeLength(normalized);
 }
 
 void Synth::setSamplerPlaybackSpeed(int samplerIndex, float speed) {
@@ -595,6 +666,7 @@ void Synth::setSamplerPlaybackSpeed(int samplerIndex, float speed) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setPlaybackSpeed(speed);
     }
+    freeSamplers[samplerIndex].setPlaybackSpeed(speed);
 }
 
 void Synth::setSamplerTZFMDepth(int samplerIndex, float depth) {
@@ -605,6 +677,7 @@ void Synth::setSamplerTZFMDepth(int samplerIndex, float depth) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setTZFMDepth(depth);
     }
+    freeSamplers[samplerIndex].setTZFMDepth(depth);
 }
 
 void Synth::setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode) {
@@ -615,6 +688,7 @@ void Synth::setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setPlaybackMode(mode);
     }
+    freeSamplers[samplerIndex].setPlaybackMode(mode);
 }
 
 void Synth::setSamplerLevel(int samplerIndex, float level) {
@@ -625,6 +699,28 @@ void Synth::setSamplerLevel(int samplerIndex, float level) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setLevel(level);
     }
+    freeSamplers[samplerIndex].setLevel(level);
+}
+
+void Synth::setSamplerKeyMode(int samplerIndex, bool enabled) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    samplerKeyModes[samplerIndex] = enabled;
+
+    for (auto& voice : voices) {
+        voice.samplers[samplerIndex].setKeyMode(enabled);
+        voice.samplers[samplerIndex].stopPlayback();
+    }
+
+    if (enabled) {
+        freeSamplers[samplerIndex].stopPlayback();
+    } else {
+        freeSamplers[samplerIndex].setKeyMode(false);
+        freeSamplers[samplerIndex].requestRestart();
+    }
+    freeSamplers[samplerIndex].setKeyMode(false);
 }
 
 // Get sampler state (from first voice as they're all synced)
@@ -682,4 +778,11 @@ float Synth::getSamplerLevel(int samplerIndex) const {
         return 1.0f;
     }
     return voices[0].samplers[samplerIndex].getLevel();
+}
+
+bool Synth::getSamplerKeyMode(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return true;
+    }
+    return samplerKeyModes[samplerIndex];
 }

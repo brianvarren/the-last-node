@@ -16,6 +16,7 @@ Sampler::Sampler()
     , tzfmDepth(0.0f)
     , level(1.0f)
     , mode(PlaybackMode::FORWARD)
+    , keyMode(true)
     , primaryVoice(&voiceA)
     , secondaryVoice(&voiceB)
     , crossfading(false)
@@ -23,8 +24,9 @@ Sampler::Sampler()
     , crossfadeSamplesRemaining(0)
     , pendingStart(0)
     , pendingEnd(0)
+    , pendingLoopValid(false)
+    , restartRequested(true)
     , wasInZoneLastSample(false)
-    , loopBoundariesCalculated(false)
     , modulatorSmoothed(0.0f) {
 
     // Initialize voice A as active
@@ -44,7 +46,8 @@ Sampler::Sampler()
 
 void Sampler::setSample(const SampleData* sample) {
     currentSample = sample;
-    loopBoundariesCalculated = false;
+    pendingLoopValid = false;
+    restartRequested = true;
     reset();
 }
 
@@ -76,6 +79,14 @@ void Sampler::setLevel(float newLevel) {
     level = std::clamp(newLevel, 0.0f, 1.0f);
 }
 
+void Sampler::setKeyMode(bool enabled) {
+    keyMode = enabled;
+    if (!keyMode) {
+        // Ensure free-run samplers start immediately when enabled externally
+        restartRequested = true;
+    }
+}
+
 float Sampler::getPlayheadPosition() const {
     if (!currentSample || currentSample->sampleCount == 0) {
         return 0.0f;
@@ -85,19 +96,35 @@ float Sampler::getPlayheadPosition() const {
 }
 
 void Sampler::reset() {
-    if (currentSample && currentSample->sampleCount > 0) {
-        calculateLoopBoundaries(0.0f, 0.0f);
-        primaryVoice->phase_q32_32 = static_cast<uint64_t>(pendingStart) << 32;
-        primaryVoice->loop_start = pendingStart;
-        primaryVoice->loop_end = pendingEnd;
-        loopBoundariesCalculated = true;
-    } else {
+    if (!currentSample || currentSample->sampleCount == 0) {
         primaryVoice->phase_q32_32 = 0;
         primaryVoice->loop_start = 0;
         primaryVoice->loop_end = 0;
+        pendingLoopValid = false;
+    } else {
+        pendingLoopValid = false;
+        restartRequested = true;
     }
     crossfading = false;
     wasInZoneLastSample = false;
+}
+
+void Sampler::requestRestart() {
+    restartRequested = true;
+    primaryVoice->active = true;
+    primaryVoice->amplitude = 1.0f;
+}
+
+void Sampler::stopPlayback() {
+    crossfading = false;
+    primaryVoice->amplitude = 0.0f;
+    primaryVoice->active = false;
+    secondaryVoice->active = false;
+    secondaryVoice->amplitude = 0.0f;
+    crossfadeSamplesRemaining = 0;
+    crossfadeSamplesTotal = 0;
+    wasInZoneLastSample = false;
+    restartRequested = false;
 }
 
 const char* Sampler::getSampleName() const {
@@ -111,6 +138,7 @@ void Sampler::calculateLoopBoundaries(float startMod, float lengthMod) {
     if (!currentSample || currentSample->sampleCount < MIN_LOOP_LENGTH) {
         pendingStart = 0;
         pendingEnd = 0;
+        pendingLoopValid = false;
         return;
     }
 
@@ -133,27 +161,52 @@ void Sampler::calculateLoopBoundaries(float startMod, float lengthMod) {
     if (pendingEnd > totalSamples) {
         pendingEnd = totalSamples;
     }
+    pendingLoopValid = true;
 }
 
-void Sampler::wrapPhase(SamplerVoice* voice) const {
+void Sampler::ensurePendingLoop(float startMod, float lengthMod) {
+    calculateLoopBoundaries(startMod, lengthMod);
+}
+
+void Sampler::applyPendingLoopToVoice(SamplerVoice* voice) {
+    if (!pendingLoopValid) {
+        voice->active = false;
+        return;
+    }
+    voice->loop_start = pendingStart;
+    voice->loop_end = pendingEnd;
+    uint32_t startSample = pendingStart;
+    if (mode == PlaybackMode::REVERSE && pendingEnd > pendingStart) {
+        startSample = pendingEnd - 1;
+    }
+    voice->phase_q32_32 = static_cast<uint64_t>(startSample) << 32;
+    voice->active = true;
+    voice->amplitude = 1.0f;
+}
+
+bool Sampler::wrapPhase(SamplerVoice* voice) const {
     const int64_t start_q = static_cast<int64_t>(voice->loop_start) << 32;
     const int64_t end_q = static_cast<int64_t>(voice->loop_end) << 32;
     const int64_t span_q = end_q - start_q;
 
-    if (span_q <= 0) return;
+    if (span_q <= 0) return false;
 
     int64_t phase = static_cast<int64_t>(voice->phase_q32_32);
     int64_t normalized = phase - start_q;
+    bool wrapped = false;
 
     // Modulo wrapping for both directions
     if (normalized >= span_q) {
         normalized = normalized % span_q;
+        wrapped = true;
     } else if (normalized < 0) {
         normalized = span_q - ((-normalized) % span_q);
         if (normalized == span_q) normalized = 0;
+        wrapped = true;
     }
 
     voice->phase_q32_32 = static_cast<uint64_t>(start_q + normalized);
+    return wrapped;
 }
 
 int16_t Sampler::getSample(const SamplerVoice* voice, bool isReverse) const {
@@ -227,7 +280,7 @@ int64_t Sampler::calculateIncrement(float sampleRate, float fmInput,
 
     // KEY mode: apply exponential pitch tracking based on MIDI note
     // C4 (note 60) = 1.0, each semitone = 2^(1/12)
-    if (mode == PlaybackMode::FORWARD) {
+    if (keyMode) {
         double pitchScale = std::pow(2.0, (midiNote - 60) / 12.0);
         baseRatio *= pitchScale;
     }
@@ -288,6 +341,7 @@ void Sampler::setupCrossfade(uint32_t xfadeLen, uint32_t xfadeSamples,
     secondaryVoice->loop_start = pendingStart;
     secondaryVoice->loop_end = pendingEnd;
     secondaryVoice->active = true;
+    secondaryVoice->amplitude = 0.0f;
 
     // Position secondary voice at start of new loop
     if (isReverse) {
@@ -313,17 +367,16 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
         return 0.0f;
     }
 
-    // Calculate loop boundaries if needed
-    if (!loopBoundariesCalculated) {
-        calculateLoopBoundaries(loopStartMod, loopLengthMod);
-        loopBoundariesCalculated = true;
-
-        // Initialize primary voice if cold start
-        if (primaryVoice->loop_end == 0) {
-            primaryVoice->loop_start = pendingStart;
-            primaryVoice->loop_end = pendingEnd;
-            primaryVoice->phase_q32_32 = static_cast<uint64_t>(pendingStart) << 32;
-        }
+    if (restartRequested) {
+        ensurePendingLoop(loopStartMod, loopLengthMod);
+        crossfading = false;
+        crossfadeSamplesRemaining = 0;
+        crossfadeSamplesTotal = 0;
+        applyPendingLoopToVoice(primaryVoice);
+        secondaryVoice->active = false;
+        secondaryVoice->amplitude = 0.0f;
+        wasInZoneLastSample = false;
+        restartRequested = false;
     }
 
     // Calculate crossfade length (in source samples)
@@ -369,7 +422,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                                        xfadeLen, isReverse);
 
         if (inZone && !wasInZoneLastSample) {
-            calculateLoopBoundaries(loopStartMod, loopLengthMod);
+            ensurePendingLoop(loopStartMod, loopLengthMod);
             setupCrossfade(xfadeLen, xfadeSamples, isReverse);
         }
         wasInZoneLastSample = inZone;
@@ -380,7 +433,11 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
 
     // Only wrap when not crossfading
     if (!crossfading) {
-        wrapPhase(primaryVoice);
+        bool wrappedPrimary = wrapPhase(primaryVoice);
+        if (wrappedPrimary && xfadeLen == 0) {
+            ensurePendingLoop(loopStartMod, loopLengthMod);
+            applyPendingLoopToVoice(primaryVoice);
+        }
     }
 
     // Handle crossfading
@@ -405,7 +462,6 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
             secondaryVoice->active = false;
             secondaryVoice->amplitude = 0.0f;
             primaryVoice->amplitude = 1.0f;
-            loopBoundariesCalculated = false;
         }
     }
 

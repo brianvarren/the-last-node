@@ -144,6 +144,7 @@ public:
     void setSamplerTZFMDepth(int samplerIndex, float depth);
     void setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode);
     void setSamplerLevel(int samplerIndex, float level);
+    void setSamplerKeyMode(int samplerIndex, bool enabled);
 
     // Get sampler state (for UI)
     int getSamplerSampleIndex(int samplerIndex) const;
@@ -154,6 +155,7 @@ public:
     float getSamplerTZFMDepth(int samplerIndex) const;
     PlaybackMode getSamplerPlaybackMode(int samplerIndex) const;
     float getSamplerLevel(int samplerIndex) const;
+    bool getSamplerKeyMode(int samplerIndex) const;
     
 private:
     float sampleRate;
@@ -191,6 +193,8 @@ private:
 
     // Current sample index for each sampler (shared across all voices)
     int currentSampleIndices[SAMPLERS_PER_VOICE] = {-1, -1, -1, -1};
+    bool samplerKeyModes[SAMPLERS_PER_VOICE] = {true, true, true, true};
+    Sampler freeSamplers[SAMPLERS_PER_VOICE];
     
     int findFreeVoice();
     float midiNoteToFrequency(int midiNote);

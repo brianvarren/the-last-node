@@ -63,7 +63,8 @@ void UI::initializeParameters() {
     parameters.push_back({57, ParamType::FLOAT, "SAMP 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
 
     // SAMPLER page parameters - control the currently selected sampler (60-67)
-    parameters.push_back({60, ParamType::ENUM, "Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({60, ParamType::ENUM, "Key Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({68, ParamType::ENUM, "Direction", "", 0, 2, {"Forward", "Reverse", "Ping-Pong"}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({61, ParamType::FLOAT, "Loop Start", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({62, ParamType::FLOAT, "Loop Length", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({63, ParamType::FLOAT, "Xfade", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
@@ -151,7 +152,8 @@ float UI::getParameterValue(int id) {
         case 56: return synth->getSamplerLevel(2);  // SAMP 3 Level (mixer)
         case 57: return synth->getSamplerLevel(3);  // SAMP 4 Level (mixer)
         // SAMPLER page parameters (60-67)
-        case 60: return static_cast<float>(synth->getSamplerPlaybackMode(samplerIndex));
+        case 60: return synth->getSamplerKeyMode(samplerIndex) ? 0.0f : 1.0f;
+        case 68: return static_cast<float>(synth->getSamplerPlaybackMode(samplerIndex));
         case 61: return synth->getSamplerLoopStart(samplerIndex) * 100.0f;
         case 62: return synth->getSamplerLoopLength(samplerIndex) * 100.0f;
         case 63: return synth->getSamplerCrossfadeLength(samplerIndex) * 100.0f;
@@ -238,7 +240,8 @@ void UI::setParameterValue(int id, float value) {
         case 56: synth->setSamplerLevel(2, value); break;  // SAMP 3 Level (mixer)
         case 57: synth->setSamplerLevel(3, value); break;  // SAMP 4 Level (mixer)
         // SAMPLER page parameters (60-67)
-        case 60: synth->setSamplerPlaybackMode(samplerIndex, static_cast<PlaybackMode>(static_cast<int>(value))); break;
+        case 60: synth->setSamplerKeyMode(samplerIndex, value < 0.5f); break;
+        case 68: synth->setSamplerPlaybackMode(samplerIndex, static_cast<PlaybackMode>(static_cast<int>(value))); break;
         case 61: synth->setSamplerLoopStart(samplerIndex, value / 100.0f); break;
         case 62: synth->setSamplerLoopLength(samplerIndex, value / 100.0f); break;
         case 63: synth->setSamplerCrossfadeLength(samplerIndex, value / 100.0f); break;
