@@ -1,4 +1,5 @@
 #include "../ui.h"
+#include "../synth.h"
 #include <algorithm>
 #include <chrono>
 #include <string>
@@ -55,6 +56,16 @@ void UI::initializeParameters() {
     parameters.push_back({51, ParamType::FLOAT, "OSC 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
     parameters.push_back({52, ParamType::FLOAT, "OSC 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
     parameters.push_back({53, ParamType::FLOAT, "OSC 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
+
+    // SAMPLER page parameters - control the currently selected sampler (60-67)
+    parameters.push_back({60, ParamType::ENUM, "Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({61, ParamType::FLOAT, "Loop Start", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({62, ParamType::FLOAT, "Loop Length", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({63, ParamType::FLOAT, "Xfade", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({64, ParamType::FLOAT, "Ratio", "", 0.125f, 8.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({65, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({66, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({67, ParamType::BOOL, "Note Reset", "", 0, 1, {}, true, static_cast<int>(UIPage::SAMPLER)});
 
     // CONFIG page parameters
     parameters.push_back({400, ParamType::BOOL, "CPU Monitor", "", 0, 1, {}, false, static_cast<int>(UIPage::CONFIG)});
@@ -114,6 +125,7 @@ float UI::getParameterValue(int id) {
     const int oscIndex = currentOscillatorIndex;
     const int lfoIndex = currentLFOIndex;
     const int envIndex = currentEnvelopeIndex;
+    const int samplerIndex = currentSamplerIndex;
 
     switch (id) {
         case 6: return params->masterVolume.load();
@@ -129,6 +141,15 @@ float UI::getParameterValue(int id) {
         case 51: return params->getOscLevel(1);  // OSC 2 Level (mixer)
         case 52: return params->getOscLevel(2);  // OSC 3 Level (mixer)
         case 53: return params->getOscLevel(3);  // OSC 4 Level (mixer)
+        // SAMPLER page parameters (60-67)
+        case 60: return static_cast<float>(synth->getSamplerPlaybackMode(samplerIndex));
+        case 61: return synth->getSamplerLoopStart(samplerIndex) * 100.0f;
+        case 62: return synth->getSamplerLoopLength(samplerIndex) * 100.0f;
+        case 63: return synth->getSamplerCrossfadeLength(samplerIndex) * 100.0f;
+        case 64: return synth->getSamplerPlaybackSpeed(samplerIndex);
+        case 65: return 0.0f;  // TODO: Offset not yet implemented
+        case 66: return 0.0f;  // TODO: Sync not yet implemented
+        case 67: return 1.0f;  // TODO: Note Reset not yet implemented
         case 200: return params->getLfoPeriod(lfoIndex);
         case 201: return static_cast<float>(params->getLfoSyncMode(lfoIndex));
         case 202: return params->getLfoMorph(lfoIndex);
@@ -187,6 +208,7 @@ void UI::setParameterValue(int id, float value) {
     const int oscIndex = currentOscillatorIndex;
     const int lfoIndex = currentLFOIndex;
     const int envIndex = currentEnvelopeIndex;
+    const int samplerIndex = currentSamplerIndex;
 
     switch (id) {
         case 6: params->masterVolume = value; break;
@@ -202,6 +224,15 @@ void UI::setParameterValue(int id, float value) {
         case 51: params->setOscLevel(1, value); break;  // OSC 2 Level (mixer)
         case 52: params->setOscLevel(2, value); break;  // OSC 3 Level (mixer)
         case 53: params->setOscLevel(3, value); break;  // OSC 4 Level (mixer)
+        // SAMPLER page parameters (60-67)
+        case 60: synth->setSamplerPlaybackMode(samplerIndex, static_cast<PlaybackMode>(static_cast<int>(value))); break;
+        case 61: synth->setSamplerLoopStart(samplerIndex, value / 100.0f); break;
+        case 62: synth->setSamplerLoopLength(samplerIndex, value / 100.0f); break;
+        case 63: synth->setSamplerCrossfadeLength(samplerIndex, value / 100.0f); break;
+        case 64: synth->setSamplerPlaybackSpeed(samplerIndex, value); break;
+        case 65: break;  // TODO: Offset not yet implemented
+        case 66: break;  // TODO: Sync not yet implemented
+        case 67: break;  // TODO: Note Reset not yet implemented
         case 200: params->setLfoPeriod(lfoIndex, value); break;
         case 201: params->setLfoSyncMode(lfoIndex, static_cast<int>(value)); break;
         case 202: params->setLfoMorph(lfoIndex, value); break;

@@ -8,6 +8,9 @@
 #include <vector>
 
 void UI::drawSamplerPage() {
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
+
     const int leftCol = 2;
     int row = 3;
 
@@ -27,11 +30,14 @@ void UI::drawSamplerPage() {
     }
     attroff(COLOR_PAIR(5) | A_BOLD);
 
-    // Waveform preview with loop indicator overlay
-    if (sample && sample->sampleCount > 0) {
-        const int waveformWidth = 76;
-        const int waveformHeight = 11; // Odd number for centerline visibility
+    // Waveform preview with loop indicator overlay - stretch to fill screen
+    // Reserve space for: top bar (2), title (1), params header (1), params (4), instructions (1), hotkey (2) = 11 lines
+    // At 32x28 resolution, this gives us: 28 - 11 = 17 lines available
+    // Use 9 for waveform + 1 for loop indicator = 10 lines total
+    const int waveformHeight = 9; // Odd number for centerline visibility
+    const int waveformWidth = maxX - leftCol - 2; // Stretch to screen width
 
+    if (sample && sample->sampleCount > 0) {
         drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample);
 
         // Draw loop indicator overlaid on bottom of waveform
@@ -116,6 +122,8 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
     const int samplesPerColumn = sample->sampleCount / width;
     if (samplesPerColumn == 0) return;
 
+    int centerRow = topRow + height / 2;
+
     // For each column, find the average amplitude
     for (int col = 0; col < width; ++col) {
         int startSample = col * samplesPerColumn;
@@ -133,13 +141,10 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
         int columnHeight = static_cast<int>(rms * height * 0.8f); // Scale to 80% of max height
         columnHeight = std::min(columnHeight, height / 2);
 
-        // Draw the column centered
-        int centerRow = topRow + height / 2;
-
         // Draw above center
         for (int i = 0; i < columnHeight; ++i) {
             attron(COLOR_PAIR(2));
-            mvaddch(centerRow - i, leftCol + col, '*');
+            mvaddch(centerRow - i - 1, leftCol + col, '*');
             attroff(COLOR_PAIR(2));
         }
 
@@ -150,11 +155,9 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
             attroff(COLOR_PAIR(2));
         }
 
-        // Draw center line
+        // Always draw center line
         attron(COLOR_PAIR(8));
-        if (columnHeight == 0) {
-            mvaddch(centerRow, leftCol + col, '-');
-        }
+        mvaddch(centerRow, leftCol + col, '-');
         attroff(COLOR_PAIR(8));
     }
 

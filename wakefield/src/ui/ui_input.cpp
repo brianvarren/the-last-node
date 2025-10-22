@@ -215,7 +215,7 @@ void UI::handleInput(int ch) {
     // LFO page no longer has zoom controls (using static waveform preview now)
 
     // Up/Down arrows navigate between parameters on current page
-    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_UP) {
+    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_UP) {
         if (!pageParams.empty()) {
             auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
             if (it != pageParams.end() && it != pageParams.begin()) {
@@ -225,7 +225,7 @@ void UI::handleInput(int ch) {
             }
         }
         return;
-    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_DOWN) {
+    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_DOWN) {
         if (!pageParams.empty()) {
             auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
             if (it != pageParams.end() && (it + 1) != pageParams.end()) {
@@ -238,10 +238,10 @@ void UI::handleInput(int ch) {
     }
 
     // Left/Right arrows adjust parameter values
-    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_LEFT) {
+    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_LEFT) {
         adjustParameter(selectedParameterId, false);
         return;
-    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && ch == KEY_RIGHT) {
+    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_RIGHT) {
         adjustParameter(selectedParameterId, true);
         return;
     }
