@@ -84,6 +84,30 @@ public:
         float filterResonance = 0.0f;
         float reverbMix = 0.0f;
         float reverbSize = 0.0f;
+        // Sampler 1 modulation
+        float samp1Pitch = 0.0f;
+        float samp1LoopStart = 0.0f;
+        float samp1LoopLength = 0.0f;
+        float samp1Crossfade = 0.0f;
+        float samp1Amp = 0.0f;
+        // Sampler 2 modulation
+        float samp2Pitch = 0.0f;
+        float samp2LoopStart = 0.0f;
+        float samp2LoopLength = 0.0f;
+        float samp2Crossfade = 0.0f;
+        float samp2Amp = 0.0f;
+        // Sampler 3 modulation
+        float samp3Pitch = 0.0f;
+        float samp3LoopStart = 0.0f;
+        float samp3LoopLength = 0.0f;
+        float samp3Crossfade = 0.0f;
+        float samp3Amp = 0.0f;
+        // Sampler 4 modulation
+        float samp4Pitch = 0.0f;
+        float samp4LoopStart = 0.0f;
+        float samp4LoopLength = 0.0f;
+        float samp4Crossfade = 0.0f;
+        float samp4Amp = 0.0f;
     };
 
     ModulationOutputs processModulationMatrix();

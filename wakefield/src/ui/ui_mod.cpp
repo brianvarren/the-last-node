@@ -30,7 +30,15 @@ const std::vector<ModOption> kModDestinations = {
     {"OSC 4 Pitch", "O4:Pitch"}, {"OSC 4 Morph", "O4:Morph"}, {"OSC 4 Duty", "O4:Duty"},
     {"OSC 4 Ratio", "O4:Ratio"}, {"OSC 4 Offset", "O4:Offset"}, {"OSC 4 Level", "O4:Level"},
     {"Filter Cutoff", "Flt:Cut"}, {"Filter Resonance", "Flt:Res"},
-    {"Reverb Mix", "Rvb:Mix"}, {"Reverb Size", "Rvb:Size"}
+    {"Reverb Mix", "Rvb:Mix"}, {"Reverb Size", "Rvb:Size"},
+    {"SAMP 1 Pitch", "S1:Pitch"}, {"SAMP 1 Loop Start", "S1:LpSt"}, {"SAMP 1 Loop Length", "S1:LpLen"},
+    {"SAMP 1 Crossfade", "S1:XFd"}, {"SAMP 1 Level", "S1:Level"},
+    {"SAMP 2 Pitch", "S2:Pitch"}, {"SAMP 2 Loop Start", "S2:LpSt"}, {"SAMP 2 Loop Length", "S2:LpLen"},
+    {"SAMP 2 Crossfade", "S2:XFd"}, {"SAMP 2 Level", "S2:Level"},
+    {"SAMP 3 Pitch", "S3:Pitch"}, {"SAMP 3 Loop Start", "S3:LpSt"}, {"SAMP 3 Loop Length", "S3:LpLen"},
+    {"SAMP 3 Crossfade", "S3:XFd"}, {"SAMP 3 Level", "S3:Level"},
+    {"SAMP 4 Pitch", "S4:Pitch"}, {"SAMP 4 Loop Start", "S4:LpSt"}, {"SAMP 4 Loop Length", "S4:LpLen"},
+    {"SAMP 4 Crossfade", "S4:XFd"}, {"SAMP 4 Level", "S4:Level"}
 };
 
 const std::vector<ModOption> kModTypes = {

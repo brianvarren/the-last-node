@@ -138,6 +138,13 @@ void Synth::noteOn(int midiNote, int velocity) {
         voice.offsetMod[i] = 0.0f;
         voice.ampMod[i] = 0.0f;
     }
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        voice.samplerPitchMod[i] = 0.0f;
+        voice.samplerLoopStartMod[i] = 0.0f;
+        voice.samplerLoopLengthMod[i] = 0.0f;
+        voice.samplerCrossfadeMod[i] = 0.0f;
+        voice.samplerLevelMod[i] = 0.0f;
+    }
     voice.resetFMHistory();
 
     voice.envelope.noteOn();  // Trigger envelope attack
@@ -209,6 +216,31 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         voice.ampMod[1] = modOutputs.osc2Amp;
         voice.ampMod[2] = modOutputs.osc3Amp;
         voice.ampMod[3] = modOutputs.osc4Amp;
+
+        voice.samplerPitchMod[0] = modOutputs.samp1Pitch;
+        voice.samplerPitchMod[1] = modOutputs.samp2Pitch;
+        voice.samplerPitchMod[2] = modOutputs.samp3Pitch;
+        voice.samplerPitchMod[3] = modOutputs.samp4Pitch;
+
+        voice.samplerLoopStartMod[0] = modOutputs.samp1LoopStart;
+        voice.samplerLoopStartMod[1] = modOutputs.samp2LoopStart;
+        voice.samplerLoopStartMod[2] = modOutputs.samp3LoopStart;
+        voice.samplerLoopStartMod[3] = modOutputs.samp4LoopStart;
+
+        voice.samplerLoopLengthMod[0] = modOutputs.samp1LoopLength;
+        voice.samplerLoopLengthMod[1] = modOutputs.samp2LoopLength;
+        voice.samplerLoopLengthMod[2] = modOutputs.samp3LoopLength;
+        voice.samplerLoopLengthMod[3] = modOutputs.samp4LoopLength;
+
+        voice.samplerCrossfadeMod[0] = modOutputs.samp1Crossfade;
+        voice.samplerCrossfadeMod[1] = modOutputs.samp2Crossfade;
+        voice.samplerCrossfadeMod[2] = modOutputs.samp3Crossfade;
+        voice.samplerCrossfadeMod[3] = modOutputs.samp4Crossfade;
+
+        voice.samplerLevelMod[0] = modOutputs.samp1Amp;
+        voice.samplerLevelMod[1] = modOutputs.samp2Amp;
+        voice.samplerLevelMod[2] = modOutputs.samp3Amp;
+        voice.samplerLevelMod[3] = modOutputs.samp4Amp;
     }
 
     // Process each active voice and mix into output
@@ -430,6 +462,10 @@ Synth::ModulationOutputs Synth::processModulationMatrix() {
         // 18-23: OSC 4 Pitch/Morph/Duty/Ratio/Offset/Level
         // 24-25: Filter Cutoff/Resonance
         // 26-27: Reverb Mix/Size
+        // 28-32: SAMP 1 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 33-37: SAMP 2 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 38-42: SAMP 3 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 43-47: SAMP 4 Pitch/LoopStart/LoopLength/Crossfade/Level
 
         switch (slot.destination) {
             // OSC 1
@@ -466,6 +502,30 @@ Synth::ModulationOutputs Synth::processModulationMatrix() {
             // Reverb
             case 26: outputs.reverbMix += modValue; break;
             case 27: outputs.reverbSize += modValue; break;
+            // SAMP 1
+            case 28: outputs.samp1Pitch += modValue; break;
+            case 29: outputs.samp1LoopStart += modValue; break;
+            case 30: outputs.samp1LoopLength += modValue; break;
+            case 31: outputs.samp1Crossfade += modValue; break;
+            case 32: outputs.samp1Amp += modValue; break;
+            // SAMP 2
+            case 33: outputs.samp2Pitch += modValue; break;
+            case 34: outputs.samp2LoopStart += modValue; break;
+            case 35: outputs.samp2LoopLength += modValue; break;
+            case 36: outputs.samp2Crossfade += modValue; break;
+            case 37: outputs.samp2Amp += modValue; break;
+            // SAMP 3
+            case 38: outputs.samp3Pitch += modValue; break;
+            case 39: outputs.samp3LoopStart += modValue; break;
+            case 40: outputs.samp3LoopLength += modValue; break;
+            case 41: outputs.samp3Crossfade += modValue; break;
+            case 42: outputs.samp3Amp += modValue; break;
+            // SAMP 4
+            case 43: outputs.samp4Pitch += modValue; break;
+            case 44: outputs.samp4LoopStart += modValue; break;
+            case 45: outputs.samp4LoopLength += modValue; break;
+            case 46: outputs.samp4Crossfade += modValue; break;
+            case 47: outputs.samp4Amp += modValue; break;
         }
     }
 
