@@ -122,6 +122,7 @@ public:
     void setSamplerLevel(int samplerIndex, float level);
 
     // Get sampler state (for UI)
+    int getSamplerSampleIndex(int samplerIndex) const;
     float getSamplerLoopStart(int samplerIndex) const;
     float getSamplerLoopLength(int samplerIndex) const;
     float getSamplerCrossfadeLength(int samplerIndex) const;

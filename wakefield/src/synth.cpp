@@ -568,6 +568,13 @@ void Synth::setSamplerLevel(int samplerIndex, float level) {
 }
 
 // Get sampler state (from first voice as they're all synced)
+int Synth::getSamplerSampleIndex(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return -1;
+    }
+    return currentSampleIndices[samplerIndex];
+}
+
 float Synth::getSamplerLoopStart(int samplerIndex) const {
     if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE || voices.empty()) {
         return 0.0f;

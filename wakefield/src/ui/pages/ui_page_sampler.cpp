@@ -13,10 +13,10 @@ void UI::drawSamplerPage() {
 
     // Get sample bank
     const SampleBank* bank = synth->getSampleBank();
-    const int sampleCount = bank ? bank->getSampleCount() : 0;
 
-    // Get current sample
-    const SampleData* sample = (sampleCount > 0) ? bank->getSample(0) : nullptr;
+    // Get current sample for this sampler
+    int sampleIndex = synth->getSamplerSampleIndex(currentSamplerIndex);
+    const SampleData* sample = (sampleIndex >= 0) ? bank->getSample(sampleIndex) : nullptr;
 
     // Title with sampler index
     attron(COLOR_PAIR(5) | A_BOLD);
