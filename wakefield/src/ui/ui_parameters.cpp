@@ -51,11 +51,15 @@ void UI::initializeParameters() {
     parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
     parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LOOPER)});
 
-    // MIXER page parameters - oscillator mix levels (50-53)
+    // MIXER page parameters - oscillator and sampler mix levels (50-57)
     parameters.push_back({50, ParamType::FLOAT, "OSC 1 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
     parameters.push_back({51, ParamType::FLOAT, "OSC 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
     parameters.push_back({52, ParamType::FLOAT, "OSC 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
     parameters.push_back({53, ParamType::FLOAT, "OSC 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
+    parameters.push_back({54, ParamType::FLOAT, "SAMP 1 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
+    parameters.push_back({55, ParamType::FLOAT, "SAMP 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
+    parameters.push_back({56, ParamType::FLOAT, "SAMP 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
+    parameters.push_back({57, ParamType::FLOAT, "SAMP 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
 
     // SAMPLER page parameters - control the currently selected sampler (60-67)
     parameters.push_back({60, ParamType::ENUM, "Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER)});
@@ -141,6 +145,10 @@ float UI::getParameterValue(int id) {
         case 51: return params->getOscLevel(1);  // OSC 2 Level (mixer)
         case 52: return params->getOscLevel(2);  // OSC 3 Level (mixer)
         case 53: return params->getOscLevel(3);  // OSC 4 Level (mixer)
+        case 54: return synth->getSamplerLevel(0);  // SAMP 1 Level (mixer)
+        case 55: return synth->getSamplerLevel(1);  // SAMP 2 Level (mixer)
+        case 56: return synth->getSamplerLevel(2);  // SAMP 3 Level (mixer)
+        case 57: return synth->getSamplerLevel(3);  // SAMP 4 Level (mixer)
         // SAMPLER page parameters (60-67)
         case 60: return static_cast<float>(synth->getSamplerPlaybackMode(samplerIndex));
         case 61: return synth->getSamplerLoopStart(samplerIndex) * 100.0f;
@@ -224,6 +232,10 @@ void UI::setParameterValue(int id, float value) {
         case 51: params->setOscLevel(1, value); break;  // OSC 2 Level (mixer)
         case 52: params->setOscLevel(2, value); break;  // OSC 3 Level (mixer)
         case 53: params->setOscLevel(3, value); break;  // OSC 4 Level (mixer)
+        case 54: synth->setSamplerLevel(0, value); break;  // SAMP 1 Level (mixer)
+        case 55: synth->setSamplerLevel(1, value); break;  // SAMP 2 Level (mixer)
+        case 56: synth->setSamplerLevel(2, value); break;  // SAMP 3 Level (mixer)
+        case 57: synth->setSamplerLevel(3, value); break;  // SAMP 4 Level (mixer)
         // SAMPLER page parameters (60-67)
         case 60: synth->setSamplerPlaybackMode(samplerIndex, static_cast<PlaybackMode>(static_cast<int>(value))); break;
         case 61: synth->setSamplerLoopStart(samplerIndex, value / 100.0f); break;

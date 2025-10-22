@@ -1,4 +1,5 @@
 #include "../../ui.h"
+#include "../../synth.h"
 
 void UI::drawMixerPage() {
     int row = 3;
@@ -6,39 +7,73 @@ void UI::drawMixerPage() {
 
     // Page title
     attron(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(row++, col, "MIXER - Oscillator Mix Levels");
+    mvprintw(row++, col, "MIXER");
     attroff(COLOR_PAIR(1) | A_BOLD);
 
     row++; // Blank line
 
-    mvprintw(row++, col, "Mix levels control the static volume of each oscillator.");
-    mvprintw(row++, col, "Amplitude (modulated by envelopes) is separate from mix level.");
+    // Header
+    attron(COLOR_PAIR(3));
+    mvprintw(row++, col, "Source    Level");
+    attroff(COLOR_PAIR(3));
+
+    // Get parameter IDs for this page
+    std::vector<int> pageParams = getParameterIdsForPage(UIPage::MIXER);
+
+    // Draw oscillators (IDs 50-53)
+    for (int i = 0; i < 4; ++i) {
+        int paramId = 50 + i;
+        float level = params->getOscLevel(i);
+
+        // Highlight selected parameter
+        if (paramId == selectedParameterId) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(row, col, ">");
+        } else {
+            mvprintw(row, col, " ");
+        }
+
+        mvprintw(row, col + 2, "OSC %d", i + 1);
+
+        // Draw compact bar (30 chars)
+        drawBar(row, col + 10, "", level, 0.0f, 1.0f, 30);
+
+        if (paramId == selectedParameterId) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        row++;
+    }
 
     row++; // Blank line
 
-    // Draw oscillator mix levels
+    // Draw samplers (IDs 54-57)
     for (int i = 0; i < 4; ++i) {
-        float level = params->getOscLevel(i);
-        float amp = params->getOscAmp(i);
+        int paramId = 54 + i;
+        float level = synth->getSamplerLevel(i);
 
-        attron(COLOR_PAIR(2) | A_BOLD);
-        mvprintw(row++, col, "OSC %d:", i + 1);
-        attroff(COLOR_PAIR(2) | A_BOLD);
+        // Highlight selected parameter
+        if (paramId == selectedParameterId) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(row, col, ">");
+        } else {
+            mvprintw(row, col, " ");
+        }
 
-        // Mix level bar
-        mvprintw(row, col + 2, "Mix Level: ");
-        drawBar(row++, col + 14, "", level, 0.0f, 1.0f, 40);
+        mvprintw(row, col + 2, "SAMP %d", i + 1);
 
-        // Amp value (read-only display)
-        mvprintw(row, col + 2, "Amplitude: ");
-        drawBar(row++, col + 14, "", amp, 0.0f, 1.0f, 40);
+        // Draw compact bar (30 chars)
+        drawBar(row, col + 10, "", level, 0.0f, 1.0f, 30);
 
-        row++; // Blank line between oscillators
+        if (paramId == selectedParameterId) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        row++;
     }
 
-    row++;
-    attron(COLOR_PAIR(3));
-    mvprintw(row++, col, "Note: Use arrow keys to navigate and adjust mix levels.");
-    mvprintw(row++, col, "      Amplitude is controlled by modulation (see MOD page).");
-    attroff(COLOR_PAIR(3));
+    row += 2;
+    attron(COLOR_PAIR(8));
+    mvprintw(row++, col, "Mix levels control the static volume for each source.");
+    attroff(COLOR_PAIR(8));
 }
