@@ -28,7 +28,7 @@ struct Voice {
     float dutyMod[OSCILLATORS_PER_VOICE];
     float ratioMod[OSCILLATORS_PER_VOICE];
     float offsetMod[OSCILLATORS_PER_VOICE];
-    float levelMod[OSCILLATORS_PER_VOICE];
+    float ampMod[OSCILLATORS_PER_VOICE];  // Renamed from levelMod
 
     // Sampler modulation storage
     float samplerPitchMod[SAMPLERS_PER_VOICE];
@@ -53,7 +53,7 @@ struct Voice {
             dutyMod[i] = 0.0f;
             ratioMod[i] = 0.0f;
             offsetMod[i] = 0.0f;
-            levelMod[i] = 0.0f;
+            ampMod[i] = 0.0f;
         }
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             samplerPitchMod[i] = 0.0f;

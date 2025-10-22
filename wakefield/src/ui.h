@@ -116,7 +116,8 @@ struct SynthParameters {
     std::atomic<float> osc1Duty{0.5f};         // Pulse width (0.0-1.0)
     std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
     std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
-    std::atomic<float> osc1Level{1.0f};        // Oscillator level/gain (0.0-1.0)
+    std::atomic<float> osc1Amp{1.0f};          // Amplitude (modulation target, 0.0-1.0)
+    std::atomic<float> osc1Level{1.0f};        // Mix level (static, 0.0-1.0)
 
     // Oscillator 2 (index 1)
     std::atomic<int> osc2Mode{1};
@@ -126,6 +127,7 @@ struct SynthParameters {
     std::atomic<float> osc2Duty{0.5f};
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
+    std::atomic<float> osc2Amp{1.0f};
     std::atomic<float> osc2Level{0.0f};        // Default: off
 
     // Oscillator 3 (index 2)
@@ -136,6 +138,7 @@ struct SynthParameters {
     std::atomic<float> osc3Duty{0.5f};
     std::atomic<float> osc3Ratio{1.0f};
     std::atomic<float> osc3Offset{0.0f};
+    std::atomic<float> osc3Amp{1.0f};
     std::atomic<float> osc3Level{0.0f};        // Default: off
 
     // Oscillator 4 (index 3)
@@ -146,6 +149,7 @@ struct SynthParameters {
     std::atomic<float> osc4Duty{0.5f};
     std::atomic<float> osc4Ratio{1.0f};
     std::atomic<float> osc4Offset{0.0f};
+    std::atomic<float> osc4Amp{1.0f};
     std::atomic<float> osc4Level{0.0f};        // Default: off
 
     // LFO parameters - 4 global modulation sources
@@ -387,6 +391,26 @@ struct SynthParameters {
         }
     }
 
+
+    float getOscAmp(int index) const {
+        switch (index) {
+            case 0: return osc1Amp.load();
+            case 1: return osc2Amp.load();
+            case 2: return osc3Amp.load();
+            case 3: return osc4Amp.load();
+            default: return osc1Amp.load();
+        }
+    }
+
+    void setOscAmp(int index, float value) {
+        switch (index) {
+            case 0: osc1Amp = value; break;
+            case 1: osc2Amp = value; break;
+            case 2: osc3Amp = value; break;
+            case 3: osc4Amp = value; break;
+            default: osc1Amp = value; break;
+        }
+    }
 
     float getOscLevel(int index) const {
         switch (index) {
@@ -685,6 +709,7 @@ struct SynthParameters {
 enum class UIPage {
     OSCILLATOR,
     SAMPLER,
+    MIXER,
     LFO,
     ENV,
     FM,
@@ -832,6 +857,7 @@ private:
     void drawParametersPage(int startRow = 3, int startCol = 2);  // Generic parameter page drawing
     void drawOscillatorPage();
     void drawSamplerPage();
+    void drawMixerPage();
     void drawLFOPage();
     void drawEnvelopePage();
     void drawFMPage();

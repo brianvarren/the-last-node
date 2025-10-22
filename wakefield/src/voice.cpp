@@ -48,16 +48,22 @@ float Voice::generateSample() {
                                                     ratioMod[i], offsetMod[i]);
     }
 
-    // Mix all oscillators with base level + modulation
-    // Simple additive mixing (not weighted average)
+    // Mix all oscillators with (amp + ampMod) × level
+    // Amp is the modulation target, Level is the static mixer
     float mixedSample = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        // Get base level from synth (control-rate) and add level modulation
+        // Get base amp and level from synth (control-rate)
+        float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
         float baseLevel = synth ? synth->getOscillatorBaseLevel(i) : 0.0f;
-        float modulatedLevel = std::min(std::max(baseLevel + levelMod[i], -1.0f), 1.0f);
 
-        // Simple multiply: level acts as amplitude control
-        mixedSample += currentOutputs[i] * modulatedLevel;
+        // Calculate modulated amplitude (clamped 0-1)
+        float modulatedAmp = std::min(std::max(baseAmp + ampMod[i], 0.0f), 1.0f);
+
+        // Final gain is amp × level
+        float finalGain = modulatedAmp * baseLevel;
+
+        // Mix with final gain
+        mixedSample += currentOutputs[i] * finalGain;
     }
 
     // Process all samplers and mix

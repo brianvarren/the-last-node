@@ -56,7 +56,7 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
 
 void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
                                float baseFreq, float morph, float duty,
-                               float ratio, float offsetHz, float level) {
+                               float ratio, float offsetHz, float amp, float level) {
     if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
         return;
     }
@@ -76,7 +76,8 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
         osc.setOffset(offsetHz);
     }
 
-    // Store base level at control rate (used in voice mixing)
+    // Store base amp and level at control rate (used in voice mixing)
+    oscillatorBaseAmps[index] = amp;
     oscillatorBaseLevels[index] = level;
 }
 
@@ -135,7 +136,7 @@ void Synth::noteOn(int midiNote, int velocity) {
         voice.dutyMod[i] = 0.0f;
         voice.ratioMod[i] = 0.0f;
         voice.offsetMod[i] = 0.0f;
-        voice.levelMod[i] = 0.0f;
+        voice.ampMod[i] = 0.0f;
     }
     voice.resetFMHistory();
 
@@ -204,10 +205,10 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         voice.offsetMod[2] = modOutputs.osc3Offset;
         voice.offsetMod[3] = modOutputs.osc4Offset;
 
-        voice.levelMod[0] = modOutputs.osc1Level;
-        voice.levelMod[1] = modOutputs.osc2Level;
-        voice.levelMod[2] = modOutputs.osc3Level;
-        voice.levelMod[3] = modOutputs.osc4Level;
+        voice.ampMod[0] = modOutputs.osc1Amp;
+        voice.ampMod[1] = modOutputs.osc2Amp;
+        voice.ampMod[2] = modOutputs.osc3Amp;
+        voice.ampMod[3] = modOutputs.osc4Amp;
     }
 
     // Process each active voice and mix into output
@@ -437,28 +438,28 @@ Synth::ModulationOutputs Synth::processModulationMatrix() {
             case 2: outputs.osc1Duty += modValue; break;
             case 3: outputs.osc1Ratio += modValue; break;
             case 4: outputs.osc1Offset += modValue; break;
-            case 5: outputs.osc1Level += modValue; break;
+            case 5: outputs.osc1Amp += modValue; break;  // Changed from Level to Amp
             // OSC 2
             case 6: outputs.osc2Pitch += modValue; break;
             case 7: outputs.osc2Morph += modValue; break;
             case 8: outputs.osc2Duty += modValue; break;
             case 9: outputs.osc2Ratio += modValue; break;
             case 10: outputs.osc2Offset += modValue; break;
-            case 11: outputs.osc2Level += modValue; break;
+            case 11: outputs.osc2Amp += modValue; break;  // Changed from Level to Amp
             // OSC 3
             case 12: outputs.osc3Pitch += modValue; break;
             case 13: outputs.osc3Morph += modValue; break;
             case 14: outputs.osc3Duty += modValue; break;
             case 15: outputs.osc3Ratio += modValue; break;
             case 16: outputs.osc3Offset += modValue; break;
-            case 17: outputs.osc3Level += modValue; break;
+            case 17: outputs.osc3Amp += modValue; break;  // Changed from Level to Amp
             // OSC 4
             case 18: outputs.osc4Pitch += modValue; break;
             case 19: outputs.osc4Morph += modValue; break;
             case 20: outputs.osc4Duty += modValue; break;
             case 21: outputs.osc4Ratio += modValue; break;
             case 22: outputs.osc4Offset += modValue; break;
-            case 23: outputs.osc4Level += modValue; break;
+            case 23: outputs.osc4Amp += modValue; break;  // Changed from Level to Amp
             // Filter
             case 24: outputs.filterCutoff += modValue; break;
             case 25: outputs.filterResonance += modValue; break;

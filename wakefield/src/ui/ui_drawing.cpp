@@ -15,6 +15,7 @@ void UI::drawTabs() {
     const TabInfo tabs[] = {
         {"OSC", UIPage::OSCILLATOR},
         {"SAMP", UIPage::SAMPLER},
+        {"MIX", UIPage::MIXER},
         {"LFO", UIPage::LFO},
         {"ENV", UIPage::ENV},
         {"FM", UIPage::FM},
@@ -162,6 +163,9 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::SAMPLER:
             drawSamplerPage();
+            break;
+        case UIPage::MIXER:
+            drawMixerPage();
             break;
         case UIPage::LFO:
             drawLFOPage();

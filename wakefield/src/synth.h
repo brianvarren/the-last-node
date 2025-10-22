@@ -76,10 +76,10 @@ public:
         float osc2Offset = 0.0f;
         float osc3Offset = 0.0f;
         float osc4Offset = 0.0f;
-        float osc1Level = 0.0f;
-        float osc2Level = 0.0f;
-        float osc3Level = 0.0f;
-        float osc4Level = 0.0f;
+        float osc1Amp = 0.0f;  // Renamed from osc1Level
+        float osc2Amp = 0.0f;  // Renamed from osc2Level
+        float osc3Amp = 0.0f;  // Renamed from osc3Level
+        float osc4Amp = 0.0f;  // Renamed from osc4Level
         float filterCutoff = 0.0f;
         float filterResonance = 0.0f;
         float reverbMix = 0.0f;
@@ -93,7 +93,13 @@ public:
     int getActiveVoiceCount() const;
     void setOscillatorState(int index, BrainwaveMode mode, int shape,
                             float baseFreq, float morph, float duty,
-                            float ratio, float offsetHz, float level);
+                            float ratio, float offsetHz, float amp, float level);
+
+    // Get oscillator base amp (for voice mixing with modulation)
+    float getOscillatorBaseAmp(int index) const {
+        if (index < 0 || index >= OSCILLATORS_PER_VOICE) return 0.0f;
+        return oscillatorBaseAmps[index];
+    }
 
     // Get oscillator base level (for voice mixing)
     float getOscillatorBaseLevel(int index) const {
@@ -147,8 +153,12 @@ private:
     OnePoleLowShelfBLT lowShelfL;
     OnePoleLowShelfBLT lowShelfR;
 
-    // Per-oscillator base levels (control-rate, set from UI/params)
-    // These are combined with levelMod in voice mixing
+    // Per-oscillator base amps (control-rate, modulation target)
+    // Combined with ampMod, then multiplied by mix levels
+    float oscillatorBaseAmps[OSCILLATORS_PER_VOICE] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    // Per-oscillator mix levels (control-rate, static mixer)
+    // These are multiplied with (amp + ampMod) in voice mixing
     float oscillatorBaseLevels[OSCILLATORS_PER_VOICE] = {1.0f, 0.0f, 0.0f, 0.0f};
 
     // Sample bank for all voices

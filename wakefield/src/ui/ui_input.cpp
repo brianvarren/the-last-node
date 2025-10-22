@@ -98,7 +98,8 @@ void UI::handleInput(int ch) {
     // Tab key cycles forward through pages
     if (ch == '\t') {
         if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::SAMPLER);
-        else if (currentPage == UIPage::SAMPLER) setPage(UIPage::LFO);
+        else if (currentPage == UIPage::SAMPLER) setPage(UIPage::MIXER);
+        else if (currentPage == UIPage::MIXER) setPage(UIPage::LFO);
         else if (currentPage == UIPage::LFO) setPage(UIPage::ENV);
         else if (currentPage == UIPage::ENV) setPage(UIPage::FM);
         else if (currentPage == UIPage::FM) setPage(UIPage::MOD);
@@ -115,7 +116,8 @@ void UI::handleInput(int ch) {
     if (ch == KEY_BTAB || ch == 353) {  // KEY_BTAB = Shift+Tab, 353 = some terminals
         if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::CONFIG);
         else if (currentPage == UIPage::SAMPLER) setPage(UIPage::OSCILLATOR);
-        else if (currentPage == UIPage::LFO) setPage(UIPage::SAMPLER);
+        else if (currentPage == UIPage::MIXER) setPage(UIPage::SAMPLER);
+        else if (currentPage == UIPage::LFO) setPage(UIPage::MIXER);
         else if (currentPage == UIPage::ENV) setPage(UIPage::LFO);
         else if (currentPage == UIPage::FM) setPage(UIPage::ENV);
         else if (currentPage == UIPage::MOD) setPage(UIPage::FM);
@@ -149,8 +151,7 @@ void UI::handleInput(int ch) {
             setPage(UIPage::FILTER);
             return;
         case KEY_F(7):
-            setPage(UIPage::FM);
-            addConsoleMessage("Mix page pending – showing FM routing page");
+            setPage(UIPage::MIXER);
             return;
         case KEY_F(8):
             setPage(UIPage::MOD);

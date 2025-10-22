@@ -68,13 +68,13 @@ UI::UI(Synth* synth, SynthParameters* params)
         selectedParameterId = initialParams[0];  // Start with first parameter
     }
 
-    // Initialize default modulation routing: ENV 1 → OSC 1-4 Level (slots 0-3)
-    // This replaces the hardcoded envelope multiplication in Voice
+    // Initialize default modulation routing: ENV 1 → OSC 1-4 Amp (slots 0-3)
+    // This provides amplitude envelope control separate from mix levels
     for (int i = 0; i < 4; ++i) {
         modulationSlots[i].source = 4;           // ENV 1 (index 4)
         modulationSlots[i].curve = 0;            // Linear curve
         modulationSlots[i].amount = 100;         // 100% modulation
-        modulationSlots[i].destination = i * 6 + 5;  // OSC (i+1) Level (indices 5, 11, 17, 23)
+        modulationSlots[i].destination = i * 6 + 5;  // OSC (i+1) Amp (indices 5, 11, 17, 23)
         modulationSlots[i].type = 0;             // Unidirectional
     }
 
@@ -131,12 +131,20 @@ bool UI::initialize() {
 }
 
 bool UI::update() {
-    int ch = getch();
+    // Drain all pending input to prevent buildup when keys are held down
+    // This ensures that releasing arrow keys stops parameter adjustment immediately
+    int ch;
+    int lastValidKey = ERR;
 
-    if (ch != ERR) {
-        handleInput(ch);
+    while ((ch = getch()) != ERR) {
+        lastValidKey = ch;
+    }
 
-        if (ch == 'q' || ch == 'Q') {
+    // Process only the most recent key if any were detected
+    if (lastValidKey != ERR) {
+        handleInput(lastValidKey);
+
+        if (lastValidKey == 'q' || lastValidKey == 'Q') {
             return false;
         }
     }
