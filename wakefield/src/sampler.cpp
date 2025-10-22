@@ -2,6 +2,7 @@
 #include "sample_bank.h"
 #include <algorithm>
 #include <cstring>
+#include <limits>
 
 // Minimum loop length in samples (to prevent glitches)
 static constexpr uint32_t MIN_LOOP_LENGTH = 2048;
@@ -325,7 +326,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
         }
     }
 
-    // Calculate crossfade length
+    // Calculate crossfade length (in source samples)
     uint32_t xfadeLen = 0;
     if (primaryVoice->loop_end > primaryVoice->loop_start) {
         uint32_t loopLen = primaryVoice->loop_end - primaryVoice->loop_start;
@@ -338,19 +339,27 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
         xfadeLen = std::clamp(xfadeLen, 8u, maxXfade);
     }
 
-    // Convert crossfade length to samples at current playback speed
-    float safeRatio = std::max(0.0001f, std::abs(playbackSpeed));
-    uint32_t xfadeSamples = static_cast<uint32_t>(
-        (static_cast<uint64_t>(xfadeLen) << 32) /
-        static_cast<uint64_t>(safeRatio * (1ULL << 32))
-    );
-    xfadeSamples = std::max(16u, xfadeSamples);
-
     // Determine playback direction
     bool isReverse = (mode == PlaybackMode::REVERSE);
 
     // Calculate phase increment
     int64_t inc = calculateIncrement(sampleRate, fmInput, pitchMod, isReverse, midiNote);
+
+    // Convert crossfade length to output samples using actual increment
+    uint32_t xfadeSamples = 16u;
+    if (xfadeLen > 0) {
+        uint64_t incMagnitude = static_cast<uint64_t>(inc >= 0 ? inc : -inc);
+        if (incMagnitude == 0) {
+            incMagnitude = 1;
+        }
+        uint64_t totalDistance = static_cast<uint64_t>(xfadeLen) << 32;
+        uint64_t framesNeeded = (totalDistance + incMagnitude - 1) / incMagnitude;  // ceil division
+        framesNeeded = std::max<uint64_t>(16ull, framesNeeded);
+        if (framesNeeded > std::numeric_limits<uint32_t>::max()) {
+            framesNeeded = std::numeric_limits<uint32_t>::max();
+        }
+        xfadeSamples = static_cast<uint32_t>(framesNeeded);
+    }
 
     // Check for crossfade trigger before wrapping
     if (!crossfading && xfadeLen > 0) {
