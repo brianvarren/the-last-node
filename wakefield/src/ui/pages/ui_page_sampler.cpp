@@ -46,7 +46,7 @@ void UI::drawSamplerPage() {
         // Draw empty waveform with just centerline
         int centerRow = row + waveformHeight / 2;
         attron(COLOR_PAIR(2));
-        mvhline(centerRow, leftCol, '-', waveformWidth);
+        mvhline(centerRow, leftCol, '*', waveformWidth);
         attroff(COLOR_PAIR(2));
     }
     row += waveformHeight;
@@ -93,21 +93,72 @@ void UI::drawSamplerPage() {
     else if (syncMode == 2) syncStr = "Trip";
     else if (syncMode == 3) syncStr = "Dot";
 
-    // Two columns layout
+    // Two columns layout with highlighting
     const int col1 = leftCol + 2;
     const int col2 = leftCol + 40;
     int paramRow = row;
 
-    mvprintw(paramRow++, col1, "Mode:        %s", modeStr);
-    mvprintw(paramRow++, col1, "Loop Start:  %.1f%%", loopStart * 100.0f);
-    mvprintw(paramRow++, col1, "Loop Length: %.1f%%", loopLength * 100.0f);
-    mvprintw(paramRow++, col1, "Xfade:       %.1f%%", crossfade * 100.0f);
+    // Column 1 parameters (IDs 60-63)
+    const int paramIds1[] = {60, 61, 62, 63};
+    const char* labels1[] = {"Mode:       ", "Loop Start: ", "Loop Length:", "Xfade:      "};
+    const char* values1[] = {modeStr, nullptr, nullptr, nullptr};
 
+    for (int i = 0; i < 4; ++i) {
+        if (paramIds1[i] == selectedParameterId) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(paramRow, col1, ">");
+        } else {
+            mvprintw(paramRow, col1, " ");
+        }
+
+        mvprintw(paramRow, col1 + 2, "%s", labels1[i]);
+
+        if (i == 0) {
+            printw("%s", modeStr);
+        } else if (i == 1) {
+            printw("%.1f%%", loopStart * 100.0f);
+        } else if (i == 2) {
+            printw("%.1f%%", loopLength * 100.0f);
+        } else if (i == 3) {
+            printw("%.1f%%", crossfade * 100.0f);
+        }
+
+        if (paramIds1[i] == selectedParameterId) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+        paramRow++;
+    }
+
+    // Column 2 parameters (IDs 64-67)
     paramRow = row;
-    mvprintw(paramRow++, col2, "Ratio:       %.2f", ratio);
-    mvprintw(paramRow++, col2, "Offset:      %.0f Hz", offset);
-    mvprintw(paramRow++, col2, "Sync:        %s", syncStr);
-    mvprintw(paramRow++, col2, "Note Reset:  %s", noteReset ? "On" : "Off");
+    const int paramIds2[] = {64, 65, 66, 67};
+    const char* labels2[] = {"Ratio:      ", "Offset:     ", "Sync:       ", "Note Reset: "};
+
+    for (int i = 0; i < 4; ++i) {
+        if (paramIds2[i] == selectedParameterId) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(paramRow, col2, ">");
+        } else {
+            mvprintw(paramRow, col2, " ");
+        }
+
+        mvprintw(paramRow, col2 + 2, "%s", labels2[i]);
+
+        if (i == 0) {
+            printw("%.2f", ratio);
+        } else if (i == 1) {
+            printw("%.0f Hz", offset);
+        } else if (i == 2) {
+            printw("%s", syncStr);
+        } else if (i == 3) {
+            printw("%s", noteReset ? "On" : "Off");
+        }
+
+        if (paramIds2[i] == selectedParameterId) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+        paramRow++;
+    }
 
     row = paramRow + 1;
 
@@ -159,9 +210,9 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
             attroff(COLOR_PAIR(2));
         }
 
-        // Always draw center line in green
+        // Always draw center line in green with * characters
         attron(COLOR_PAIR(2));
-        mvaddch(centerRow, leftCol + col, '-');
+        mvaddch(centerRow, leftCol + col, '*');
         attroff(COLOR_PAIR(2));
     }
 }
