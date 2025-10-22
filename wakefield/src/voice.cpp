@@ -76,13 +76,14 @@ float Voice::generateSample() {
         // Normalize FM input
         fmInput /= OSCILLATORS_PER_VOICE;
 
-        // Process sampler with modulation
+        // Process sampler with modulation (pass MIDI note for KEY mode tracking)
         float samplerOut = samplers[i].process(sampleRate, fmInput,
                                               samplerPitchMod[i],
                                               samplerLoopStartMod[i],
                                               samplerLoopLengthMod[i],
                                               samplerCrossfadeMod[i],
-                                              samplerLevelMod[i]);
+                                              samplerLevelMod[i],
+                                              note);
         mixedSample += samplerOut;
     }
 

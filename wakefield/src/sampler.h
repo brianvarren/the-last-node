@@ -36,9 +36,10 @@ public:
     //   loopLengthMod: Loop length modulation (-1 to +1)
     //   crossfadeMod: Crossfade length modulation (-1 to +1)
     //   levelMod: Level modulation (-1 to +1)
+    //   midiNote: MIDI note number (0-127) for KEY mode pitch tracking
     float process(float sampleRate, float fmInput, float pitchMod,
                   float loopStartMod, float loopLengthMod,
-                  float crossfadeMod, float levelMod);
+                  float crossfadeMod, float levelMod, int midiNote = 60);
 
     // Parameter setters
     void setSample(const SampleData* sample);
@@ -108,7 +109,7 @@ private:
     void calculateLoopBoundaries(float startMod, float lengthMod);
     void wrapPhase(SamplerVoice* voice) const;
     int16_t getSample(const SamplerVoice* voice, bool isReverse) const;
-    int64_t calculateIncrement(float sampleRate, float fmInput, float pitchMod, bool isReverse);
+    int64_t calculateIncrement(float sampleRate, float fmInput, float pitchMod, bool isReverse, int midiNote);
     bool isInCrossfadeZone(uint64_t phase, uint32_t loopStart, uint32_t loopEnd,
                           uint32_t xfadeLen, bool isReverse) const;
     void setupCrossfade(uint32_t xfadeLen, uint32_t xfadeSamples, bool isReverse);

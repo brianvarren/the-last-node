@@ -214,7 +214,7 @@ int16_t Sampler::getSample(const SamplerVoice* voice, bool isReverse) const {
 }
 
 int64_t Sampler::calculateIncrement(float sampleRate, float fmInput,
-                                    float pitchMod, bool isReverse) {
+                                    float pitchMod, bool isReverse, int midiNote) {
     if (!currentSample) {
         return 0;
     }
@@ -223,6 +223,13 @@ int64_t Sampler::calculateIncrement(float sampleRate, float fmInput,
     // Q32.32 format: (source_rate / output_rate) * playbackSpeed
     double baseRatio = (static_cast<double>(currentSample->sampleRate) /
                        static_cast<double>(sampleRate)) * playbackSpeed;
+
+    // KEY mode: apply exponential pitch tracking based on MIDI note
+    // C4 (note 60) = 1.0, each semitone = 2^(1/12)
+    if (mode == PlaybackMode::FORWARD) {
+        double pitchScale = std::pow(2.0, (midiNote - 60) / 12.0);
+        baseRatio *= pitchScale;
+    }
 
     // Apply pitch modulation (in octaves)
     baseRatio *= std::pow(2.0, pitchMod);
@@ -298,7 +305,7 @@ void Sampler::setupCrossfade(uint32_t xfadeLen, uint32_t xfadeSamples,
 
 float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                       float loopStartMod, float loopLengthMod,
-                      float crossfadeMod, float levelMod) {
+                      float crossfadeMod, float levelMod, int midiNote) {
     // Early exit if no sample loaded
     if (!currentSample || !currentSample->samples ||
         currentSample->sampleCount < 2) {
@@ -343,7 +350,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     bool isReverse = (mode == PlaybackMode::REVERSE);
 
     // Calculate phase increment
-    int64_t inc = calculateIncrement(sampleRate, fmInput, pitchMod, isReverse);
+    int64_t inc = calculateIncrement(sampleRate, fmInput, pitchMod, isReverse, midiNote);
 
     // Check for crossfade trigger before wrapping
     if (!crossfading && xfadeLen > 0) {
