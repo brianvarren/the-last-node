@@ -247,7 +247,8 @@ void UI::handleInput(int ch) {
     }
 
     // Enter key starts numeric input for current parameter
-    if (currentPage != UIPage::SEQUENCER && (ch == '\n' || ch == KEY_ENTER)) {
+    // (except on SEQUENCER and SAMPLER pages which have their own Enter key handlers)
+    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::SAMPLER && (ch == '\n' || ch == KEY_ENTER)) {
         startNumericInput(selectedParameterId);
         return;
     }
