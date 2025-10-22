@@ -29,22 +29,25 @@ void UI::drawSamplerPage() {
         mvprintw(row++, leftCol, "SAMPLER %d  |  > No sample loaded", currentSamplerIndex + 1);
     }
     attroff(COLOR_PAIR(5) | A_BOLD);
+    row++; // Add blank line after title
 
     // Waveform preview with loop indicator overlay - stretch to fill screen
-    // Reserve space for: top bar (2), title (1), params header (1), params (4), instructions (1), hotkey (2) = 11 lines
-    // At 32x28 resolution, this gives us: 28 - 11 = 17 lines available
-    // Use 9 for waveform + 1 for loop indicator = 10 lines total
     const int waveformHeight = 9; // Odd number for centerline visibility
     const int waveformWidth = maxX - leftCol - 2; // Stretch to screen width
 
     if (sample && sample->sampleCount > 0) {
-        drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample);
+        // Draw top border
+        attron(COLOR_PAIR(8));
+        mvhline(row++, leftCol, '-', waveformWidth);
+        attroff(COLOR_PAIR(8));
 
-        // Draw loop indicator overlaid on bottom of waveform
+        drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample);
+        row += waveformHeight;
+
+        // Draw loop indicator as bottom border
         float loopStart = synth->getSamplerLoopStart(currentSamplerIndex);
         float loopLength = synth->getSamplerLoopLength(currentSamplerIndex);
 
-        int loopRow = row + waveformHeight;
         int loopStartPos = static_cast<int>(loopStart * waveformWidth);
         int loopEndPos = static_cast<int>((loopStart + loopLength) * waveformWidth);
         loopEndPos = std::min(loopEndPos, waveformWidth);
@@ -52,16 +55,15 @@ void UI::drawSamplerPage() {
         for (int i = 0; i < waveformWidth; ++i) {
             if (i >= loopStartPos && i < loopEndPos) {
                 attron(COLOR_PAIR(2) | A_BOLD);
-                mvaddch(loopRow, leftCol + i, '=');
+                mvaddch(row, leftCol + i, '=');
                 attroff(COLOR_PAIR(2) | A_BOLD);
             } else {
                 attron(COLOR_PAIR(8));
-                mvaddch(loopRow, leftCol + i, '-');
+                mvaddch(row, leftCol + i, '-');
                 attroff(COLOR_PAIR(8));
             }
         }
-
-        row += waveformHeight + 2;
+        row += 2; // Skip past loop indicator and add blank line
     } else {
         attron(COLOR_PAIR(8));
         mvprintw(row++, leftCol, "[ No waveform - load a sample ]");
@@ -118,27 +120,29 @@ void UI::drawSamplerPage() {
 void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample) {
     if (!sample || sample->sampleCount == 0 || !sample->samples) return;
 
-    // Calculate how many samples to average per column
+    // Calculate how many samples to analyze per column
     const int samplesPerColumn = sample->sampleCount / width;
     if (samplesPerColumn == 0) return;
 
     int centerRow = topRow + height / 2;
 
-    // For each column, find the average amplitude
+    // For each column, find the peak amplitude
     for (int col = 0; col < width; ++col) {
         int startSample = col * samplesPerColumn;
         int endSample = std::min(startSample + samplesPerColumn, static_cast<int>(sample->sampleCount));
 
-        // Calculate RMS amplitude for this column
-        float sumSquared = 0.0f;
+        // Find peak amplitude in this column
+        float peakAmplitude = 0.0f;
         for (int i = startSample; i < endSample; ++i) {
-            float sampleValue = sample->samples[i] / 32768.0f; // Convert Q15 to float
-            sumSquared += sampleValue * sampleValue;
+            float sampleValue = std::abs(sample->samples[i]) / 32768.0f; // Convert Q15 to float
+            if (sampleValue > peakAmplitude) {
+                peakAmplitude = sampleValue;
+            }
         }
-        float rms = std::sqrt(sumSquared / (endSample - startSample));
 
-        // Convert to column height (bipolar)
-        int columnHeight = static_cast<int>(rms * height * 0.8f); // Scale to 80% of max height
+        // Convert to column height (bipolar display)
+        // Use full height/2 for maximum amplitude (don't scale down)
+        int columnHeight = static_cast<int>(peakAmplitude * (height / 2));
         columnHeight = std::min(columnHeight, height / 2);
 
         // Draw above center
@@ -160,10 +164,4 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
         mvaddch(centerRow, leftCol + col, '-');
         attroff(COLOR_PAIR(8));
     }
-
-    // Draw border
-    attron(COLOR_PAIR(8));
-    mvhline(topRow - 1, leftCol, '-', width);
-    mvhline(topRow + height, leftCol, '-', width);
-    attroff(COLOR_PAIR(8));
 }
