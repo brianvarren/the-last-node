@@ -12,6 +12,7 @@
 #include "modulation.h"
 
 class Synth;  // Forward declaration
+struct SampleData;  // Forward declaration
 
 // Filter types
 enum class FilterType {
@@ -872,6 +873,7 @@ private:
     void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
     void drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float phase);
     void drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
+    void drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample);
 
     // Sequencer helpers
     bool handleSequencerInput(int ch);

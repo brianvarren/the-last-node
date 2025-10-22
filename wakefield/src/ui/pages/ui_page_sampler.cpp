@@ -8,145 +8,162 @@
 #include <vector>
 
 void UI::drawSamplerPage() {
-    const int startRow = 3;
     const int leftCol = 2;
-    const int valueCol = 35;
-    int row = startRow;
+    int row = 3;
 
     // Get sample bank
     const SampleBank* bank = synth->getSampleBank();
     const int sampleCount = bank ? bank->getSampleCount() : 0;
 
-    // Draw title with sampler index
+    // Get current sample
+    const SampleData* sample = (sampleCount > 0) ? bank->getSample(0) : nullptr;
+
+    // Title with sampler index
     attron(COLOR_PAIR(5) | A_BOLD);
     mvprintw(row++, leftCol, "SAMPLER %d", currentSamplerIndex + 1);
     attroff(COLOR_PAIR(5) | A_BOLD);
     row++;
 
-    // Hotkey instructions
-    attron(COLOR_PAIR(8));
-    mvprintw(row++, leftCol, "Keys 1-4: Select sampler | Tab: Next page");
-    attroff(COLOR_PAIR(8));
+    // Sample name (highlighted - this will be the Enter key target)
+    attron(COLOR_PAIR(5) | A_BOLD);
+    if (sample && sample->name.length() > 0) {
+        mvprintw(row++, leftCol, "> %s", sample->name.c_str());
+    } else {
+        mvprintw(row++, leftCol, "> No sample loaded");
+    }
+    attroff(COLOR_PAIR(5) | A_BOLD);
     row++;
 
-    // Get current sampler state (from first voice as reference)
+    // Waveform preview
+    if (sample && sample->sampleCount > 0) {
+        const int waveformWidth = 76;
+        const int waveformHeight = 12;
+
+        drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample);
+        row += waveformHeight + 1;
+    } else {
+        attron(COLOR_PAIR(8));
+        mvprintw(row++, leftCol, "[ No waveform - load a sample ]");
+        attroff(COLOR_PAIR(8));
+        row += 2;
+    }
+
+    // Loop region indicator
     float loopStart = synth->getSamplerLoopStart(currentSamplerIndex);
     float loopLength = synth->getSamplerLoopLength(currentSamplerIndex);
-    float crossfadeLength = synth->getSamplerCrossfadeLength(currentSamplerIndex);
-    float playbackSpeed = synth->getSamplerPlaybackSpeed(currentSamplerIndex);
-    float tzfmDepth = synth->getSamplerTZFMDepth(currentSamplerIndex);
-    PlaybackMode mode = synth->getSamplerPlaybackMode(currentSamplerIndex);
-    float level = synth->getSamplerLevel(currentSamplerIndex);
 
-    // Sample selection
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "Sample:");
-    attroff(COLOR_PAIR(7));
+    attron(COLOR_PAIR(3));
+    mvprintw(row, leftCol, "Loop Region: ");
+    attroff(COLOR_PAIR(3));
 
-    if (sampleCount > 0) {
-        // TODO: Get current sample index from somewhere
-        // For now, show first sample as placeholder
-        const char* sampleName = bank->getSampleName(0);
-        if (sampleName) {
-            mvprintw(row++, valueCol, "%s", sampleName);
+    // Draw loop indicator bar
+    const int barWidth = 60;
+    int loopStartPos = static_cast<int>(loopStart * barWidth);
+    int loopEndPos = static_cast<int>((loopStart + loopLength) * barWidth);
+    loopEndPos = std::min(loopEndPos, barWidth);
+
+    int barX = leftCol + 14;
+    for (int i = 0; i < barWidth; ++i) {
+        if (i >= loopStartPos && i < loopEndPos) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvaddch(row, barX + i, '=');
+            attroff(COLOR_PAIR(2) | A_BOLD);
         } else {
-            mvprintw(row++, valueCol, "No sample loaded");
+            mvaddch(row, barX + i, '-');
         }
-    } else {
-        attron(COLOR_PAIR(8));
-        mvprintw(row++, valueCol, "No samples found");
-        attroff(COLOR_PAIR(8));
     }
-    row++;
-
-    // Playback mode
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "Playback Mode:");
-    attroff(COLOR_PAIR(7));
-    const char* modeStr = "Forward";
-    if (mode == PlaybackMode::REVERSE) modeStr = "Reverse";
-    else if (mode == PlaybackMode::ALTERNATE) modeStr = "Ping-Pong";
-    mvprintw(row++, valueCol, "%s", modeStr);
-    row++;
-
-    // Loop start
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "Loop Start:");
-    attroff(COLOR_PAIR(7));
-    mvprintw(row++, valueCol, "%.1f%%", loopStart * 100.0f);
-
-    // Loop length
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "Loop Length:");
-    attroff(COLOR_PAIR(7));
-    mvprintw(row++, valueCol, "%.1f%%", loopLength * 100.0f);
-
-    // Crossfade length
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "Crossfade Length:");
-    attroff(COLOR_PAIR(7));
-    mvprintw(row++, valueCol, "%.1f%%", crossfadeLength * 100.0f);
-    row++;
-
-    // Playback speed
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "Playback Speed:");
-    attroff(COLOR_PAIR(7));
-    mvprintw(row++, valueCol, "%.2fx", playbackSpeed);
-
-    // TZFM depth
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "TZFM Depth:");
-    attroff(COLOR_PAIR(7));
-    mvprintw(row++, valueCol, "%.1f%%", tzfmDepth * 100.0f);
-    row++;
-
-    // Level
-    attron(COLOR_PAIR(7));
-    mvprintw(row, leftCol, "Level:");
-    attroff(COLOR_PAIR(7));
-    mvprintw(row++, valueCol, "%.1f%%", level * 100.0f);
     row += 2;
 
-    // Sample info section
-    if (sampleCount > 0) {
-        attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(row++, leftCol, "SAMPLE BANK");
-        attroff(COLOR_PAIR(5) | A_BOLD);
-        row++;
+    // Parameters
+    attron(COLOR_PAIR(5) | A_BOLD);
+    mvprintw(row++, leftCol, "PARAMETERS");
+    attroff(COLOR_PAIR(5) | A_BOLD);
+    row++;
 
-        attron(COLOR_PAIR(8));
-        mvprintw(row++, leftCol, "Available samples: %d", sampleCount);
-        attroff(COLOR_PAIR(8));
-        row++;
+    // Get parameters from synth
+    PlaybackMode mode = synth->getSamplerPlaybackMode(currentSamplerIndex);
+    float crossfade = synth->getSamplerCrossfadeLength(currentSamplerIndex);
+    float ratio = synth->getSamplerPlaybackSpeed(currentSamplerIndex);
+    float offset = 0.0f; // TODO: Add offset parameter
+    int syncMode = 0; // TODO: Add sync parameter
+    bool noteReset = true; // TODO: Add note reset parameter
 
-        // List up to 10 samples
-        int maxDisplay = std::min(10, sampleCount);
-        for (int i = 0; i < maxDisplay; ++i) {
-            const char* name = bank->getSampleName(i);
-            if (name) {
-                attron(COLOR_PAIR(7));
-                mvprintw(row++, leftCol + 2, "[%d] %s", i + 1, name);
-                attroff(COLOR_PAIR(7));
-            }
-        }
+    const char* modeStr = (mode == PlaybackMode::FORWARD) ? "KEY" : "FREE";
 
-        if (sampleCount > 10) {
-            attron(COLOR_PAIR(8));
-            mvprintw(row++, leftCol + 2, "... and %d more", sampleCount - 10);
-            attroff(COLOR_PAIR(8));
-        }
-    } else {
-        row++;
-        attron(COLOR_PAIR(8));
-        mvprintw(row++, leftCol, "Place WAV files in build/samples/ to load them");
-        attroff(COLOR_PAIR(8));
-    }
+    mvprintw(row++, leftCol, "  Mode:        %s", modeStr);
+    mvprintw(row++, leftCol, "  Loop Start:  %.1f%%", loopStart * 100.0f);
+    mvprintw(row++, leftCol, "  Loop Length: %.1f%%", loopLength * 100.0f);
+    mvprintw(row++, leftCol, "  Xfade:       %.1f%%", crossfade * 100.0f);
+    mvprintw(row++, leftCol, "  Ratio:       %.2f", ratio);
+    mvprintw(row++, leftCol, "  Offset:      %.0f Hz", offset);
 
-    // Instructions at bottom
+    const char* syncStr = "Off";
+    if (syncMode == 1) syncStr = "On";
+    else if (syncMode == 2) syncStr = "Trip";
+    else if (syncMode == 3) syncStr = "Dot";
+    mvprintw(row++, leftCol, "  Sync:        %s", syncStr);
+
+    mvprintw(row++, leftCol, "  Note Reset:  %s", noteReset ? "On" : "Off");
     row += 2;
+
+    // Instructions
     attron(COLOR_PAIR(8));
-    mvprintw(row++, leftCol, "Sampler controls will be added in a future update");
-    mvprintw(row++, leftCol, "For now, samplers are configured via the modulation matrix");
+    mvprintw(row++, leftCol, "Keys 1-4: Select sampler | Enter: Load sample | Arrow keys: Adjust");
+    attroff(COLOR_PAIR(8));
+}
+
+void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample) {
+    if (!sample || sample->sampleCount == 0 || !sample->samples) return;
+
+    // Calculate how many samples to average per column
+    const int samplesPerColumn = sample->sampleCount / width;
+    if (samplesPerColumn == 0) return;
+
+    // For each column, find the average amplitude
+    for (int col = 0; col < width; ++col) {
+        int startSample = col * samplesPerColumn;
+        int endSample = std::min(startSample + samplesPerColumn, static_cast<int>(sample->sampleCount));
+
+        // Calculate RMS amplitude for this column
+        float sumSquared = 0.0f;
+        for (int i = startSample; i < endSample; ++i) {
+            float sampleValue = sample->samples[i] / 32768.0f; // Convert Q15 to float
+            sumSquared += sampleValue * sampleValue;
+        }
+        float rms = std::sqrt(sumSquared / (endSample - startSample));
+
+        // Convert to column height (bipolar)
+        int columnHeight = static_cast<int>(rms * height * 0.8f); // Scale to 80% of max height
+        columnHeight = std::min(columnHeight, height / 2);
+
+        // Draw the column centered
+        int centerRow = topRow + height / 2;
+
+        // Draw above center
+        for (int i = 0; i < columnHeight; ++i) {
+            attron(COLOR_PAIR(2));
+            mvaddch(centerRow - i, leftCol + col, '*');
+            attroff(COLOR_PAIR(2));
+        }
+
+        // Draw below center
+        for (int i = 0; i < columnHeight; ++i) {
+            attron(COLOR_PAIR(2));
+            mvaddch(centerRow + i + 1, leftCol + col, '*');
+            attroff(COLOR_PAIR(2));
+        }
+
+        // Draw center line
+        attron(COLOR_PAIR(8));
+        if (columnHeight == 0) {
+            mvaddch(centerRow, leftCol + col, '-');
+        }
+        attroff(COLOR_PAIR(8));
+    }
+
+    // Draw border
+    attron(COLOR_PAIR(8));
+    mvhline(topRow - 1, leftCol, '-', width);
+    mvhline(topRow + height, leftCol, '-', width);
     attroff(COLOR_PAIR(8));
 }
