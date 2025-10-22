@@ -214,36 +214,52 @@ void UI::handleInput(int ch) {
 
     // LFO page no longer has zoom controls (using static waveform preview now)
 
-    // Up/Down arrows navigate between parameters on current page
-    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_UP) {
-        if (!pageParams.empty()) {
-            auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
-            if (it != pageParams.end() && it != pageParams.begin()) {
-                selectedParameterId = *(--it);
-            } else {
-                selectedParameterId = pageParams.back(); // Wrap to end
-            }
+    bool parameterPage = currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD;
+
+    auto selectPrevParameter = [&]() {
+        if (pageParams.empty()) return;
+        auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
+        if (it == pageParams.end()) {
+            selectedParameterId = pageParams.front();
+        } else if (it == pageParams.begin()) {
+            selectedParameterId = pageParams.back();
+        } else {
+            selectedParameterId = *(--it);
         }
+    };
+
+    auto selectNextParameter = [&]() {
+        if (pageParams.empty()) return;
+        auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
+        if (it == pageParams.end()) {
+            selectedParameterId = pageParams.front();
+        } else if ((it + 1) == pageParams.end()) {
+            selectedParameterId = pageParams.front();
+        } else {
+            selectedParameterId = *(++it);
+        }
+    };
+
+    // Arrow keys now only navigate parameters
+    if (parameterPage && (ch == KEY_UP || ch == KEY_LEFT)) {
+        selectPrevParameter();
         return;
-    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_DOWN) {
-        if (!pageParams.empty()) {
-            auto it = std::find(pageParams.begin(), pageParams.end(), selectedParameterId);
-            if (it != pageParams.end() && (it + 1) != pageParams.end()) {
-                selectedParameterId = *(++it);
-            } else {
-                selectedParameterId = pageParams.front(); // Wrap to beginning
-            }
-        }
+    } else if (parameterPage && (ch == KEY_DOWN || ch == KEY_RIGHT)) {
+        selectNextParameter();
         return;
     }
 
-    // Left/Right arrows adjust parameter values
-    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_LEFT) {
-        adjustParameter(selectedParameterId, false);
-        return;
-    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && currentPage != UIPage::MOD && ch == KEY_RIGHT) {
-        adjustParameter(selectedParameterId, true);
-        return;
+    // +/- keys adjust the currently selected parameter (Shift for fine control)
+    if (parameterPage && !numericInputActive && !pageParams.empty()) {
+        if (ch == '-' || ch == '_' || ch == '=' || ch == '+') {
+            if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
+                selectedParameterId = pageParams.front();
+            }
+            bool fineAdjust = (ch == '_' || ch == '+');
+            bool increase = (ch == '=' || ch == '+');
+            adjustParameter(selectedParameterId, increase, fineAdjust);
+            return;
+        }
     }
 
     // Enter key starts numeric input for current parameter

@@ -1,6 +1,7 @@
 #include "../ui.h"
 #include "../synth.h"
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <string>
 
@@ -298,7 +299,7 @@ void UI::setParameterValue(int id, float value) {
     }
 }
 
-void UI::adjustParameter(int id, bool increase) {
+void UI::adjustParameter(int id, bool increase, bool fine) {
     InlineParameter* param = getParameter(id);
     if (!param) return;
 
@@ -307,55 +308,63 @@ void UI::adjustParameter(int id, bool increase) {
 
     switch (param->type) {
         case ParamType::FLOAT: {
-            float step = (param->max_val - param->min_val) * 0.01f; // 1% steps
+            float range = param->max_val - param->min_val;
+            float linearStep = (fine ? 0.01f : 0.05f) * range;
+            if (linearStep <= 0.0f) {
+                linearStep = fine ? 0.001f : 0.01f;
+            }
 
-            // Special exponential handling for certain parameters
-            if (id >= 300 && id <= 323 && (id % 6 == 0 || id % 6 == 1 || id % 6 == 3)) { // ENV Attack, Decay, Release - exponential scaling
+            auto clampValue = [&](float value) {
+                return std::clamp(value, param->min_val, param->max_val);
+            };
+
+            auto adjustLinear = [&]() {
                 if (increase) {
-                    newValue = std::min(param->max_val, currentValue * 1.1f);
+                    newValue = clampValue(currentValue + linearStep);
                 } else {
-                    newValue = std::max(param->min_val, currentValue / 1.1f);
+                    newValue = clampValue(currentValue - linearStep);
                 }
-            } else if (id == 11) { // Oscillator frequency - musical scaling
+            };
+
+            auto adjustMultiplicative = [&](float fineFactor, float coarseFactor) {
+                float factor = fine ? fineFactor : coarseFactor;
+                factor = std::max(factor, 1.0f);
+                float baseline = std::max(currentValue, param->min_val);
                 if (increase) {
-                    newValue = std::min(param->max_val, currentValue * 1.059463f); // semitone ratio
+                    newValue = clampValue(baseline * factor);
                 } else {
-                    newValue = std::max(param->min_val, currentValue / 1.059463f);
+                    newValue = clampValue(baseline / factor);
                 }
-            } else if (id == 14) { // Oscillator ratio - logarithmic scaling
-                if (increase) {
-                    newValue = std::min(param->max_val, currentValue * 1.1f);
-                } else {
-                    newValue = std::max(param->min_val, currentValue / 1.1f);
-                }
-            } else if (id == 32) { // Filter cutoff - logarithmic scaling
-                if (increase) {
-                    newValue = std::min(param->max_val, currentValue * 1.1f);
-                } else {
-                    newValue = std::max(param->min_val, currentValue / 1.1f);
-                }
-            } else if (id == 200) { // LFO period - logarithmic scaling
-                if (increase) {
-                    newValue = std::min(param->max_val, currentValue * 1.1f);
-                } else {
-                    newValue = std::max(param->min_val, currentValue / 1.1f);
-                }
+            };
+
+            bool isEnvelopeTime =
+                (id >= 300 && id <= 323) &&
+                ((id % 6 == 0) || (id % 6 == 1) || (id % 6 == 3));
+
+            if (isEnvelopeTime) { // Envelope attack/decay/release
+                adjustMultiplicative(1.1f, 1.3f);
+            } else if (id == 11) { // Oscillator frequency - semitone steps
+                adjustMultiplicative(1.059463f, 1.122462f);
+            } else if (id == 14) { // Oscillator ratio
+                adjustMultiplicative(1.1f, 1.25f);
+            } else if (id == 32) { // Filter cutoff
+                adjustMultiplicative(1.1f, 1.3f);
+            } else if (id == 200) { // LFO period
+                adjustMultiplicative(1.1f, 1.3f);
             } else {
-                // Linear scaling for other parameters
-                if (increase) {
-                    newValue = std::min(param->max_val, currentValue + step);
-                } else {
-                    newValue = std::max(param->min_val, currentValue - step);
-                }
+                adjustLinear();
             }
             break;
         }
         case ParamType::INT: {
+            int rangeInt = static_cast<int>(std::round(param->max_val - param->min_val));
+            int coarseStep = std::max(1, rangeInt / 20);
+            int step = fine ? 1 : coarseStep;
             int intValue = static_cast<int>(currentValue);
             if (increase) {
-                intValue = std::min(static_cast<int>(param->max_val), intValue + 1);
+                intValue = std::min(static_cast<int>(param->max_val), intValue + step);
             } else {
-                intValue = std::max(static_cast<int>(param->min_val), intValue - 1);
+                intValue = std::max(static_cast<int>(param->min_val), intValue - step);
             }
             newValue = static_cast<float>(intValue);
             break;

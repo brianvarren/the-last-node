@@ -904,7 +904,7 @@ private:
     void initializeParameters();
     InlineParameter* getParameter(int id);
     std::vector<int> getParameterIdsForPage(UIPage page);
-    void adjustParameter(int id, bool increase);
+    void adjustParameter(int id, bool increase, bool fine);
     void setParameterValue(int id, float value);
     float getParameterValue(int id);
     std::string getParameterDisplayString(int id);
