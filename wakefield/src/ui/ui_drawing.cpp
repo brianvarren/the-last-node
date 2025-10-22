@@ -346,6 +346,73 @@ void UI::draw(int activeVoices) {
         attron(COLOR_PAIR(3));
         mvprintw(startY + height - 2, startX + 2, "Enter confirm, Esc cancel");
         attroff(COLOR_PAIR(3));
+    } else if (sampleBrowserActive) {
+        int maxY = getmaxy(stdscr);
+        int maxX = getmaxx(stdscr);
+        const int maxVisible = 20;
+        int totalItems = sampleBrowserDirs.size() + sampleBrowserFiles.size();
+        int height = std::min(maxVisible + 4, totalItems + 4);
+        if (height < 8) height = 8;
+        int width = 60;
+        int startY = std::max(1, (maxY - height) / 2);
+        int startX = std::max(1, (maxX - width) / 2);
+
+        // Draw background
+        for (int y = startY; y < startY + height; ++y) {
+            for (int x = startX; x < startX + width; ++x) {
+                mvaddch(y, x, ' ');
+            }
+        }
+
+        // Draw border
+        attron(A_BOLD);
+        mvhline(startY, startX, '-', width);
+        mvhline(startY + height - 1, startX, '-', width);
+        mvvline(startY, startX, '|', height);
+        mvvline(startY, startX + width - 1, '|', height);
+        attroff(A_BOLD);
+
+        // Draw title
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(startY + 1, startX + 2, "Load Sample - %s", sampleBrowserCurrentDir.c_str());
+        attroff(COLOR_PAIR(5) | A_BOLD);
+
+        // Draw items
+        int displayRow = startY + 3;
+        int endIndex = std::min(sampleBrowserScrollOffset + maxVisible, totalItems);
+
+        for (int i = sampleBrowserScrollOffset; i < endIndex; ++i) {
+            bool isSelected = (i == sampleBrowserSelectedIndex);
+            bool isDirectory = (i < static_cast<int>(sampleBrowserDirs.size()));
+
+            std::string displayName;
+            if (isDirectory) {
+                displayName = "[" + sampleBrowserDirs[i] + "]";
+            } else {
+                int fileIndex = i - sampleBrowserDirs.size();
+                displayName = sampleBrowserFiles[fileIndex];
+            }
+
+            // Truncate if too long
+            if (displayName.length() > 54) {
+                displayName = displayName.substr(0, 51) + "...";
+            }
+
+            if (isSelected) {
+                attron(COLOR_PAIR(5) | A_BOLD);
+                mvprintw(displayRow, startX + 2, "> %-54s", displayName.c_str());
+                attroff(COLOR_PAIR(5) | A_BOLD);
+            } else {
+                mvprintw(displayRow, startX + 2, "  %-54s", displayName.c_str());
+            }
+
+            displayRow++;
+        }
+
+        // Draw hint
+        attron(COLOR_PAIR(3));
+        mvprintw(startY + height - 2, startX + 2, "Enter: Select | Arrows: Navigate | Esc: Cancel");
+        attroff(COLOR_PAIR(3));
     }
 
     refresh();

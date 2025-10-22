@@ -989,6 +989,21 @@ private:
     bool modMatrixMenuActive;
     int modMatrixMenuIndex;
     int modMatrixMenuColumn;  // Which column the menu is for (0=Source, 1=Curve, 3=Dest, 4=Type)
+
+    // Sample browser state
+    bool sampleBrowserActive;
+    std::string sampleBrowserCurrentDir;
+    std::vector<std::string> sampleBrowserFiles;
+    std::vector<std::string> sampleBrowserDirs;
+    int sampleBrowserSelectedIndex;
+    int sampleBrowserScrollOffset;
+
+    // Sample browser helpers
+    void startSampleBrowser();
+    void handleSampleBrowserInput(int ch);
+    void finishSampleBrowser(bool applySelection);
+    void refreshSampleBrowserFiles();
+    void loadSampleForCurrentSampler(const std::string& filepath);
 };
 
 #endif // UI_H

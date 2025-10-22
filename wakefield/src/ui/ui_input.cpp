@@ -74,6 +74,13 @@ void UI::handleInput(int ch) {
         return;  // Don't process other keys during MIDI learn
     }
 
+    // Sample browser handling
+    if (sampleBrowserActive) {
+        handleSampleBrowserInput(ch);
+        // Don't return if 'q'/'Q' - let it propagate to quit check
+        if (ch != 'q' && ch != 'Q') return;
+    }
+
     // Sequencer-specific navigation and editing
     if (currentPage == UIPage::SEQUENCER && sequencer) {
         if (handleSequencerInput(ch)) {
@@ -314,6 +321,11 @@ void UI::handleInput(int ch) {
             case '2': currentSamplerIndex = 1; addConsoleMessage("Sampler 2 selected"); return;
             case '3': currentSamplerIndex = 2; addConsoleMessage("Sampler 3 selected"); return;
             case '4': currentSamplerIndex = 3; addConsoleMessage("Sampler 4 selected"); return;
+            case '\n':
+            case KEY_ENTER:
+                // Open sample browser
+                startSampleBrowser();
+                return;
         }
     }
 

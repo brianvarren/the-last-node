@@ -48,7 +48,11 @@ UI::UI(Synth* synth, SynthParameters* params)
     , numericInputIsSequencer(false)
     , modMatrixMenuActive(false)
     , modMatrixMenuIndex(0)
-    , modMatrixMenuColumn(0) {
+    , modMatrixMenuColumn(0)
+    , sampleBrowserActive(false)
+    , sampleBrowserCurrentDir("samples")
+    , sampleBrowserSelectedIndex(0)
+    , sampleBrowserScrollOffset(0) {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {
