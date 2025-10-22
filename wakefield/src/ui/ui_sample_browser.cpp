@@ -28,11 +28,13 @@ void UI::refreshSampleBrowserFiles() {
 
     DIR* dir = opendir(sampleBrowserCurrentDir.c_str());
     if (!dir) {
-        // If directory doesn't exist, try to create samples directory
-        if (sampleBrowserCurrentDir == "samples") {
-            mkdir("samples", 0755);
-            dir = opendir(sampleBrowserCurrentDir.c_str());
+        // If directory doesn't exist, try to create ../samples directory
+        char resolved[PATH_MAX];
+        if (realpath("../samples", resolved) == nullptr) {
+            // Path doesn't exist, try to create it
+            mkdir("../samples", 0755);
         }
+        dir = opendir(sampleBrowserCurrentDir.c_str());
         if (!dir) return;
     }
 
