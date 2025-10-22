@@ -5,11 +5,20 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <cstring>
+#include <unistd.h>
+#include <limits.h>
 
 void UI::startSampleBrowser() {
     sampleBrowserActive = true;
     sampleBrowserSelectedIndex = 0;
     sampleBrowserScrollOffset = 0;
+
+    // Convert current directory to absolute path for proper navigation
+    char resolved[PATH_MAX];
+    if (realpath(sampleBrowserCurrentDir.c_str(), resolved) != nullptr) {
+        sampleBrowserCurrentDir = resolved;
+    }
+
     refreshSampleBrowserFiles();
 }
 
@@ -115,16 +124,21 @@ void UI::finishSampleBrowser(bool applySelection) {
                 // Go up one directory
                 size_t lastSlash = sampleBrowserCurrentDir.find_last_of('/');
                 if (lastSlash != std::string::npos) {
-                    sampleBrowserCurrentDir = sampleBrowserCurrentDir.substr(0, lastSlash);
-                    if (sampleBrowserCurrentDir.empty()) {
-                        sampleBrowserCurrentDir = ".";
+                    // If we're at root ("/"), don't go higher
+                    if (lastSlash == 0) {
+                        sampleBrowserCurrentDir = "/";
+                    } else {
+                        sampleBrowserCurrentDir = sampleBrowserCurrentDir.substr(0, lastSlash);
                     }
-                } else {
-                    sampleBrowserCurrentDir = ".";
                 }
+                // If no slash found, we're in relative path - shouldn't happen with absolute paths
             } else {
                 // Enter subdirectory
-                sampleBrowserCurrentDir += "/" + selectedDir;
+                if (sampleBrowserCurrentDir == "/") {
+                    sampleBrowserCurrentDir = "/" + selectedDir;
+                } else {
+                    sampleBrowserCurrentDir += "/" + selectedDir;
+                }
             }
 
             // Refresh files in new directory
