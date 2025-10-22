@@ -147,12 +147,31 @@ void UI::finishSampleBrowser(bool applySelection) {
 }
 
 void UI::loadSampleForCurrentSampler(const std::string& filepath) {
-    // TODO: Implement actual sample loading through SampleBank
-    // For now, just show a message
-    addConsoleMessage("Sample loading: " + filepath);
+    if (!synth) {
+        addConsoleMessage("Error: Synth not initialized");
+        return;
+    }
 
-    // The actual implementation would involve:
-    // 1. Loading the WAV file into SampleBank
-    // 2. Getting the SampleData pointer
-    // 3. Setting it on the current sampler via synth->setSamplerSample(currentSamplerIndex, sampleData);
+    // Load the WAV file into SampleBank
+    SampleBank* sampleBank = synth->getSampleBank();
+    if (!sampleBank) {
+        addConsoleMessage("Error: Sample bank not available");
+        return;
+    }
+
+    int sampleIndex = sampleBank->loadSingleFile(filepath.c_str());
+    if (sampleIndex < 0) {
+        addConsoleMessage("Failed to load: " + filepath);
+        return;
+    }
+
+    // Set the sample on the current sampler (all voices)
+    synth->setSamplerSample(currentSamplerIndex, sampleIndex);
+
+    // Extract filename for console message
+    size_t lastSlash = filepath.find_last_of("/\\");
+    std::string filename = (lastSlash != std::string::npos) ?
+                          filepath.substr(lastSlash + 1) : filepath;
+
+    addConsoleMessage("Loaded: " + filename);
 }

@@ -81,6 +81,9 @@ public:
     // Clear all loaded samples
     void clear();
 
+    // Load a single WAV file dynamically and return its index (-1 on error)
+    int loadSingleFile(const char* filepath);
+
 private:
     std::vector<SampleData*> samples;
 

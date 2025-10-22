@@ -308,3 +308,30 @@ void SampleBank::normalizeSamples(int16_t* samples, uint32_t count) {
     }
     // If peak is already in the sweet spot (23170-32767), leave it alone
 }
+
+int SampleBank::loadSingleFile(const char* filepath) {
+    // Check if file exists first
+    struct stat st;
+    if (stat(filepath, &st) != 0) {
+        std::cerr << "File not found: " << filepath << std::endl;
+        return -1;
+    }
+
+    // Check if already loaded by path
+    for (int i = 0; i < static_cast<int>(samples.size()); ++i) {
+        if (samples[i]->path == filepath) {
+            std::cout << "Sample already loaded: " << filepath << std::endl;
+            return i;
+        }
+    }
+
+    // Load the WAV file
+    if (loadWAVFile(filepath)) {
+        int index = static_cast<int>(samples.size()) - 1;
+        std::cout << "Loaded sample: " << filepath << " (index " << index << ")" << std::endl;
+        return index;
+    } else {
+        std::cerr << "Failed to load sample: " << filepath << std::endl;
+        return -1;
+    }
+}
