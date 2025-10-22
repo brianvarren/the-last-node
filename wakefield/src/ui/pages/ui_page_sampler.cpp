@@ -35,41 +35,42 @@ void UI::drawSamplerPage() {
     const int waveformHeight = 9; // Odd number for centerline visibility
     const int waveformWidth = maxX - leftCol - 2; // Stretch to screen width
 
+    // Draw top border
+    attron(COLOR_PAIR(8));
+    mvhline(row++, leftCol, '-', waveformWidth);
+    attroff(COLOR_PAIR(8));
+
     if (sample && sample->sampleCount > 0) {
-        // Draw top border
-        attron(COLOR_PAIR(8));
-        mvhline(row++, leftCol, '-', waveformWidth);
-        attroff(COLOR_PAIR(8));
-
         drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample);
-        row += waveformHeight;
-
-        // Draw loop indicator as bottom border
-        float loopStart = synth->getSamplerLoopStart(currentSamplerIndex);
-        float loopLength = synth->getSamplerLoopLength(currentSamplerIndex);
-
-        int loopStartPos = static_cast<int>(loopStart * waveformWidth);
-        int loopEndPos = static_cast<int>((loopStart + loopLength) * waveformWidth);
-        loopEndPos = std::min(loopEndPos, waveformWidth);
-
-        for (int i = 0; i < waveformWidth; ++i) {
-            if (i >= loopStartPos && i < loopEndPos) {
-                attron(COLOR_PAIR(2) | A_BOLD);
-                mvaddch(row, leftCol + i, '=');
-                attroff(COLOR_PAIR(2) | A_BOLD);
-            } else {
-                attron(COLOR_PAIR(8));
-                mvaddch(row, leftCol + i, '-');
-                attroff(COLOR_PAIR(8));
-            }
-        }
-        row += 2; // Skip past loop indicator and add blank line
     } else {
-        attron(COLOR_PAIR(8));
-        mvprintw(row++, leftCol, "[ No waveform - load a sample ]");
-        attroff(COLOR_PAIR(8));
-        row += 2;
+        // Draw empty waveform with just centerline
+        int centerRow = row + waveformHeight / 2;
+        attron(COLOR_PAIR(2));
+        mvhline(centerRow, leftCol, '-', waveformWidth);
+        attroff(COLOR_PAIR(2));
     }
+    row += waveformHeight;
+
+    // Draw loop indicator as bottom border
+    float loopStart = synth->getSamplerLoopStart(currentSamplerIndex);
+    float loopLength = synth->getSamplerLoopLength(currentSamplerIndex);
+
+    int loopStartPos = static_cast<int>(loopStart * waveformWidth);
+    int loopEndPos = static_cast<int>((loopStart + loopLength) * waveformWidth);
+    loopEndPos = std::min(loopEndPos, waveformWidth);
+
+    for (int i = 0; i < waveformWidth; ++i) {
+        if (i >= loopStartPos && i < loopEndPos) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvaddch(row, leftCol + i, '=');
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            attron(COLOR_PAIR(8));
+            mvaddch(row, leftCol + i, '-');
+            attroff(COLOR_PAIR(8));
+        }
+    }
+    row += 2; // Skip past loop indicator and add blank line
 
     // Parameters in two columns
     attron(COLOR_PAIR(5) | A_BOLD);
@@ -78,8 +79,7 @@ void UI::drawSamplerPage() {
 
     // Get parameters from synth
     PlaybackMode mode = synth->getSamplerPlaybackMode(currentSamplerIndex);
-    float loopStart = synth->getSamplerLoopStart(currentSamplerIndex);
-    float loopLength = synth->getSamplerLoopLength(currentSamplerIndex);
+    // loopStart and loopLength already declared above for loop indicator
     float crossfade = synth->getSamplerCrossfadeLength(currentSamplerIndex);
     float ratio = synth->getSamplerPlaybackSpeed(currentSamplerIndex);
     float offset = 0.0f; // TODO: Add offset parameter
@@ -159,9 +159,9 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
             attroff(COLOR_PAIR(2));
         }
 
-        // Always draw center line
-        attron(COLOR_PAIR(8));
+        // Always draw center line in green
+        attron(COLOR_PAIR(2));
         mvaddch(centerRow, leftCol + col, '-');
-        attroff(COLOR_PAIR(8));
+        attroff(COLOR_PAIR(2));
     }
 }
