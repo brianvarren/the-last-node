@@ -1,4 +1,5 @@
 Consolidate compiler generated dependencies of target synth
 [  2%] Building CXX object CMakeFiles/synth.dir/src/voice.cpp.o
-[  4%] Linking CXX executable synth
+[  4%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_core.cpp.o
+[  6%] Linking CXX executable synth
 [100%] Built target synth

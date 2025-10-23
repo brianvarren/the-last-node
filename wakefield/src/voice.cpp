@@ -88,11 +88,6 @@ float Voice::generateSample() {
                                               samplerCrossfadeMod[i],
                                               samplerLevelMod[i],
                                               note);
-
-        // Apply envelope gating to KEY mode samplers (naive gate envelope)
-        // This gives samplers proper ADSR behavior when triggered by note on/off
-        samplerOut *= envelopeValue;
-
         mixedSample += samplerOut;
     }
 
