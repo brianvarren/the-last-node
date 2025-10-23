@@ -1,9 +1,4 @@
 Consolidate compiler generated dependencies of target synth
-[  2%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_envelope.cpp.o
-[  4%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_state.cpp.o
-[  6%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_drawing.cpp.o
-[  8%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_fields.cpp.o
-[ 10%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_actions.cpp.o
-[ 12%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_input.cpp.o
-[ 14%] Linking CXX executable synth
+[  2%] Building CXX object CMakeFiles/synth.dir/src/voice.cpp.o
+[  4%] Linking CXX executable synth
 [100%] Built target synth
