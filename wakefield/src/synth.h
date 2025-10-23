@@ -110,11 +110,17 @@ public:
         float samp4Amp = 0.0f;
     };
 
-    ModulationOutputs processModulationMatrix();
+    ModulationOutputs processModulationMatrix(const Voice* voiceContext = nullptr);
     float applyModCurve(float input, int curveType);
-    float getModulationSource(int sourceIndex);
+    float getModulationSource(int sourceIndex, const Voice* voiceContext = nullptr);
 
     int getActiveVoiceCount() const;
+
+    // Voice envelope debugging
+    bool isVoiceActive(int voiceIndex) const;
+    float getVoiceEnvelopeValue(int voiceIndex) const;
+    int getVoiceNote(int voiceIndex) const;
+
     void setOscillatorState(int index, BrainwaveMode mode, int shape,
                             float baseFreq, float morph, float duty,
                             float ratio, float offsetHz, float amp, float level);

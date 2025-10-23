@@ -179,22 +179,45 @@ int Synth::getActiveVoiceCount() const {
     return count;
 }
 
+bool Synth::isVoiceActive(int voiceIndex) const {
+    if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) {
+        return false;
+    }
+    return voices[voiceIndex].active;
+}
+
+float Synth::getVoiceEnvelopeValue(int voiceIndex) const {
+    if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) {
+        return 0.0f;
+    }
+    return voices[voiceIndex].getEnvelopeValue();
+}
+
+int Synth::getVoiceNote(int voiceIndex) const {
+    if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) {
+        return -1;
+    }
+    return voices[voiceIndex].note;
+}
+
 void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels) {
     // Clear the output buffer first
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
         output[i] = 0.0f;
     }
 
-    // Process modulation matrix once per buffer
-    ModulationOutputs modOutputs = processModulationMatrix();
+    // Process modulation matrix once per buffer for global (voice-agnostic) targets
+    ModulationOutputs globalModOutputs = processModulationMatrix();
 
-    // Copy modulation values to active voices (used per-sample by oscillators)
+    // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
     for (int v = 0; v < MAX_VOICES; ++v) {
         if (!voices[v].active) {
             continue;
         }
 
         Voice& voice = voices[v];
+
+        ModulationOutputs modOutputs = processModulationMatrix(&voice);
 
         // Set modulation values for all oscillators (in octaves for pitch)
         voice.pitchMod[0] = modOutputs.osc1Pitch;
@@ -286,24 +309,24 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
     if (anyFreeSamplers) {
         float samplerPitchMods[SAMPLERS_PER_VOICE] = {
-            modOutputs.samp1Pitch, modOutputs.samp2Pitch,
-            modOutputs.samp3Pitch, modOutputs.samp4Pitch
+            globalModOutputs.samp1Pitch, globalModOutputs.samp2Pitch,
+            globalModOutputs.samp3Pitch, globalModOutputs.samp4Pitch
         };
         float samplerLoopStartMods[SAMPLERS_PER_VOICE] = {
-            modOutputs.samp1LoopStart, modOutputs.samp2LoopStart,
-            modOutputs.samp3LoopStart, modOutputs.samp4LoopStart
+            globalModOutputs.samp1LoopStart, globalModOutputs.samp2LoopStart,
+            globalModOutputs.samp3LoopStart, globalModOutputs.samp4LoopStart
         };
         float samplerLoopLengthMods[SAMPLERS_PER_VOICE] = {
-            modOutputs.samp1LoopLength, modOutputs.samp2LoopLength,
-            modOutputs.samp3LoopLength, modOutputs.samp4LoopLength
+            globalModOutputs.samp1LoopLength, globalModOutputs.samp2LoopLength,
+            globalModOutputs.samp3LoopLength, globalModOutputs.samp4LoopLength
         };
         float samplerCrossfadeMods[SAMPLERS_PER_VOICE] = {
-            modOutputs.samp1Crossfade, modOutputs.samp2Crossfade,
-            modOutputs.samp3Crossfade, modOutputs.samp4Crossfade
+            globalModOutputs.samp1Crossfade, globalModOutputs.samp2Crossfade,
+            globalModOutputs.samp3Crossfade, globalModOutputs.samp4Crossfade
         };
         float samplerLevelMods[SAMPLERS_PER_VOICE] = {
-            modOutputs.samp1Amp, modOutputs.samp2Amp,
-            modOutputs.samp3Amp, modOutputs.samp4Amp
+            globalModOutputs.samp1Amp, globalModOutputs.samp2Amp,
+            globalModOutputs.samp3Amp, globalModOutputs.samp4Amp
         };
 
         for (unsigned int i = 0; i < nFrames; ++i) {
@@ -416,7 +439,7 @@ float Synth::getLFOOutput(int lfoIndex) const {
     return lfos[lfoIndex].getCurrentValue();
 }
 
-float Synth::getModulationSource(int sourceIndex) {
+float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     // Source indices from ui_mod.cpp:
     // 0-3: LFO 1-4
     // 4-7: ENV 1-4
@@ -431,7 +454,9 @@ float Synth::getModulationSource(int sourceIndex) {
         // We'll return the envelope value from the most recently triggered voice
         // (or the first active voice we find)
         if (sourceIndex == 4) {  // ENV 1
-            // Find most recently active voice with envelope output
+            if (voiceContext) {
+                return voiceContext->getEnvelopeValue();
+            }
             float maxEnv = 0.0f;
             for (int i = MAX_VOICES - 1; i >= 0; --i) {
                 if (voices[i].active) {
@@ -492,7 +517,7 @@ float Synth::applyModCurve(float input, int curveType) {
     }
 }
 
-Synth::ModulationOutputs Synth::processModulationMatrix() {
+Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContext) {
     ModulationOutputs outputs;
 
     if (!ui) return outputs;
@@ -505,7 +530,7 @@ Synth::ModulationOutputs Synth::processModulationMatrix() {
         if (!slot.isComplete()) continue;
 
         // Get source value (-1 to +1)
-        float sourceValue = getModulationSource(slot.source);
+        float sourceValue = getModulationSource(slot.source, voiceContext);
 
         // Apply curve shaping
         float shapedValue = applyModCurve(sourceValue, slot.curve);

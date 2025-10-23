@@ -1,4 +1,5 @@
 #include "../../ui.h"
+#include "../../synth.h"
 #include "../../envelope.h"
 #include <algorithm>
 #include <cmath>
@@ -181,17 +182,64 @@ void UI::drawEnvelopePage() {
         std::string displayValue = getParameterDisplayString(paramId);
         mvprintw(paramRow, 4, "%-18s: %s", param->name.c_str(), displayValue.c_str());
 
-        // Show control hints for selected parameter
         if (paramId == selectedParameterId) {
-            mvprintw(paramRow, 45, "< >");
-            if (param->supports_midi_learn) {
-                mvprintw(paramRow, 50, "[L]");
-            }
-            mvprintw(paramRow, 55, "[Enter]");
             attroff(COLOR_PAIR(5) | A_BOLD);
         }
 
         paramRow++;
+    }
+
+    // Draw live voice envelope meters to the right of parameters
+    int voiceMeterCol = 50;
+    int voiceMeterRow = row + 1;
+
+    attron(COLOR_PAIR(3));
+    mvprintw(voiceMeterRow++, voiceMeterCol, "VOICE ENVELOPES (Debug)");
+    attroff(COLOR_PAIR(3));
+    voiceMeterRow++;
+
+    // Draw 8 voice meters (showing envelope level for each voice)
+    for (int v = 0; v < 8; ++v) {
+        bool active = synth->isVoiceActive(v);
+        float envValue = synth->getVoiceEnvelopeValue(v);
+        int note = synth->getVoiceNote(v);
+
+        // Voice label
+        if (active) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvprintw(voiceMeterRow, voiceMeterCol, "V%d[%3d]", v + 1, note);
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            attron(COLOR_PAIR(8));
+            mvprintw(voiceMeterRow, voiceMeterCol, "V%d[ - ]", v + 1);
+            attroff(COLOR_PAIR(8));
+        }
+
+        // Draw bar (20 chars wide)
+        int barWidth = 20;
+        int barStart = voiceMeterCol + 9;
+        int filledWidth = static_cast<int>(envValue * barWidth);
+
+        mvprintw(voiceMeterRow, barStart, "[");
+        for (int i = 0; i < barWidth; ++i) {
+            if (i < filledWidth && active) {
+                attron(COLOR_PAIR(2));
+                mvaddch(voiceMeterRow, barStart + 1 + i, '=');
+                attroff(COLOR_PAIR(2));
+            } else {
+                attron(COLOR_PAIR(8));
+                mvaddch(voiceMeterRow, barStart + 1 + i, '-');
+                attroff(COLOR_PAIR(8));
+            }
+        }
+        mvprintw(voiceMeterRow, barStart + barWidth + 1, "]");
+
+        // Show numeric value
+        if (active) {
+            mvprintw(voiceMeterRow, barStart + barWidth + 3, "%.2f", envValue);
+        }
+
+        voiceMeterRow++;
     }
 
     // Draw envelope preview in the bottom portion, leaving room for parameters

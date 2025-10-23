@@ -55,6 +55,7 @@ private:
     float attackRate;
     float decayRate;
     float releaseRate;
+    float releaseStartLevel;
 
     // Calculate rates from times
     void calculateRates();

@@ -15,7 +15,8 @@ Envelope::Envelope(float sampleRate)
     , releaseBend(0.5f)      // Linear by default
     , attackRate(0.0f)
     , decayRate(0.0f)
-    , releaseRate(0.0f) {
+    , releaseRate(0.0f)
+    , releaseStartLevel(0.0f) {
 
     calculateRates();
 }
@@ -48,14 +49,16 @@ void Envelope::setReleaseBend(float bend) {
 }
 
 void Envelope::calculateRates() {
-    // Attack: go from 0 to 1 in attackTime seconds
-    attackRate = 1.0f / (attackTime * sampleRate);
-    
-    // Decay: go from 1 to sustainLevel in decayTime seconds
-    decayRate = (1.0f - sustainLevel) / (decayTime * sampleRate);
-    
-    // Release: go from current level to 0 in releaseTime seconds
-    // We'll calculate this dynamically in noteOff since we don't know current level yet
+    auto timeToRate = [&](float timeSeconds) {
+        if (timeSeconds <= 0.0f) {
+            return 1.0f;  // Instant stage
+        }
+        return 1.0f / (timeSeconds * sampleRate);
+    };
+
+    attackRate = timeToRate(attackTime);
+    decayRate = timeToRate(decayTime);
+    releaseRate = timeToRate(releaseTime);
 }
 
 void Envelope::noteOn() {
@@ -68,12 +71,11 @@ void Envelope::noteOff() {
     // Enter release stage
     stage = EnvelopeStage::RELEASE;
     stageProgress = 0.0f;
-
-    // Calculate release rate from current level
-    if (releaseTime > 0.0f) {
-        releaseRate = level / (releaseTime * sampleRate);
-    } else {
-        releaseRate = level;  // Instant release
+    releaseStartLevel = level;
+    if (releaseRate >= 1.0f) {
+        // Instant release
+        level = 0.0f;
+        stage = EnvelopeStage::OFF;
     }
 }
 
@@ -103,27 +105,25 @@ float Envelope::process() {
         case EnvelopeStage::ATTACK:
             stageProgress += attackRate;
             if (stageProgress >= 1.0f) {
-                stageProgress = 1.0f;
                 level = 1.0f;
                 stage = EnvelopeStage::DECAY;
                 stageProgress = 0.0f;
             } else {
-                // Apply attack bend curve
-                level = applyBend(stageProgress, attackBend);
+                float progress = std::clamp(stageProgress, 0.0f, 1.0f);
+                level = applyBend(progress, attackBend);
             }
             break;
 
         case EnvelopeStage::DECAY:
             stageProgress += decayRate;
             if (stageProgress >= 1.0f) {
-                stageProgress = 1.0f;
                 level = sustainLevel;
                 stage = EnvelopeStage::SUSTAIN;
+                stageProgress = 0.0f;
             } else {
-                // Apply release bend curve (also affects decay)
-                // Decay goes from 1.0 to sustainLevel
-                float bentProgress = applyBend(stageProgress, releaseBend);
-                level = 1.0f - bentProgress * (1.0f - sustainLevel);
+                float progress = std::clamp(stageProgress, 0.0f, 1.0f);
+                float bentProgress = applyBend(progress, releaseBend);
+                level = 1.0f + (sustainLevel - 1.0f) * bentProgress;
             }
             break;
 
@@ -133,22 +133,20 @@ float Envelope::process() {
             break;
 
         case EnvelopeStage::RELEASE: {
-            // Store the level we started release from for calculation
-            static float releaseStartLevel = level;
-            if (stageProgress == 0.0f) {
-                releaseStartLevel = level;
-            }
-
             stageProgress += releaseRate;
-            if (stageProgress >= 1.0f || level <= 0.0f) {
-                stageProgress = 1.0f;
+            if (stageProgress >= 1.0f) {
                 level = 0.0f;
                 stage = EnvelopeStage::OFF;
+                stageProgress = 0.0f;
             } else {
-                // Apply release bend curve
-                // Release goes from releaseStartLevel to 0
-                float bentProgress = applyBend(stageProgress, releaseBend);
+                float progress = std::clamp(stageProgress, 0.0f, 1.0f);
+                float bentProgress = applyBend(progress, releaseBend);
                 level = releaseStartLevel * (1.0f - bentProgress);
+                if (level <= 0.0001f) {
+                    level = 0.0f;
+                    stage = EnvelopeStage::OFF;
+                    stageProgress = 0.0f;
+                }
             }
             break;
         }
