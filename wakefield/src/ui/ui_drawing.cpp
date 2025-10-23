@@ -24,6 +24,7 @@ void UI::drawTabs() {
         {"FILTER", UIPage::FILTER},
         {"LOOPER", UIPage::LOOPER},
         {"SEQUENCER", UIPage::SEQUENCER},
+        {"CHAOS", UIPage::CHAOS},
         {"CONFIG", UIPage::CONFIG}
     };
 
@@ -191,6 +192,9 @@ void UI::draw(int activeVoices) {
         case UIPage::SEQUENCER:
             drawSequencerPage();
             break;
+        case UIPage::CHAOS:
+            drawChaosPage();
+            break;
         case UIPage::CONFIG:
             drawConfigPage();
             break;
@@ -262,7 +266,9 @@ void UI::draw(int activeVoices) {
         attroff(A_BOLD);
 
         const char* label = nullptr;
-        if (numericInputIsSequencer) {
+        if (numericInputIsMod) {
+            label = "Modulation Amount (-99 to 99)";
+        } else if (numericInputIsSequencer) {
             switch (sequencerNumericContext.field) {
                 case SequencerNumericField::NOTE: label = "MIDI Note / Name"; break;
                 case SequencerNumericField::VELOCITY: label = "Velocity (0-127)"; break;

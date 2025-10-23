@@ -153,6 +153,12 @@ struct SynthParameters {
     std::atomic<float> osc4Amp{1.0f};
     std::atomic<float> osc4Level{0.0f};        // Default: off
 
+    // Mixer mute/solo state (4 OSC + 4 SAMP = 8 channels)
+    std::atomic<bool> oscMuted[4]{false, false, false, false};
+    std::atomic<bool> oscSolo[4]{false, false, false, false};
+    std::atomic<bool> samplerMuted[4]{false, false, false, false};
+    std::atomic<bool> samplerSolo[4]{false, false, false, false};
+
     // LFO parameters - 4 global modulation sources
     std::atomic<float> lfo1Period{1.0f};
     std::atomic<int> lfo1SyncMode{0};          // 0=Off,1=On,2=Triplet,3=Dotted
@@ -234,10 +240,32 @@ struct SynthParameters {
     std::atomic<float> env4AttackBend{0.5f};
     std::atomic<float> env4ReleaseBend{0.5f};
 
+    // Chaos parameters - 4 global chaos generators (Ikeda map)
+    std::atomic<float> chaos1Parameter{0.6f};      // u parameter (0-2, ~0.6 is chaotic)
+    std::atomic<float> chaos1ClockFreq{1.0f};      // Clock frequency in Hz (0.01-1000)
+    std::atomic<bool> chaos1CubicInterp{false};    // Cubic interpolation vs linear
+    std::atomic<bool> chaos1FastMode{false};       // Audio rate vs clocked
+
+    std::atomic<float> chaos2Parameter{0.6f};
+    std::atomic<float> chaos2ClockFreq{1.0f};
+    std::atomic<bool> chaos2CubicInterp{false};
+    std::atomic<bool> chaos2FastMode{false};
+
+    std::atomic<float> chaos3Parameter{0.6f};
+    std::atomic<float> chaos3ClockFreq{1.0f};
+    std::atomic<bool> chaos3CubicInterp{false};
+    std::atomic<bool> chaos3FastMode{false};
+
+    std::atomic<float> chaos4Parameter{0.6f};
+    std::atomic<float> chaos4ClockFreq{1.0f};
+    std::atomic<bool> chaos4CubicInterp{false};
+    std::atomic<bool> chaos4FastMode{false};
+
     // FM Matrix - audio-rate frequency modulation routing
     // fmMatrix[target][source] = depth (0.0 to 1.0)
     // Example: fmMatrix[2][0] = 0.5 means OSC1 modulates OSC3 at 50% depth
-    std::atomic<float> fmMatrix[4][4];  // 4 targets × 4 sources
+    // 8 total: OSC1-4 (indices 0-3) + SAMP1-4 (indices 4-7)
+    std::atomic<float> fmMatrix[8][8];  // 8 targets × 8 sources (4 OSC + 4 SAMP)
 
     // Constructor to initialize CC map and FM matrix
     SynthParameters() {
@@ -245,8 +273,8 @@ struct SynthParameters {
             parameterCCMap[i] = -1;  // -1 means no CC assigned
         }
         // Initialize FM matrix to zero (no FM routing by default)
-        for (int target = 0; target < 4; ++target) {
-            for (int source = 0; source < 4; ++source) {
+        for (int target = 0; target < 8; ++target) {
+            for (int source = 0; source < 8; ++source) {
                 fmMatrix[target][source] = 0.0f;
             }
         }
@@ -694,14 +722,14 @@ struct SynthParameters {
         }
     }
 
-    // FM Matrix accessors
+    // FM Matrix accessors (8x8: OSC1-4 are 0-3, SAMP1-4 are 4-7)
     float getFMDepth(int target, int source) const {
-        if (target < 0 || target >= 4 || source < 0 || source >= 4) return 0.0f;
+        if (target < 0 || target >= 8 || source < 0 || source >= 8) return 0.0f;
         return fmMatrix[target][source].load();
     }
 
     void setFMDepth(int target, int source, float depth) {
-        if (target < 0 || target >= 4 || source < 0 || source >= 4) return;
+        if (target < 0 || target >= 8 || source < 0 || source >= 8) return;
         const float clamped = std::max(-0.99f, std::min(0.99f, depth));
         fmMatrix[target][source] = clamped;
     }
@@ -719,6 +747,7 @@ enum class UIPage {
     FILTER,
     LOOPER,
     SEQUENCER,
+    CHAOS,
     CONFIG
 };
 
@@ -867,6 +896,7 @@ private:
     void drawFilterPage();
     void drawLooperPage();
     void drawSequencerPage();
+    void drawChaosPage();
     void drawConfigPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawHotkeyLine();

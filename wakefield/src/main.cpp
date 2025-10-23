@@ -545,6 +545,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     // Note: Sample rate is passed as 48000.0f (hardcoded for now)
     if (synth) {
         synth->processLFOs(48000.0f, nFrames);
+        synth->processChaos(nFrames);
     }
 
     // Generate audio from synth (with effects) into temp buffer

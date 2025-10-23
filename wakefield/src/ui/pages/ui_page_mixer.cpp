@@ -14,7 +14,7 @@ void UI::drawMixerPage() {
 
     // Header
     attron(COLOR_PAIR(3));
-    mvprintw(row++, col, "Source    Level");
+    mvprintw(row++, col, "Source    M S  Level");
     attroff(COLOR_PAIR(3));
 
     // Get parameter IDs for this page
@@ -24,6 +24,8 @@ void UI::drawMixerPage() {
     for (int i = 0; i < 4; ++i) {
         int paramId = 50 + i;
         float level = params->getOscLevel(i);
+        bool muted = params->oscMuted[i].load();
+        bool solo = params->oscSolo[i].load();
 
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
@@ -35,8 +37,25 @@ void UI::drawMixerPage() {
 
         mvprintw(row, col + 2, "OSC %d", i + 1);
 
-        // Draw compact bar (30 chars)
-        drawBar(row, col + 10, "", level, 0.0f, 1.0f, 30);
+        // Draw mute/solo indicators
+        if (muted) {
+            attron(COLOR_PAIR(4) | A_BOLD);  // Red for mute
+            mvprintw(row, col + 10, "M");
+            attroff(COLOR_PAIR(4) | A_BOLD);
+        } else {
+            mvprintw(row, col + 10, "-");
+        }
+
+        if (solo) {
+            attron(COLOR_PAIR(2) | A_BOLD);  // Green for solo
+            mvprintw(row, col + 12, "S");
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            mvprintw(row, col + 12, "-");
+        }
+
+        // Draw compact bar (28 chars to make room for M/S)
+        drawBar(row, col + 15, "", level, 0.0f, 1.0f, 28);
 
         if (paramId == selectedParameterId) {
             attroff(COLOR_PAIR(5) | A_BOLD);
@@ -51,6 +70,8 @@ void UI::drawMixerPage() {
     for (int i = 0; i < 4; ++i) {
         int paramId = 54 + i;
         float level = synth->getSamplerLevel(i);
+        bool muted = params->samplerMuted[i].load();
+        bool solo = params->samplerSolo[i].load();
 
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
@@ -62,8 +83,25 @@ void UI::drawMixerPage() {
 
         mvprintw(row, col + 2, "SAMP %d", i + 1);
 
-        // Draw compact bar (30 chars)
-        drawBar(row, col + 10, "", level, 0.0f, 1.0f, 30);
+        // Draw mute/solo indicators
+        if (muted) {
+            attron(COLOR_PAIR(4) | A_BOLD);  // Red for mute
+            mvprintw(row, col + 10, "M");
+            attroff(COLOR_PAIR(4) | A_BOLD);
+        } else {
+            mvprintw(row, col + 10, "-");
+        }
+
+        if (solo) {
+            attron(COLOR_PAIR(2) | A_BOLD);  // Green for solo
+            mvprintw(row, col + 12, "S");
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            mvprintw(row, col + 12, "-");
+        }
+
+        // Draw compact bar (28 chars to make room for M/S)
+        drawBar(row, col + 15, "", level, 0.0f, 1.0f, 28);
 
         if (paramId == selectedParameterId) {
             attroff(COLOR_PAIR(5) | A_BOLD);
@@ -75,5 +113,6 @@ void UI::drawMixerPage() {
     row += 2;
     attron(COLOR_PAIR(8));
     mvprintw(row++, col, "Mix levels control the static volume for each source.");
+    mvprintw(row++, col, "Hotkeys: M=Toggle Mute | S=Toggle Solo");
     attroff(COLOR_PAIR(8));
 }

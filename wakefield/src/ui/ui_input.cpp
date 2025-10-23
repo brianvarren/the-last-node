@@ -356,19 +356,19 @@ void UI::handleInput(int ch) {
 
         switch (ch) {
             case KEY_UP:
-                fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 4) % 4;
+                fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 8) % 8;
                 return;
 
             case KEY_DOWN:
-                fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 4;
+                fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 8;
                 return;
 
             case KEY_LEFT:
-                fmMatrixCursorCol = (fmMatrixCursorCol - 1 + 4) % 4;
+                fmMatrixCursorCol = (fmMatrixCursorCol - 1 + 8) % 8;
                 return;
 
             case KEY_RIGHT:
-                fmMatrixCursorCol = (fmMatrixCursorCol + 1) % 4;
+                fmMatrixCursorCol = (fmMatrixCursorCol + 1) % 8;
                 return;
 
             case '+':
@@ -439,6 +439,46 @@ void UI::handleInput(int ch) {
             case ']':
                 params->overdubMix = std::min(1.0f, params->overdubMix.load() + 0.05f);
                 break;
+        }
+    }
+
+    // Mixer-specific hotkeys (only active on mixer page)
+    if (currentPage == UIPage::MIXER) {
+        // Determine which channel is selected based on selectedParameterId
+        // OSC channels: IDs 50-53, SAMP channels: IDs 54-57
+        int channelIndex = -1;
+        bool isOscillator = false;
+
+        if (selectedParameterId >= 50 && selectedParameterId <= 53) {
+            channelIndex = selectedParameterId - 50;
+            isOscillator = true;
+        } else if (selectedParameterId >= 54 && selectedParameterId <= 57) {
+            channelIndex = selectedParameterId - 54;
+            isOscillator = false;
+        }
+
+        if (channelIndex >= 0 && channelIndex < 4) {
+            switch (ch) {
+                case 'M':
+                case 'm':
+                    // Toggle mute for selected channel
+                    if (isOscillator) {
+                        params->oscMuted[channelIndex] = !params->oscMuted[channelIndex].load();
+                    } else {
+                        params->samplerMuted[channelIndex] = !params->samplerMuted[channelIndex].load();
+                    }
+                    return;
+
+                case 'S':
+                case 's':
+                    // Toggle solo for selected channel
+                    if (isOscillator) {
+                        params->oscSolo[channelIndex] = !params->oscSolo[channelIndex].load();
+                    } else {
+                        params->samplerSolo[channelIndex] = !params->samplerSolo[channelIndex].load();
+                    }
+                    return;
+            }
         }
     }
 

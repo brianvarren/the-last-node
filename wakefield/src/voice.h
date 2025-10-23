@@ -56,6 +56,7 @@ struct Voice {
             ampMod[i] = 0.0f;
         }
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            lastSamplerOutputs[i] = 0.0f;
             samplerPitchMod[i] = 0.0f;
             samplerLoopStartMod[i] = 0.0f;
             samplerLoopLengthMod[i] = 0.0f;
@@ -78,6 +79,7 @@ struct Voice {
 private:
     float sampleRate;
     float lastOscOutputs[OSCILLATORS_PER_VOICE];
+    float lastSamplerOutputs[SAMPLERS_PER_VOICE];
     float envelopeValue;  // Current envelope output (cached for modulation)
 };
 

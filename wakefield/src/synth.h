@@ -6,6 +6,7 @@
 #include "voice.h"
 #include "brainwave_osc.h"
 #include "lfo.h"
+#include "chaos.h"
 #include "reverb.h"
 #include "filters.hpp"
 #include "sample_bank.h"
@@ -53,6 +54,12 @@ public:
 
     // Get LFO outputs (for modulation matrix)
     float getLFOOutput(int lfoIndex) const;
+
+    // Chaos processing (called per audio buffer)
+    void processChaos(unsigned int nFrames);
+
+    // Get chaos outputs (for modulation matrix and FM)
+    float getChaosOutput(int chaosIndex) const;
 
     // Modulation matrix processing
     struct ModulationOutputs {
@@ -177,6 +184,10 @@ private:
 
     // 4 global LFOs for modulation
     LFO lfos[4];
+
+    // 4 global chaos generators for modulation
+    ChaosGenerator chaos[4];
+    float chaosOutputs[4] = {0.0f, 0.0f, 0.0f, 0.0f};  // Cached chaos outputs
 
     // Stereo filters (left and right channel)
     OnePoleTPT filterL;

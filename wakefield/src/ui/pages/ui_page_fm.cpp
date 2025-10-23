@@ -7,27 +7,27 @@ void UI::drawFMPage() {
 
     // Title
     attron(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(row, 2, "FM MATRIX");
+    mvprintw(row, 2, "FM MATRIX (8x8: OSC1-4 + SAMP1-4)");
     attroff(COLOR_PAIR(1) | A_BOLD);
-    row += 3;
+    row += 2;
 
     // Column labels (targets)
     mvprintw(row, 10, "TARGET");
     row++;
-    const int cellStartCol = 16;
+    const int cellStartCol = 12;
     const int cellStride = 4;
-    mvprintw(row, cellStartCol, "  1   2   3   4");
+    mvprintw(row, cellStartCol, "  1   2   3   4   5   6   7   8");
     row += 2;
 
-    // Draw matrix grid (4x4)
-    const char* sourceLabels[] = {"OSC1", "OSC2", "OSC3", "OSC4"};
+    // Draw matrix grid (8x8)
+    const char* sourceLabels[] = {"OSC1", "OSC2", "OSC3", "OSC4", "SMP1", "SMP2", "SMP3", "SMP4"};
 
-    for (int source = 0; source < 4; ++source) {
+    for (int source = 0; source < 8; ++source) {
         // Row label
-        mvprintw(row, 4, "%s", sourceLabels[source]);
+        mvprintw(row, 6, "%s", sourceLabels[source]);
 
         // Draw cells for each target
-        for (int target = 0; target < 4; ++target) {
+        for (int target = 0; target < 8; ++target) {
             int cellCol = cellStartCol + (target * cellStride);
 
             // Get FM depth value

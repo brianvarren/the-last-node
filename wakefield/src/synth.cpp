@@ -28,6 +28,11 @@ Synth::Synth(float sampleRate)
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         freeSamplers[i].setKeyMode(false);
     }
+
+    // Initialize chaos generators with sample rate
+    for (int i = 0; i < 4; ++i) {
+        chaos[i].setSampleRate(sampleRate);
+    }
 }
 
 float Synth::midiNoteToFrequency(int midiNote) {
@@ -434,9 +439,23 @@ void Synth::processLFOs(float sampleRate, unsigned int nFrames) {
     }
 }
 
+void Synth::processChaos(unsigned int nFrames) {
+    // Process all 4 chaos generators once per buffer to advance their state
+    for (unsigned int frame = 0; frame < nFrames; ++frame) {
+        for (int i = 0; i < 4; ++i) {
+            chaosOutputs[i] = chaos[i].process();  // Advance and cache output
+        }
+    }
+}
+
 float Synth::getLFOOutput(int lfoIndex) const {
     if (lfoIndex < 0 || lfoIndex >= 4) return 0.0f;
     return lfos[lfoIndex].getCurrentValue();
+}
+
+float Synth::getChaosOutput(int chaosIndex) const {
+    if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    return chaosOutputs[chaosIndex];
 }
 
 float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
