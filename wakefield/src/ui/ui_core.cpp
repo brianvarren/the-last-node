@@ -84,12 +84,13 @@ UI::UI(Synth* synth, SynthParameters* params)
 
     // Initialize default modulation routing: ENV 1 → SAMP 1-4 Amp (slots 4-7)
     // This provides amplitude envelope control for samplers in KEY mode
+    // Using bidirectional so envelope 0-1 maps to levelMod 0-1 (not 0.5-1.0)
     for (int i = 0; i < 4; ++i) {
         modulationSlots[4 + i].source = 4;       // ENV 1 (index 4)
         modulationSlots[4 + i].curve = 0;        // Linear curve
         modulationSlots[4 + i].amount = 100;     // 100% modulation
         modulationSlots[4 + i].destination = 32 + (i * 5);  // SAMP (i+1) Amp (indices 32, 37, 42, 47)
-        modulationSlots[4 + i].type = 0;         // Unidirectional
+        modulationSlots[4 + i].type = 1;         // Bidirectional (gives full 0-1 range)
     }
 
 }

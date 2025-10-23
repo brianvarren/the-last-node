@@ -482,11 +482,19 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     // Clamp to prevent overflow
     mixedSample = std::clamp(mixedSample, -32768, 32767);
 
-    // Convert Q15 to float and apply level modulation
+    // Convert Q15 to float
     float output = static_cast<float>(mixedSample) / 32768.0f;
-    float modulatedLevel = std::clamp(level + levelMod, 0.0f, 1.0f);
 
-    return output * modulatedLevel;
+    // Apply amplitude modulation
+    // Samplers use simplified amplitude model compared to oscillators
+    // Oscillators have: (baseAmp + ampMod) × level, where baseAmp defaults to 0.0
+    // Samplers use: (0.0 + levelMod) × level
+    // This gives the same behavior: envelope modulation (0.5-1.0 from unidirectional)
+    // added to base amp of 0.0, then multiplied by static mix level
+    float modulatedAmp = std::clamp(0.0f + levelMod, 0.0f, 1.0f);
+    float finalGain = modulatedAmp * level;
+
+    return output * finalGain;
 }
 
 // Linear interpolation between two int16_t values using 8-bit fractional weight
