@@ -21,15 +21,30 @@ void UI::drawSamplerPage() {
     int sampleIndex = synth->getSamplerSampleIndex(currentSamplerIndex);
     const SampleData* sample = (sampleIndex >= 0) ? bank->getSample(sampleIndex) : nullptr;
 
-    // Title with sampler index and sample name on same line
+    // Title with sampler index
     attron(COLOR_PAIR(5) | A_BOLD);
-    if (sample && sample->name.length() > 0) {
-        mvprintw(row++, leftCol, "SAMPLER %d  |  > %s", currentSamplerIndex + 1, sample->name.c_str());
-    } else {
-        mvprintw(row++, leftCol, "SAMPLER %d  |  > No sample loaded", currentSamplerIndex + 1);
-    }
+    mvprintw(row++, leftCol, "SAMPLER %d", currentSamplerIndex + 1);
     attroff(COLOR_PAIR(5) | A_BOLD);
     row++; // Add blank line after title
+
+    // Sample name as first selectable parameter (ID 69)
+    bool sampleSelected = (selectedParameterId == 69);
+    if (sampleSelected) {
+        attron(COLOR_PAIR(5) | A_BOLD);
+        mvprintw(row, leftCol, ">");
+    } else {
+        mvprintw(row, leftCol, " ");
+    }
+    mvprintw(row, leftCol + 2, "Sample:     ");
+    if (sample && sample->name.length() > 0) {
+        printw("%s", sample->name.c_str());
+    } else {
+        printw("No sample loaded");
+    }
+    if (sampleSelected) {
+        attroff(COLOR_PAIR(5) | A_BOLD);
+    }
+    row += 2;  // Add spacing after sample name
 
     // Waveform preview with loop indicator overlay - stretch to fill screen
     const int waveformHeight = 9; // Odd number for centerline visibility

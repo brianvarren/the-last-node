@@ -62,14 +62,15 @@ void UI::initializeParameters() {
     parameters.push_back({56, ParamType::FLOAT, "SAMP 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
     parameters.push_back({57, ParamType::FLOAT, "SAMP 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
 
-    // SAMPLER page parameters - control the currently selected sampler (60-67)
+    // SAMPLER page parameters - control the currently selected sampler (60-69)
+    parameters.push_back({69, ParamType::ENUM, "Sample", "", 0, 0, {}, false, static_cast<int>(UIPage::SAMPLER)});  // Special: opens sample browser
     parameters.push_back({60, ParamType::ENUM, "Key Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({68, ParamType::ENUM, "Direction", "", 0, 2, {"Forward", "Reverse", "Ping-Pong"}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({61, ParamType::FLOAT, "Loop Start", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({62, ParamType::FLOAT, "Loop Length", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({63, ParamType::FLOAT, "Xfade", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({64, ParamType::FLOAT, "Ratio", "", 0.125f, 8.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({65, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({64, ParamType::INT, "Octave", "", -5, 5, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    parameters.push_back({65, ParamType::FLOAT, "Tune", "", -1.0f, 1.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({66, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::SAMPLER)});
     parameters.push_back({67, ParamType::BOOL, "Note Reset", "", 0, 1, {}, true, static_cast<int>(UIPage::SAMPLER)});
 
@@ -151,7 +152,8 @@ float UI::getParameterValue(int id) {
         case 55: return synth->getSamplerLevel(1);  // SAMP 2 Level (mixer)
         case 56: return synth->getSamplerLevel(2);  // SAMP 3 Level (mixer)
         case 57: return synth->getSamplerLevel(3);  // SAMP 4 Level (mixer)
-        // SAMPLER page parameters (60-67)
+        // SAMPLER page parameters (60-69)
+        case 69: return 0.0f;  // Sample name selector (special: no value)
         case 60: return synth->getSamplerKeyMode(samplerIndex) ? 0.0f : 1.0f;
         case 68: return static_cast<float>(synth->getSamplerPlaybackMode(samplerIndex));
         case 61: return synth->getSamplerLoopStart(samplerIndex) * 100.0f;
@@ -239,7 +241,8 @@ void UI::setParameterValue(int id, float value) {
         case 55: synth->setSamplerLevel(1, value); break;  // SAMP 2 Level (mixer)
         case 56: synth->setSamplerLevel(2, value); break;  // SAMP 3 Level (mixer)
         case 57: synth->setSamplerLevel(3, value); break;  // SAMP 4 Level (mixer)
-        // SAMPLER page parameters (60-67)
+        // SAMPLER page parameters (60-69)
+        case 69: break;  // Sample name selector (special: no-op, handled by Enter key)
         case 60: synth->setSamplerKeyMode(samplerIndex, value < 0.5f); break;
         case 68: synth->setSamplerPlaybackMode(samplerIndex, static_cast<PlaybackMode>(static_cast<int>(value))); break;
         case 61: synth->setSamplerLoopStart(samplerIndex, value / 100.0f); break;

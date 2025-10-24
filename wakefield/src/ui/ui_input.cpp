@@ -364,7 +364,10 @@ void UI::handleInput(int ch) {
                 if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
                     selectedParameterId = pageParams.front();
                 }
-                adjustParameter(selectedParameterId, false, false);  // decrease, coarse
+                // Skip adjustment for sample name (ID 69) - it's select-only
+                if (selectedParameterId != 69) {
+                    adjustParameter(selectedParameterId, false, false);  // decrease, coarse
+                }
             }
             return;
         } else if (ch == KEY_RIGHT) {
@@ -372,7 +375,10 @@ void UI::handleInput(int ch) {
                 if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
                     selectedParameterId = pageParams.front();
                 }
-                adjustParameter(selectedParameterId, true, false);  // increase, coarse
+                // Skip adjustment for sample name (ID 69) - it's select-only
+                if (selectedParameterId != 69) {
+                    adjustParameter(selectedParameterId, true, false);  // increase, coarse
+                }
             }
             return;
         }
@@ -398,8 +404,18 @@ void UI::handleInput(int ch) {
     }
 
     // Enter key starts numeric input for current parameter
-    // (except on SEQUENCER and SAMPLER pages which have their own Enter key handlers)
-    if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::SAMPLER && (ch == '\n' || ch == KEY_ENTER)) {
+    // (except on SEQUENCER page which has its own Enter key handler)
+    // SAMPLER page: Enter on sample name (ID 69) opens browser, otherwise numeric input
+    if (currentPage == UIPage::SAMPLER && (ch == '\n' || ch == KEY_ENTER)) {
+        if (selectedParameterId == 69) {
+            // Sample name selected - open sample browser
+            startSampleBrowser();
+        } else {
+            // Other parameter - normal numeric input
+            startNumericInput(selectedParameterId);
+        }
+        return;
+    } else if (currentPage != UIPage::SEQUENCER && (ch == '\n' || ch == KEY_ENTER)) {
         startNumericInput(selectedParameterId);
         return;
     }
@@ -473,11 +489,6 @@ void UI::handleInput(int ch) {
             case '2': currentSamplerIndex = 1; addConsoleMessage("Sampler 2 selected"); return;
             case '3': currentSamplerIndex = 2; addConsoleMessage("Sampler 3 selected"); return;
             case '4': currentSamplerIndex = 3; addConsoleMessage("Sampler 4 selected"); return;
-            case '\n':
-            case KEY_ENTER:
-                // Open sample browser
-                startSampleBrowser();
-                return;
         }
     }
 
