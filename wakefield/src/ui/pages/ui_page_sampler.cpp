@@ -57,7 +57,10 @@ void UI::drawSamplerPage() {
 
     int loopStartPos = static_cast<int>(loopStart * waveformWidth);
     int loopEndPos = static_cast<int>((loopStart + loopLength) * waveformWidth);
-    loopEndPos = std::min(loopEndPos, waveformWidth);
+
+    // Clamp to screen bounds
+    loopStartPos = std::max(0, std::min(loopStartPos, waveformWidth - 1));
+    loopEndPos = std::max(0, std::min(loopEndPos, waveformWidth));
 
     for (int i = 0; i < waveformWidth; ++i) {
         if (i >= loopStartPos && i < loopEndPos) {
@@ -82,8 +85,8 @@ void UI::drawSamplerPage() {
     PlaybackMode direction = synth->getSamplerPlaybackMode(currentSamplerIndex);
     // loopStart and loopLength already declared above for loop indicator
     float crossfade = synth->getSamplerCrossfadeLength(currentSamplerIndex);
-    float ratio = synth->getSamplerPlaybackSpeed(currentSamplerIndex);
-    float offset = 0.0f; // TODO: Add offset parameter
+    int octave = synth->getSamplerOctave(currentSamplerIndex);
+    float tune = synth->getSamplerTune(currentSamplerIndex);
     int syncMode = 0; // TODO: Add sync parameter
     bool noteReset = true; // TODO: Add note reset parameter
 
@@ -140,7 +143,7 @@ void UI::drawSamplerPage() {
     // Column 2 parameters (IDs 64-67)
     paramRow = row;
     const int paramIds2[] = {64, 65, 66, 67};
-    const char* labels2[] = {"Ratio:      ", "Offset:     ", "Sync:       ", "Note Reset: "};
+    const char* labels2[] = {"Octave:     ", "Tune:       ", "Sync:       ", "Note Reset: "};
 
     for (int i = 0; i < 4; ++i) {
         if (paramIds2[i] == selectedParameterId) {
@@ -153,9 +156,9 @@ void UI::drawSamplerPage() {
         mvprintw(paramRow, col2 + 2, "%s", labels2[i]);
 
         if (i == 0) {
-            printw("%.2f", ratio);
+            printw("%+d", octave);
         } else if (i == 1) {
-            printw("%.0f Hz", offset);
+            printw("%.3f", tune);
         } else if (i == 2) {
             printw("%s", syncStr);
         } else if (i == 3) {
@@ -178,6 +181,23 @@ void UI::drawSamplerPage() {
 
 void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample) {
     if (!sample || sample->sampleCount == 0 || !sample->samples) return;
+
+    // Draw gray border box around waveform
+    attron(COLOR_PAIR(8));
+    // Top and bottom borders
+    mvhline(topRow - 1, leftCol - 1, '-', width + 2);
+    mvhline(topRow + height, leftCol - 1, '-', width + 2);
+    // Left and right borders
+    for (int i = 0; i < height; ++i) {
+        mvaddch(topRow + i, leftCol - 1, '|');
+        mvaddch(topRow + i, leftCol + width, '|');
+    }
+    // Corners
+    mvaddch(topRow - 1, leftCol - 1, '+');
+    mvaddch(topRow - 1, leftCol + width, '+');
+    mvaddch(topRow + height, leftCol - 1, '+');
+    mvaddch(topRow + height, leftCol + width, '+');
+    attroff(COLOR_PAIR(8));
 
     // Calculate how many samples to analyze per column
     const int samplesPerColumn = sample->sampleCount / width;

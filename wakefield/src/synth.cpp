@@ -713,6 +713,34 @@ void Synth::setSamplerPlaybackSpeed(int samplerIndex, float speed) {
     freeSamplers[samplerIndex].setPlaybackSpeed(speed);
 }
 
+void Synth::setSamplerOctave(int samplerIndex, int octave) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    // Clamp octave to -5 to +5
+    samplerOctaves[samplerIndex] = std::max(-5, std::min(5, octave));
+
+    // Recalculate and update playback speed
+    // Formula: 2^(octave + tune * 0.5)
+    float speed = std::pow(2.0f, samplerOctaves[samplerIndex] + samplerTunes[samplerIndex] * 0.5f);
+    setSamplerPlaybackSpeed(samplerIndex, speed);
+}
+
+void Synth::setSamplerTune(int samplerIndex, float tune) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    // Clamp tune to -1.0 to +1.0
+    samplerTunes[samplerIndex] = std::max(-1.0f, std::min(1.0f, tune));
+
+    // Recalculate and update playback speed
+    // Formula: 2^(octave + tune * 0.5)
+    float speed = std::pow(2.0f, samplerOctaves[samplerIndex] + samplerTunes[samplerIndex] * 0.5f);
+    setSamplerPlaybackSpeed(samplerIndex, speed);
+}
+
 void Synth::setSamplerTZFMDepth(int samplerIndex, float depth) {
     if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
         return;
@@ -829,4 +857,18 @@ bool Synth::getSamplerKeyMode(int samplerIndex) const {
         return true;
     }
     return samplerKeyModes[samplerIndex];
+}
+
+int Synth::getSamplerOctave(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return 0;
+    }
+    return samplerOctaves[samplerIndex];
+}
+
+float Synth::getSamplerTune(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return 0.0f;
+    }
+    return samplerTunes[samplerIndex];
 }

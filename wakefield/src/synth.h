@@ -156,6 +156,8 @@ public:
     void setSamplerPlaybackSpeed(int samplerIndex, float speed);
     void setSamplerTZFMDepth(int samplerIndex, float depth);
     void setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode);
+    void setSamplerOctave(int samplerIndex, int octave);
+    void setSamplerTune(int samplerIndex, float tune);
     void setSamplerLevel(int samplerIndex, float level);
     void setSamplerKeyMode(int samplerIndex, bool enabled);
 
@@ -169,6 +171,8 @@ public:
     PlaybackMode getSamplerPlaybackMode(int samplerIndex) const;
     float getSamplerLevel(int samplerIndex) const;
     bool getSamplerKeyMode(int samplerIndex) const;
+    int getSamplerOctave(int samplerIndex) const;
+    float getSamplerTune(int samplerIndex) const;
     
 private:
     float sampleRate;
@@ -212,6 +216,10 @@ private:
     int currentSampleIndices[SAMPLERS_PER_VOICE] = {-1, -1, -1, -1};
     bool samplerKeyModes[SAMPLERS_PER_VOICE] = {true, true, true, true};
     Sampler freeSamplers[SAMPLERS_PER_VOICE];
+
+    // Sampler pitch parameters (octave and tune)
+    int samplerOctaves[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};     // -5 to +5
+    float samplerTunes[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};  // -1.0 to +1.0 (±6 semitones)
     
     int findFreeVoice();
     float midiNoteToFrequency(int midiNote);
