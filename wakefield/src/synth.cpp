@@ -155,7 +155,14 @@ void Synth::noteOn(int midiNote, int velocity) {
         voice.samplerLevelMod[i] = 0.0f;
         voice.samplers[i].setKeyMode(samplerKeyModes[i]);
         if (samplerKeyModes[i]) {
-            voice.samplers[i].requestRestart();
+            // Note Reset ON: restart from beginning
+            // Note Reset OFF: restore saved phase and continue
+            if (samplerNoteResets[i]) {
+                voice.samplers[i].requestRestart();
+            } else {
+                voice.samplers[i].restorePhase(samplerLastPhases[i]);
+                voice.samplers[i].requestRestart();  // Still need to ensure voice is active
+            }
         } else {
             voice.samplers[i].stopPlayback();
         }
@@ -814,6 +821,16 @@ void Synth::setSamplerKeyMode(int samplerIndex, bool enabled) {
         freeSamplers[samplerIndex].requestRestart();
     }
     freeSamplers[samplerIndex].setKeyMode(false);
+}
+
+void Synth::saveSamplerPhase(int samplerIndex, uint64_t phase) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+    // Only save if Note Reset is OFF (so phase persists across notes)
+    if (!samplerNoteResets[samplerIndex]) {
+        samplerLastPhases[samplerIndex] = phase;
+    }
 }
 
 // Get sampler state (from first voice as they're all synced)

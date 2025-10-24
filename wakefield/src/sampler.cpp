@@ -96,6 +96,14 @@ float Sampler::getPlayheadPosition() const {
     return static_cast<float>(idx) / static_cast<float>(currentSample->sampleCount);
 }
 
+uint64_t Sampler::getCurrentPhase() const {
+    return primaryVoice->phase_q32_32;
+}
+
+void Sampler::restorePhase(uint64_t phase) {
+    primaryVoice->phase_q32_32 = phase;
+}
+
 void Sampler::reset() {
     if (!currentSample || currentSample->sampleCount == 0) {
         primaryVoice->phase_q32_32 = 0;
@@ -379,8 +387,9 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     }
 
     // Calculate crossfade length (in source samples)
+    // Ping-pong (ALTERNATE) mode disables crossfading - uses phase reflection instead
     uint32_t xfadeLen = 0;
-    if (primaryVoice->loop_end > primaryVoice->loop_start) {
+    if (mode != PlaybackMode::ALTERNATE && primaryVoice->loop_end > primaryVoice->loop_start) {
         uint32_t loopLen = primaryVoice->loop_end - primaryVoice->loop_start;
         uint32_t maxXfade = loopLen / 2;
 

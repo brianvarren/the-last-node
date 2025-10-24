@@ -65,6 +65,10 @@ public:
     // Get current playback position (0.0 to 1.0)
     float getPlayheadPosition() const;
 
+    // Phase management for Note Reset
+    uint64_t getCurrentPhase() const;
+    void restorePhase(uint64_t phase);
+
     // Reset phase to beginning of loop
     void reset();
     void requestRestart();          // Force playback to restart at next process call

@@ -12,7 +12,7 @@ void UI::drawSamplerPage() {
     int maxX = getmaxx(stdscr);
 
     const int leftCol = 2;
-    int row = 3;
+    int row = 2;  // Shifted up from 3
 
     // Get sample bank
     const SampleBank* bank = synth->getSampleBank();
@@ -21,21 +21,21 @@ void UI::drawSamplerPage() {
     int sampleIndex = synth->getSamplerSampleIndex(currentSamplerIndex);
     const SampleData* sample = (sampleIndex >= 0) ? bank->getSample(sampleIndex) : nullptr;
 
-    // Title with sampler index
-    attron(COLOR_PAIR(5) | A_BOLD);
-    mvprintw(row++, leftCol, "SAMPLER %d", currentSamplerIndex + 1);
-    attroff(COLOR_PAIR(5) | A_BOLD);
-    row++; // Add blank line after title
+    // Title with sampler index in bright cyan, sample name inline to the right
+    attron(COLOR_PAIR(1) | A_BOLD);  // Bright cyan like other page titles
+    mvprintw(row, leftCol, "SAMPLER %d", currentSamplerIndex + 1);
+    attroff(COLOR_PAIR(1) | A_BOLD);
 
-    // Sample name as first selectable parameter (ID 69)
+    // Sample name as selectable parameter (ID 69) - inline with title
+    const int sampleCol = leftCol + 15;
     bool sampleSelected = (selectedParameterId == 69);
     if (sampleSelected) {
         attron(COLOR_PAIR(5) | A_BOLD);
-        mvprintw(row, leftCol, ">");
+        mvprintw(row, sampleCol, ">");
     } else {
-        mvprintw(row, leftCol, " ");
+        mvprintw(row, sampleCol, " ");
     }
-    mvprintw(row, leftCol + 2, "Sample:     ");
+    mvprintw(row, sampleCol + 2, "Sample: ");
     if (sample && sample->name.length() > 0) {
         printw("%s", sample->name.c_str());
     } else {
@@ -44,14 +44,13 @@ void UI::drawSamplerPage() {
     if (sampleSelected) {
         attroff(COLOR_PAIR(5) | A_BOLD);
     }
-    row += 2;  // Add spacing after sample name
+    row += 2;  // Spacing before waveform
 
     // Waveform preview with loop indicator overlay - stretch to fill screen
     const int waveformHeight = 9; // Odd number for centerline visibility
     const int waveformWidth = maxX - leftCol - 2; // Stretch to screen width
 
-    // Draw gray border box around waveform area
-    attron(COLOR_PAIR(8));
+    // Draw border box around waveform area (using default text color)
     // Top and bottom borders
     mvhline(row, leftCol, '-', waveformWidth);
     mvhline(row + waveformHeight + 1, leftCol, '-', waveformWidth);
@@ -65,7 +64,6 @@ void UI::drawSamplerPage() {
     mvaddch(row, leftCol + waveformWidth, '+');
     mvaddch(row + waveformHeight + 1, leftCol - 1, '+');
     mvaddch(row + waveformHeight + 1, leftCol + waveformWidth, '+');
-    attroff(COLOR_PAIR(8));
 
     row++; // Move to inside the border
 
@@ -200,12 +198,6 @@ void UI::drawSamplerPage() {
         paramRow++;
     }
 
-    row = paramRow + 1;
-
-    // Instructions
-    attron(COLOR_PAIR(8));
-    mvprintw(row++, leftCol, "Keys 1-4: Select sampler | Enter: Load sample | -/= coarse, Shift for fine");
-    attroff(COLOR_PAIR(8));
 }
 
 void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample) {

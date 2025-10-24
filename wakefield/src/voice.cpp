@@ -22,6 +22,12 @@ float Voice::generateSample() {
 
     // If envelope finished, deactivate voice and clear FM history
     if (!envelope.isActive()) {
+        // Save sampler phases before deactivating (for Note Reset OFF)
+        if (synth) {
+            for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+                synth->saveSamplerPhase(i, samplers[i].getCurrentPhase());
+            }
+        }
         active = false;
         envelopeValue = 0.0f;
         resetFMHistory();

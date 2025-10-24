@@ -162,6 +162,7 @@ public:
     void setSamplerNoteReset(int samplerIndex, bool enabled);
     void setSamplerLevel(int samplerIndex, float level);
     void setSamplerKeyMode(int samplerIndex, bool enabled);
+    void saveSamplerPhase(int samplerIndex, uint64_t phase);  // Save phase for Note Reset
 
     // Get sampler state (for UI)
     int getSamplerSampleIndex(int samplerIndex) const;
@@ -228,6 +229,9 @@ private:
     // Sampler sync and note reset parameters
     int samplerSyncModes[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};  // 0=Off, 1=On, 2=Trip, 3=Dot
     bool samplerNoteResets[SAMPLERS_PER_VOICE] = {true, true, true, true};  // true=On, false=Off
+
+    // Last phase position for Note Reset (persists across voices)
+    uint64_t samplerLastPhases[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};
 
     int findFreeVoice();
     float midiNoteToFrequency(int midiNote);
