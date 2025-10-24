@@ -7,6 +7,67 @@
 #include <string>
 #include <vector>
 
+namespace {
+
+void drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample, float loopStart, float loopLength) {
+    if (!sample || sample->sampleCount == 0 || !sample->samples) return;
+
+    // Calculate how many samples to analyze per column
+    const int samplesPerColumn = sample->sampleCount / width;
+    if (samplesPerColumn == 0) return;
+
+    int centerRow = topRow + height / 2;
+
+    // Calculate loop region boundaries in columns
+    int loopStartCol = static_cast<int>(loopStart * width);
+    int loopEndCol = static_cast<int>((loopStart + loopLength) * width);
+
+    // For each column, find the peak amplitude
+    for (int col = 0; col < width; ++col) {
+        int startSample = col * samplesPerColumn;
+        int endSample = std::min(startSample + samplesPerColumn, static_cast<int>(sample->sampleCount));
+
+        // Find peak amplitude in this column
+        float peakAmplitude = 0.0f;
+        for (int i = startSample; i < endSample; ++i) {
+            float sampleValue = std::abs(sample->samples[i]) / 32768.0f; // Convert Q15 to float
+            if (sampleValue > peakAmplitude) {
+                peakAmplitude = sampleValue;
+            }
+        }
+
+        // Convert to column height (bipolar display)
+        // Use full height/2 for maximum amplitude (don't scale down)
+        int columnHeight = static_cast<int>(peakAmplitude * (height / 2));
+        columnHeight = std::min(columnHeight, height / 2);
+
+        // Determine color: bright green in loop region, dim green outside
+        bool inLoop = (col >= loopStartCol && col < loopEndCol);
+        int colorAttr = inLoop ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(2) | A_DIM);
+
+        // Draw above center
+        for (int i = 0; i < columnHeight; ++i) {
+            attron(colorAttr);
+            mvaddch(centerRow - i - 1, leftCol + col, '*');
+            attroff(colorAttr);
+        }
+
+        // Draw below center
+        for (int i = 0; i < columnHeight; ++i) {
+            attron(colorAttr);
+            mvaddch(centerRow + i + 1, leftCol + col, '*');
+            attroff(colorAttr);
+        }
+
+        // Always draw center line in green with * characters
+        attron(colorAttr);
+        mvaddch(centerRow, leftCol + col, '*');
+        attroff(colorAttr);
+    }
+}
+
+} // namespace
+
 void UI::drawSamplerPage() {
     int maxY = getmaxy(stdscr);
     int maxX = getmaxx(stdscr);
@@ -184,59 +245,4 @@ void UI::drawSamplerPage() {
 
 }
 
-void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample, float loopStart, float loopLength) {
-    if (!sample || sample->sampleCount == 0 || !sample->samples) return;
-
-    // Calculate how many samples to analyze per column
-    const int samplesPerColumn = sample->sampleCount / width;
-    if (samplesPerColumn == 0) return;
-
-    int centerRow = topRow + height / 2;
-
-    // Calculate loop region boundaries in columns
-    int loopStartCol = static_cast<int>(loopStart * width);
-    int loopEndCol = static_cast<int>((loopStart + loopLength) * width);
-
-    // For each column, find the peak amplitude
-    for (int col = 0; col < width; ++col) {
-        int startSample = col * samplesPerColumn;
-        int endSample = std::min(startSample + samplesPerColumn, static_cast<int>(sample->sampleCount));
-
-        // Find peak amplitude in this column
-        float peakAmplitude = 0.0f;
-        for (int i = startSample; i < endSample; ++i) {
-            float sampleValue = std::abs(sample->samples[i]) / 32768.0f; // Convert Q15 to float
-            if (sampleValue > peakAmplitude) {
-                peakAmplitude = sampleValue;
-            }
-        }
-
-        // Convert to column height (bipolar display)
-        // Use full height/2 for maximum amplitude (don't scale down)
-        int columnHeight = static_cast<int>(peakAmplitude * (height / 2));
-        columnHeight = std::min(columnHeight, height / 2);
-
-        // Determine color: bright green in loop region, dim green outside
-        bool inLoop = (col >= loopStartCol && col < loopEndCol);
-        int colorAttr = inLoop ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(2) | A_DIM);
-
-        // Draw above center
-        for (int i = 0; i < columnHeight; ++i) {
-            attron(colorAttr);
-            mvaddch(centerRow - i - 1, leftCol + col, '*');
-            attroff(colorAttr);
-        }
-
-        // Draw below center
-        for (int i = 0; i < columnHeight; ++i) {
-            attron(colorAttr);
-            mvaddch(centerRow + i + 1, leftCol + col, '*');
-            attroff(colorAttr);
-        }
-
-        // Always draw center line in green with * characters
-        attron(colorAttr);
-        mvaddch(centerRow, leftCol + col, '*');
-        attroff(colorAttr);
-    }
-}
+// (helper lives in anonymous namespace above)
