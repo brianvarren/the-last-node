@@ -352,8 +352,9 @@ WORKFLOW:
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
   Up/Down        - Select parameter
-  Left/Right     - Adjust parameter value
+  Left/Right     - Adjust selected parameter (toggles wrap around)
   Enter          - Type exact value or load sample
+  -/= keys       - Coarse adjust, Shift for fine
   L              - MIDI Learn (assign MIDI CC)
   1-4            - Select sampler (4 independent samplers)
 
@@ -363,8 +364,8 @@ PARAMETERS:
   Loop Start - Start position of loop region (0-100%)
   Loop Length- Length of loop region (0-100%)
   Xfade      - Crossfade length at loop boundaries (0-100%)
-  Ratio      - Playback speed multiplier (0.125-16.0)
-  Offset     - Frequency offset in Hz (-1000-1000)
+  Octave     - Coarse pitch shift (-5 to +5 octaves)
+  Tune       - Fine pitch control (-1.0 to +1.0 = ±6 semitones)
   Sync       - Tempo sync mode (off/on/trip/dot)
   Note Reset - Restart playback on note-on
 
@@ -378,9 +379,16 @@ PLAYBACK MODES:
   - Ping-Pong: Alternates between forward and reverse at loop boundaries
 
 KEY TRACKING:
-  - FREE mode: Manual speed control via Ratio parameter
+  - FREE mode: Manual speed control via Octave/Tune parameters
   - KEY mode: Sample pitch tracks MIDI notes (like a keyboard sampler)
-  - Offset adds/subtracts frequency for detuning effects
+  - Octave provides coarse transposition (doubling/halving playback rate)
+  - Tune provides fine-tuning with exponential scaling for musical modulation
+
+PITCH CONTROL:
+  - Octave: ±5 octaves (each octave doubles or halves playback speed)
+  - Tune: ±6 semitones (spans one full octave at extremes)
+  - Exponential frequency mapping ensures musical intervals when modulated
+  - Combined: Playback speed = 2^(octave + tune * 0.5)
 
 LOOP CONTROL:
   - Loop Start/Length define a region within the sample
@@ -389,8 +397,9 @@ LOOP CONTROL:
   - Useful for creating sustained textures from one-shot samples
 
 WAVEFORM DISPLAY:
-The waveform preview shows the loaded sample's amplitude envelope.
-The green bar at the bottom indicates the active loop region.
+The waveform preview shows the loaded sample's amplitude envelope in
+a gray bordered box. The green bar at the bottom indicates the active
+loop region.
 )";
             break;
 
