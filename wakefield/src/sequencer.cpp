@@ -1,34 +1,48 @@
 #include "sequencer.h"
 #include <iostream>
 #include <cstdlib>
+#include <stdexcept>
+#include <algorithm>
 
-Sequencer::Sequencer(float sampleRate, Synth* synth)
-    : clock(sampleRate)
+Sequencer::Sequencer(Clock* clockSource, Synth* synth)
+    : clock(clockSource)
     , currentTrackIndex(0)
     , synth(synth)
 {
+    if (!clock) {
+        throw std::runtime_error("Sequencer requires a valid Clock pointer");
+    }
+
     // Create 4 tracks by default
     for (int i = 0; i < 4; ++i) {
         tracks.emplace_back(i, 16, Subdivision::SIXTEENTH);
         lastTriggeredStep.push_back(-1);
         currentSteps.push_back(0);
+        trackPhaseSource.push_back(kClockModSourceIndex);
+        trackPhaseType.push_back(0);
     }
 
     // Set default tempo
-    clock.setTempo(90.0);  // Slow, ambient tempo
+    clock->setTempo(90.0);  // Slow, ambient tempo
 }
 
 void Sequencer::play() {
-    clock.play();
+    if (clock) {
+        clock->play();
+    }
 }
 
 void Sequencer::stop() {
-    clock.stop();
+    if (clock) {
+        clock->stop();
+    }
     allNotesOff();
 }
 
 void Sequencer::reset() {
-    clock.reset();
+    if (clock) {
+        clock->reset();
+    }
     for (size_t i = 0; i < lastTriggeredStep.size(); ++i) {
         lastTriggeredStep[i] = -1;
     }
@@ -138,22 +152,26 @@ void Sequencer::triggerTrackStep(size_t trackIndex, int step) {
 
     ActiveNote activeNote{};
     activeNote.midiNote = patternStep.midiNote;
-    activeNote.startSample = clock.getCurrentStep(pattern.getResolution()) *
-                             clock.getSamplesPerStep(pattern.getResolution());
+    if (clock) {
+        activeNote.startSample = clock->getCurrentStep(pattern.getResolution()) *
+                                 clock->getSamplesPerStep(pattern.getResolution());
+    } else {
+        activeNote.startSample = 0;
+    }
     activeNote.gateLength = patternStep.gateLength;
     activeNote.subdivision = pattern.getResolution();
     activeNotes.push_back(activeNote);
 }
 
 void Sequencer::updateGates() {
-    if (!synth || activeNotes.empty()) return;
+    if (!synth || activeNotes.empty() || !clock) return;
 
     // Check each active note
     auto it = activeNotes.begin();
     while (it != activeNotes.end()) {
-        uint64_t currentSample = clock.getCurrentStep(it->subdivision) *
-                                 clock.getSamplesPerStep(it->subdivision);
-        double samplesPerStep = clock.getSamplesPerStep(it->subdivision);
+        uint64_t currentSample = clock->getCurrentStep(it->subdivision) *
+                                 clock->getSamplesPerStep(it->subdivision);
+        double samplesPerStep = clock->getSamplesPerStep(it->subdivision);
         uint64_t elapsed = currentSample - it->startSample;
         double gateTimeInSamples = samplesPerStep * it->gateLength;
 
@@ -167,9 +185,46 @@ void Sequencer::updateGates() {
     }
 }
 
-void Sequencer::process(unsigned int nFrames) {
-    if (!clock.isPlaying()) {
+void Sequencer::refreshTrackPhaseDrivers() {
+    if (trackPhaseSource.size() != tracks.size()) {
+        trackPhaseSource.assign(tracks.size(), kClockModSourceIndex);
+    }
+    if (trackPhaseType.size() != tracks.size()) {
+        trackPhaseType.assign(tracks.size(), 0);
+    }
+
+    std::fill(trackPhaseSource.begin(), trackPhaseSource.end(), kClockModSourceIndex);
+    std::fill(trackPhaseType.begin(), trackPhaseType.end(), 0);
+
+    if (!synth) {
         return;
+    }
+
+    for (int slotIdx = 0; slotIdx < kModulationSlotCount; ++slotIdx) {
+        const ModulationSlot* slot = synth->getModulationSlot(slotIdx);
+        if (!slot || !slot->isComplete()) {
+            continue;
+        }
+
+        if (slot->destination >= kClockTargetSequencerBase &&
+            slot->destination < kClockTargetSequencerBase + static_cast<int>(tracks.size())) {
+            int trackIdx = slot->destination - kClockTargetSequencerBase;
+            trackPhaseSource[trackIdx] = slot->source >= 0 ? slot->source : kClockModSourceIndex;
+            trackPhaseType[trackIdx] = slot->type >= 0 ? slot->type : 0;
+        }
+    }
+}
+
+void Sequencer::process(unsigned int nFrames) {
+    if (!clock || !clock->isPlaying()) {
+        return;
+    }
+
+    refreshTrackPhaseDrivers();
+
+    Synth::ModulationOutputs modOutputs;
+    if (synth) {
+        modOutputs = synth->processModulationMatrix();
     }
 
     bool anySolo = false;
@@ -187,8 +242,32 @@ void Sequencer::process(unsigned int nFrames) {
         Subdivision subdiv = pattern.getResolution();
 
         int stepIndex;
-        if (clock.checkStepTrigger(nFrames, subdiv, stepIndex)) {
-            int trackStep = stepIndex % pattern.getLength();
+        if (clock->checkStepTrigger(nFrames, subdiv, stepIndex)) {
+            int patternLength = pattern.getLength();
+            if (patternLength <= 0) {
+                continue;
+            }
+
+            int trackStep = 0;
+            if (trackPhaseSource[trackIdx] == kClockModSourceIndex || trackPhaseSource[trackIdx] < 0) {
+                trackStep = stepIndex % patternLength;
+            } else {
+                float driverValue = modOutputs.sequencerPhase[trackIdx];
+                float normalized = 0.0f;
+                if (trackPhaseType[trackIdx] == 0) {
+                    normalized = std::clamp(driverValue, 0.0f, 1.0f);
+                } else {
+                    normalized = std::clamp((driverValue + 1.0f) * 0.5f, 0.0f, 1.0f);
+                }
+                trackStep = static_cast<int>(normalized * patternLength);
+                if (trackStep >= patternLength) {
+                    trackStep = patternLength - 1;
+                }
+                if (trackStep < 0) {
+                    trackStep = 0;
+                }
+            }
+
             currentSteps[trackIdx] = trackStep;
 
             if (trackStep != lastTriggeredStep[trackIdx]) {
@@ -206,5 +285,7 @@ void Sequencer::process(unsigned int nFrames) {
     updateGates();
 
     // Advance clock
-    clock.advance(nFrames);
+    if (clock) {
+        clock->advance(nFrames);
+    }
 }

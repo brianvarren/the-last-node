@@ -500,15 +500,13 @@ std::string UI::getParameterName(int id) {
 
 bool UI::isParameterModulated(int id) {
     // Map parameter ID to modulation destination index
-    // Modulation destinations are:
-    // 0-5:   OSC 1 (Pitch, Morph, Duty, Ratio, Offset, Level)
-    // 6-11:  OSC 2 (Pitch, Morph, Duty, Ratio, Offset, Level)
-    // 12-17: OSC 3 (Pitch, Morph, Duty, Ratio, Offset, Level)
-    // 18-23: OSC 4 (Pitch, Morph, Duty, Ratio, Offset, Level)
-    // 24: Filter Cutoff
-    // 25: Filter Resonance (not implemented yet)
-    // 26: Reverb Mix
-    // 27: Reverb Size
+    // Modulation destinations are grouped by module. Key ranges:
+    // 0-23: Oscillator parameters (Pitch, Morph, Duty, Ratio, Offset, Amp)
+    // 24-25: Filter Cutoff/Resonance
+    // 26-27: Reverb Mix/Size
+    // 28-47: Sampler parameters (Pitch, Loop Start/Length, Crossfade, Level)
+    // 48-59: LFO parameters (Rate, Morph, Duty)
+    // 60-68: Mixer parameters (Master volume and source levels)
 
     int modDestination = -1;
 
@@ -545,6 +543,36 @@ bool UI::isParameterModulated(int id) {
         case 23: // Reverb Size
             modDestination = 27;
             break;
+        case 6: // Master Volume
+            modDestination = 60;
+            break;
+        case 50: // Mixer OSC 1 Level
+        case 51: // Mixer OSC 2 Level
+        case 52: // Mixer OSC 3 Level
+        case 53: // Mixer OSC 4 Level
+            modDestination = 61 + (id - 50);
+            break;
+        case 54: // Mixer SAMP 1 Level
+        case 55: // Mixer SAMP 2 Level
+        case 56: // Mixer SAMP 3 Level
+        case 57: // Mixer SAMP 4 Level
+            modDestination = 65 + (id - 54);
+            break;
+        case 200: { // LFO Rate
+            int lfoIndex = currentLFOIndex;
+            modDestination = 48 + lfoIndex * 3;
+            break;
+        }
+        case 202: { // LFO Morph
+            int lfoIndex = currentLFOIndex;
+            modDestination = 49 + lfoIndex * 3;
+            break;
+        }
+        case 203: { // LFO Duty
+            int lfoIndex = currentLFOIndex;
+            modDestination = 50 + lfoIndex * 3;
+            break;
+        }
         default:
             return false;
     }

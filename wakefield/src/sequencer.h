@@ -13,17 +13,17 @@
 
 class Sequencer {
 public:
-    Sequencer(float sampleRate, Synth* synth);
+    Sequencer(Clock* clockSource, Synth* synth);
 
     // Transport control
     void play();
     void stop();
     void reset();
-    bool isPlaying() const { return clock.isPlaying(); }
+    bool isPlaying() const { return clock && clock->isPlaying(); }
 
     // Tempo control
-    void setTempo(double bpm) { clock.setTempo(bpm); }
-    double getTempo() const { return clock.getTempo(); }
+    void setTempo(double bpm) { if (clock) clock->setTempo(bpm); }
+    double getTempo() const { return clock ? clock->getTempo() : 0.0; }
 
     // Multi-track support
     int getTrackCount() const { return tracks.size(); }
@@ -75,13 +75,15 @@ public:
     void allNotesOff();
 
 private:
-    Clock clock;
+    Clock* clock;
     std::vector<Track> tracks;
     int currentTrackIndex;
 
     Synth* synth;
     std::vector<int> currentSteps;  // Per-track playback position
     std::vector<int> lastTriggeredStep;  // Per-track
+    std::vector<int> trackPhaseSource;    // Per-track modulation source index
+    std::vector<int> trackPhaseType;      // 0=unidirectional,1=bidirectional
 
     // Track active notes for gate length management
     struct ActiveNote {
@@ -97,6 +99,8 @@ private:
 
     // Check and release notes based on gate length
     void updateGates();
+
+    void refreshTrackPhaseDrivers();
 };
 
 #endif // SEQUENCER_H

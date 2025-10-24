@@ -747,6 +747,7 @@ enum class UIPage {
     FILTER,
     LOOPER,
     SEQUENCER,
+    CLOCK,
     CHAOS,
     CONFIG
 };
@@ -904,6 +905,7 @@ private:
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();
+    void drawClockPage();
     void drawSequencerPage();
     void drawChaosPage();
     void drawConfigPage();
@@ -1027,6 +1029,9 @@ private:
     bool modMatrixMenuActive;
     int modMatrixMenuIndex;
     int modMatrixMenuColumn;  // Which column the menu is for (0=Source, 1=Curve, 3=Dest, 4=Type)
+    int modMatrixDestinationModuleIndex;
+    int modMatrixDestinationParamIndex;
+    int modMatrixDestinationFocusColumn;
 
     // Sample browser state
     bool sampleBrowserActive;

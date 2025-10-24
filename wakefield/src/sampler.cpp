@@ -28,7 +28,8 @@ Sampler::Sampler()
     , restartRequested(true)
     , wasInZoneLastSample(false)
     , playingReverse(false)
-    , modulatorSmoothed(0.0f) {
+    , modulatorSmoothed(0.0f)
+    , lastPhaseDriver(-1.0f) {
 
     // Initialize voice A as active
     voiceA.phase_q32_32 = 0;
@@ -116,6 +117,7 @@ void Sampler::reset() {
     }
     crossfading = false;
     wasInZoneLastSample = false;
+    lastPhaseDriver = -1.0f;
 }
 
 void Sampler::requestRestart() {
@@ -364,9 +366,36 @@ void Sampler::setupCrossfade(uint32_t xfadeLen, uint32_t xfadeSamples,
     crossfadeSamplesRemaining = xfadeSamples;
 }
 
+void Sampler::applyPhaseDriver(float normalized) {
+    if (!currentSample || !primaryVoice) {
+        return;
+    }
+
+    normalized = std::clamp(normalized, 0.0f, 1.0f);
+
+    if (primaryVoice->loop_end <= primaryVoice->loop_start) {
+        return;
+    }
+
+    uint32_t loopStart = primaryVoice->loop_start;
+    uint32_t loopEnd = primaryVoice->loop_end;
+    uint32_t span = loopEnd > loopStart ? (loopEnd - loopStart) : 0;
+    if (span == 0) {
+        return;
+    }
+
+    uint32_t target = loopStart + static_cast<uint32_t>(normalized * static_cast<float>(span - 1));
+    primaryVoice->phase_q32_32 = static_cast<uint64_t>(target) << 32;
+
+    if (secondaryVoice && secondaryVoice->active) {
+        secondaryVoice->phase_q32_32 = primaryVoice->phase_q32_32;
+    }
+}
+
 float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                       float loopStartMod, float loopLengthMod,
-                      float crossfadeMod, float levelMod, int midiNote) {
+                      float crossfadeMod, float levelMod, float levelOffset,
+                      float phaseDriver, int midiNote) {
     // Early exit if no sample loaded
     if (!currentSample || !currentSample->samples ||
         currentSample->sampleCount < 2) {
@@ -384,6 +413,16 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
         wasInZoneLastSample = false;
         playingReverse = false;  // Reset ping-pong direction
         restartRequested = false;
+    }
+
+    if (phaseDriver >= 0.0f && std::isfinite(phaseDriver)) {
+        float normalized = std::clamp(phaseDriver, 0.0f, 1.0f);
+        if (std::fabs(normalized - lastPhaseDriver) > 0.001f) {
+            applyPhaseDriver(normalized);
+            lastPhaseDriver = normalized;
+        }
+    } else {
+        lastPhaseDriver = -1.0f;
     }
 
     // Calculate crossfade length (in source samples)
@@ -508,7 +547,8 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     // This gives the same behavior: envelope modulation (0.5-1.0 from unidirectional)
     // added to base amp of 0.0, then multiplied by static mix level
     float modulatedAmp = std::clamp(0.0f + levelMod, 0.0f, 1.0f);
-    float finalGain = modulatedAmp * level;
+    float modulatedLevel = std::clamp(level + levelOffset, 0.0f, 1.0f);
+    float finalGain = modulatedAmp * modulatedLevel;
 
     return output * finalGain;
 }

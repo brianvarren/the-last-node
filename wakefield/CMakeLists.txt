@@ -45,6 +45,7 @@ add_executable(synth
     src/ui/ui_input.cpp
     src/ui/ui_drawing.cpp
     src/ui/ui_mod.cpp
+    src/ui/ui_mod_data.cpp
     src/ui/ui_sample_browser.cpp
     # UI page files
     src/ui/pages/ui_page_parameters.cpp
@@ -58,6 +59,7 @@ add_executable(synth
     src/ui/pages/ui_page_reverb.cpp
     src/ui/pages/ui_page_filter.cpp
     src/ui/pages/ui_page_looper.cpp
+    src/ui/pages/ui_page_clock.cpp
     src/ui/pages/ui_page_chaos.cpp
     src/ui/pages/ui_page_config.cpp
     # UI sequencer files

@@ -36,10 +36,12 @@ public:
     //   loopLengthMod: Loop length modulation (-1 to +1)
     //   crossfadeMod: Crossfade length modulation (-1 to +1)
     //   levelMod: Level modulation (-1 to +1)
+    //   levelOffset: Additional mixer level offset (-1 to +1)
     //   midiNote: MIDI note number (0-127) for KEY mode pitch tracking
     float process(float sampleRate, float fmInput, float pitchMod,
                   float loopStartMod, float loopLengthMod,
-                  float crossfadeMod, float levelMod, int midiNote = 60);
+                  float crossfadeMod, float levelMod, float levelOffset,
+                  float phaseDriver, int midiNote = 60);
 
     // Parameter setters
     void setSample(const SampleData* sample);
@@ -118,6 +120,8 @@ private:
     float modulatorSmoothed;
     static constexpr float MODULATOR_SMOOTHING = 0.85f;
 
+    float lastPhaseDriver;
+
     // Helper functions
     void calculateLoopBoundaries(float startMod, float lengthMod);
     void ensurePendingLoop(float startMod, float lengthMod);
@@ -128,6 +132,7 @@ private:
     bool isInCrossfadeZone(uint64_t phase, uint32_t loopStart, uint32_t loopEnd,
                           uint32_t xfadeLen, bool isReverse) const;
     void setupCrossfade(uint32_t xfadeLen, uint32_t xfadeSamples, bool isReverse);
+    void applyPhaseDriver(float normalized);
 
     // Interpolation helper
     static inline int16_t interpolate(int16_t x, int16_t y, uint8_t mu);

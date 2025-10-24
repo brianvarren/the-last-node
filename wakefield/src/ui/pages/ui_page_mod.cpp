@@ -1,50 +1,156 @@
 #include "../../ui.h"
+#include "../ui_mod_data.h"
 #include <algorithm>
 #include <string>
 #include <vector>
 
 namespace {
 
-struct ModOption {
-    const char* displayName;
-    const char* symbol;
+struct SelectionHighlight {
+    int moduleIndex = -1;
+    int paramIndex = -1;
 };
 
-// MOD matrix menu option lists (same as in ui_mod.cpp)
-const std::vector<ModOption> kModSources = {
-    {"LFO 1", "LFO1"}, {"LFO 2", "LFO2"}, {"LFO 3", "LFO3"}, {"LFO 4", "LFO4"},
-    {"ENV 1", "ENV1"}, {"ENV 2", "ENV2"}, {"ENV 3", "ENV3"}, {"ENV 4", "ENV4"},
-    {"Velocity", "Vel"}, {"Aftertouch", "AT"}, {"Mod Wheel", "MW"}, {"Pitch Bend", "PB"}
-};
+SelectionHighlight getCurrentDestinationHighlight(int destinationIndex) {
+    SelectionHighlight highlight;
+    getModuleParamFromDestinationIndex(destinationIndex, highlight.moduleIndex, highlight.paramIndex);
+    return highlight;
+}
 
-const std::vector<ModOption> kModCurves = {
-    {"Linear", "Lin"}, {"Exponential", "Exp"}, {"Logarithmic", "Log"}, {"S-Curve", "S"}
-};
+void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
+                           int selectedModule,
+                           int selectedParam,
+                           int focusColumn,
+                           const SelectionHighlight& currentAssignment) {
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
 
-const std::vector<ModOption> kModDestinations = {
-    {"OSC 1 Pitch", "O1:Pitch"}, {"OSC 1 Morph", "O1:Morph"}, {"OSC 1 Duty", "O1:Duty"},
-    {"OSC 1 Ratio", "O1:Ratio"}, {"OSC 1 Offset", "O1:Offset"}, {"OSC 1 Level", "O1:Level"},
-    {"OSC 2 Pitch", "O2:Pitch"}, {"OSC 2 Morph", "O2:Morph"}, {"OSC 2 Duty", "O2:Duty"},
-    {"OSC 2 Ratio", "O2:Ratio"}, {"OSC 2 Offset", "O2:Offset"}, {"OSC 2 Level", "O2:Level"},
-    {"OSC 3 Pitch", "O3:Pitch"}, {"OSC 3 Morph", "O3:Morph"}, {"OSC 3 Duty", "O3:Duty"},
-    {"OSC 3 Ratio", "O3:Ratio"}, {"OSC 3 Offset", "O3:Offset"}, {"OSC 3 Level", "O3:Level"},
-    {"OSC 4 Pitch", "O4:Pitch"}, {"OSC 4 Morph", "O4:Morph"}, {"OSC 4 Duty", "O4:Duty"},
-    {"OSC 4 Ratio", "O4:Ratio"}, {"OSC 4 Offset", "O4:Offset"}, {"OSC 4 Level", "O4:Level"},
-    {"Filter Cutoff", "Flt:Cut"}, {"Filter Resonance", "Flt:Res"},
-    {"Reverb Mix", "Rvb:Mix"}, {"Reverb Size", "Rvb:Size"},
-    {"SAMP 1 Pitch", "S1:Pitch"}, {"SAMP 1 Loop Start", "S1:LpSt"}, {"SAMP 1 Loop Length", "S1:LpLen"},
-    {"SAMP 1 Crossfade", "S1:XFd"}, {"SAMP 1 Level", "S1:Level"},
-    {"SAMP 2 Pitch", "S2:Pitch"}, {"SAMP 2 Loop Start", "S2:LpSt"}, {"SAMP 2 Loop Length", "S2:LpLen"},
-    {"SAMP 2 Crossfade", "S2:XFd"}, {"SAMP 2 Level", "S2:Level"},
-    {"SAMP 3 Pitch", "S3:Pitch"}, {"SAMP 3 Loop Start", "S3:LpSt"}, {"SAMP 3 Loop Length", "S3:LpLen"},
-    {"SAMP 3 Crossfade", "S3:XFd"}, {"SAMP 3 Level", "S3:Level"},
-    {"SAMP 4 Pitch", "S4:Pitch"}, {"SAMP 4 Loop Start", "S4:LpSt"}, {"SAMP 4 Loop Length", "S4:LpLen"},
-    {"SAMP 4 Crossfade", "S4:XFd"}, {"SAMP 4 Level", "S4:Level"}
-};
+    if (maxY < 10 || maxX < 40) {
+        return;
+    }
 
-const std::vector<ModOption> kModTypes = {
-    {"Unidirectional", "-->"}, {"Bidirectional", "<->"}
-};
+    const int margin = 2;
+    const int top = margin;
+    const int left = margin;
+    const int height = maxY - margin * 2;
+    const int width = maxX - margin * 2;
+    const int bottom = top + height - 1;
+    const int right = left + width - 1;
+
+    mvhline(top, left, '-', width);
+    mvhline(bottom, left, '-', width);
+    mvvline(top, left, '|', height);
+    mvvline(top, right, '|', height);
+    mvaddch(top, left, '+');
+    mvaddch(top, right, '+');
+    mvaddch(bottom, left, '+');
+    mvaddch(bottom, right, '+');
+
+    // Title
+    attron(COLOR_PAIR(1) | A_BOLD);
+    mvprintw(top, left + 2, "Select Destination");
+    attroff(COLOR_PAIR(1) | A_BOLD);
+
+    // Column layout
+    int moduleColWidth = std::min(28, std::max(20, width / 3));
+    int paramColWidth = width - moduleColWidth - 6;
+    int moduleColX = left + 2;
+    int paramColX = moduleColX + moduleColWidth + 4;
+    int listTop = top + 2;
+    int listBottom = bottom - 3;
+    int visibleRows = std::max(1, listBottom - listTop + 1);
+
+    // Module column
+    int totalModules = static_cast<int>(modules.size());
+    int moduleScroll = 0;
+    if (totalModules > visibleRows) {
+        moduleScroll = std::clamp(selectedModule - visibleRows / 2, 0, totalModules - visibleRows);
+    }
+
+    for (int row = 0; row < visibleRows && (row + moduleScroll) < totalModules; ++row) {
+        int moduleIndex = moduleScroll + row;
+        const auto& module = modules[moduleIndex];
+        int drawRow = listTop + row;
+        bool isSelected = (moduleIndex == selectedModule);
+        bool isAssigned = (moduleIndex == currentAssignment.moduleIndex);
+
+        if (isSelected) {
+            if (focusColumn == 0) {
+                attron(A_REVERSE | A_BOLD);
+            } else {
+                attron(A_BOLD);
+            }
+        } else if (isAssigned) {
+            attron(A_DIM);
+        }
+
+        mvprintw(drawRow, moduleColX, "%-*s", moduleColWidth, module.name);
+
+        if (isSelected) {
+            if (focusColumn == 0) {
+                attroff(A_REVERSE | A_BOLD);
+            } else {
+                attroff(A_BOLD);
+            }
+        } else if (isAssigned) {
+            attroff(A_DIM);
+        }
+    }
+
+    // Draw separator
+    mvvline(listTop, paramColX - 2, ':', std::min(visibleRows, maxY - listTop - 3));
+
+    // Parameter column
+    if (selectedModule >= 0 && selectedModule < totalModules) {
+        const auto& params = modules[selectedModule].options;
+        int totalParams = static_cast<int>(params.size());
+        int paramScroll = 0;
+        if (totalParams > visibleRows) {
+            paramScroll = std::clamp(selectedParam - visibleRows / 2, 0, totalParams - visibleRows);
+        }
+
+        attron(COLOR_PAIR(1));
+        mvprintw(listTop - 1, paramColX, "%s Parameters", modules[selectedModule].name);
+        attroff(COLOR_PAIR(1));
+
+        for (int row = 0; row < visibleRows && (row + paramScroll) < totalParams; ++row) {
+            int paramIndex = paramScroll + row;
+            int drawRow = listTop + row;
+            bool isSelected = (paramIndex == selectedParam);
+            bool isAssigned = (selectedModule == currentAssignment.moduleIndex &&
+                               paramIndex == currentAssignment.paramIndex);
+
+            if (isSelected) {
+                if (focusColumn == 1) {
+                    attron(A_REVERSE | A_BOLD);
+                } else {
+                    attron(A_BOLD);
+                }
+            } else if (isAssigned) {
+                attron(A_DIM);
+            }
+
+            mvprintw(drawRow, paramColX, "%-*s", paramColWidth, params[paramIndex].displayName);
+            mvprintw(drawRow, paramColX + paramColWidth + 1, "[%s]", params[paramIndex].symbol);
+
+            if (isSelected) {
+                if (focusColumn == 1) {
+                    attroff(A_REVERSE | A_BOLD);
+                } else {
+                    attroff(A_BOLD);
+                }
+            } else if (isAssigned) {
+                attroff(A_DIM);
+            }
+        }
+    }
+
+    // Instructions
+    attron(COLOR_PAIR(6));
+    mvprintw(bottom - 1, left + 2,
+             "Left/Right switch column   Up/Down navigate   Enter confirm   Esc cancel");
+    attroff(COLOR_PAIR(6));
+}
 
 } // namespace
 
@@ -54,6 +160,12 @@ void UI::drawModPage() {
     static const int colWidths[] = {4, 16, 10, 12, 18, 8};
     constexpr int slotCount = 16;
     constexpr int columnCount = 5;  // Source..Type
+
+    const auto& sources = getModSourceOptions();
+    const auto& curves = getModCurveOptions();
+    const auto& destinations = getModDestinationOptions();
+    const auto& destinationModules = getModDestinationModules();
+    const auto& types = getModTypeOptions();
 
     int row = 3;
 
@@ -78,16 +190,16 @@ void UI::drawModPage() {
         std::string cellValues[columnCount];
 
         // Format cell values based on stored data
-        cellValues[0] = (modSlot.source >= 0 && modSlot.source < kModSources.size())
-                        ? kModSources[modSlot.source].symbol : "--";
-        cellValues[1] = (modSlot.curve >= 0 && modSlot.curve < kModCurves.size())
-                        ? kModCurves[modSlot.curve].symbol : "--";
+        cellValues[0] = (modSlot.source >= 0 && modSlot.source < static_cast<int>(sources.size()))
+                        ? sources[modSlot.source].symbol : "--";
+        cellValues[1] = (modSlot.curve >= 0 && modSlot.curve < static_cast<int>(curves.size()))
+                        ? curves[modSlot.curve].symbol : "--";
         cellValues[2] = (modSlot.amount != 0 || modSlot.isComplete())
                         ? std::to_string(static_cast<int>(modSlot.amount)) : "--";
-        cellValues[3] = (modSlot.destination >= 0 && modSlot.destination < kModDestinations.size())
-                        ? kModDestinations[modSlot.destination].symbol : "--";
-        cellValues[4] = (modSlot.type >= 0 && modSlot.type < kModTypes.size())
-                        ? kModTypes[modSlot.type].symbol : "--";
+        cellValues[3] = (modSlot.destination >= 0 && modSlot.destination < static_cast<int>(destinations.size()))
+                        ? destinations[modSlot.destination].symbol : "--";
+        cellValues[4] = (modSlot.type >= 0 && modSlot.type < static_cast<int>(types.size()))
+                        ? types[modSlot.type].symbol : "--";
 
         for (int col = 0; col < columnCount; ++col) {
             bool selected = (slot == modMatrixCursorRow && col == modMatrixCursorCol);
@@ -109,55 +221,59 @@ void UI::drawModPage() {
 
     // Draw selection menu if active
     if (modMatrixMenuActive) {
-        const std::vector<ModOption>* options = nullptr;
-        const char* title = "";
+        if (modMatrixMenuColumn == 3) {
+            const ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+            SelectionHighlight highlight = getCurrentDestinationHighlight(slot.destination);
+            drawDestinationPicker(destinationModules,
+                                  modMatrixDestinationModuleIndex,
+                                  modMatrixDestinationParamIndex,
+                                  modMatrixDestinationFocusColumn,
+                                  highlight);
+        } else {
+            const std::vector<ModOption>* options = nullptr;
+            const char* title = "";
 
-        if (modMatrixMenuColumn == 0) {
-            options = &kModSources;
-            title = "Select Source";
-        } else if (modMatrixMenuColumn == 1) {
-            options = &kModCurves;
-            title = "Select Curve";
-        } else if (modMatrixMenuColumn == 3) {
-            options = &kModDestinations;
-            title = "Select Destination";
-        } else if (modMatrixMenuColumn == 4) {
-            options = &kModTypes;
-            title = "Select Type";
-        }
-
-        if (options && !options->empty()) {
-            int menuWidth = 30;
-            int menuHeight = std::min(12, static_cast<int>(options->size()) + 2);
-            int menuX = 25;
-            int menuY = 8;
-
-            // Draw menu box
-            attron(COLOR_PAIR(1) | A_BOLD);
-            mvprintw(menuY, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
-            mvprintw(menuY + 1, menuX, "| %-*s |", menuWidth - 4, title);
-            mvhline(menuY + 2, menuX + 1, '-', menuWidth - 2);
-            attroff(COLOR_PAIR(1) | A_BOLD);
-
-            // Draw menu options
-            int firstOption = std::max(0, modMatrixMenuIndex - (menuHeight - 4) / 2);
-            int lastOption = std::min(static_cast<int>(options->size()), firstOption + menuHeight - 3);
-
-            for (int i = firstOption; i < lastOption; ++i) {
-                int optRow = menuY + 3 + (i - firstOption);
-                if (i == modMatrixMenuIndex) {
-                    attron(A_REVERSE);
-                }
-                mvprintw(optRow, menuX, "| %-*s |", menuWidth - 4, (*options)[i].displayName);
-                if (i == modMatrixMenuIndex) {
-                    attroff(A_REVERSE);
-                }
+            if (modMatrixMenuColumn == 0) {
+                options = &sources;
+                title = "Select Source";
+            } else if (modMatrixMenuColumn == 1) {
+                options = &curves;
+                title = "Select Curve";
+            } else if (modMatrixMenuColumn == 4) {
+                options = &types;
+                title = "Select Type";
             }
 
-            // Draw bottom of box
-            attron(COLOR_PAIR(1));
-            mvprintw(menuY + menuHeight - 1, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
-            attroff(COLOR_PAIR(1));
+            if (options && !options->empty()) {
+                int menuWidth = 30;
+                int menuHeight = std::min(12, static_cast<int>(options->size()) + 2);
+                int menuX = 25;
+                int menuY = 8;
+
+                attron(COLOR_PAIR(1) | A_BOLD);
+                mvprintw(menuY, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
+                mvprintw(menuY + 1, menuX, "| %-*s |", menuWidth - 4, title);
+                mvhline(menuY + 2, menuX + 1, '-', menuWidth - 2);
+                attroff(COLOR_PAIR(1) | A_BOLD);
+
+                int firstOption = std::max(0, modMatrixMenuIndex - (menuHeight - 4) / 2);
+                int lastOption = std::min(static_cast<int>(options->size()), firstOption + menuHeight - 3);
+
+                for (int i = firstOption; i < lastOption; ++i) {
+                    int optRow = menuY + 3 + (i - firstOption);
+                    if (i == modMatrixMenuIndex) {
+                        attron(A_REVERSE);
+                    }
+                    mvprintw(optRow, menuX, "| %-*s |", menuWidth - 4, (*options)[i].displayName);
+                    if (i == modMatrixMenuIndex) {
+                        attroff(A_REVERSE);
+                    }
+                }
+
+                attron(COLOR_PAIR(1));
+                mvprintw(menuY + menuHeight - 1, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
+                attroff(COLOR_PAIR(1));
+            }
         }
     }
 }

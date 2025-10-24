@@ -223,7 +223,9 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::REVERB) setPage(UIPage::FILTER);
         else if (currentPage == UIPage::FILTER) setPage(UIPage::LOOPER);
         else if (currentPage == UIPage::LOOPER) setPage(UIPage::SEQUENCER);
-        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CONFIG);
+        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CLOCK);
+        else if (currentPage == UIPage::CLOCK) setPage(UIPage::CHAOS);
+        else if (currentPage == UIPage::CHAOS) setPage(UIPage::CONFIG);
         else setPage(UIPage::OSCILLATOR);
         return;
     }
@@ -241,7 +243,9 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::FILTER) setPage(UIPage::REVERB);
         else if (currentPage == UIPage::LOOPER) setPage(UIPage::FILTER);
         else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::LOOPER);
-        else if (currentPage == UIPage::CONFIG) setPage(UIPage::SEQUENCER);
+        else if (currentPage == UIPage::CLOCK) setPage(UIPage::SEQUENCER);
+        else if (currentPage == UIPage::CHAOS) setPage(UIPage::CLOCK);
+        else if (currentPage == UIPage::CONFIG) setPage(UIPage::CHAOS);
         return;
     }
 
@@ -273,14 +277,17 @@ void UI::handleInput(int ch) {
             setPage(UIPage::MOD);
             return;
         case KEY_F(9):
-            setPage(UIPage::SEQUENCER);
-            addConsoleMessage("Chaos page pending – showing Sequencer");
+            setPage(UIPage::CHAOS);
             return;
         case KEY_F(10):
             setPage(UIPage::FM);
             return;
         case KEY_F(11):
-            setPage(UIPage::MOD);
+            if (currentPage == UIPage::CLOCK) {
+                setPage(UIPage::SEQUENCER);
+            } else {
+                setPage(UIPage::CLOCK);
+            }
             return;
         case KEY_F(12):
             setPage(UIPage::CONFIG);

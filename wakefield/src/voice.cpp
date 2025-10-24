@@ -91,7 +91,7 @@ float Voice::generateSample() {
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Get base amp and level from synth (control-rate)
         float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
-        float baseLevel = synth ? synth->getOscillatorBaseLevel(i) : 0.0f;
+        float baseLevel = synth ? synth->getModulatedOscLevel(i) : 0.0f;
 
         // Calculate modulated amplitude (clamped 0-1)
         float modulatedAmp = std::min(std::max(baseAmp + ampMod[i], 0.0f), 1.0f);
@@ -151,12 +151,15 @@ float Voice::generateSample() {
         }
 
         // Process sampler with FM and modulation (pass MIDI note for KEY mode tracking)
+        float samplerLevelOffset = synth ? synth->getMixerSamplerLevelMod(i) : 0.0f;
         float samplerOut = samplers[i].process(sampleRate, samplerFMInputs[i],
                                               samplerPitchMod[i],
                                               samplerLoopStartMod[i],
                                               samplerLoopLengthMod[i],
                                               samplerCrossfadeMod[i],
                                               samplerLevelMod[i],
+                                              samplerLevelOffset,
+                                              samplerPhaseDriver[i],
                                               note);
         currentSamplerOutputs[i] = samplerOut;
 

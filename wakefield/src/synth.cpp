@@ -1,5 +1,7 @@
 #include "synth.h"
+#include "clock.h"
 #include "ui.h"
+#include <algorithm>
 #include <iostream>
 
 Synth::Synth(float sampleRate)
@@ -10,6 +12,7 @@ Synth::Synth(float sampleRate)
     , currentFilterType(0)
     , ui(nullptr)
     , params(nullptr)
+    , clock(nullptr)
     , reverb(sampleRate)
     , filterL(sampleRate)
     , filterR(sampleRate) {
@@ -220,6 +223,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
     // Process modulation matrix once per buffer for global (voice-agnostic) targets
     ModulationOutputs globalModOutputs = processModulationMatrix();
+    lastGlobalModOutputs = globalModOutputs;
+    refreshSamplerPhaseDrivers();
+    float masterGain = std::clamp(masterVolume + lastGlobalModOutputs.mixerMasterVolume, 0.0f, 1.0f);
 
     // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
     for (int v = 0; v < MAX_VOICES; ++v) {
@@ -286,6 +292,14 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         voice.samplerLevelMod[1] = modOutputs.samp2Amp;
         voice.samplerLevelMod[2] = modOutputs.samp3Amp;
         voice.samplerLevelMod[3] = modOutputs.samp4Amp;
+
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            if (samplerPhaseSource[i] != kClockModSourceIndex) {
+                voice.samplerPhaseDriver[i] = normalizePhaseForDriver(modOutputs.samplerPhase[i], samplerPhaseType[i]);
+            } else {
+                voice.samplerPhaseDriver[i] = -1.0f;
+            }
+        }
     }
 
     // Process each active voice and mix into output
@@ -306,7 +320,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             // Mix into all channels with master volume
             // Scale by 0.5 to prevent clipping when multiple voices play
             for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                output[i * nChannels + ch] += sample * 0.5f * masterVolume;
+                output[i * nChannels + ch] += sample * 0.5f * masterGain;
             }
         }
     }
@@ -340,6 +354,16 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             globalModOutputs.samp1Amp, globalModOutputs.samp2Amp,
             globalModOutputs.samp3Amp, globalModOutputs.samp4Amp
         };
+        float samplerLevelOffsets[SAMPLERS_PER_VOICE] = {
+            lastGlobalModOutputs.mixerSamplerLevel[0], lastGlobalModOutputs.mixerSamplerLevel[1],
+            lastGlobalModOutputs.mixerSamplerLevel[2], lastGlobalModOutputs.mixerSamplerLevel[3]
+        };
+        float samplerPhaseDrivers[SAMPLERS_PER_VOICE] = {
+            samplerPhaseSource[0] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[0], samplerPhaseType[0]) : -1.0f,
+            samplerPhaseSource[1] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[1], samplerPhaseType[1]) : -1.0f,
+            samplerPhaseSource[2] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[2], samplerPhaseType[2]) : -1.0f,
+            samplerPhaseSource[3] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[3], samplerPhaseType[3]) : -1.0f
+        };
 
         for (unsigned int i = 0; i < nFrames; ++i) {
             float freeMix = 0.0f;
@@ -355,6 +379,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     samplerLoopLengthMods[s],
                     samplerCrossfadeMods[s],
                     samplerLevelMods[s],
+                    samplerLevelOffsets[s],
+                    samplerPhaseDrivers[s],
                     60                                // Reference MIDI note (ignored in FREE mode)
                 );
                 freeMix += samplerOut;
@@ -362,7 +388,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
             if (freeMix != 0.0f) {
                 for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                    output[i * nChannels + ch] += freeMix * 0.5f * masterVolume;
+                    output[i * nChannels + ch] += freeMix * 0.5f * masterGain;
                 }
             }
         }
@@ -435,6 +461,23 @@ void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, int sh
 void Synth::processLFOs(float sampleRate, unsigned int nFrames) {
     // Process all 4 LFOs once per audio buffer
     for (int i = 0; i < 4; ++i) {
+        // Apply modulation to LFO parameters (uses last buffer's outputs)
+        float periodBase = params ? params->getLfoPeriod(i) : lfos[i].getPeriod();
+        float morphBase = params ? params->getLfoMorph(i) : lfos[i].getMorph();
+        float dutyBase = params ? params->getLfoDuty(i) : lfos[i].getDuty();
+
+        float periodMod = lastGlobalModOutputs.lfoPeriod[i];
+        float morphMod = lastGlobalModOutputs.lfoMorph[i];
+        float dutyMod = lastGlobalModOutputs.lfoDuty[i];
+
+        float modulatedPeriod = std::max(0.001f, periodBase + periodMod);
+        float modulatedMorph = std::clamp(morphBase + morphMod, 0.0f, 1.0f);
+        float modulatedDuty = std::clamp(dutyBase + dutyMod, 0.0f, 1.0f);
+
+        lfos[i].setPeriod(modulatedPeriod);
+        lfos[i].setMorph(modulatedMorph);
+        lfos[i].setDuty(modulatedDuty);
+
         float value = lfos[i].process(sampleRate, nFrames);
         if (params) {
             params->setLfoVisualState(i, value, lfos[i].getPhase());
@@ -465,11 +508,44 @@ float Synth::getChaosOutput(int chaosIndex) const {
     return chaosOutputs[chaosIndex];
 }
 
+const ModulationSlot* Synth::getModulationSlot(int index) const {
+    if (!ui || index < 0 || index >= kModulationSlotCount) {
+        return nullptr;
+    }
+    return &ui->modulationSlots[index];
+}
+
+void Synth::refreshSamplerPhaseDrivers() {
+    std::fill(std::begin(samplerPhaseSource), std::end(samplerPhaseSource), kClockModSourceIndex);
+    std::fill(std::begin(samplerPhaseType), std::end(samplerPhaseType), 0);
+
+    for (int slotIdx = 0; slotIdx < kModulationSlotCount; ++slotIdx) {
+        const ModulationSlot* slot = getModulationSlot(slotIdx);
+        if (!slot || !slot->isComplete()) {
+            continue;
+        }
+
+        if (slot->destination >= kClockTargetSamplerBase &&
+            slot->destination < kClockTargetSamplerBase + SAMPLERS_PER_VOICE) {
+            int samplerIdx = slot->destination - kClockTargetSamplerBase;
+            samplerPhaseSource[samplerIdx] = slot->source >= 0 ? slot->source : kClockModSourceIndex;
+            samplerPhaseType[samplerIdx] = slot->type >= 0 ? slot->type : 0;
+        }
+    }
+}
+
+float Synth::normalizePhaseForDriver(float value, int type) const {
+    if (type == 0) {
+        return std::clamp(value, 0.0f, 1.0f);
+    }
+    return std::clamp((value + 1.0f) * 0.5f, 0.0f, 1.0f);
+}
+
 float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     // Source indices from ui_mod.cpp:
     // 0-3: LFO 1-4
     // 4-7: ENV 1-4
-    // 8: Velocity, 9: Aftertouch, 10: Mod Wheel, 11: Pitch Bend
+    // 8: Velocity, 9: Aftertouch, 10: Mod Wheel, 11: Pitch Bend, 12: Clock
 
     if (sourceIndex >= 0 && sourceIndex <= 3) {
         // LFO 1-4
@@ -508,6 +584,12 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     } else if (sourceIndex == 11) {
         // Pitch Bend - TODO: implement
         return 0.0f;
+    } else if (sourceIndex == 12) {
+        if (clock) {
+            float phase = static_cast<float>(clock->getPhase(Subdivision::SIXTEENTH));
+            return phase * 2.0f - 1.0f;
+        }
+        return -1.0f;
     }
 
     return 0.0f;
@@ -573,17 +655,23 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         }
 
         // Apply to destination
-        // Destination indices from ui_mod.cpp:
-        // 0-5: OSC 1 Pitch/Morph/Duty/Ratio/Offset/Level
-        // 6-11: OSC 2 Pitch/Morph/Duty/Ratio/Offset/Level
-        // 12-17: OSC 3 Pitch/Morph/Duty/Ratio/Offset/Level
-        // 18-23: OSC 4 Pitch/Morph/Duty/Ratio/Offset/Level
+        // Destination indices from ui_mod_data:
+        // 0-5: OSC 1 Pitch/Morph/Duty/Ratio/Offset/Amp
+        // 6-11: OSC 2 Pitch/Morph/Duty/Ratio/Offset/Amp
+        // 12-17: OSC 3 Pitch/Morph/Duty/Ratio/Offset/Amp
+        // 18-23: OSC 4 Pitch/Morph/Duty/Ratio/Offset/Amp
         // 24-25: Filter Cutoff/Resonance
         // 26-27: Reverb Mix/Size
         // 28-32: SAMP 1 Pitch/LoopStart/LoopLength/Crossfade/Level
         // 33-37: SAMP 2 Pitch/LoopStart/LoopLength/Crossfade/Level
         // 38-42: SAMP 3 Pitch/LoopStart/LoopLength/Crossfade/Level
         // 43-47: SAMP 4 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 48-59: LFO 1-4 Rate/Morph/Duty
+        // 60: Mixer Master Volume
+        // 61-64: Mixer Oscillator Levels
+        // 65-68: Mixer Sampler Levels
+        // 69-72: Sequencer Track 1-4 Phase Drivers
+        // 73-76: Sampler 1-4 Phase Drivers
 
         switch (slot.destination) {
             // OSC 1
@@ -644,6 +732,42 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 45: outputs.samp4LoopLength += modValue; break;
             case 46: outputs.samp4Crossfade += modValue; break;
             case 47: outputs.samp4Amp += modValue; break;
+            // LFO 1
+            case 48: outputs.lfoPeriod[0] += modValue; break;
+            case 49: outputs.lfoMorph[0] += modValue; break;
+            case 50: outputs.lfoDuty[0] += modValue; break;
+            // LFO 2
+            case 51: outputs.lfoPeriod[1] += modValue; break;
+            case 52: outputs.lfoMorph[1] += modValue; break;
+            case 53: outputs.lfoDuty[1] += modValue; break;
+            // LFO 3
+            case 54: outputs.lfoPeriod[2] += modValue; break;
+            case 55: outputs.lfoMorph[2] += modValue; break;
+            case 56: outputs.lfoDuty[2] += modValue; break;
+            // LFO 4
+            case 57: outputs.lfoPeriod[3] += modValue; break;
+            case 58: outputs.lfoMorph[3] += modValue; break;
+            case 59: outputs.lfoDuty[3] += modValue; break;
+            // Mixer
+            case 60: outputs.mixerMasterVolume += modValue; break;
+            case 61: outputs.mixerOscLevel[0] += modValue; break;
+            case 62: outputs.mixerOscLevel[1] += modValue; break;
+            case 63: outputs.mixerOscLevel[2] += modValue; break;
+            case 64: outputs.mixerOscLevel[3] += modValue; break;
+            case 65: outputs.mixerSamplerLevel[0] += modValue; break;
+            case 66: outputs.mixerSamplerLevel[1] += modValue; break;
+            case 67: outputs.mixerSamplerLevel[2] += modValue; break;
+            case 68: outputs.mixerSamplerLevel[3] += modValue; break;
+            // Sequencer phase drivers
+            case 69: outputs.sequencerPhase[0] += modValue; break;
+            case 70: outputs.sequencerPhase[1] += modValue; break;
+            case 71: outputs.sequencerPhase[2] += modValue; break;
+            case 72: outputs.sequencerPhase[3] += modValue; break;
+            // Sampler phase drivers
+            case 73: outputs.samplerPhase[0] += modValue; break;
+            case 74: outputs.samplerPhase[1] += modValue; break;
+            case 75: outputs.samplerPhase[2] += modValue; break;
+            case 76: outputs.samplerPhase[3] += modValue; break;
         }
     }
 
@@ -923,4 +1047,27 @@ bool Synth::getSamplerNoteReset(int samplerIndex) const {
         return true;
     }
     return samplerNoteResets[samplerIndex];
+}
+
+float Synth::getModulatedOscLevel(int index) const {
+    if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
+        return 0.0f;
+    }
+    float baseLevel = oscillatorBaseLevels[index];
+    float offset = lastGlobalModOutputs.mixerOscLevel[index];
+    return std::clamp(baseLevel + offset, 0.0f, 1.0f);
+}
+
+float Synth::getMixerSamplerLevelMod(int index) const {
+    if (index < 0 || index >= SAMPLERS_PER_VOICE) {
+        return 0.0f;
+    }
+    return lastGlobalModOutputs.mixerSamplerLevel[index];
+}
+
+float Synth::getMixerOscLevelMod(int index) const {
+    if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
+        return 0.0f;
+    }
+    return lastGlobalModOutputs.mixerOscLevel[index];
 }

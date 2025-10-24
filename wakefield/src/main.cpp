@@ -15,6 +15,7 @@
 #include "loop_manager.h"
 #include "parameter_smoother.h"
 #include "sequencer.h"
+#include "clock.h"
 
 // Global instances
 static Synth* synth = nullptr;
@@ -23,6 +24,7 @@ static SynthParameters* synthParams = nullptr;
 static UI* ui = nullptr;
 LoopManager* loopManager = nullptr;  // Non-static so UI can access it
 Sequencer* sequencer = nullptr;  // Non-static so UI can access it
+static Clock* transportClock = nullptr;
 static bool running = true;
 
 void signalHandler(int signum) {
@@ -658,8 +660,14 @@ int main(int argc, char** argv) {
     // Create looper manager
     loopManager = new LoopManager(static_cast<float>(sampleRate));
 
+    // Create shared transport clock
+    transportClock = new Clock(static_cast<float>(sampleRate));
+
+    // Provide clock to synth and sequencer
+    synth->setClock(transportClock);
+
     // Create sequencer
-    sequencer = new Sequencer(static_cast<float>(sampleRate), synth);
+    sequencer = new Sequencer(transportClock, synth);
 
     // Initialize UI first (before audio)
     ui = new UI(synth, synthParams);

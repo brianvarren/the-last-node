@@ -10,9 +10,11 @@
 #include "reverb.h"
 #include "filters.hpp"
 #include "sample_bank.h"
+#include "modulation.h"
 
 class UI; // Forward declaration
 struct SynthParameters;  // Forward declaration
+class Clock; // Forward declaration
 
 constexpr int MAX_VOICES = 8;
 // Note: OSCILLATORS_PER_VOICE and SAMPLERS_PER_VOICE are defined in voice.h
@@ -34,6 +36,10 @@ public:
 
     // Link to SynthParameters for FM matrix access
     void setParams(SynthParameters* params_ptr);
+
+    // Link global clock for modulation sources and synced modules
+    void setClock(Clock* clockPtr) { clock = clockPtr; }
+    Clock* getClock() const { return clock; }
 
     // Brainwave oscillator control
     // Reverb control
@@ -60,6 +66,9 @@ public:
 
     // Get chaos outputs (for modulation matrix and FM)
     float getChaosOutput(int chaosIndex) const;
+
+    // Access modulation slot definitions (read-only)
+    const ModulationSlot* getModulationSlot(int index) const;
 
     // Modulation matrix processing
     struct ModulationOutputs {
@@ -115,6 +124,17 @@ public:
         float samp4LoopLength = 0.0f;
         float samp4Crossfade = 0.0f;
         float samp4Amp = 0.0f;
+        // LFO modulation
+        float lfoPeriod[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float lfoMorph[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float lfoDuty[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        // Mixer modulation
+        float mixerMasterVolume = 0.0f;
+        float mixerOscLevel[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float mixerSamplerLevel[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        // Clock target modulation
+        float sequencerPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float samplerPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     };
 
     ModulationOutputs processModulationMatrix(const Voice* voiceContext = nullptr);
@@ -178,6 +198,9 @@ public:
     float getSamplerTune(int samplerIndex) const;
     int getSamplerSyncMode(int samplerIndex) const;
     bool getSamplerNoteReset(int samplerIndex) const;
+    float getModulatedOscLevel(int index) const;
+    float getMixerSamplerLevelMod(int index) const;
+    float getMixerOscLevelMod(int index) const;
 
 private:
     float sampleRate;
@@ -187,6 +210,7 @@ private:
     int currentFilterType;
     UI* ui;
     SynthParameters* params;  // Pointer to parameters (for FM matrix)
+    Clock* clock;
 
     std::vector<Voice> voices;
     GreyholeReverb reverb;
@@ -197,6 +221,13 @@ private:
     // 4 global chaos generators for modulation
     ChaosGenerator chaos[4];
     float chaosOutputs[4] = {0.0f, 0.0f, 0.0f, 0.0f};  // Cached chaos outputs
+    ModulationOutputs lastGlobalModOutputs;
+
+    int samplerPhaseSource[SAMPLERS_PER_VOICE] = {
+        kClockModSourceIndex, kClockModSourceIndex,
+        kClockModSourceIndex, kClockModSourceIndex
+    };
+    int samplerPhaseType[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};
 
     // Stereo filters (left and right channel)
     OnePoleTPT filterL;
@@ -235,6 +266,8 @@ private:
 
     int findFreeVoice();
     float midiNoteToFrequency(int midiNote);
+    void refreshSamplerPhaseDrivers();
+    float normalizePhaseForDriver(float value, int type) const;
 };
 
 #endif // SYNTH_H

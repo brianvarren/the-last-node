@@ -36,6 +36,7 @@ struct Voice {
     float samplerLoopLengthMod[SAMPLERS_PER_VOICE];
     float samplerCrossfadeMod[SAMPLERS_PER_VOICE];
     float samplerLevelMod[SAMPLERS_PER_VOICE];
+    float samplerPhaseDriver[SAMPLERS_PER_VOICE];
 
     Voice(float sampleRate)
         : active(false)
@@ -62,6 +63,7 @@ struct Voice {
             samplerLoopLengthMod[i] = 0.0f;
             samplerCrossfadeMod[i] = 0.0f;
             samplerLevelMod[i] = 0.0f;
+            samplerPhaseDriver[i] = -1.0f;
         }
     }
 
