@@ -870,6 +870,15 @@ private:
     void drawHelpPage();
     std::string getHelpContent(UIPage page);
 
+    // MIDI keyboard mode
+    bool midiKeyboardMode;
+    std::vector<int> activeKeyboardNotes;  // Track which notes are currently pressed
+    int getCurrentOctave() const { return midiKeyboardOctave; }
+    void setCurrentOctave(int octave) { midiKeyboardOctave = octave; }
+
+private:
+    int midiKeyboardOctave;  // Current octave (0-10, default 4 = middle C)
+
     // CPU monitor
     CPUMonitor cpuMonitor;
     void drawCPUOverlay();

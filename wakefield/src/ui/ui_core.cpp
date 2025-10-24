@@ -52,7 +52,9 @@ UI::UI(Synth* synth, SynthParameters* params)
     , sampleBrowserActive(false)
     , sampleBrowserCurrentDir("../samples")
     , sampleBrowserSelectedIndex(0)
-    , sampleBrowserScrollOffset(0) {
+    , sampleBrowserScrollOffset(0)
+    , midiKeyboardMode(false)
+    , midiKeyboardOctave(4) {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {

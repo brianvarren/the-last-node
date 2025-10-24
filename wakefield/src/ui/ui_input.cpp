@@ -9,6 +9,115 @@ extern LoopManager* loopManager;
 extern Sequencer* sequencer;
 
 void UI::handleInput(int ch) {
+    // Check for Ctrl+K to toggle MIDI keyboard mode (KEY_CTRL + 'k' = 11 in most terminals)
+    if (ch == 11) {  // Ctrl+K
+        midiKeyboardMode = !midiKeyboardMode;
+        if (midiKeyboardMode) {
+            addConsoleMessage("MIDI Keyboard Mode: ON (Octave " + std::to_string(midiKeyboardOctave) + ")");
+        } else {
+            // Release all active notes when exiting keyboard mode
+            for (int note : activeKeyboardNotes) {
+                synth->noteOff(note);
+            }
+            activeKeyboardNotes.clear();
+            addConsoleMessage("MIDI Keyboard Mode: OFF");
+        }
+        return;
+    }
+
+    // Handle MIDI keyboard mode input (musical typing)
+    if (midiKeyboardMode) {
+        // Map of keys to semitone offsets from base note
+        // Piano-style layout: ZSXDCVGBHNJM (lower row white keys)
+        //                     Q2W3ER5T6Y7U (upper row black keys)
+        // Additional: I9O0P (extend range)
+        int semitoneOffset = -1;
+
+        switch (ch) {
+            // Lower row (white keys) - C major scale starting from base note
+            case 'z': case 'Z': semitoneOffset = 0; break;   // C
+            case 's': case 'S': semitoneOffset = 1; break;   // C#
+            case 'x': case 'X': semitoneOffset = 2; break;   // D
+            case 'd': case 'D': semitoneOffset = 3; break;   // D#
+            case 'c': case 'C': semitoneOffset = 4; break;   // E
+            case 'v': case 'V': semitoneOffset = 5; break;   // F
+            case 'g': case 'G': semitoneOffset = 6; break;   // F#
+            case 'b': case 'B': semitoneOffset = 7; break;   // G
+            case 'h': case 'H': semitoneOffset = 8; break;   // G#
+            case 'n': case 'N': semitoneOffset = 9; break;   // A
+            case 'j': case 'J': semitoneOffset = 10; break;  // A#
+            case 'm': case 'M': semitoneOffset = 11; break;  // B
+            case ',': case '<': semitoneOffset = 12; break;  // C (next octave)
+
+            // Upper row (chromatic) - second octave
+            case 'q': case 'Q': semitoneOffset = 12; break;  // C
+            case '2': case '@': semitoneOffset = 13; break;  // C#
+            case 'w': case 'W': semitoneOffset = 14; break;  // D
+            case '3': case '#': semitoneOffset = 15; break;  // D#
+            case 'e': case 'E': semitoneOffset = 16; break;  // E
+            case 'r': case 'R': semitoneOffset = 17; break;  // F
+            case '5': case '%': semitoneOffset = 18; break;  // F#
+            case 't': case 'T': semitoneOffset = 19; break;  // G
+            case '6': case '^': semitoneOffset = 20; break;  // G#
+            case 'y': case 'Y': semitoneOffset = 21; break;  // A
+            case '7': case '&': semitoneOffset = 22; break;  // A#
+            case 'u': case 'U': semitoneOffset = 23; break;  // B
+            case 'i': case 'I': semitoneOffset = 24; break;  // C (two octaves up)
+            case '9': case '(': semitoneOffset = 25; break;  // C#
+            case 'o': case 'O': semitoneOffset = 26; break;  // D
+            case '0': case ')': semitoneOffset = 27; break;  // D#
+            case 'p': case 'P': semitoneOffset = 28; break;  // E
+
+            // Octave control
+            case 'a': case 'A':  // Lower octave
+                midiKeyboardOctave = std::max(0, midiKeyboardOctave - 1);
+                addConsoleMessage("MIDI Keyboard: Octave " + std::to_string(midiKeyboardOctave));
+                return;
+            case 'f': case 'F':  // Raise octave (avoiding conflict with 'f' key note)
+                // Changed to use different key
+                break;
+            case '\'': case '"':  // Raise octave (using apostrophe/quote key)
+                midiKeyboardOctave = std::min(10, midiKeyboardOctave + 1);
+                addConsoleMessage("MIDI Keyboard: Octave " + std::to_string(midiKeyboardOctave));
+                return;
+
+            // Allow escape to exit MIDI keyboard mode
+            case 27:  // ESC
+                midiKeyboardMode = false;
+                for (int note : activeKeyboardNotes) {
+                    synth->noteOff(note);
+                }
+                activeKeyboardNotes.clear();
+                addConsoleMessage("MIDI Keyboard Mode: OFF");
+                return;
+        }
+
+        if (semitoneOffset >= 0) {
+            // Calculate MIDI note number (C4 = 60)
+            int baseNote = (midiKeyboardOctave * 12) + 12;  // C of current octave
+            int midiNote = baseNote + semitoneOffset;
+
+            if (midiNote >= 0 && midiNote <= 127) {
+                // Check if note is already active (avoid retriggering on key repeat)
+                bool alreadyActive = false;
+                for (int activeNote : activeKeyboardNotes) {
+                    if (activeNote == midiNote) {
+                        alreadyActive = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyActive) {
+                    synth->noteOn(midiNote, 100);  // Fixed velocity of 100
+                    activeKeyboardNotes.push_back(midiNote);
+                }
+            }
+        }
+
+        // In MIDI keyboard mode, we consume all input except for critical controls
+        return;
+    }
+
     // Handle help mode
     if (helpActive) {
         if (ch == 'h' || ch == 'H' || ch == 27 || ch == 'q' || ch == 'Q') {  // H, Esc, or Q to close

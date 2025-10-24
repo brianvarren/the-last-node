@@ -158,6 +158,18 @@ void UI::draw(int activeVoices) {
     drawTabs();
     drawCPUOverlay();  // Always draw CPU overlay on top bar
 
+    // Draw MIDI keyboard mode indicator (center of top bar)
+    if (midiKeyboardMode) {
+        int maxX = getmaxx(stdscr);
+        std::string indicator = " [MIDI KB: OCT" + std::to_string(midiKeyboardOctave) + "] ";
+        int indicatorLen = static_cast<int>(indicator.length());
+        int x = (maxX - indicatorLen) / 2;  // Center it
+
+        attron(COLOR_PAIR(4) | A_BOLD | A_REVERSE);  // Red/yellow bold reverse (attention-grabbing)
+        mvprintw(0, x, "%s", indicator.c_str());
+        attroff(COLOR_PAIR(4) | A_BOLD | A_REVERSE);
+    }
+
     switch (currentPage) {
         case UIPage::OSCILLATOR:
             drawOscillatorPage();

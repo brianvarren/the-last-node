@@ -305,6 +305,217 @@ This allows complex polyrhythmic textures:
 )";
             break;
 
+        case UIPage::MIXER:
+            content = R"(
+=== MIXER ===
+
+CONTROLS:
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select mixer channel
+  Left/Right     - Adjust channel level
+  Enter          - Type exact value
+  M              - Toggle mute for selected channel
+  S              - Toggle solo for selected channel
+  L              - MIDI Learn (assign MIDI CC)
+
+CHANNELS:
+  OSC 1-4    - Oscillator mix levels (0.0-1.0)
+  SAMP 1-4   - Sampler mix levels (0.0-1.0)
+
+ABOUT:
+The Mixer page provides level control and mute/solo functionality for all
+8 audio sources (4 oscillators + 4 samplers). Each channel has:
+
+LEVEL CONTROL:
+  - Mix level sets the static output volume for each source
+  - Values range from 0.0 (silent) to 1.0 (full volume)
+  - Levels are applied before the master output
+
+MUTE/SOLO:
+  - MUTE: Silence a channel without changing its level setting
+  - SOLO: Solo one or more channels (all non-soloed channels are muted)
+  - Multiple channels can be soloed simultaneously
+  - Visual indicators: M (muted in red), S (solo in green)
+
+WORKFLOW:
+1. Use Up/Down to select a channel
+2. Adjust level with Left/Right (coarse) or Shift+Left/Right (fine)
+3. Press M to mute/unmute or S to solo/unsolo
+4. Press L to assign MIDI CC control for real-time mixing
+)";
+            break;
+
+        case UIPage::SAMPLER:
+            content = R"(
+=== SAMPLER ===
+
+CONTROLS:
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select parameter
+  Left/Right     - Adjust parameter value
+  Enter          - Type exact value or load sample
+  L              - MIDI Learn (assign MIDI CC)
+  1-4            - Select sampler (4 independent samplers)
+
+PARAMETERS:
+  Key Mode   - FREE (manual speed) or KEY (MIDI tracking)
+  Direction  - Forward, Reverse, or Ping-Pong playback
+  Loop Start - Start position of loop region (0-100%)
+  Loop Length- Length of loop region (0-100%)
+  Xfade      - Crossfade length at loop boundaries (0-100%)
+  Ratio      - Playback speed multiplier (0.125-16.0)
+  Offset     - Frequency offset in Hz (-1000-1000)
+  Sync       - Tempo sync mode (off/on/trip/dot)
+  Note Reset - Restart playback on note-on
+
+ABOUT:
+Wakefield features 4 independent samplers with advanced loop control.
+Each sampler can load 16-bit WAV files and play them back with:
+
+PLAYBACK MODES:
+  - Forward: Normal playback direction
+  - Reverse: Plays sample backwards
+  - Ping-Pong: Alternates between forward and reverse at loop boundaries
+
+KEY TRACKING:
+  - FREE mode: Manual speed control via Ratio parameter
+  - KEY mode: Sample pitch tracks MIDI notes (like a keyboard sampler)
+  - Offset adds/subtracts frequency for detuning effects
+
+LOOP CONTROL:
+  - Loop Start/Length define a region within the sample
+  - Crossfade smoothly blends loop boundaries to prevent clicks
+  - Visual loop indicator (green bar) shows active loop region
+  - Useful for creating sustained textures from one-shot samples
+
+WAVEFORM DISPLAY:
+The waveform preview shows the loaded sample's amplitude envelope.
+The green bar at the bottom indicates the active loop region.
+)";
+            break;
+
+        case UIPage::FM:
+            content = R"(
+=== FM MATRIX ===
+
+CONTROLS:
+  Arrow Keys  - Navigate FM matrix cells (source/target pairs)
+  Left/Right  - Adjust FM depth (-99% to +99%)
+  Enter       - Type exact value
+  Shift+Arrow - Jump by 4 cells
+  Tab         - Navigate between pages
+
+MATRIX LAYOUT:
+  ROWS (Sources):    OSC1, OSC2, OSC3, OSC4, SAMP1, SAMP2, SAMP3, SAMP4
+  COLUMNS (Targets): OSC1, OSC2, OSC3, OSC4, SAMP1, SAMP2, SAMP3, SAMP4
+
+ABOUT:
+The FM Matrix provides audio-rate frequency modulation routing between
+all 8 audio sources (4 oscillators + 4 samplers). This creates complex,
+harmonically rich timbres through phase modulation synthesis.
+
+HOW FM WORKS:
+  - Source oscillators/samplers modulate the frequency of target oscillators
+  - Each cell shows FM depth as percentage (-99% to +99%)
+  - Positive values: Normal FM (adds harmonics)
+  - Negative values: Inverted FM (different harmonic content)
+  - Zero depth: No modulation (default)
+
+CREATING FM PATCHES:
+1. Navigate to a cell where row is MODULATOR and column is CARRIER
+   Example: Row=OSC1, Col=OSC2 means OSC1 modulates OSC2
+2. Increase depth to hear frequency modulation effects
+3. Try multiple modulators on one carrier for complex timbres
+4. Experiment with feedback by routing an oscillator to itself
+   Example: Row=OSC1, Col=OSC1 creates self-modulation
+
+TIPS:
+  - Start with 10-30% depth and adjust to taste
+  - Use samplers as modulators for unique textures
+  - Combine FM with the morph parameter for evolving sounds
+  - Higher depth values create more aggressive, harmonically dense sounds
+  - Self-modulation (diagonal cells) creates feedback FM
+
+CLASSIC FM ALGORITHMS:
+  - 2-Operator: OSC1→OSC2 (simple, bell-like tones)
+  - 3-Operator Stack: OSC1→OSC2→OSC3 (complex harmonics)
+  - Parallel: OSC1→OSC3, OSC2→OSC3 (dual modulators)
+)";
+            break;
+
+        case UIPage::CHAOS:
+            content = R"(
+=== CHAOS GENERATORS (Ikeda Map) ===
+
+CONTROLS:
+  Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Select parameter
+  Left/Right     - Adjust parameter value
+  Enter          - Type exact value
+  1-4            - Select chaos generator (4 independent generators)
+
+PARAMETERS:
+  Chaos      - Chaos amount (0.0-2.0, ~0.6 is chaotic)
+  Clock      - Update rate in Hz (0.01-1000)
+  Mode       - FAST (audio-rate) or CLOCKED (low-rate)
+  Interp     - Interpolation: CUBIC or LINEAR
+
+ABOUT:
+Chaos generators produce complex, non-repeating modulation signals using
+the Ikeda map algorithm. Unlike LFOs which repeat in cycles, chaos
+generators create evolving, organic modulation that never exactly repeats.
+
+THE IKEDA MAP:
+The Ikeda map is a 2D chaotic attractor originally used to model laser
+behavior. It produces smooth, complex trajectories in phase space that
+can be used as modulation sources for synthesis parameters.
+
+CHAOS PARAMETER:
+  - 0.0-0.3:   Periodic (repeating patterns)
+  - 0.4-0.7:   Chaotic (sweet spot, complex but controlled)
+  - 0.8-2.0:   Very chaotic (wild, unpredictable)
+  - ~0.6:      Ideal for musical applications
+
+OPERATING MODES:
+  FAST Mode:   Updates every audio sample (48kHz rate)
+               - More CPU intensive
+               - Richer, more complex output
+               - Best for audio-rate modulation
+
+  CLOCKED Mode: Updates at clock frequency (0.01-1000 Hz)
+                - Less CPU intensive
+                - Interpolates between iterations
+                - Best for slow, evolving modulation
+
+INTERPOLATION:
+  LINEAR: Straight lines between chaos iterations (faster)
+  CUBIC:  Smooth curves between iterations (more organic)
+
+MUSICAL APPLICATIONS:
+  - Evolving filter sweeps (modulate filter cutoff)
+  - Non-repeating LFO-like modulation
+  - Generative pitch variations
+  - Organic amplitude modulation
+  - Slow-moving timbral evolution (low clock rate)
+  - Aggressive modulation effects (high clock rate)
+
+WORKFLOW:
+1. Start with Chaos=0.6, Clock=1Hz, CLOCKED mode, LINEAR interp
+2. Route chaos output to a parameter via the MOD matrix
+3. Adjust Chaos parameter to find interesting behavior
+4. Increase Clock frequency for faster modulation
+5. Switch to FAST mode for audio-rate effects
+6. Try CUBIC interpolation for smoother movement
+
+TIPS:
+  - Lower clock rates (0.1-5 Hz) create slow, ambient evolution
+  - Higher clock rates (10-100 Hz) create tremolo/vibrato effects
+  - FAST mode can create audio-rate distortion and noise textures
+  - Chaos generators never repeat, making them ideal for generative music
+  - Use multiple chaos generators with different parameters for layered complexity
+)";
+            break;
+
         case UIPage::CONFIG:
             content = R"(
 === CONFIGURATION ===
@@ -314,6 +525,7 @@ CONTROLS:
   Enter      - Select audio/MIDI device
   H          - Show this help
   Q          - Quit
+  Ctrl+K     - Toggle MIDI Keyboard Mode (global)
 
 ABOUT:
 The CONFIG page shows system information and allows selection of audio
@@ -327,6 +539,31 @@ SYSTEM INFO:
 
 To change devices, select them from the list and press Enter. The application
 will restart with the new configuration.
+
+MIDI KEYBOARD MODE:
+Press Ctrl+K from any page to toggle MIDI Keyboard Mode. When active, your
+typing keyboard becomes a musical keyboard that triggers MIDI notes:
+
+KEYBOARD LAYOUT:
+  Lower Row (white keys):  Z X C V B N M , (C D E F G A B C)
+                           S D   G H J   (C# D# F# G# A#)
+
+  Upper Row (second octave): Q W E R T Y U I O P (C through E, +12 semitones)
+                             2 3   5 6 7   9 0   (sharps/flats)
+
+OCTAVE CONTROLS:
+  A        - Lower octave (0-10)
+  ' (apos) - Raise octave (0-10)
+  ESC      - Exit MIDI Keyboard Mode
+
+When active, a highlighted "[MIDI KB: OCTX]" indicator appears in the top bar
+showing the current octave. Default octave is 4 (middle C = C4 = MIDI note 60).
+
+Notes:
+- Fixed velocity of 100 for all notes
+- Notes sustain until you release the mode (no key-release detection)
+- All normal UI navigation is disabled while in MIDI keyboard mode
+- Use ESC or Ctrl+K to exit the mode and return to normal operation
 )";
             break;
 
