@@ -374,10 +374,20 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
         }
         case ParamType::ENUM: {
             int enumValue = static_cast<int>(currentValue);
+            int minEnum = static_cast<int>(param->min_val);
+            int maxEnum = static_cast<int>(param->max_val);
+            int range = maxEnum - minEnum + 1;
+
             if (increase) {
-                enumValue = std::min(static_cast<int>(param->max_val), enumValue + 1);
+                enumValue++;
+                if (enumValue > maxEnum) {
+                    enumValue = minEnum;  // Wrap to beginning
+                }
             } else {
-                enumValue = std::max(static_cast<int>(param->min_val), enumValue - 1);
+                enumValue--;
+                if (enumValue < minEnum) {
+                    enumValue = maxEnum;  // Wrap to end
+                }
             }
             newValue = static_cast<float>(enumValue);
             break;

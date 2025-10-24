@@ -349,8 +349,34 @@ void UI::handleInput(int ch) {
         }
     };
 
-    // Arrow keys now only navigate parameters
-    if (parameterPage && (ch == KEY_UP || ch == KEY_LEFT)) {
+    // Arrow key behavior for parameter pages
+    // SAMPLER page: Up/Down navigate, Left/Right adjust
+    // Other pages: Up/Down/Left/Right all navigate (legacy behavior)
+    if (currentPage == UIPage::SAMPLER) {
+        if (ch == KEY_UP) {
+            selectPrevParameter();
+            return;
+        } else if (ch == KEY_DOWN) {
+            selectNextParameter();
+            return;
+        } else if (ch == KEY_LEFT) {
+            if (!pageParams.empty() && !numericInputActive) {
+                if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
+                    selectedParameterId = pageParams.front();
+                }
+                adjustParameter(selectedParameterId, false, false);  // decrease, coarse
+            }
+            return;
+        } else if (ch == KEY_RIGHT) {
+            if (!pageParams.empty() && !numericInputActive) {
+                if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
+                    selectedParameterId = pageParams.front();
+                }
+                adjustParameter(selectedParameterId, true, false);  // increase, coarse
+            }
+            return;
+        }
+    } else if (parameterPage && (ch == KEY_UP || ch == KEY_LEFT)) {
         selectPrevParameter();
         return;
     } else if (parameterPage && (ch == KEY_DOWN || ch == KEY_RIGHT)) {
