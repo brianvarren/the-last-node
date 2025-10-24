@@ -67,8 +67,12 @@ void UI::drawSamplerPage() {
 
     row++; // Move to inside the border
 
+    // Get loop parameters to pass to waveform drawer
+    float loopStart = synth->getSamplerLoopStart(currentSamplerIndex);
+    float loopLength = synth->getSamplerLoopLength(currentSamplerIndex);
+
     if (sample && sample->sampleCount > 0) {
-        drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample);
+        drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample, loopStart, loopLength);
     } else {
         // Draw empty waveform with just centerline
         int centerRow = row + waveformHeight / 2;
@@ -78,29 +82,9 @@ void UI::drawSamplerPage() {
     }
     row += waveformHeight;
 
-    // Draw loop indicator as bottom border
-    float loopStart = synth->getSamplerLoopStart(currentSamplerIndex);
-    float loopLength = synth->getSamplerLoopLength(currentSamplerIndex);
-
-    int loopStartPos = static_cast<int>(loopStart * waveformWidth);
-    int loopEndPos = static_cast<int>((loopStart + loopLength) * waveformWidth);
-
-    // Clamp to screen bounds
-    loopStartPos = std::max(0, std::min(loopStartPos, waveformWidth - 1));
-    loopEndPos = std::max(0, std::min(loopEndPos, waveformWidth));
-
-    for (int i = 0; i < waveformWidth; ++i) {
-        if (i >= loopStartPos && i < loopEndPos) {
-            attron(COLOR_PAIR(2) | A_BOLD);
-            mvaddch(row, leftCol + i, '=');
-            attroff(COLOR_PAIR(2) | A_BOLD);
-        } else {
-            attron(COLOR_PAIR(8));
-            mvaddch(row, leftCol + i, '-');
-            attroff(COLOR_PAIR(8));
-        }
-    }
-    row += 2; // Skip past loop indicator and add blank line
+    // Draw regular bottom border
+    mvhline(row, leftCol, '-', waveformWidth);
+    row += 2; // Skip past border and add blank line
 
     // Parameters in two columns
     attron(COLOR_PAIR(5) | A_BOLD);
@@ -200,7 +184,7 @@ void UI::drawSamplerPage() {
 
 }
 
-void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample) {
+void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample, float loopStart, float loopLength) {
     if (!sample || sample->sampleCount == 0 || !sample->samples) return;
 
     // Calculate how many samples to analyze per column
@@ -208,6 +192,10 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
     if (samplesPerColumn == 0) return;
 
     int centerRow = topRow + height / 2;
+
+    // Calculate loop region boundaries in columns
+    int loopStartCol = static_cast<int>(loopStart * width);
+    int loopEndCol = static_cast<int>((loopStart + loopLength) * width);
 
     // For each column, find the peak amplitude
     for (int col = 0; col < width; ++col) {
@@ -228,23 +216,27 @@ void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, con
         int columnHeight = static_cast<int>(peakAmplitude * (height / 2));
         columnHeight = std::min(columnHeight, height / 2);
 
+        // Determine color: bright green in loop region, dim green outside
+        bool inLoop = (col >= loopStartCol && col < loopEndCol);
+        int colorAttr = inLoop ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(2) | A_DIM);
+
         // Draw above center
         for (int i = 0; i < columnHeight; ++i) {
-            attron(COLOR_PAIR(2));
+            attron(colorAttr);
             mvaddch(centerRow - i - 1, leftCol + col, '*');
-            attroff(COLOR_PAIR(2));
+            attroff(colorAttr);
         }
 
         // Draw below center
         for (int i = 0; i < columnHeight; ++i) {
-            attron(COLOR_PAIR(2));
+            attron(colorAttr);
             mvaddch(centerRow + i + 1, leftCol + col, '*');
-            attroff(COLOR_PAIR(2));
+            attroff(colorAttr);
         }
 
         // Always draw center line in green with * characters
-        attron(COLOR_PAIR(2));
+        attron(colorAttr);
         mvaddch(centerRow, leftCol + col, '*');
-        attroff(COLOR_PAIR(2));
+        attroff(colorAttr);
     }
 }
