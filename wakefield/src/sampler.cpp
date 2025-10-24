@@ -27,6 +27,7 @@ Sampler::Sampler()
     , pendingLoopValid(false)
     , restartRequested(true)
     , wasInZoneLastSample(false)
+    , playingReverse(false)
     , modulatorSmoothed(0.0f) {
 
     // Initialize voice A as active
@@ -373,6 +374,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
         secondaryVoice->active = false;
         secondaryVoice->amplitude = 0.0f;
         wasInZoneLastSample = false;
+        playingReverse = false;  // Reset ping-pong direction
         restartRequested = false;
     }
 
@@ -390,7 +392,8 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     }
 
     // Determine playback direction
-    bool isReverse = (mode == PlaybackMode::REVERSE);
+    bool isReverse = (mode == PlaybackMode::REVERSE) ||
+                     (mode == PlaybackMode::ALTERNATE && playingReverse);
 
     // Calculate phase increment
     int64_t inc = calculateIncrement(sampleRate, fmInput, pitchMod, isReverse, midiNote);
@@ -431,9 +434,16 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     // Only wrap when not crossfading
     if (!crossfading) {
         bool wrappedPrimary = wrapPhase(primaryVoice);
-        if (wrappedPrimary && xfadeLen == 0) {
-            ensurePendingLoop(loopStartMod, loopLengthMod);
-            applyPendingLoopToVoice(primaryVoice);
+        if (wrappedPrimary) {
+            // Toggle direction for ping-pong mode
+            if (mode == PlaybackMode::ALTERNATE) {
+                playingReverse = !playingReverse;
+            }
+
+            if (xfadeLen == 0) {
+                ensurePendingLoop(loopStartMod, loopLengthMod);
+                applyPendingLoopToVoice(primaryVoice);
+            }
         }
     }
 

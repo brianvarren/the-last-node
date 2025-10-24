@@ -741,6 +741,27 @@ void Synth::setSamplerTune(int samplerIndex, float tune) {
     setSamplerPlaybackSpeed(samplerIndex, speed);
 }
 
+void Synth::setSamplerSyncMode(int samplerIndex, int mode) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    // Clamp sync mode to 0-3 (Off, On, Trip, Dot)
+    samplerSyncModes[samplerIndex] = std::max(0, std::min(3, mode));
+
+    // TODO: Implement tempo sync functionality
+}
+
+void Synth::setSamplerNoteReset(int samplerIndex, bool enabled) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return;
+    }
+
+    samplerNoteResets[samplerIndex] = enabled;
+
+    // TODO: Implement note reset functionality
+}
+
 void Synth::setSamplerTZFMDepth(int samplerIndex, float depth) {
     if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
         return;
@@ -871,4 +892,18 @@ float Synth::getSamplerTune(int samplerIndex) const {
         return 0.0f;
     }
     return samplerTunes[samplerIndex];
+}
+
+int Synth::getSamplerSyncMode(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return 0;
+    }
+    return samplerSyncModes[samplerIndex];
+}
+
+bool Synth::getSamplerNoteReset(int samplerIndex) const {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
+        return true;
+    }
+    return samplerNoteResets[samplerIndex];
 }

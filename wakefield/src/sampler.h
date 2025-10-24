@@ -107,6 +107,9 @@ private:
     // Zone detection (prevents retriggering crossfade)
     bool wasInZoneLastSample;
 
+    // Ping-pong direction state (for ALTERNATE mode)
+    bool playingReverse;
+
     // TZFM smoothing
     float modulatorSmoothed;
     static constexpr float MODULATOR_SMOOTHING = 0.85f;

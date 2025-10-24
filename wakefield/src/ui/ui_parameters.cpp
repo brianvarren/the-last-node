@@ -161,8 +161,8 @@ float UI::getParameterValue(int id) {
         case 63: return synth->getSamplerCrossfadeLength(samplerIndex) * 100.0f;
         case 64: return static_cast<float>(synth->getSamplerOctave(samplerIndex));
         case 65: return synth->getSamplerTune(samplerIndex);
-        case 66: return 0.0f;  // TODO: Sync not yet implemented
-        case 67: return 1.0f;  // TODO: Note Reset not yet implemented
+        case 66: return static_cast<float>(synth->getSamplerSyncMode(samplerIndex));
+        case 67: return synth->getSamplerNoteReset(samplerIndex) ? 1.0f : 0.0f;
         case 200: return params->getLfoPeriod(lfoIndex);
         case 201: return static_cast<float>(params->getLfoSyncMode(lfoIndex));
         case 202: return params->getLfoMorph(lfoIndex);
@@ -250,8 +250,8 @@ void UI::setParameterValue(int id, float value) {
         case 63: synth->setSamplerCrossfadeLength(samplerIndex, value / 100.0f); break;
         case 64: synth->setSamplerOctave(samplerIndex, static_cast<int>(value)); break;
         case 65: synth->setSamplerTune(samplerIndex, value); break;
-        case 66: break;  // TODO: Sync not yet implemented
-        case 67: break;  // TODO: Note Reset not yet implemented
+        case 66: synth->setSamplerSyncMode(samplerIndex, static_cast<int>(value)); break;
+        case 67: synth->setSamplerNoteReset(samplerIndex, value > 0.5f); break;
         case 200: params->setLfoPeriod(lfoIndex, value); break;
         case 201: params->setLfoSyncMode(lfoIndex, static_cast<int>(value)); break;
         case 202: params->setLfoMorph(lfoIndex, value); break;

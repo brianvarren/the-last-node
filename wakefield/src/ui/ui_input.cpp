@@ -359,25 +359,27 @@ void UI::handleInput(int ch) {
         } else if (ch == KEY_DOWN) {
             selectNextParameter();
             return;
-        } else if (ch == KEY_LEFT) {
+        } else if (ch == KEY_LEFT || ch == KEY_SLEFT) {
             if (!pageParams.empty() && !numericInputActive) {
                 if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
                     selectedParameterId = pageParams.front();
                 }
                 // Skip adjustment for sample name (ID 69) - it's select-only
                 if (selectedParameterId != 69) {
-                    adjustParameter(selectedParameterId, false, false);  // decrease, coarse
+                    bool fine = (ch == KEY_SLEFT);  // Shift+Left for fine adjustment
+                    adjustParameter(selectedParameterId, false, fine);  // decrease
                 }
             }
             return;
-        } else if (ch == KEY_RIGHT) {
+        } else if (ch == KEY_RIGHT || ch == KEY_SRIGHT) {
             if (!pageParams.empty() && !numericInputActive) {
                 if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
                     selectedParameterId = pageParams.front();
                 }
                 // Skip adjustment for sample name (ID 69) - it's select-only
                 if (selectedParameterId != 69) {
-                    adjustParameter(selectedParameterId, true, false);  // increase, coarse
+                    bool fine = (ch == KEY_SRIGHT);  // Shift+Right for fine adjustment
+                    adjustParameter(selectedParameterId, true, fine);  // increase
                 }
             }
             return;

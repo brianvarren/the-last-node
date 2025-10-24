@@ -50,10 +50,24 @@ void UI::drawSamplerPage() {
     const int waveformHeight = 9; // Odd number for centerline visibility
     const int waveformWidth = maxX - leftCol - 2; // Stretch to screen width
 
-    // Draw top border
+    // Draw gray border box around waveform area
     attron(COLOR_PAIR(8));
-    mvhline(row++, leftCol, '-', waveformWidth);
+    // Top and bottom borders
+    mvhline(row, leftCol, '-', waveformWidth);
+    mvhline(row + waveformHeight + 1, leftCol, '-', waveformWidth);
+    // Left and right borders
+    for (int i = 0; i < waveformHeight; ++i) {
+        mvaddch(row + 1 + i, leftCol - 1, '|');
+        mvaddch(row + 1 + i, leftCol + waveformWidth, '|');
+    }
+    // Corners
+    mvaddch(row, leftCol - 1, '+');
+    mvaddch(row, leftCol + waveformWidth, '+');
+    mvaddch(row + waveformHeight + 1, leftCol - 1, '+');
+    mvaddch(row + waveformHeight + 1, leftCol + waveformWidth, '+');
     attroff(COLOR_PAIR(8));
+
+    row++; // Move to inside the border
 
     if (sample && sample->sampleCount > 0) {
         drawSamplerWaveform(row, leftCol, waveformHeight, waveformWidth, sample);
@@ -102,8 +116,8 @@ void UI::drawSamplerPage() {
     float crossfade = synth->getSamplerCrossfadeLength(currentSamplerIndex);
     int octave = synth->getSamplerOctave(currentSamplerIndex);
     float tune = synth->getSamplerTune(currentSamplerIndex);
-    int syncMode = 0; // TODO: Add sync parameter
-    bool noteReset = true; // TODO: Add note reset parameter
+    int syncMode = synth->getSamplerSyncMode(currentSamplerIndex);
+    bool noteReset = synth->getSamplerNoteReset(currentSamplerIndex);
 
     const char* keyModeStr = keyMode ? "KEY" : "FREE";
     const char* directionStr = "Forward";
@@ -196,23 +210,6 @@ void UI::drawSamplerPage() {
 
 void UI::drawSamplerWaveform(int topRow, int leftCol, int height, int width, const SampleData* sample) {
     if (!sample || sample->sampleCount == 0 || !sample->samples) return;
-
-    // Draw gray border box around waveform
-    attron(COLOR_PAIR(8));
-    // Top and bottom borders
-    mvhline(topRow - 1, leftCol - 1, '-', width + 2);
-    mvhline(topRow + height, leftCol - 1, '-', width + 2);
-    // Left and right borders
-    for (int i = 0; i < height; ++i) {
-        mvaddch(topRow + i, leftCol - 1, '|');
-        mvaddch(topRow + i, leftCol + width, '|');
-    }
-    // Corners
-    mvaddch(topRow - 1, leftCol - 1, '+');
-    mvaddch(topRow - 1, leftCol + width, '+');
-    mvaddch(topRow + height, leftCol - 1, '+');
-    mvaddch(topRow + height, leftCol + width, '+');
-    attroff(COLOR_PAIR(8));
 
     // Calculate how many samples to analyze per column
     const int samplesPerColumn = sample->sampleCount / width;
