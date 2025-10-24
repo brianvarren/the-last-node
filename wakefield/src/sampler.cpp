@@ -295,19 +295,16 @@ int64_t Sampler::calculateIncrement(float sampleRate, float fmInput,
         baseInc = -baseInc;
     }
 
-    // Apply TZFM if enabled
-    if (tzfmDepth > 0.001f) {
-        float rawMod = std::clamp(fmInput, -1.0f, 1.0f);
+    // Apply TZFM from FM matrix routing
+    // FM input is already scaled by FM matrix depth (0-1 range from matrix)
+    // One-pole smoothing to prevent clicks
+    modulatorSmoothed = MODULATOR_SMOOTHING * modulatorSmoothed +
+                      (1.0f - MODULATOR_SMOOTHING) * fmInput;
 
-        // One-pole smoothing to prevent clicks
-        modulatorSmoothed = MODULATOR_SMOOTHING * modulatorSmoothed +
-                          (1.0f - MODULATOR_SMOOTHING) * rawMod;
-
-        // Apply modulation: allows through-zero
-        float modulated = static_cast<float>(baseInc) *
-                         (1.0f + modulatorSmoothed * tzfmDepth);
-        baseInc = static_cast<int64_t>(modulated);
-    }
+    // Apply modulation: allows through-zero
+    // FM input comes pre-scaled from the matrix, so apply directly
+    float modulated = static_cast<float>(baseInc) * (1.0f + modulatorSmoothed);
+    baseInc = static_cast<int64_t>(modulated);
 
     // Safety limits
     const int64_t MAX_INC = 1LL << 37;
