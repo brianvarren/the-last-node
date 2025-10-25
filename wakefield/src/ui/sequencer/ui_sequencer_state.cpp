@@ -27,7 +27,7 @@ static const std::vector<SequencerInfoEntryDef> kSequencerInfoEntries = {
     {UI::SequencerInfoField::MUTED,       "Muted",        true},
     {UI::SequencerInfoField::SOLO,        "Solo",         true},
     {UI::SequencerInfoField::ACTIVE_COUNT,"Active",       false},
-    {UI::SequencerInfoField::LOCKED_COUNT,"Locked",       false}
+    {UI::SequencerInfoField::PHASE_SOURCE,"Phase Src",    true}
 };
 
 void UI::ensureSequencerSelectionInRange() {

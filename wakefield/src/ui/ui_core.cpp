@@ -29,6 +29,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     , currentSamplerIndex(0)
     , currentLFOIndex(0)
     , currentEnvelopeIndex(0)
+    , currentChaosIndex(0)
     , fmMatrixCursorRow(0)
     , fmMatrixCursorCol(1)  // Start at 0→1 (first valid FM routing)
     , modMatrixCursorRow(0)
@@ -98,25 +99,6 @@ UI::UI(Synth* synth, SynthParameters* params)
         modulationSlots[4 + i].type = 1;         // Bidirectional (gives full 0-1 range)
     }
 
-    // Initialize default clock routings for sequencer tracks and sampler phase drivers
-    const int clockSourceIndex = 12;    // Clock modulation source
-    const int clockTargetStart = 69;    // First Clock Target destination index
-    for (int i = 0; i < 4; ++i) {
-        ModulationSlot& slot = modulationSlots[8 + i];
-        slot.source = clockSourceIndex;
-        slot.curve = 0;
-        slot.amount = 99;
-        slot.destination = clockTargetStart + i;      // Seq Track i+1
-        slot.type = 0;
-    }
-    for (int i = 0; i < 4; ++i) {
-        ModulationSlot& slot = modulationSlots[12 + i];
-        slot.source = clockSourceIndex;
-        slot.curve = 0;
-        slot.amount = 99;
-        slot.destination = clockTargetStart + 4 + i;  // Sampler i+1
-        slot.type = 0;
-    }
 }
 
 UI::~UI() {

@@ -13,6 +13,11 @@
 
 class Sequencer {
 public:
+    enum class PhaseDriver {
+        CLOCK = 0,
+        MODULATION = 1
+    };
+
     Sequencer(Clock* clockSource, Synth* synth);
 
     // Transport control
@@ -73,6 +78,11 @@ public:
 
     // Note management
     void allNotesOff();
+    void setTrackPhaseDriver(int trackIndex, PhaseDriver driver);
+    PhaseDriver getTrackPhaseDriver(int trackIndex) const;
+    void setCurrentTrackPhaseDriver(PhaseDriver driver) { setTrackPhaseDriver(currentTrackIndex, driver); }
+    PhaseDriver getCurrentTrackPhaseDriver() const { return getTrackPhaseDriver(currentTrackIndex); }
+    bool currentTrackUsesModulation() const { return getCurrentTrackPhaseDriver() == PhaseDriver::MODULATION; }
 
 private:
     Clock* clock;
@@ -82,8 +92,7 @@ private:
     Synth* synth;
     std::vector<int> currentSteps;  // Per-track playback position
     std::vector<int> lastTriggeredStep;  // Per-track
-    std::vector<int> trackPhaseSource;    // Per-track modulation source index
-    std::vector<int> trackPhaseType;      // 0=unidirectional,1=bidirectional
+    std::vector<PhaseDriver> trackPhaseDrivers;
 
     // Track active notes for gate length management
     struct ActiveNote {
@@ -99,8 +108,6 @@ private:
 
     // Check and release notes based on gate length
     void updateGates();
-
-    void refreshTrackPhaseDrivers();
 };
 
 #endif // SEQUENCER_H

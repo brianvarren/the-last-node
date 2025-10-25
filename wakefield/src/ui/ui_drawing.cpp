@@ -24,7 +24,6 @@ void UI::drawTabs() {
         {"FILTER", UIPage::FILTER},
         {"LOOPER", UIPage::LOOPER},
         {"SEQUENCER", UIPage::SEQUENCER},
-        {"CLOCK", UIPage::CLOCK},
         {"CHAOS", UIPage::CHAOS},
         {"CONFIG", UIPage::CONFIG}
     };
@@ -204,9 +203,6 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::SEQUENCER:
             drawSequencerPage();
-            break;
-        case UIPage::CLOCK:
-            drawClockPage();
             break;
         case UIPage::CHAOS:
             drawChaosPage();

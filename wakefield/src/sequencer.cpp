@@ -18,8 +18,7 @@ Sequencer::Sequencer(Clock* clockSource, Synth* synth)
         tracks.emplace_back(i, 16, Subdivision::SIXTEENTH);
         lastTriggeredStep.push_back(-1);
         currentSteps.push_back(0);
-        trackPhaseSource.push_back(kClockModSourceIndex);
-        trackPhaseType.push_back(0);
+        trackPhaseDrivers.push_back(PhaseDriver::CLOCK);
     }
 
     // Set default tempo
@@ -185,34 +184,18 @@ void Sequencer::updateGates() {
     }
 }
 
-void Sequencer::refreshTrackPhaseDrivers() {
-    if (trackPhaseSource.size() != tracks.size()) {
-        trackPhaseSource.assign(tracks.size(), kClockModSourceIndex);
-    }
-    if (trackPhaseType.size() != tracks.size()) {
-        trackPhaseType.assign(tracks.size(), 0);
-    }
-
-    std::fill(trackPhaseSource.begin(), trackPhaseSource.end(), kClockModSourceIndex);
-    std::fill(trackPhaseType.begin(), trackPhaseType.end(), 0);
-
-    if (!synth) {
+void Sequencer::setTrackPhaseDriver(int trackIndex, PhaseDriver driver) {
+    if (trackIndex < 0 || trackIndex >= static_cast<int>(trackPhaseDrivers.size())) {
         return;
     }
+    trackPhaseDrivers[trackIndex] = driver;
+}
 
-    for (int slotIdx = 0; slotIdx < kModulationSlotCount; ++slotIdx) {
-        const ModulationSlot* slot = synth->getModulationSlot(slotIdx);
-        if (!slot || !slot->isComplete()) {
-            continue;
-        }
-
-        if (slot->destination >= kClockTargetSequencerBase &&
-            slot->destination < kClockTargetSequencerBase + static_cast<int>(tracks.size())) {
-            int trackIdx = slot->destination - kClockTargetSequencerBase;
-            trackPhaseSource[trackIdx] = slot->source >= 0 ? slot->source : kClockModSourceIndex;
-            trackPhaseType[trackIdx] = slot->type >= 0 ? slot->type : 0;
-        }
+Sequencer::PhaseDriver Sequencer::getTrackPhaseDriver(int trackIndex) const {
+    if (trackIndex < 0 || trackIndex >= static_cast<int>(trackPhaseDrivers.size())) {
+        return PhaseDriver::CLOCK;
     }
+    return trackPhaseDrivers[trackIndex];
 }
 
 void Sequencer::process(unsigned int nFrames) {
@@ -220,10 +203,16 @@ void Sequencer::process(unsigned int nFrames) {
         return;
     }
 
-    refreshTrackPhaseDrivers();
+    bool needsModPhase = false;
+    for (const auto& driver : trackPhaseDrivers) {
+        if (driver == PhaseDriver::MODULATION) {
+            needsModPhase = true;
+            break;
+        }
+    }
 
     Synth::ModulationOutputs modOutputs;
-    if (synth) {
+    if (needsModPhase && synth) {
         modOutputs = synth->processModulationMatrix();
     }
 
@@ -249,16 +238,11 @@ void Sequencer::process(unsigned int nFrames) {
             }
 
             int trackStep = 0;
-            if (trackPhaseSource[trackIdx] == kClockModSourceIndex || trackPhaseSource[trackIdx] < 0) {
+            if (trackPhaseDrivers[trackIdx] == PhaseDriver::CLOCK) {
                 trackStep = stepIndex % patternLength;
             } else {
                 float driverValue = modOutputs.sequencerPhase[trackIdx];
-                float normalized = 0.0f;
-                if (trackPhaseType[trackIdx] == 0) {
-                    normalized = std::clamp(driverValue, 0.0f, 1.0f);
-                } else {
-                    normalized = std::clamp((driverValue + 1.0f) * 0.5f, 0.0f, 1.0f);
-                }
+                float normalized = std::clamp((driverValue + 1.0f) * 0.5f, 0.0f, 1.0f);
                 trackStep = static_cast<int>(normalized * patternLength);
                 if (trackStep >= patternLength) {
                     trackStep = patternLength - 1;

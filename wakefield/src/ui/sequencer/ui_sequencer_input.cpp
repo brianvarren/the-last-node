@@ -26,7 +26,7 @@ static const std::vector<SequencerInfoEntryDef> kSequencerInfoEntries = {
     {UI::SequencerInfoField::MUTED,       "Muted",        true},
     {UI::SequencerInfoField::SOLO,        "Solo",         true},
     {UI::SequencerInfoField::ACTIVE_COUNT,"Active",       false},
-    {UI::SequencerInfoField::LOCKED_COUNT,"Locked",       false}
+    {UI::SequencerInfoField::PHASE_SOURCE,"Phase Src",    true}
 };
 
 bool UI::handleSequencerInput(int ch) {
@@ -177,6 +177,12 @@ bool UI::handleSequencerInput(int ch) {
                         } else if (entry.field == SequencerInfoField::SOLO) {
                             Track& track = sequencer->getCurrentTrack();
                             track.setSolo(!track.isSolo());
+                        } else if (entry.field == SequencerInfoField::PHASE_SOURCE) {
+                            auto mode = sequencer->getCurrentTrackPhaseDriver();
+                            auto nextMode = (mode == Sequencer::PhaseDriver::CLOCK)
+                                ? Sequencer::PhaseDriver::MODULATION
+                                : Sequencer::PhaseDriver::CLOCK;
+                            sequencer->setCurrentTrackPhaseDriver(nextMode);
                         } else if (entry.field == SequencerInfoField::SCALE) {
                             startSequencerScaleMenu();
                         } else {

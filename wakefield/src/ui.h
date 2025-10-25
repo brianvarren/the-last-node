@@ -244,22 +244,34 @@ struct SynthParameters {
     std::atomic<float> chaos1Parameter{0.6f};      // u parameter (0-2, ~0.6 is chaotic)
     std::atomic<float> chaos1ClockFreq{1.0f};      // Clock frequency in Hz (0.01-1000)
     std::atomic<bool> chaos1CubicInterp{false};    // Cubic interpolation vs linear
-    std::atomic<bool> chaos1FastMode{false};       // Audio rate vs clocked
+    std::atomic<bool> chaos1FastMode{false};       // Fast (audio rate) vs slow (low rate)
+    std::atomic<bool> chaos1Running{true};         // Run/stop state
+    std::atomic<float> chaos1VisualX{0.0f};        // Current X for visualization
+    std::atomic<float> chaos1VisualY{0.0f};        // Current Y for visualization
 
     std::atomic<float> chaos2Parameter{0.6f};
     std::atomic<float> chaos2ClockFreq{1.0f};
     std::atomic<bool> chaos2CubicInterp{false};
     std::atomic<bool> chaos2FastMode{false};
+    std::atomic<bool> chaos2Running{true};
+    std::atomic<float> chaos2VisualX{0.0f};
+    std::atomic<float> chaos2VisualY{0.0f};
 
     std::atomic<float> chaos3Parameter{0.6f};
     std::atomic<float> chaos3ClockFreq{1.0f};
     std::atomic<bool> chaos3CubicInterp{false};
     std::atomic<bool> chaos3FastMode{false};
+    std::atomic<bool> chaos3Running{true};
+    std::atomic<float> chaos3VisualX{0.0f};
+    std::atomic<float> chaos3VisualY{0.0f};
 
     std::atomic<float> chaos4Parameter{0.6f};
     std::atomic<float> chaos4ClockFreq{1.0f};
     std::atomic<bool> chaos4CubicInterp{false};
     std::atomic<bool> chaos4FastMode{false};
+    std::atomic<bool> chaos4Running{true};
+    std::atomic<float> chaos4VisualX{0.0f};
+    std::atomic<float> chaos4VisualY{0.0f};
 
     // FM Matrix - audio-rate frequency modulation routing
     // fmMatrix[target][source] = depth (0.0 to 1.0)
@@ -722,6 +734,107 @@ struct SynthParameters {
         }
     }
 
+    // Chaos getters/setters
+    float getChaosParameter(int index) const {
+        switch (index) {
+            case 0: return chaos1Parameter.load();
+            case 1: return chaos2Parameter.load();
+            case 2: return chaos3Parameter.load();
+            case 3: return chaos4Parameter.load();
+            default: return chaos1Parameter.load();
+        }
+    }
+
+    void setChaosParameter(int index, float value) {
+        switch (index) {
+            case 0: chaos1Parameter = value; break;
+            case 1: chaos2Parameter = value; break;
+            case 2: chaos3Parameter = value; break;
+            case 3: chaos4Parameter = value; break;
+            default: chaos1Parameter = value; break;
+        }
+    }
+
+    float getChaosClockFreq(int index) const {
+        switch (index) {
+            case 0: return chaos1ClockFreq.load();
+            case 1: return chaos2ClockFreq.load();
+            case 2: return chaos3ClockFreq.load();
+            case 3: return chaos4ClockFreq.load();
+            default: return chaos1ClockFreq.load();
+        }
+    }
+
+    void setChaosClockFreq(int index, float value) {
+        switch (index) {
+            case 0: chaos1ClockFreq = value; break;
+            case 1: chaos2ClockFreq = value; break;
+            case 2: chaos3ClockFreq = value; break;
+            case 3: chaos4ClockFreq = value; break;
+            default: chaos1ClockFreq = value; break;
+        }
+    }
+
+    bool getChaosFastMode(int index) const {
+        switch (index) {
+            case 0: return chaos1FastMode.load();
+            case 1: return chaos2FastMode.load();
+            case 2: return chaos3FastMode.load();
+            case 3: return chaos4FastMode.load();
+            default: return chaos1FastMode.load();
+        }
+    }
+
+    void setChaosFastMode(int index, bool value) {
+        switch (index) {
+            case 0: chaos1FastMode = value; break;
+            case 1: chaos2FastMode = value; break;
+            case 2: chaos3FastMode = value; break;
+            case 3: chaos4FastMode = value; break;
+            default: chaos1FastMode = value; break;
+        }
+    }
+
+    bool getChaosCubicInterp(int index) const {
+        switch (index) {
+            case 0: return chaos1CubicInterp.load();
+            case 1: return chaos2CubicInterp.load();
+            case 2: return chaos3CubicInterp.load();
+            case 3: return chaos4CubicInterp.load();
+            default: return chaos1CubicInterp.load();
+        }
+    }
+
+    void setChaosCubicInterp(int index, bool value) {
+        switch (index) {
+            case 0: chaos1CubicInterp = value; break;
+            case 1: chaos2CubicInterp = value; break;
+            case 2: chaos3CubicInterp = value; break;
+            case 3: chaos4CubicInterp = value; break;
+            default: chaos1CubicInterp = value; break;
+        }
+    }
+
+    bool getChaosRunning(int index) const {
+        switch (index) {
+            case 0: return chaos1Running.load();
+            case 1: return chaos2Running.load();
+            case 2: return chaos3Running.load();
+            case 3: return chaos4Running.load();
+            default: return chaos1Running.load();
+        }
+    }
+
+    void setChaosRunning(int index, bool value) {
+        switch (index) {
+            case 0: chaos1Running = value; break;
+            case 1: chaos2Running = value; break;
+            case 2: chaos3Running = value; break;
+            case 3: chaos4Running = value; break;
+            default: chaos1Running = value; break;
+        }
+    }
+
     // FM Matrix accessors (8x8: OSC1-4 are 0-3, SAMP1-4 are 4-7)
     float getFMDepth(int target, int source) const {
         if (target < 0 || target >= 8 || source < 0 || source >= 8) return 0.0f;
@@ -747,7 +860,6 @@ enum class UIPage {
     FILTER,
     LOOPER,
     SEQUENCER,
-    CLOCK,
     CHAOS,
     CONFIG
 };
@@ -779,7 +891,7 @@ public:
         MUTED,
         SOLO,
         ACTIVE_COUNT,
-        LOCKED_COUNT
+        PHASE_SOURCE
     };
     
     
@@ -905,7 +1017,6 @@ private:
     void drawReverbPage();
     void drawFilterPage();
     void drawLooperPage();
-    void drawClockPage();
     void drawSequencerPage();
     void drawChaosPage();
     void drawConfigPage();
@@ -914,6 +1025,7 @@ private:
     void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
     void drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float phase);
     void drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
+    void drawChaosVisualization(int topRow, int leftCol, int plotHeight, int plotWidth, int chaosIndex);
 
     // Sequencer helpers
     bool handleSequencerInput(int ch);
@@ -959,6 +1071,7 @@ private:
     int currentSamplerIndex;     // 0-3: which sampler is selected on SAMPLER page
     int currentLFOIndex;          // 0-3: which LFO is selected on LFO page
     int currentEnvelopeIndex;     // 0-3: which envelope is selected on ENV page
+    int currentChaosIndex;        // 0-3: which chaos generator is selected on CHAOS page
 
     // FM Matrix UI state
     int fmMatrixCursorRow;        // 0-3: source oscillator (row)

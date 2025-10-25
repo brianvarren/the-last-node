@@ -29,7 +29,7 @@ static const std::vector<SequencerInfoEntryDef> kSequencerInfoEntries = {
     {UI::SequencerInfoField::MUTED,       "Muted",        true},
     {UI::SequencerInfoField::SOLO,        "Solo",         true},
     {UI::SequencerInfoField::ACTIVE_COUNT,"Active",       false},
-    {UI::SequencerInfoField::LOCKED_COUNT,"Locked",       false}
+    {UI::SequencerInfoField::PHASE_SOURCE,"Phase Src",    true}
 };
 
 void UI::drawSequencerPage() {
@@ -204,8 +204,11 @@ void UI::drawSequencerPage() {
                 text = std::to_string(pattern.getActiveStepCount());
                 break;
             }
-            case SequencerInfoField::LOCKED_COUNT: {
-                text = std::to_string(pattern.getLockedStepCount());
+            case SequencerInfoField::PHASE_SOURCE: {
+                Sequencer::PhaseDriver mode = sequencer->getTrackPhaseDriver(trackIdx);
+                bool usingMod = (mode == Sequencer::PhaseDriver::MODULATION);
+                text = usingMod ? "Modulation" : "Clock";
+                attr = usingMod ? (COLOR_PAIR(3) | A_BOLD) : 0;
                 break;
             }
             default:

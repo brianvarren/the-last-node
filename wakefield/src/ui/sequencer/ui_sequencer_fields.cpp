@@ -30,7 +30,7 @@ static const std::vector<SequencerInfoEntryDef> kSequencerInfoEntries = {
     {UI::SequencerInfoField::MUTED,       "Muted",        true},
     {UI::SequencerInfoField::SOLO,        "Solo",         true},
     {UI::SequencerInfoField::ACTIVE_COUNT,"Active",       false},
-    {UI::SequencerInfoField::LOCKED_COUNT,"Locked",       false}
+    {UI::SequencerInfoField::PHASE_SOURCE,"Phase Src",    true}
 };
 
 void UI::startSequencerScaleMenu() {
@@ -224,6 +224,22 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
             track.setSolo(!track.isSolo());
             break;
         }
+        case SequencerInfoField::PHASE_SOURCE: {
+            if (sequencer) {
+                auto newDriver = sequencer->getCurrentTrackPhaseDriver();
+                if (direction > 0) {
+                    newDriver = Sequencer::PhaseDriver::MODULATION;
+                } else if (direction < 0) {
+                    newDriver = Sequencer::PhaseDriver::CLOCK;
+                } else {
+                    newDriver = (newDriver == Sequencer::PhaseDriver::CLOCK)
+                        ? Sequencer::PhaseDriver::MODULATION
+                        : Sequencer::PhaseDriver::CLOCK;
+                }
+                sequencer->setCurrentTrackPhaseDriver(newDriver);
+            }
+            break;
+        }
         default:
             break;
     }
@@ -303,6 +319,9 @@ void UI::startSequencerInfoNumericInput(int infoIndex) {
             break;
         case SequencerInfoField::SOLO:
             sequencerNumericContext.field = SequencerNumericField::SOLO;
+            break;
+        case SequencerInfoField::PHASE_SOURCE:
+            sequencerNumericContext.field = SequencerNumericField::NONE;
             break;
         default:
             sequencerNumericContext.field = SequencerNumericField::NONE;

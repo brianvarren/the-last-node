@@ -223,8 +223,7 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::REVERB) setPage(UIPage::FILTER);
         else if (currentPage == UIPage::FILTER) setPage(UIPage::LOOPER);
         else if (currentPage == UIPage::LOOPER) setPage(UIPage::SEQUENCER);
-        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CLOCK);
-        else if (currentPage == UIPage::CLOCK) setPage(UIPage::CHAOS);
+        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CHAOS);
         else if (currentPage == UIPage::CHAOS) setPage(UIPage::CONFIG);
         else setPage(UIPage::OSCILLATOR);
         return;
@@ -243,8 +242,7 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::FILTER) setPage(UIPage::REVERB);
         else if (currentPage == UIPage::LOOPER) setPage(UIPage::FILTER);
         else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::LOOPER);
-        else if (currentPage == UIPage::CLOCK) setPage(UIPage::SEQUENCER);
-        else if (currentPage == UIPage::CHAOS) setPage(UIPage::CLOCK);
+        else if (currentPage == UIPage::CHAOS) setPage(UIPage::SEQUENCER);
         else if (currentPage == UIPage::CONFIG) setPage(UIPage::CHAOS);
         return;
     }
@@ -283,11 +281,7 @@ void UI::handleInput(int ch) {
             setPage(UIPage::FM);
             return;
         case KEY_F(11):
-            if (currentPage == UIPage::CLOCK) {
-                setPage(UIPage::SEQUENCER);
-            } else {
-                setPage(UIPage::CLOCK);
-            }
+            setPage(UIPage::SEQUENCER);
             return;
         case KEY_F(12):
             setPage(UIPage::CONFIG);
@@ -499,6 +493,23 @@ void UI::handleInput(int ch) {
             case '3': currentSamplerIndex = 2; addConsoleMessage("Sampler 3 selected"); return;
             case '4': currentSamplerIndex = 3; addConsoleMessage("Sampler 4 selected"); return;
         }
+    }
+
+    // Chaos selection (1-4 keys on CHAOS page)
+    if (currentPage == UIPage::CHAOS) {
+        switch (ch) {
+            case '1': currentChaosIndex = 0; addConsoleMessage("Chaos 1 selected"); return;
+            case '2': currentChaosIndex = 1; addConsoleMessage("Chaos 2 selected"); return;
+            case '3': currentChaosIndex = 2; addConsoleMessage("Chaos 3 selected"); return;
+            case '4': currentChaosIndex = 3; addConsoleMessage("Chaos 4 selected"); return;
+        }
+    }
+
+    // Chaos reset action (shift+r when on CHAOS page)
+    if (currentPage == UIPage::CHAOS && ch == 'R') {
+        synth->resetChaosGenerator(currentChaosIndex);
+        addConsoleMessage("Chaos generator reset");
+        return;
     }
 
     // FM Matrix navigation and editing

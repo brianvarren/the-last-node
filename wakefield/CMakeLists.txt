@@ -59,7 +59,6 @@ add_executable(synth
     src/ui/pages/ui_page_reverb.cpp
     src/ui/pages/ui_page_filter.cpp
     src/ui/pages/ui_page_looper.cpp
-    src/ui/pages/ui_page_clock.cpp
     src/ui/pages/ui_page_chaos.cpp
     src/ui/pages/ui_page_config.cpp
     # UI sequencer files
