@@ -183,6 +183,10 @@ void UI::finishModMatrixMenu(bool applySelection) {
                 modMatrixDestinationModuleIndex, modMatrixDestinationParamIndex);
             if (destinationIndex >= 0) {
                 slot.destination = destinationIndex;
+                // Set default bidirectional type if not already set
+                if (slot.type == -1) {
+                    slot.type = 1;  // 1 = Bidirectional (<->)
+                }
             }
         } else if (modMatrixMenuColumn == 4) {
             slot.type = modMatrixMenuIndex;

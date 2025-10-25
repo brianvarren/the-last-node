@@ -43,10 +43,13 @@ void UI::initializeParameters() {
     parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, true, static_cast<int>(UIPage::REVERB)});
 
     // FILTER page parameters - ALL support MIDI learn
-    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 3, {"Lowpass", "Highpass", "High Shelf", "Low Shelf"}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 4, {"Lowpass", "Highpass", "High Shelf", "Low Shelf", "Ladder LP"}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({32, ParamType::FLOAT, "Cutoff", "Hz", 20.0f, 20000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({33, ParamType::FLOAT, "Gain", "dB", -24.0f, 24.0f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({34, ParamType::FLOAT, "Resonance", "", 0.0f, 1.2f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({35, ParamType::FLOAT, "Drive", "", 0.1f, 15.0f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({36, ParamType::FLOAT, "FB HP", "Hz", 10.0f, 6000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
 
     // LOOPER page parameters - ALL support MIDI learn
     parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
@@ -192,6 +195,9 @@ float UI::getParameterValue(int id) {
         case 31: return params->filterEnabled.load() ? 1.0f : 0.0f;
         case 32: return params->filterCutoff.load();
         case 33: return params->filterGain.load();
+        case 34: return params->filterResonance.load();
+        case 35: return params->filterDrive.load();
+        case 36: return params->filterFeedbackHP.load();
         case 40: return static_cast<float>(params->currentLoop.load());
         case 41: return params->overdubMix.load();
         // CONFIG page parameters
@@ -288,6 +294,9 @@ void UI::setParameterValue(int id, float value) {
         case 31: params->filterEnabled = (value > 0.5f); break;
         case 32: params->filterCutoff = value; break;
         case 33: params->filterGain = value; break;
+        case 34: params->filterResonance = value; break;
+        case 35: params->filterDrive = value; break;
+        case 36: params->filterFeedbackHP = value; break;
         case 40: params->currentLoop = static_cast<int>(value); break;
         case 41: params->overdubMix = value; break;
         // CONFIG page parameters

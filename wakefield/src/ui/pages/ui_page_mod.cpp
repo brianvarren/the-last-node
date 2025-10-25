@@ -251,7 +251,7 @@ void UI::drawModPage() {
 
             if (options && !options->empty()) {
                 int menuWidth = 30;
-                int menuHeight = std::min(12, static_cast<int>(options->size()) + 2);
+                int menuHeight = std::min(12, static_cast<int>(options->size()) + 4);
                 int menuX = 25;
                 int menuY = 8;
 

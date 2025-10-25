@@ -49,7 +49,8 @@ public:
     
     // Filter control
     void setFilterEnabled(bool enabled) { filterEnabled = enabled; }
-    void updateFilterParameters(int type, float cutoff, float gain);
+    void updateFilterParameters(int type, float cutoff, float gain,
+                                float resonance, float drive, float feedbackHP);
 
     // LFO control
     void updateLFOParameters(int lfoIndex, float period, int syncMode, int shape, float morph,
@@ -240,6 +241,8 @@ private:
     // Stereo filters (left and right channel)
     OnePoleTPT filterL;
     OnePoleTPT filterR;
+    Ladder8PoleZdf ladderFilterL;
+    Ladder8PoleZdf ladderFilterR;
     OnePoleHighShelfBLT highShelfL;
     OnePoleHighShelfBLT highShelfR;
     OnePoleLowShelfBLT lowShelfL;

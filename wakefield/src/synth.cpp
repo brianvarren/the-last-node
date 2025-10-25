@@ -22,6 +22,9 @@ Synth::Synth(float sampleRate)
     highShelfR.setSampleRate(sampleRate);
     lowShelfL.setSampleRate(sampleRate);
     lowShelfR.setSampleRate(sampleRate);
+
+    ladderFilterL.setSampleRate(sampleRate);
+    ladderFilterR.setSampleRate(sampleRate);
     
     // Initialize voices with sample rate
     for (int i = 0; i < MAX_VOICES; ++i) {
@@ -105,7 +108,8 @@ void Synth::updateReverbParameters(float delayTime, float size, float damping, f
     reverb.setModFreq(modFreq);
 }
 
-void Synth::updateFilterParameters(int type, float cutoff, float gain) {
+void Synth::updateFilterParameters(int type, float cutoff, float gain,
+                                   float resonance, float drive, float feedbackHP) {
     currentFilterType = type;
     
     // Update all filter types (the active one will be used during processing)
@@ -121,6 +125,15 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain) {
     lowShelfR.setCutoff(cutoff);
     lowShelfL.setGainDb(gain);
     lowShelfR.setGainDb(gain);
+
+    ladderFilterL.setCutoff(cutoff);
+    ladderFilterR.setCutoff(cutoff);
+    ladderFilterL.setResonance(resonance);
+    ladderFilterR.setResonance(resonance);
+    ladderFilterL.setDrive(drive);
+    ladderFilterR.setDrive(drive);
+    ladderFilterL.setFeedbackHighpass(feedbackHP);
+    ladderFilterR.setFeedbackHighpass(feedbackHP);
 }
 
 void Synth::noteOn(int midiNote, int velocity) {
@@ -417,6 +430,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             } else if (currentFilterType == 3) {  // Low shelf
                 output[i * 2] = lowShelfL.process(left);
                 output[i * 2 + 1] = lowShelfR.process(right);
+            } else if (currentFilterType == 4) {  // Ladder LP (8-pole)
+                output[i * 2] = ladderFilterL.process(left);
+                output[i * 2 + 1] = ladderFilterR.process(right);
             }
         }
     }

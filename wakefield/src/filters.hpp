@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <utility>
@@ -202,5 +203,99 @@ private:
         // -----------------------------------------------------
 
         if (std::abs(s1) < 1e-30f) s1 = 0.0f; // denormal guard
+    }
+};
+
+
+
+
+
+// 8-pole ladder lowpass with simple OTA-style saturation and HP-filtered feedback.
+class Ladder8PoleZdf {
+public:
+    explicit Ladder8PoleZdf(float sampleRate = 48000.0f) {
+        setSampleRate(sampleRate);
+        setCutoff(1000.0f);
+    }
+
+    void setSampleRate(float sr) {
+        sampleRate = std::max(1.0f, sr);
+        for (auto& stage : stages) {
+            stage.setSampleRate(sampleRate);
+        }
+        feedbackHP.setSampleRate(sampleRate);
+        setCutoff(cutoffHz);
+        setFeedbackHighpass(feedbackHpHz);
+    }
+
+    void setCutoff(float hz) {
+        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        for (auto& stage : stages) {
+            stage.setCutoff(cutoffHz);
+        }
+    }
+
+    void setResonance(float amount) {
+        // Map 0-1 UI range to a musically useful feedback amount
+        resonance = std::clamp(amount, 0.0f, 1.2f);
+        resonanceGain = 0.2f + resonance * 3.5f;  // scale to roughly 0.2 - 3.7
+    }
+
+    void setDrive(float driveAmount) {
+        float drv = std::clamp(driveAmount, 0.1f, 15.0f);
+        inputDrive = drv;
+        stageDrive = std::max(0.1f, 0.4f * drv);
+    }
+
+    void setFeedbackHighpass(float hz) {
+        feedbackHpHz = std::clamp(hz, 10.0f, std::min(6000.0f, 0.45f * sampleRate));
+        feedbackHP.setCutoff(feedbackHpHz);
+    }
+
+    void reset() {
+        for (auto& stage : stages) stage.reset();
+        stageOutputs.fill(0.0f);
+        feedbackHP.reset();
+        lastFeedbackHP = 0.0f;
+    }
+
+    float process(float in) {
+        const float feedback = lastFeedbackHP;
+        float x = saturate(in * inputDrive - feedback * resonanceGain);
+
+        for (std::size_t i = 0; i < stages.size(); ++i) {
+            auto [lp, hp] = stages[i].process(x);
+            stageOutputs[i] = saturate(lp * stageDrive);
+            x = stageOutputs[i];
+        }
+
+        auto hpPair = feedbackHP.process(stageOutputs.back());
+        lastFeedbackHP = hpPair.second;
+        return stageOutputs.back();
+    }
+
+    float getStageOutput(int stageIndex) const {
+        if (stageIndex < 0 || stageIndex >= static_cast<int>(stageOutputs.size())) {
+            return stageOutputs.back();
+        }
+        return stageOutputs[stageIndex];
+    }
+
+private:
+    float sampleRate = 48000.0f;
+    float cutoffHz = 1000.0f;
+    float resonance = 0.0f;
+    float resonanceGain = 0.2f;
+    float inputDrive = 1.0f;
+    float stageDrive = 0.5f;
+    float feedbackHpHz = 200.0f;
+
+    std::array<OnePoleTPT, 8> stages;
+    OnePoleTPT feedbackHP;
+    std::array<float, 8> stageOutputs {0};
+    float lastFeedbackHP = 0.0f;
+
+    inline float saturate(float x) const {
+        return std::tanh(x);
     }
 };
