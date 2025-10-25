@@ -22,7 +22,7 @@ public:
         , sampleRate(48000.0f)
         , clockPhase(0.0)
         , clockFrequency(1.0)  // 1 Hz default
-        , cubicInterpolation(false)
+        , interpMode(0)  // 0=LINEAR, 1=CUBIC, 2=HOLD
         , fastMode(false)
         , prevX(0.1)
         , prevY(0.1)
@@ -59,8 +59,11 @@ public:
             interpPhase = std::min(interpPhase, 1.0);
 
             float output;
-            if (cubicInterpolation) {
-                // Hermite cubic interpolation for smoother transitions
+            if (interpMode == 2) {
+                // HOLD: zero-order hold (step function)
+                output = static_cast<float>(prevX);
+            } else if (interpMode == 1) {
+                // CUBIC: Hermite cubic interpolation for smoother transitions
                 double mu2 = interpPhase * interpPhase;
                 double mu3 = mu2 * interpPhase;
                 double m0 = (x - prevX);  // Tangent at start
@@ -73,7 +76,7 @@ public:
                     (mu3 - mu2) * m1
                 );
             } else {
-                // Linear interpolation
+                // LINEAR: linear interpolation (default)
                 output = static_cast<float>(prevX + (x - prevX) * interpPhase);
             }
 
@@ -86,7 +89,11 @@ public:
         if (fastMode) {
             return static_cast<float>(y);
         } else {
-            if (cubicInterpolation) {
+            if (interpMode == 2) {
+                // HOLD
+                return static_cast<float>(prevY);
+            } else if (interpMode == 1) {
+                // CUBIC
                 double mu2 = interpPhase * interpPhase;
                 double mu3 = mu2 * interpPhase;
                 double m0 = (y - prevY);
@@ -99,6 +106,7 @@ public:
                     (mu3 - mu2) * m1
                 );
             } else {
+                // LINEAR
                 return static_cast<float>(prevY + (y - prevY) * interpPhase);
             }
         }
@@ -111,7 +119,7 @@ public:
     void setClockFrequency(float freq) {
         clockFrequency = std::max(0.01, std::min(1000.0, static_cast<double>(freq)));
     }
-    void setCubicInterpolation(bool enable) { cubicInterpolation = enable; }
+    void setInterpMode(int mode) { interpMode = std::max(0, std::min(2, mode)); }
     void setFastMode(bool fast) { fastMode = fast; }
     void setSampleRate(float sr) { sampleRate = sr; }
     void reset() { x = 0.1; y = 0.1; t = 0.0; clockPhase = 0.0; interpPhase = 0.0; }
@@ -119,7 +127,7 @@ public:
     // Getters
     float getChaosParameter() const { return static_cast<float>(u); }
     float getClockFrequency() const { return static_cast<float>(clockFrequency); }
-    bool getCubicInterpolation() const { return cubicInterpolation; }
+    int getInterpMode() const { return interpMode; }
     bool getFastMode() const { return fastMode; }
 
 private:
@@ -150,7 +158,7 @@ private:
     double clockFrequency;  // Hz
 
     // Interpolation
-    bool cubicInterpolation;
+    int interpMode;  // 0=LINEAR, 1=CUBIC, 2=HOLD
     bool fastMode;
     double prevX, prevY, prevT;
     double interpPhase;

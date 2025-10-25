@@ -206,7 +206,7 @@ public:
     void setChaosParameter(int chaosIndex, float value);
     void setChaosClockFreq(int chaosIndex, float freq);
     void setChaosFastMode(int chaosIndex, bool fast);
-    void setChaosCubicInterp(int chaosIndex, bool cubic);
+    void setChaosInterpMode(int chaosIndex, int mode);
     void resetChaosGenerator(int chaosIndex);
 
 private:

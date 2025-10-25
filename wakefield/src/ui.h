@@ -243,7 +243,7 @@ struct SynthParameters {
     // Chaos parameters - 4 global chaos generators (Ikeda map)
     std::atomic<float> chaos1Parameter{0.918f};    // u parameter (0.6-0.99, 0.918 is typical)
     std::atomic<float> chaos1ClockFreq{1.0f};      // Clock frequency in Hz (0.01-1000)
-    std::atomic<bool> chaos1CubicInterp{false};    // Cubic interpolation vs linear
+    std::atomic<int> chaos1InterpMode{0};          // 0=LINEAR, 1=CUBIC, 2=HOLD
     std::atomic<bool> chaos1FastMode{false};       // Fast (audio rate) vs slow (low rate)
     std::atomic<bool> chaos1Running{true};         // Run/stop state
     std::atomic<float> chaos1VisualX{0.0f};        // Current X for visualization
@@ -251,7 +251,7 @@ struct SynthParameters {
 
     std::atomic<float> chaos2Parameter{0.918f};
     std::atomic<float> chaos2ClockFreq{1.0f};
-    std::atomic<bool> chaos2CubicInterp{false};
+    std::atomic<int> chaos2InterpMode{0};
     std::atomic<bool> chaos2FastMode{false};
     std::atomic<bool> chaos2Running{true};
     std::atomic<float> chaos2VisualX{0.0f};
@@ -259,7 +259,7 @@ struct SynthParameters {
 
     std::atomic<float> chaos3Parameter{0.918f};
     std::atomic<float> chaos3ClockFreq{1.0f};
-    std::atomic<bool> chaos3CubicInterp{false};
+    std::atomic<int> chaos3InterpMode{0};
     std::atomic<bool> chaos3FastMode{false};
     std::atomic<bool> chaos3Running{true};
     std::atomic<float> chaos3VisualX{0.0f};
@@ -267,7 +267,7 @@ struct SynthParameters {
 
     std::atomic<float> chaos4Parameter{0.918f};
     std::atomic<float> chaos4ClockFreq{1.0f};
-    std::atomic<bool> chaos4CubicInterp{false};
+    std::atomic<int> chaos4InterpMode{0};
     std::atomic<bool> chaos4FastMode{false};
     std::atomic<bool> chaos4Running{true};
     std::atomic<float> chaos4VisualX{0.0f};
@@ -795,23 +795,23 @@ struct SynthParameters {
         }
     }
 
-    bool getChaosCubicInterp(int index) const {
+    int getChaosInterpMode(int index) const {
         switch (index) {
-            case 0: return chaos1CubicInterp.load();
-            case 1: return chaos2CubicInterp.load();
-            case 2: return chaos3CubicInterp.load();
-            case 3: return chaos4CubicInterp.load();
-            default: return chaos1CubicInterp.load();
+            case 0: return chaos1InterpMode.load();
+            case 1: return chaos2InterpMode.load();
+            case 2: return chaos3InterpMode.load();
+            case 3: return chaos4InterpMode.load();
+            default: return chaos1InterpMode.load();
         }
     }
 
-    void setChaosCubicInterp(int index, bool value) {
+    void setChaosInterpMode(int index, int value) {
         switch (index) {
-            case 0: chaos1CubicInterp = value; break;
-            case 1: chaos2CubicInterp = value; break;
-            case 2: chaos3CubicInterp = value; break;
-            case 3: chaos4CubicInterp = value; break;
-            default: chaos1CubicInterp = value; break;
+            case 0: chaos1InterpMode = value; break;
+            case 1: chaos2InterpMode = value; break;
+            case 2: chaos3InterpMode = value; break;
+            case 3: chaos4InterpMode = value; break;
+            default: chaos1InterpMode = value; break;
         }
     }
 

@@ -1104,9 +1104,9 @@ void Synth::setChaosFastMode(int chaosIndex, bool fast) {
     chaos[chaosIndex].setFastMode(fast);
 }
 
-void Synth::setChaosCubicInterp(int chaosIndex, bool cubic) {
+void Synth::setChaosInterpMode(int chaosIndex, int mode) {
     if (chaosIndex < 0 || chaosIndex >= 4) return;
-    chaos[chaosIndex].setCubicInterpolation(cubic);
+    chaos[chaosIndex].setInterpMode(mode);
 }
 
 void Synth::resetChaosGenerator(int chaosIndex) {
