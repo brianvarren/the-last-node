@@ -244,7 +244,11 @@ public:
     void setDrive(float driveAmount) {
         float drv = std::clamp(driveAmount, 0.1f, 15.0f);
         inputDrive = drv;
-        stageDrive = std::max(0.1f, 0.4f * drv);
+        if (drv <= 1.0f) {
+            stageDrive = 1.0f;
+        } else {
+            stageDrive = 1.0f + (drv - 1.0f) * 0.5f;
+        }
     }
 
     void setFeedbackHighpass(float hz) {
@@ -287,7 +291,7 @@ private:
     float resonance = 0.0f;
     float resonanceGain = 0.2f;
     float inputDrive = 1.0f;
-    float stageDrive = 0.5f;
+    float stageDrive = 1.0f;
     float feedbackHpHz = 200.0f;
 
     std::array<OnePoleTPT, 8> stages;
