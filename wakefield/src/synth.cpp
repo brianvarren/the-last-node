@@ -524,6 +524,11 @@ float Synth::getChaosOutput(int chaosIndex) const {
     return chaosOutputs[chaosIndex];
 }
 
+float Synth::getChaosOutputY(int chaosIndex) const {
+    if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    return chaos[chaosIndex].getY();
+}
+
 const ModulationSlot* Synth::getModulationSlot(int index) const {
     if (!ui || index < 0 || index >= kModulationSlotCount) {
         return nullptr;
@@ -558,11 +563,11 @@ float Synth::normalizePhaseForDriver(float value, int type) const {
 }
 
 float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
-    // Source indices from ui_mod.cpp:
+    // Source indices from ui_mod_data.cpp:
     // 0-3: LFO 1-4
     // 4-7: ENV 1-4
     // 8: Velocity, 9: Aftertouch, 10: Mod Wheel, 11: Pitch Bend, 12: Clock
-    // 13-16: Chaos 1-4
+    // 13-20: Chaos 1-4 X/Y pairs (13=C1X, 14=C1Y, 15=C2X, 16=C2Y, etc.)
 
     if (sourceIndex >= 0 && sourceIndex <= 3) {
         // LFO 1-4
@@ -607,9 +612,15 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
             return phase * 2.0f - 1.0f;
         }
         return -1.0f;
-    } else if (sourceIndex >= 13 && sourceIndex <= 16) {
-        // Chaos 1-4
-        return getChaosOutput(sourceIndex - 13);
+    } else if (sourceIndex >= 13 && sourceIndex <= 20) {
+        // Chaos 1-4 X/Y pairs
+        int chaosIndex = (sourceIndex - 13) / 2;  // 13,14->0, 15,16->1, 17,18->2, 19,20->3
+        bool isY = ((sourceIndex - 13) % 2) == 1;  // Odd indices are Y
+        if (isY) {
+            return getChaosOutputY(chaosIndex);
+        } else {
+            return getChaosOutput(chaosIndex);
+        }
     }
 
     return 0.0f;

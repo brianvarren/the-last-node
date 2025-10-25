@@ -66,6 +66,7 @@ public:
 
     // Get chaos outputs (for modulation matrix and FM)
     float getChaosOutput(int chaosIndex) const;
+    float getChaosOutputY(int chaosIndex) const;
 
     // Access modulation slot definitions (read-only)
     const ModulationSlot* getModulationSlot(int index) const;
