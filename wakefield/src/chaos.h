@@ -7,10 +7,10 @@
 /**
  * Chaos generator using the Ikeda map
  * The Ikeda map is defined as:
- *   t_{n+1} = u + rho * (x_n * cos(t_n) - y_n * sin(t_n))
- *   x_{n+1} = rho * (x_n * cos(t_n) - y_n * sin(t_n))
- *   y_{n+1} = rho * (x_n * sin(t_n) + y_n * cos(t_n))
- * where rho is typically 0.9 and u controls the chaos parameter
+ *   t = 0.4 - 6/(1 + x_n² + y_n²)
+ *   x_{n+1} = 1 + u*(x_n*cos(t) - y_n*sin(t))
+ *   y_{n+1} = u*(x_n*sin(t) + y_n*cos(t))
+ * where u controls the chaos parameter (typically 0.6-0.99 for chaotic behavior)
  */
 class ChaosGenerator {
 public:
@@ -18,8 +18,7 @@ public:
         : x(0.1)
         , y(0.1)
         , t(0.0)
-        , u(0.6)  // Chaos parameter (0.0 = periodic, ~0.6 = chaotic, >0.9 = very chaotic)
-        , rho(0.9)
+        , u(0.918)  // Chaos parameter (0.6-0.99 for chaotic behavior, 0.918 is typical)
         , sampleRate(48000.0f)
         , clockPhase(0.0)
         , clockFrequency(1.0)  // 1 Hz default
@@ -107,7 +106,7 @@ public:
 
     // Setters
     void setChaosParameter(float chaos) {
-        u = std::max(0.0, std::min(2.0, static_cast<double>(chaos)));
+        u = std::max(0.0, std::min(1.0, static_cast<double>(chaos)));
     }
     void setClockFrequency(float freq) {
         clockFrequency = std::max(0.01, std::min(1000.0, static_cast<double>(freq)));
@@ -125,11 +124,17 @@ public:
 
 private:
     void iterate() {
-        // Ikeda map iteration
-        t = u + rho * (x * std::cos(t) - y * std::sin(t));
+        // Ikeda map iteration (standard formulation)
+        // t = 0.4 - 6/(1 + x² + y²)
+        t = 0.4 - 6.0 / (1.0 + x * x + y * y);
 
-        double newX = rho * (x * std::cos(t) - y * std::sin(t));
-        double newY = rho * (x * std::sin(t) + y * std::cos(t));
+        // x_{n+1} = 1 + u*(x_n*cos(t) - y_n*sin(t))
+        // y_{n+1} = u*(x_n*sin(t) + y_n*cos(t))
+        double cosT = std::cos(t);
+        double sinT = std::sin(t);
+
+        double newX = 1.0 + u * (x * cosT - y * sinT);
+        double newY = u * (x * sinT + y * cosT);
 
         x = newX;
         y = newY;
@@ -137,8 +142,7 @@ private:
 
     // Ikeda map state
     double x, y, t;
-    double u;    // Chaos parameter
-    double rho;  // Typically 0.9
+    double u;    // Chaos parameter (0.6-0.99 for chaotic behavior)
 
     // Clocking
     float sampleRate;

@@ -241,7 +241,7 @@ struct SynthParameters {
     std::atomic<float> env4ReleaseBend{0.5f};
 
     // Chaos parameters - 4 global chaos generators (Ikeda map)
-    std::atomic<float> chaos1Parameter{0.6f};      // u parameter (0-2, ~0.6 is chaotic)
+    std::atomic<float> chaos1Parameter{0.918f};    // u parameter (0.6-0.99, 0.918 is typical)
     std::atomic<float> chaos1ClockFreq{1.0f};      // Clock frequency in Hz (0.01-1000)
     std::atomic<bool> chaos1CubicInterp{false};    // Cubic interpolation vs linear
     std::atomic<bool> chaos1FastMode{false};       // Fast (audio rate) vs slow (low rate)
@@ -249,7 +249,7 @@ struct SynthParameters {
     std::atomic<float> chaos1VisualX{0.0f};        // Current X for visualization
     std::atomic<float> chaos1VisualY{0.0f};        // Current Y for visualization
 
-    std::atomic<float> chaos2Parameter{0.6f};
+    std::atomic<float> chaos2Parameter{0.918f};
     std::atomic<float> chaos2ClockFreq{1.0f};
     std::atomic<bool> chaos2CubicInterp{false};
     std::atomic<bool> chaos2FastMode{false};
@@ -257,7 +257,7 @@ struct SynthParameters {
     std::atomic<float> chaos2VisualX{0.0f};
     std::atomic<float> chaos2VisualY{0.0f};
 
-    std::atomic<float> chaos3Parameter{0.6f};
+    std::atomic<float> chaos3Parameter{0.918f};
     std::atomic<float> chaos3ClockFreq{1.0f};
     std::atomic<bool> chaos3CubicInterp{false};
     std::atomic<bool> chaos3FastMode{false};
@@ -265,7 +265,7 @@ struct SynthParameters {
     std::atomic<float> chaos3VisualX{0.0f};
     std::atomic<float> chaos3VisualY{0.0f};
 
-    std::atomic<float> chaos4Parameter{0.6f};
+    std::atomic<float> chaos4Parameter{0.918f};
     std::atomic<float> chaos4ClockFreq{1.0f};
     std::atomic<bool> chaos4CubicInterp{false};
     std::atomic<bool> chaos4FastMode{false};

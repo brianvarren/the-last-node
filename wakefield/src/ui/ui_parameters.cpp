@@ -109,26 +109,26 @@ void UI::initializeParameters() {
 
     // CHAOS page parameters - control the currently selected chaos generator (350-373)
     // Chaos 1: 350-355
-    parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({352, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({353, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({354, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
     // Reset is handled as an action, not a parameter
     // Chaos 2: 356-360
-    parameters.push_back({356, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({356, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({357, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({358, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({359, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({360, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
     // Chaos 3: 362-366
-    parameters.push_back({362, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({362, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({363, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({364, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({365, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({366, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
     // Chaos 4: 368-372
-    parameters.push_back({368, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({368, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({369, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({370, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({371, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
