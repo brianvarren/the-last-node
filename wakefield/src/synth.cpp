@@ -562,6 +562,7 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     // 0-3: LFO 1-4
     // 4-7: ENV 1-4
     // 8: Velocity, 9: Aftertouch, 10: Mod Wheel, 11: Pitch Bend, 12: Clock
+    // 13-16: Chaos 1-4
 
     if (sourceIndex >= 0 && sourceIndex <= 3) {
         // LFO 1-4
@@ -606,6 +607,9 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
             return phase * 2.0f - 1.0f;
         }
         return -1.0f;
+    } else if (sourceIndex >= 13 && sourceIndex <= 16) {
+        // Chaos 1-4
+        return getChaosOutput(sourceIndex - 13);
     }
 
     return 0.0f;

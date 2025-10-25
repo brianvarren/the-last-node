@@ -37,6 +37,12 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
     const int bottom = top + height - 1;
     const int right = left + width - 1;
 
+    // Clear the background area
+    for (int y = top; y <= bottom; ++y) {
+        mvhline(y, left, ' ', width);
+    }
+
+    // Draw border
     mvhline(top, left, '-', width);
     mvhline(bottom, left, '-', width);
     mvvline(top, left, '|', height);

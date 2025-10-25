@@ -14,7 +14,8 @@ const std::vector<ModOption>& buildSources() {
         {"LFO 1", "LFO1"}, {"LFO 2", "LFO2"}, {"LFO 3", "LFO3"}, {"LFO 4", "LFO4"},
         {"ENV 1", "ENV1"}, {"ENV 2", "ENV2"}, {"ENV 3", "ENV3"}, {"ENV 4", "ENV4"},
         {"Velocity", "Vel"}, {"Aftertouch", "AT"}, {"Mod Wheel", "MW"}, {"Pitch Bend", "PB"},
-        {"Clock", "Clk"}
+        {"Clock", "Clk"},
+        {"Chaos 1", "CH1"}, {"Chaos 2", "CH2"}, {"Chaos 3", "CH3"}, {"Chaos 4", "CH4"}
     };
     return sources;
 }
