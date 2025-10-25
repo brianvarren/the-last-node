@@ -67,3 +67,44 @@ Consolidate compiler generated dependencies of target synth
 [  7%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_input.cpp.o
 [  9%] Linking CXX executable synth
 [100%] Built target synth
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /srv/storage/Dropbox/_brian-varren/the-last-node/wakefield
+Consolidate compiler generated dependencies of target synth
+[  1%] Building CXX object CMakeFiles/synth.dir/src/main.cpp.o
+[  3%] Building CXX object CMakeFiles/synth.dir/src/synth.cpp.o
+[  5%] Building CXX object CMakeFiles/synth.dir/src/midi.cpp.o
+[  7%] Building CXX object CMakeFiles/synth.dir/src/voice.cpp.o
+[  9%] Building CXX object CMakeFiles/synth.dir/src/preset.cpp.o
+[ 11%] Building CXX object CMakeFiles/synth.dir/src/sequencer.cpp.o
+[ 13%] Building CXX object CMakeFiles/synth.dir/src/sampler.cpp.o
+[ 15%] Building CXX object CMakeFiles/synth.dir/src/ui.cpp.o
+[ 17%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_core.cpp.o
+[ 19%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_parameters.cpp.o
+[ 21%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_presets.cpp.o
+[ 23%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_help.cpp.o
+[ 25%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_input.cpp.o
+[ 27%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_drawing.cpp.o
+[ 29%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_mod.cpp.o
+[ 31%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_mod_data.cpp.o
+[ 33%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_sample_browser.cpp.o
+[ 35%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_parameters.cpp.o
+[ 37%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_oscillator.cpp.o
+[ 39%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_sampler.cpp.o
+[ 41%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_mixer.cpp.o
+[ 43%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_lfo.cpp.o
+[ 45%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_envelope.cpp.o
+[ 47%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_fm.cpp.o
+[ 49%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_mod.cpp.o
+[ 50%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_reverb.cpp.o
+[ 52%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_filter.cpp.o
+[ 54%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_looper.cpp.o
+[ 56%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_chaos.cpp.o
+[ 58%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_config.cpp.o
+[ 60%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_state.cpp.o
+[ 62%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_drawing.cpp.o
+[ 64%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_fields.cpp.o
+[ 66%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_actions.cpp.o
+[ 68%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_input.cpp.o
+[ 70%] Linking CXX executable synth
+[100%] Built target synth

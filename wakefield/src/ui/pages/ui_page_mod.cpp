@@ -136,8 +136,7 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
                 attron(A_DIM);
             }
 
-            mvprintw(drawRow, paramColX, "%-*s", paramColWidth, params[paramIndex].displayName);
-            mvprintw(drawRow, paramColX + paramColWidth + 1, "[%s]", params[paramIndex].symbol);
+            mvprintw(drawRow, paramColX, "%s", params[paramIndex].displayName);
 
             if (isSelected) {
                 if (focusColumn == 1) {
