@@ -113,9 +113,8 @@ void UI::initializeParameters() {
     // CHAOS page parameters - control the currently selected chaos generator (350-354)
     parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
     parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
-    parameters.push_back({352, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
-    parameters.push_back({353, ParamType::ENUM, "Interp", "", 0, 2, {"LINEAR", "CUBIC", "HOLD"}, true, static_cast<int>(UIPage::CHAOS)});
-    parameters.push_back({354, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({352, ParamType::ENUM, "Interp", "", 0, 2, {"LINEAR", "CUBIC", "HOLD"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({353, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
 }
 
 InlineParameter* UI::getParameter(int id) {
@@ -227,12 +226,11 @@ float UI::getParameterValue(int id) {
         case 321: return params->getEnvRelease(3);
         case 322: return params->getEnvAttackBend(3);
         case 323: return params->getEnvReleaseBend(3);
-        // CHAOS page parameters (350-354) - use currentChaosIndex
+        // CHAOS page parameters (350-353) - use currentChaosIndex
         case 350: return params->getChaosParameter(chaosIndex);
         case 351: return params->getChaosClockFreq(chaosIndex);
-        case 352: return params->getChaosFastMode(chaosIndex) ? 1.0f : 0.0f;
-        case 353: return static_cast<float>(params->getChaosInterpMode(chaosIndex));
-        case 354: return params->getChaosRunning(chaosIndex) ? 1.0f : 0.0f;
+        case 352: return static_cast<float>(params->getChaosInterpMode(chaosIndex));
+        case 353: return params->getChaosRunning(chaosIndex) ? 1.0f : 0.0f;
         default: return 0.0f;
     }
 }
@@ -326,12 +324,11 @@ void UI::setParameterValue(int id, float value) {
         case 321: params->setEnvRelease(3, value); break;
         case 322: params->setEnvAttackBend(3, value); break;
         case 323: params->setEnvReleaseBend(3, value); break;
-        // CHAOS page parameters (350-354) - use currentChaosIndex
+        // CHAOS page parameters (350-353) - use currentChaosIndex
         case 350: params->setChaosParameter(chaosIndex, value); synth->setChaosParameter(chaosIndex, value); break;
         case 351: params->setChaosClockFreq(chaosIndex, value); synth->setChaosClockFreq(chaosIndex, value); break;
-        case 352: params->setChaosFastMode(chaosIndex, value > 0.5f); synth->setChaosFastMode(chaosIndex, value > 0.5f); break;
-        case 353: params->setChaosInterpMode(chaosIndex, static_cast<int>(value)); synth->setChaosInterpMode(chaosIndex, static_cast<int>(value)); break;
-        case 354: params->setChaosRunning(chaosIndex, value > 0.5f); break;
+        case 352: params->setChaosInterpMode(chaosIndex, static_cast<int>(value)); synth->setChaosInterpMode(chaosIndex, static_cast<int>(value)); break;
+        case 353: params->setChaosRunning(chaosIndex, value > 0.5f); break;
     }
 }
 
