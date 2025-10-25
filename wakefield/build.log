@@ -149,3 +149,7 @@ Consolidate compiler generated dependencies of target synth
 [  3%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_mod.cpp.o
 [  5%] Linking CXX executable synth
 [100%] Built target synth
+Consolidate compiler generated dependencies of target synth
+[  1%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_mod.cpp.o
+[  3%] Linking CXX executable synth
+[100%] Built target synth

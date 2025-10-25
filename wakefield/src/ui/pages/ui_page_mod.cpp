@@ -17,6 +17,93 @@ SelectionHighlight getCurrentDestinationHighlight(int destinationIndex) {
     return highlight;
 }
 
+void drawSourcePicker(const std::vector<ModOption>& sources,
+                      int selectedSource,
+                      int currentSource) {
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
+
+    if (maxY < 10 || maxX < 40) {
+        return;
+    }
+
+    const int margin = 2;
+    const int top = margin;
+    const int left = margin;
+    const int height = maxY - margin * 2;
+    const int width = maxX - margin * 2;
+    const int bottom = top + height - 1;
+    const int right = left + width - 1;
+
+    // Clear the background area
+    for (int y = top; y <= bottom; ++y) {
+        mvhline(y, left, ' ', width);
+    }
+
+    // Draw border
+    mvhline(top, left, '-', width);
+    mvhline(bottom, left, '-', width);
+    mvvline(top, left, '|', height);
+    mvvline(top, right, '|', height);
+    mvaddch(top, left, '+');
+    mvaddch(top, right, '+');
+    mvaddch(bottom, left, '+');
+    mvaddch(bottom, right, '+');
+
+    // Title
+    attron(COLOR_PAIR(1) | A_BOLD);
+    mvprintw(top, left + 2, "Select Source");
+    attroff(COLOR_PAIR(1) | A_BOLD);
+
+    // Two column layout
+    int listTop = top + 2;
+    int listBottom = bottom - 3;
+    int visibleRows = std::max(1, listBottom - listTop + 1);
+    int itemsPerColumn = (static_cast<int>(sources.size()) + 1) / 2;  // Round up
+
+    int col1Width = width / 2 - 3;
+    int col2Width = width / 2 - 3;
+    int col1X = left + 2;
+    int col2X = left + width / 2 + 1;
+
+    // Draw sources in two columns
+    for (int i = 0; i < static_cast<int>(sources.size()); ++i) {
+        int column = (i < itemsPerColumn) ? 0 : 1;
+        int rowInColumn = (column == 0) ? i : i - itemsPerColumn;
+        int drawRow = listTop + rowInColumn;
+        int drawX = (column == 0) ? col1X : col2X;
+        int colWidth = (column == 0) ? col1Width : col2Width;
+
+        if (drawRow > listBottom) continue;
+
+        bool isSelected = (i == selectedSource);
+        bool isAssigned = (i == currentSource);
+
+        if (isSelected) {
+            attron(A_REVERSE | A_BOLD);
+        } else if (isAssigned) {
+            attron(A_DIM);
+        }
+
+        mvprintw(drawRow, drawX, "%-*s", colWidth, sources[i].displayName);
+
+        if (isSelected) {
+            attroff(A_REVERSE | A_BOLD);
+        } else if (isAssigned) {
+            attroff(A_DIM);
+        }
+    }
+
+    // Draw separator
+    mvvline(listTop, left + width / 2, ':', std::min(visibleRows, maxY - listTop - 3));
+
+    // Instructions
+    attron(COLOR_PAIR(6));
+    mvprintw(bottom - 1, left + 2,
+             "Up/Down navigate   Enter confirm   Esc cancel");
+    attroff(COLOR_PAIR(6));
+}
+
 void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
                            int selectedModule,
                            int selectedParam,
@@ -234,14 +321,16 @@ void UI::drawModPage() {
                                   modMatrixDestinationParamIndex,
                                   modMatrixDestinationFocusColumn,
                                   highlight);
+        } else if (modMatrixMenuColumn == 0) {
+            // Source picker - large two-column view
+            const ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+            drawSourcePicker(sources, modMatrixMenuIndex, slot.source);
         } else {
+            // Curve and Type - small menus
             const std::vector<ModOption>* options = nullptr;
             const char* title = "";
 
-            if (modMatrixMenuColumn == 0) {
-                options = &sources;
-                title = "Select Source";
-            } else if (modMatrixMenuColumn == 1) {
+            if (modMatrixMenuColumn == 1) {
                 options = &curves;
                 title = "Select Curve";
             } else if (modMatrixMenuColumn == 4) {
