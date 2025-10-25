@@ -202,6 +202,13 @@ public:
     float getMixerSamplerLevelMod(int index) const;
     float getMixerOscLevelMod(int index) const;
 
+    // Chaos generator control
+    void setChaosParameter(int chaosIndex, float value);
+    void setChaosClockFreq(int chaosIndex, float freq);
+    void setChaosFastMode(int chaosIndex, bool fast);
+    void setChaosCubicInterp(int chaosIndex, bool cubic);
+    void resetChaosGenerator(int chaosIndex);
+
 private:
     float sampleRate;
     float masterVolume;

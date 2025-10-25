@@ -493,8 +493,24 @@ void Synth::processChaos(unsigned int nFrames) {
     // Process all 4 chaos generators once per buffer to advance their state
     for (unsigned int frame = 0; frame < nFrames; ++frame) {
         for (int i = 0; i < 4; ++i) {
-            chaosOutputs[i] = chaos[i].process();  // Advance and cache output
+            // Only process if running
+            bool running = params ? params->getChaosRunning(i) : true;
+            if (running) {
+                chaosOutputs[i] = chaos[i].process();  // Advance and cache output
+            }
         }
+    }
+
+    // Update visual state for UI (once per buffer, using last frame's values)
+    if (params) {
+        params->chaos1VisualX.store(chaosOutputs[0]);
+        params->chaos1VisualY.store(chaos[0].getY());
+        params->chaos2VisualX.store(chaosOutputs[1]);
+        params->chaos2VisualY.store(chaos[1].getY());
+        params->chaos3VisualX.store(chaosOutputs[2]);
+        params->chaos3VisualY.store(chaos[2].getY());
+        params->chaos4VisualX.store(chaosOutputs[3]);
+        params->chaos4VisualY.store(chaos[3].getY());
     }
 }
 
@@ -1070,4 +1086,30 @@ float Synth::getMixerOscLevelMod(int index) const {
         return 0.0f;
     }
     return lastGlobalModOutputs.mixerOscLevel[index];
+}
+
+// Chaos generator control methods
+void Synth::setChaosParameter(int chaosIndex, float value) {
+    if (chaosIndex < 0 || chaosIndex >= 4) return;
+    chaos[chaosIndex].setChaosParameter(value);
+}
+
+void Synth::setChaosClockFreq(int chaosIndex, float freq) {
+    if (chaosIndex < 0 || chaosIndex >= 4) return;
+    chaos[chaosIndex].setClockFrequency(freq);
+}
+
+void Synth::setChaosFastMode(int chaosIndex, bool fast) {
+    if (chaosIndex < 0 || chaosIndex >= 4) return;
+    chaos[chaosIndex].setFastMode(fast);
+}
+
+void Synth::setChaosCubicInterp(int chaosIndex, bool cubic) {
+    if (chaosIndex < 0 || chaosIndex >= 4) return;
+    chaos[chaosIndex].setCubicInterpolation(cubic);
+}
+
+void Synth::resetChaosGenerator(int chaosIndex) {
+    if (chaosIndex < 0 || chaosIndex >= 4) return;
+    chaos[chaosIndex].reset();
 }

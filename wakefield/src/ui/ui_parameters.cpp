@@ -106,6 +106,33 @@ void UI::initializeParameters() {
     parameters.push_back({321, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
     parameters.push_back({322, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
     parameters.push_back({323, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+
+    // CHAOS page parameters - control the currently selected chaos generator (350-373)
+    // Chaos 1: 350-355
+    parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({352, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({353, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({354, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
+    // Reset is handled as an action, not a parameter
+    // Chaos 2: 356-360
+    parameters.push_back({356, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({357, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({358, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({359, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({360, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
+    // Chaos 3: 362-366
+    parameters.push_back({362, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({363, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({364, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({365, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({366, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
+    // Chaos 4: 368-372
+    parameters.push_back({368, ParamType::FLOAT, "Chaos", "", 0.0f, 2.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({369, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({370, ParamType::ENUM, "Mode", "", 0, 1, {"SLOW", "FAST"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({371, ParamType::ENUM, "Interp", "", 0, 1, {"LINEAR", "CUBIC"}, true, static_cast<int>(UIPage::CHAOS)});
+    parameters.push_back({372, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
 }
 
 InlineParameter* UI::getParameter(int id) {
@@ -213,6 +240,27 @@ float UI::getParameterValue(int id) {
         case 321: return params->getEnvRelease(3);
         case 322: return params->getEnvAttackBend(3);
         case 323: return params->getEnvReleaseBend(3);
+        // CHAOS page parameters (350-372)
+        case 350: return params->getChaosParameter(0);
+        case 351: return params->getChaosClockFreq(0);
+        case 352: return params->getChaosFastMode(0) ? 1.0f : 0.0f;
+        case 353: return params->getChaosCubicInterp(0) ? 1.0f : 0.0f;
+        case 354: return params->getChaosRunning(0) ? 1.0f : 0.0f;
+        case 356: return params->getChaosParameter(1);
+        case 357: return params->getChaosClockFreq(1);
+        case 358: return params->getChaosFastMode(1) ? 1.0f : 0.0f;
+        case 359: return params->getChaosCubicInterp(1) ? 1.0f : 0.0f;
+        case 360: return params->getChaosRunning(1) ? 1.0f : 0.0f;
+        case 362: return params->getChaosParameter(2);
+        case 363: return params->getChaosClockFreq(2);
+        case 364: return params->getChaosFastMode(2) ? 1.0f : 0.0f;
+        case 365: return params->getChaosCubicInterp(2) ? 1.0f : 0.0f;
+        case 366: return params->getChaosRunning(2) ? 1.0f : 0.0f;
+        case 368: return params->getChaosParameter(3);
+        case 369: return params->getChaosClockFreq(3);
+        case 370: return params->getChaosFastMode(3) ? 1.0f : 0.0f;
+        case 371: return params->getChaosCubicInterp(3) ? 1.0f : 0.0f;
+        case 372: return params->getChaosRunning(3) ? 1.0f : 0.0f;
         default: return 0.0f;
     }
 }
@@ -302,6 +350,27 @@ void UI::setParameterValue(int id, float value) {
         case 321: params->setEnvRelease(3, value); break;
         case 322: params->setEnvAttackBend(3, value); break;
         case 323: params->setEnvReleaseBend(3, value); break;
+        // CHAOS page parameters (350-372)
+        case 350: params->setChaosParameter(0, value); synth->setChaosParameter(0, value); break;
+        case 351: params->setChaosClockFreq(0, value); synth->setChaosClockFreq(0, value); break;
+        case 352: params->setChaosFastMode(0, value > 0.5f); synth->setChaosFastMode(0, value > 0.5f); break;
+        case 353: params->setChaosCubicInterp(0, value > 0.5f); synth->setChaosCubicInterp(0, value > 0.5f); break;
+        case 354: params->setChaosRunning(0, value > 0.5f); break;
+        case 356: params->setChaosParameter(1, value); synth->setChaosParameter(1, value); break;
+        case 357: params->setChaosClockFreq(1, value); synth->setChaosClockFreq(1, value); break;
+        case 358: params->setChaosFastMode(1, value > 0.5f); synth->setChaosFastMode(1, value > 0.5f); break;
+        case 359: params->setChaosCubicInterp(1, value > 0.5f); synth->setChaosCubicInterp(1, value > 0.5f); break;
+        case 360: params->setChaosRunning(1, value > 0.5f); break;
+        case 362: params->setChaosParameter(2, value); synth->setChaosParameter(2, value); break;
+        case 363: params->setChaosClockFreq(2, value); synth->setChaosClockFreq(2, value); break;
+        case 364: params->setChaosFastMode(2, value > 0.5f); synth->setChaosFastMode(2, value > 0.5f); break;
+        case 365: params->setChaosCubicInterp(2, value > 0.5f); synth->setChaosCubicInterp(2, value > 0.5f); break;
+        case 366: params->setChaosRunning(2, value > 0.5f); break;
+        case 368: params->setChaosParameter(3, value); synth->setChaosParameter(3, value); break;
+        case 369: params->setChaosClockFreq(3, value); synth->setChaosClockFreq(3, value); break;
+        case 370: params->setChaosFastMode(3, value > 0.5f); synth->setChaosFastMode(3, value > 0.5f); break;
+        case 371: params->setChaosCubicInterp(3, value > 0.5f); synth->setChaosCubicInterp(3, value > 0.5f); break;
+        case 372: params->setChaosRunning(3, value > 0.5f); break;
     }
 }
 
