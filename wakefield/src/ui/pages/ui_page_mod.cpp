@@ -251,7 +251,7 @@ void UI::drawModPage() {
 
             if (options && !options->empty()) {
                 int menuWidth = 30;
-                int menuHeight = std::min(12, static_cast<int>(options->size()) + 4);
+                int menuHeight = static_cast<int>(options->size()) + 4;
                 int menuX = 25;
                 int menuY = 8;
 
@@ -261,11 +261,8 @@ void UI::drawModPage() {
                 mvhline(menuY + 2, menuX + 1, '-', menuWidth - 2);
                 attroff(COLOR_PAIR(1) | A_BOLD);
 
-                int firstOption = std::max(0, modMatrixMenuIndex - (menuHeight - 4) / 2);
-                int lastOption = std::min(static_cast<int>(options->size()), firstOption + menuHeight - 3);
-
-                for (int i = firstOption; i < lastOption; ++i) {
-                    int optRow = menuY + 3 + (i - firstOption);
+                for (int i = 0; i < static_cast<int>(options->size()); ++i) {
+                    int optRow = menuY + 3 + i;
                     if (i == modMatrixMenuIndex) {
                         attron(A_REVERSE);
                     }
