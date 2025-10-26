@@ -197,8 +197,8 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             break;
 
         // FILTER page parameters
-        case 30:  // Filter Type (ENUM 0-3)
-            synthParams->filterType = static_cast<int>(mapCCToParameter(ccValue, 0, 5));
+        case 30:  // Filter Type (ENUM 0-6)
+            synthParams->filterType = static_cast<int>(mapCCToParameter(ccValue, 0, 6));
             break;
         case 31:  // Filter Enabled (BOOL)
             synthParams->filterEnabled = (ccValue > 63);

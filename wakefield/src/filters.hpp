@@ -403,3 +403,123 @@ private:
         return 0.5f * (pos + neg);
     }
 };
+
+
+
+
+class BandpassCellZdf {
+public:
+    BandpassCellZdf() = default;
+
+    void setSampleRate(float sr) {
+        lpStage.setSampleRate(sr);
+        hpStage.setSampleRate(sr);
+    }
+
+    void setCutoff(float hz) {
+        lpStage.setCutoff(hz);
+        hpStage.setCutoff(hz);
+    }
+
+    void setDrive(float driveAmount) {
+        drive = std::clamp(driveAmount, 0.1f, 15.0f);
+        satGain = 0.5f * drive;
+    }
+
+    void reset() {
+        lpStage.reset();
+        hpStage.reset();
+    }
+
+    float process(float in) {
+        auto [lp, _] = lpStage.process(in);
+        float saturated = std::tanh(lp * satGain);
+        auto [__, hp] = hpStage.process(saturated);
+        lastOutput = hp;
+        return hp;
+    }
+
+    float getLastOutput() const { return lastOutput; }
+
+private:
+    OnePoleTPT lpStage;
+    OnePoleTPT hpStage;
+    float drive = 1.0f;
+    float satGain = 0.5f;
+    float lastOutput = 0.0f;
+};
+
+class LadderBandpassZdf {
+public:
+    explicit LadderBandpassZdf(float sampleRate = 48000.0f) {
+        setSampleRate(sampleRate);
+        setCutoff(1000.0f);
+    }
+
+    void setSampleRate(float sr) {
+        sampleRate = std::max(1.0f, sr);
+        for (auto& cell : cells) cell.setSampleRate(sampleRate);
+        feedbackHP.setSampleRate(sampleRate);
+        setCutoff(cutoffHz);
+        setFeedbackHighpass(feedbackHpHz);
+    }
+
+    void setCutoff(float hz) {
+        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        for (auto& cell : cells) cell.setCutoff(cutoffHz);
+    }
+
+    void setResonance(float amount) {
+        resonance = std::clamp(amount, 0.0f, 1.2f);
+        resonanceGain = 0.05f + resonance * 2.2f;
+    }
+
+    void setDrive(float driveAmount) {
+        float drv = std::clamp(driveAmount, 0.1f, 15.0f);
+        inputDrive = drv;
+        for (auto& cell : cells) cell.setDrive(drv);
+    }
+
+    void setFeedbackHighpass(float hz) {
+        feedbackHpHz = std::clamp(hz, 10.0f, std::min(6000.0f, 0.45f * sampleRate));
+        feedbackHP.setCutoff(feedbackHpHz);
+    }
+
+    void reset() {
+        for (auto& cell : cells) cell.reset();
+        feedbackHP.reset();
+        lastFeedbackHP = 0.0f;
+    }
+
+    float process(float in) {
+        const float feedback = lastFeedbackHP;
+        float x = std::tanh(inputDrive * in - resonanceGain * feedback);
+
+        for (std::size_t i = 0; i < cells.size(); ++i) {
+            x = cells[i].process(x);
+            stageOutputs[i] = x;
+        }
+
+        auto hpPair = feedbackHP.process(stageOutputs.back());
+        lastFeedbackHP = std::tanh(hpPair.second);
+        return stageOutputs.back();
+    }
+
+    float getStageOutput(int idx) const {
+        if (idx < 0 || idx >= static_cast<int>(stageOutputs.size())) return stageOutputs.back();
+        return stageOutputs[idx];
+    }
+
+private:
+    float sampleRate = 48000.0f;
+    float cutoffHz = 1000.0f;
+    float resonance = 0.0f;
+    float resonanceGain = 0.05f;
+    float inputDrive = 1.0f;
+    float feedbackHpHz = 200.0f;
+
+    std::array<BandpassCellZdf, 4> cells;
+    std::array<float, 4> stageOutputs {0};
+    OnePoleTPT feedbackHP;
+    float lastFeedbackHP = 0.0f;
+};

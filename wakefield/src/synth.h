@@ -245,6 +245,8 @@ private:
     Ladder8PoleZdf ladderFilterR;
     LadderDiodeZdf diodeFilterL;
     LadderDiodeZdf diodeFilterR;
+    LadderBandpassZdf bandpassFilterL;
+    LadderBandpassZdf bandpassFilterR;
     OnePoleHighShelfBLT highShelfL;
     OnePoleHighShelfBLT highShelfR;
     OnePoleLowShelfBLT lowShelfL;
