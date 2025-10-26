@@ -517,19 +517,19 @@ public:
             stageOutputs[i] = signal;
         }
 
-        // Final output from last stage
-        float output = signal * outputGain;
+        float bp = 0.0f;
+        float previous = in;
+        for (std::size_t i = 0; i < stageOutputs.size(); ++i) {
+            float diff = previous - stageOutputs[i];
+            bp += diff;
+            previous = stageOutputs[i];
+        }
+        bp *= outputGain;
 
-        // Extract HP from output for feedback (creates lower rolloff)
-        // The HP output represents energy below the cutoff that needs to be removed
-        auto [lp, hp] = highpassFeedback.process(output);
+        auto [lp, hp] = highpassFeedback.process(bp);
         lastHPFeedback = hp;
-
-        // Resonance feedback from stage 6 (75% through the filter)
-        // Using earlier stage gives cleaner resonance
         lastResonanceFeedback = stageOutputs[5];
-
-        return output;
+        return bp;
     }
 
     float getStageOutput(int idx) const {
