@@ -423,13 +423,8 @@ public:
     }
 
     void setWidth(float w) {
-        width = std::clamp(w, 0.05f, 0.95f);
+        width = std::clamp(w, 0.0f, 1.0f);
         updateStages();
-    }
-
-    void setDrive(float driveAmount) {
-        drive = std::clamp(driveAmount, 0.1f, 15.0f);
-        satGain = 0.5f * drive;
     }
 
     void reset() {
@@ -439,17 +434,18 @@ public:
 
     float process(float in) {
         auto [lp, _] = lpStage.process(in);
-        float saturated = std::tanh(lp * satGain);
-        auto [__, hp] = hpStage.process(saturated);
+        auto [__, hp] = hpStage.process(lp);
         lastOutput = hp;
-        return hp;
+        return lastOutput;
     }
 
     float getLastOutput() const { return lastOutput; }
 
 private:
     void updateStages() {
-        float ratio = std::pow(2.0f, (width - 0.5f) * 3.0f);  // +/-1.5 oct
+        // Width knob is 0..1 mapped to +/-4 octaves (8 octave span)
+        float octaves = (width * 8.0f) - 4.0f;
+        float ratio = std::pow(2.0f, octaves * 0.5f);
         float lpCut = std::clamp(baseCutoff * ratio, 20.0f, lpStage.sampleRate() * 0.49f);
         float hpCut = std::clamp(baseCutoff / ratio, 20.0f, hpStage.sampleRate() * 0.49f);
         lpStage.setCutoff(lpCut);
@@ -460,8 +456,6 @@ private:
     OnePoleTPT hpStage;
     float baseCutoff = 1000.0f;
     float width = 0.5f;
-    float drive = 1.0f;
-    float satGain = 0.5f;
     float lastOutput = 0.0f;
 };
 
@@ -488,13 +482,11 @@ public:
 
     void setResonance(float amount) {
         resonance = std::clamp(amount, 0.0f, 1.2f);
-        resonanceGain = 0.05f + resonance * 2.2f;
+        resonanceGain = 0.05f + resonance * 2.0f;
     }
 
     void setDrive(float driveAmount) {
-        float drv = std::clamp(driveAmount, 0.1f, 15.0f);
-        inputDrive = drv;
-        for (auto& cell : cells) cell.setDrive(drv);
+        feedbackDrive = std::clamp(driveAmount, 0.5f, 5.0f);
     }
 
     void setFeedbackHighpass(float hz) {
@@ -503,10 +495,9 @@ public:
     }
 
     void setWidth(float w) {
-        bandWidth = std::clamp(w, 0.05f, 0.95f);
+        bandWidth = std::clamp(w, 0.0f, 1.0f);
         for (auto& cell : cells) cell.setWidth(bandWidth);
-        // Increased makeup gain significantly for better bandpass response
-        makeupGain = 4.0f / std::max(0.1f, bandWidth);
+        computeStageWeights();
     }
 
     void reset() {
@@ -517,16 +508,23 @@ public:
 
     float process(float in) {
         const float feedback = lastFeedbackHP;
-        float x = std::tanh(inputDrive * in - resonanceGain * feedback);
+        float x = in - resonanceGain * std::tanh(feedback * feedbackDrive);
 
+        float stageValue = x;
         for (std::size_t i = 0; i < cells.size(); ++i) {
-            x = cells[i].process(x);
-            stageOutputs[i] = x;
+            stageValue = cells[i].process(stageValue);
+            stageOutputs[i] = stageValue;
         }
 
-        auto hpPair = feedbackHP.process(stageOutputs.back());
-        lastFeedbackHP = std::tanh(hpPair.second);
-        return stageOutputs.back() * makeupGain;
+        float sum = 0.0f;
+        for (std::size_t i = 0; i < stageOutputs.size(); ++i) {
+            sum += stageOutputs[i] * stageWeights[i];
+        }
+
+        float output = sum * outputGain;
+        auto hpPair = feedbackHP.process(output);
+        lastFeedbackHP = hpPair.second;
+        return output;
     }
 
     float getStageOutput(int idx) const {
@@ -539,15 +537,28 @@ private:
     float cutoffHz = 1000.0f;
     float resonance = 0.0f;
     float resonanceGain = 0.05f;
-    float inputDrive = 1.0f;
+    float feedbackDrive = 1.0f;
     float feedbackHpHz = 200.0f;
     float bandWidth = 0.5f;
-    float makeupGain = 1.0f;
+    std::array<float, 4> stageWeights {1.0f, 1.0f, 1.0f, 1.0f};
+    float outputGain = 1.0f;
 
     std::array<BandpassCellZdf, 4> cells;
     std::array<float, 4> stageOutputs {0};
     OnePoleTPT feedbackHP;
     float lastFeedbackHP = 0.0f;
+
+    void computeStageWeights() {
+        // emulate reference weighting: width expressed in octaves
+        float oct = (bandWidth * 8.0f) - 4.0f;
+        float factor = std::max(0.1f, std::exp(oct * 0.1f));
+        float sum = 0.0f;
+        for (std::size_t i = 0; i < stageWeights.size(); ++i) {
+            stageWeights[i] = std::pow(factor, static_cast<float>(i));
+            sum += stageWeights[i];
+        }
+        outputGain = (sum > 1e-3f) ? (1.0f / sum) : 1.0f;
+    }
 };
 
 

@@ -166,6 +166,9 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
             else if (key == "gain") params->filterGain = std::stof(value);
             else if (key == "spread") params->filterSpread = std::stof(value);
             else if (key == "notch_feedback") params->filterNotchFeedback = std::stof(value);
+            else if (key == "width") params->filterBandWidth = std::stof(value);
+            else if (key == "spread") params->filterSpread = std::stof(value);
+            else if (key == "notch_feedback") params->filterNotchFeedback = std::stof(value);
         } else if (currentSection == "reverb") {
             if (key == "enabled") params->reverbEnabled = parseBool(value);
             else if (key == "type") {
@@ -240,6 +243,7 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     file << "gain=" << params->filterGain.load() << "\n";
     file << "spread=" << params->filterSpread.load() << "\n";
     file << "notch_feedback=" << params->filterNotchFeedback.load() << "\n";
+    file << "width=" << params->filterBandWidth.load() << "\n";
     file << "\n";
     
     // Reverb section

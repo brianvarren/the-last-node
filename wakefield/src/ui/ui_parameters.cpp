@@ -43,8 +43,9 @@ void UI::initializeParameters() {
     parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, true, static_cast<int>(UIPage::REVERB)});
 
     // FILTER page parameters - ALL support MIDI learn
-    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 6,
-                          {"Lowpass", "Highpass", "High Shelf", "Low Shelf", "Ladder LP", "Diode LP", "Ladder BP"},
+    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 7,
+                          {"Lowpass", "Highpass", "High Shelf", "Low Shelf",
+                           "Ladder LP", "Diode LP", "Ladder BP", "Dual Notch"},
                           true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({32, ParamType::FLOAT, "Cutoff", "Hz", 20.0f, 20000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
@@ -428,6 +429,13 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
                 adjustMultiplicative(1.1f, 1.25f);
             } else if (id == 32) { // Filter cutoff
                 adjustMultiplicative(1.1f, 1.3f);
+            } else if (id == 35) { // Filter drive - fine increments (0.2 coarse, 0.05 fine)
+                float step = fine ? 0.05f : 0.2f;
+                if (increase) {
+                    newValue = clampValue(currentValue + step);
+                } else {
+                    newValue = clampValue(currentValue - step);
+                }
             } else if (id == 200) { // LFO period
                 adjustMultiplicative(1.1f, 1.3f);
             } else {
