@@ -375,6 +375,8 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     static ParameterSmoother filterResonanceSmoother;
     static ParameterSmoother filterDriveSmoother;
     static ParameterSmoother filterFeedbackHPSmoother;
+    static ParameterSmoother filterSpreadSmoother;
+    static ParameterSmoother filterNotchFeedbackSmoother;
     static ParameterSmoother overdubMixSmoother;
 
     float* buffer = static_cast<float*>(outputBuffer);
@@ -414,6 +416,8 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             filterResonanceSmoother.reset(synthParams->filterResonance.load());
             filterDriveSmoother.reset(synthParams->filterDrive.load());
             filterFeedbackHPSmoother.reset(synthParams->filterFeedbackHP.load());
+            filterSpreadSmoother.reset(synthParams->filterSpread.load());
+            filterNotchFeedbackSmoother.reset(synthParams->filterNotchFeedback.load());
             overdubMixSmoother.reset(synthParams->overdubMix.load());
             smoothersInitialized = true;
         }
@@ -440,6 +444,10 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         filterResonanceSmoother.setTarget(synthParams->filterResonance.load());
         filterDriveSmoother.setTarget(synthParams->filterDrive.load());
         filterFeedbackHPSmoother.setTarget(synthParams->filterFeedbackHP.load());
+        filterSpreadSmoother.setTarget(synthParams->filterSpread.load());
+        filterNotchFeedbackSmoother.setTarget(synthParams->filterNotchFeedback.load());
+        filterSpreadSmoother.setTarget(synthParams->filterSpread.load());
+        filterNotchFeedbackSmoother.setTarget(synthParams->filterNotchFeedback.load());
         overdubMixSmoother.setTarget(synthParams->overdubMix.load());
 
         // Process smoothers (one step per audio callback)
@@ -464,6 +472,8 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         float smoothedFilterResonance = filterResonanceSmoother.process();
         float smoothedFilterDrive = filterDriveSmoother.process();
         float smoothedFilterFeedbackHP = filterFeedbackHPSmoother.process();
+        float smoothedFilterSpread = filterSpreadSmoother.process();
+        float smoothedFilterNotchFeedback = filterNotchFeedbackSmoother.process();
 
         // Update synth with smoothed values
         synth->updateEnvelopeParameters(
@@ -521,7 +531,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             smoothedFilterGain,
             smoothedFilterResonance,
             smoothedFilterDrive,
-            smoothedFilterFeedbackHP
+            smoothedFilterFeedbackHP,
+            smoothedFilterSpread,
+            smoothedFilterNotchFeedback
         );
 
         // Update LFO parameters

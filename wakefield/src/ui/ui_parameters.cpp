@@ -52,6 +52,8 @@ void UI::initializeParameters() {
     parameters.push_back({34, ParamType::FLOAT, "Resonance", "", 0.0f, 1.2f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({35, ParamType::FLOAT, "Drive", "", 0.1f, 15.0f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({36, ParamType::FLOAT, "FB HP", "Hz", 10.0f, 6000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({37, ParamType::FLOAT, "Spread", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({38, ParamType::FLOAT, "Notch FB", "", 0.0f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER)});
 
     // LOOPER page parameters - ALL support MIDI learn
     parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
@@ -202,6 +204,8 @@ float UI::getParameterValue(int id) {
         case 34: return params->filterResonance.load();
         case 35: return params->filterDrive.load();
         case 36: return params->filterFeedbackHP.load();
+        case 37: return params->filterSpread.load();
+        case 38: return params->filterNotchFeedback.load();
         case 40: return static_cast<float>(params->currentLoop.load());
         case 41: return params->overdubMix.load();
         // CONFIG page parameters
@@ -302,6 +306,8 @@ void UI::setParameterValue(int id, float value) {
         case 34: params->filterResonance = value; break;
         case 35: params->filterDrive = value; break;
         case 36: params->filterFeedbackHP = value; break;
+        case 37: params->filterSpread = value; break;
+        case 38: params->filterNotchFeedback = value; break;
         case 40: params->currentLoop = static_cast<int>(value); break;
         case 41: params->overdubMix = value; break;
         // CONFIG page parameters

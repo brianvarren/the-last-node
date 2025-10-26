@@ -83,6 +83,8 @@ struct SynthParameters {
     std::atomic<float> filterResonance{0.4f};
     std::atomic<float> filterDrive{1.0f};
     std::atomic<float> filterFeedbackHP{200.0f};
+    std::atomic<float> filterSpread{0.5f};
+    std::atomic<float> filterNotchFeedback{0.3f};
     
     // Generic MIDI CC Learn for new parameter system
     std::atomic<bool> midiLearnActive{false};

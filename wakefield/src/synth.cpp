@@ -29,6 +29,8 @@ Synth::Synth(float sampleRate)
     diodeFilterR.setSampleRate(sampleRate);
     bandpassFilterL.setSampleRate(sampleRate);
     bandpassFilterR.setSampleRate(sampleRate);
+    notchFilterL.setSampleRate(sampleRate);
+    notchFilterR.setSampleRate(sampleRate);
     
     // Initialize voices with sample rate
     for (int i = 0; i < MAX_VOICES; ++i) {
@@ -98,6 +100,37 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
     // Store base amp and level at control rate (used in voice mixing)
     oscillatorBaseAmps[index] = amp;
     oscillatorBaseLevels[index] = level;
+
+    // Check if ANY oscillator or sampler is in FREE mode
+    bool anyFreeMode = false;
+
+    // Check all oscillators
+    for (const auto& voice : voices) {
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            if (voice.oscillators[i].getMode() == BrainwaveMode::FREE) {
+                anyFreeMode = true;
+                break;
+            }
+        }
+        if (anyFreeMode) break;
+    }
+
+    // Check all samplers
+    if (!anyFreeMode) {
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            if (!samplerKeyModes[i]) {  // false = FREE mode
+                anyFreeMode = true;
+                break;
+            }
+        }
+    }
+
+    // Spawn or kill free-running voice based on mode
+    if (anyFreeMode && !freeRunningVoiceActive) {
+        spawnFreeRunningVoice();
+    } else if (!anyFreeMode && freeRunningVoiceActive) {
+        killFreeRunningVoice();
+    }
 }
 
 void Synth::updateReverbParameters(float delayTime, float size, float damping, float mix, float decay,
@@ -113,7 +146,8 @@ void Synth::updateReverbParameters(float delayTime, float size, float damping, f
 }
 
 void Synth::updateFilterParameters(int type, float cutoff, float gain,
-                                   float resonance, float drive, float feedbackHP) {
+                                   float resonance, float drive, float feedbackHP,
+                                   float spread, float notchFeedback) {
     currentFilterType = type;
     
     // Update all filter types (the active one will be used during processing)
@@ -156,6 +190,17 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain,
     bandpassFilterR.setDrive(drive);
     bandpassFilterL.setFeedbackHighpass(feedbackHP);
     bandpassFilterR.setFeedbackHighpass(feedbackHP);
+
+    notchFilterL.setCutoff(cutoff);
+    notchFilterR.setCutoff(cutoff);
+    notchFilterL.setSpread(spread);
+    notchFilterR.setSpread(spread);
+    notchFilterL.setResonance(resonance);
+    notchFilterR.setResonance(resonance);
+    notchFilterL.setDrive(drive);
+    notchFilterR.setDrive(drive);
+    notchFilterL.setNotchFeedback(notchFeedback);
+    notchFilterR.setNotchFeedback(notchFeedback);
 }
 
 void Synth::noteOn(int midiNote, int velocity) {
@@ -217,6 +262,88 @@ void Synth::noteOff(int midiNote) {
             voices[i].envelope.noteOff();  // Trigger release
         }
     }
+}
+
+void Synth::spawnFreeRunningVoice() {
+    // Kill existing free-running voice first
+    if (freeRunningVoiceActive) {
+        killFreeRunningVoice();
+    }
+
+    // Find a free voice (prefer voice 0 for consistency)
+    int voiceIndex = 0;
+    if (voices[voiceIndex].active) {
+        // If voice 0 is busy, find any free voice
+        voiceIndex = findFreeVoice();
+        if (voiceIndex == -1) {
+            // No free voices available
+            return;
+        }
+    }
+
+    // Activate the free-running voice
+    Voice& voice = voices[voiceIndex];
+    voice.active = true;
+    voice.note = 60;  // Middle C as default note
+    voice.velocity = 100;  // Default velocity
+
+    // Set note frequency for oscillators (used in KEY mode, ignored in FREE mode)
+    float frequency = midiNoteToFrequency(60);
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        voice.oscillators[i].setNoteFrequency(frequency);
+        voice.oscillators[i].reset();  // Reset phase
+        voice.pitchMod[i] = 0.0f;
+        voice.morphMod[i] = 0.0f;
+        voice.dutyMod[i] = 0.0f;
+        voice.ratioMod[i] = 0.0f;
+        voice.offsetMod[i] = 0.0f;
+        voice.ampMod[i] = 0.0f;
+    }
+
+    // Initialize samplers
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        voice.samplerPitchMod[i] = 0.0f;
+        voice.samplerLoopStartMod[i] = 0.0f;
+        voice.samplerLoopLengthMod[i] = 0.0f;
+        voice.samplerCrossfadeMod[i] = 0.0f;
+        voice.samplerLevelMod[i] = 0.0f;
+        voice.samplers[i].setKeyMode(samplerKeyModes[i]);
+
+        // Always restart samplers in FREE mode
+        if (!samplerKeyModes[i]) {
+            voice.samplers[i].requestRestart();
+        }
+    }
+
+    voice.resetFMHistory();
+
+    // Trigger envelope with sustain at max (infinite hold)
+    voice.envelope.noteOn();
+
+    // Mark as free-running voice
+    freeRunningVoiceActive = true;
+    freeRunningVoiceIndex = voiceIndex;
+}
+
+void Synth::killFreeRunningVoice() {
+    if (!freeRunningVoiceActive || freeRunningVoiceIndex < 0 || freeRunningVoiceIndex >= MAX_VOICES) {
+        return;
+    }
+
+    Voice& voice = voices[freeRunningVoiceIndex];
+
+    // Immediately deactivate the voice (no release envelope)
+    voice.active = false;
+    voice.envelope.noteOff();
+    voice.resetFMHistory();
+
+    // Stop all samplers
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        voice.samplers[i].stopPlayback();
+    }
+
+    freeRunningVoiceActive = false;
+    freeRunningVoiceIndex = -1;
 }
 
 int Synth::getActiveVoiceCount() const {
@@ -464,6 +591,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             } else if (currentFilterType == 6) {  // Bandpass ladder
                 output[i * 2] = bandpassFilterL.process(left);
                 output[i * 2 + 1] = bandpassFilterR.process(right);
+            } else if (currentFilterType == 7) {  // Dual Notch
+                output[i * 2] = notchFilterL.process(left);
+                output[i * 2 + 1] = notchFilterR.process(right);
             }
         }
     }
@@ -1025,6 +1155,37 @@ void Synth::setSamplerKeyMode(int samplerIndex, bool enabled) {
         freeSamplers[samplerIndex].requestRestart();
     }
     freeSamplers[samplerIndex].setKeyMode(false);
+
+    // Check if ANY oscillator or sampler is in FREE mode
+    bool anyFreeMode = false;
+
+    // Check all oscillators
+    for (const auto& voice : voices) {
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            if (voice.oscillators[i].getMode() == BrainwaveMode::FREE) {
+                anyFreeMode = true;
+                break;
+            }
+        }
+        if (anyFreeMode) break;
+    }
+
+    // Check all samplers
+    if (!anyFreeMode) {
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            if (!samplerKeyModes[i]) {  // false = FREE mode
+                anyFreeMode = true;
+                break;
+            }
+        }
+    }
+
+    // Spawn or kill free-running voice based on mode
+    if (anyFreeMode && !freeRunningVoiceActive) {
+        spawnFreeRunningVoice();
+    } else if (!anyFreeMode && freeRunningVoiceActive) {
+        killFreeRunningVoice();
+    }
 }
 
 void Synth::saveSamplerPhase(int samplerIndex, uint64_t phase) {

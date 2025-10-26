@@ -523,3 +523,137 @@ private:
     OnePoleTPT feedbackHP;
     float lastFeedbackHP = 0.0f;
 };
+
+
+
+class NotchStageZdf {
+public:
+    NotchStageZdf() = default;
+
+    void setSampleRate(float sr) {
+        sampleRate = std::max(1.0f, sr);
+        setCutoff(cutoffHz);
+    }
+
+    void setCutoff(float hz) {
+        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        const float gRaw = std::tan(static_cast<float>(M_PI) * cutoffHz / sampleRate);
+        g = gRaw;
+    }
+
+    void setDamping(float value) {
+        damping = std::clamp(value, 0.01f, 0.99f);
+        R = 2.0f * (1.0f - damping);
+    }
+
+    void setDrive(float driveAmount) {
+        float drv = std::clamp(driveAmount, 0.1f, 15.0f);
+        satGain = 0.5f * drv;
+    }
+
+    void reset() {
+        ic1 = 0.0f;
+        ic2 = 0.0f;
+    }
+
+    float process(float input) {
+        float t = (input - ic2 - R * ic1);
+        float v3 = std::tanh(t * satGain);
+        float v1 = g * v3 + ic1;
+        float v2 = g * v1 + ic2;
+        ic1 = v1 + g * v3;
+        ic2 = v2 + g * v1;
+        float hp = v3 - R * v1;
+        float notch = hp + v2;
+        lastOutput = notch;
+        return notch;
+    }
+
+    float getLastOutput() const { return lastOutput; }
+
+private:
+    float sampleRate = 48000.0f;
+    float cutoffHz = 1000.0f;
+    float g = 0.1f;
+    float damping = 0.5f;
+    float R = 1.0f;
+    float satGain = 0.5f;
+    float ic1 = 0.0f;
+    float ic2 = 0.0f;
+    float lastOutput = 0.0f;
+};
+
+class DualNotchZdf {
+public:
+    explicit DualNotchZdf(float sampleRate = 48000.0f) {
+        setSampleRate(sampleRate);
+        setCutoff(1000.0f);
+    }
+
+    void setSampleRate(float sr) {
+        sampleRate = std::max(1.0f, sr);
+        for (auto& stage : stages) stage.setSampleRate(sampleRate);
+        updateCutoffs();
+    }
+
+    void setCutoff(float hz) {
+        baseCutoff = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        updateCutoffs();
+    }
+
+    void setSpread(float value) {
+        spread = std::clamp(value, 0.0f, 1.0f);
+        updateCutoffs();
+        applyDamping();
+    }
+
+    void setResonance(float amount) {
+        baseDamping = std::clamp(1.0f - 0.5f * amount, 0.05f, 0.95f);
+        applyDamping();
+    }
+
+    void setDrive(float driveAmount) {
+        for (auto& stage : stages) stage.setDrive(driveAmount);
+    }
+
+    void setNotchFeedback(float value) {
+        feedbackGain = std::clamp(value, 0.0f, 0.95f);
+    }
+
+    void reset() {
+        for (auto& stage : stages) stage.reset();
+        lastOutput = 0.0f;
+    }
+
+    float process(float input) {
+        float fb = feedbackGain * std::tanh(lastOutput);
+        float x = input + fb;
+        float y = x;
+        for (auto& stage : stages) {
+            y = stage.process(y);
+        }
+        lastOutput = y;
+        return y;
+    }
+
+private:
+    void updateCutoffs() {
+        float ratio = std::pow(2.0f, (spread - 0.5f) * 2.0f);  // +/-1 octave
+        stages[0].setCutoff(baseCutoff);
+        stages[1].setCutoff(std::clamp(baseCutoff * ratio, 20.0f, 0.45f * sampleRate));
+    }
+
+    void applyDamping() {
+        stages[0].setDamping(baseDamping);
+        float damp2 = std::clamp(baseDamping * (1.0f + spread * 1.5f), 0.05f, 0.99f);
+        stages[1].setDamping(damp2);
+    }
+
+    float sampleRate = 48000.0f;
+    float baseCutoff = 1000.0f;
+    float spread = 0.5f;
+    float feedbackGain = 0.3f;
+    float baseDamping = 0.7f;
+    std::array<NotchStageZdf, 2> stages;
+    float lastOutput = 0.0f;
+};

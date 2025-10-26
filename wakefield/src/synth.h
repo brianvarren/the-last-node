@@ -50,7 +50,8 @@ public:
     // Filter control
     void setFilterEnabled(bool enabled) { filterEnabled = enabled; }
     void updateFilterParameters(int type, float cutoff, float gain,
-                                float resonance, float drive, float feedbackHP);
+                                float resonance, float drive, float feedbackHP,
+                                float spread, float notchFeedback);
 
     // LFO control
     void updateLFOParameters(int lfoIndex, float period, int syncMode, int shape, float morph,
@@ -249,6 +250,8 @@ private:
     LadderDiodeZdf diodeFilterR;
     LadderBandpassZdf bandpassFilterL;
     LadderBandpassZdf bandpassFilterR;
+    DualNotchZdf notchFilterL;
+    DualNotchZdf notchFilterR;
     OnePoleHighShelfBLT highShelfL;
     OnePoleHighShelfBLT highShelfR;
     OnePoleLowShelfBLT lowShelfL;
@@ -285,6 +288,14 @@ private:
     float midiNoteToFrequency(int midiNote);
     void refreshSamplerPhaseDrivers();
     float normalizePhaseForDriver(float value, int type) const;
+
+    // Free-running voice management
+    void spawnFreeRunningVoice();
+    void killFreeRunningVoice();
+    bool hasFreeRunningVoice() const { return freeRunningVoiceActive; }
+
+    bool freeRunningVoiceActive = false;
+    int freeRunningVoiceIndex = -1;
 };
 
 #endif // SYNTH_H

@@ -160,9 +160,12 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
                 else if (value == "LADDER") params->filterType = 4;
                 else if (value == "DIODE") params->filterType = 5;
                 else if (value == "BANDPASS") params->filterType = 6;
+                else if (value == "NOTCH") params->filterType = 7;
             }
             else if (key == "cutoff") params->filterCutoff = std::stof(value);
             else if (key == "gain") params->filterGain = std::stof(value);
+            else if (key == "spread") params->filterSpread = std::stof(value);
+            else if (key == "notch_feedback") params->filterNotchFeedback = std::stof(value);
         } else if (currentSection == "reverb") {
             if (key == "enabled") params->reverbEnabled = parseBool(value);
             else if (key == "type") {
@@ -232,8 +235,11 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     else if (filterType == 4) file << "type=LADDER\n";
     else if (filterType == 5) file << "type=DIODE\n";
     else if (filterType == 6) file << "type=BANDPASS\n";
+    else if (filterType == 7) file << "type=NOTCH\n";
     file << "cutoff=" << params->filterCutoff.load() << "\n";
     file << "gain=" << params->filterGain.load() << "\n";
+    file << "spread=" << params->filterSpread.load() << "\n";
+    file << "notch_feedback=" << params->filterNotchFeedback.load() << "\n";
     file << "\n";
     
     // Reverb section

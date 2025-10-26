@@ -11,6 +11,8 @@ float simulateResponse(int type,
                        float resonance,
                        float drive,
                        float feedbackHP,
+                       float spread,
+                       float notchFeedback,
                        float freq,
                        float sampleRate) {
     const float nyquist = 0.5f * sampleRate;
@@ -100,12 +102,27 @@ float simulateResponse(int type,
         LadderBandpassZdf ladder(sampleRate);
         ladder.setCutoff(cutoff);
         ladder.setResonance(resonance);
-      ladder.setDrive(drive);
+        ladder.setDrive(drive);
         ladder.setFeedbackHighpass(feedbackHP);
         const float inputLevel = 0.25f;
         for (int n = 0; n < totalSamples; ++n) {
             float x = sineSample(n) * inputLevel;
             float y = ladder.process(x);
+            if (n >= settleSamples) {
+                sumSquares += y * y;
+                ++count;
+            }
+        }
+    } else if (type == 7) {
+        DualNotchZdf notch(sampleRate);
+        notch.setCutoff(cutoff);
+        notch.setSpread(spread);
+        notch.setResonance(resonance);
+        notch.setDrive(drive);
+        notch.setNotchFeedback(notchFeedback);
+        for (int n = 0; n < totalSamples; ++n) {
+            float x = sineSample(n);
+            float y = notch.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
                 ++count;
@@ -129,6 +146,8 @@ void drawFilterResponsePreview(int topRow,
                                float resonance,
                                float drive,
                                float feedbackHP,
+                               float spread,
+                               float notchFeedback,
                                float sampleRate) {
     const float minHz = 20.0f;
     const float maxHz = std::min(20000.0f, 0.45f * sampleRate);
@@ -140,7 +159,8 @@ void drawFilterResponsePreview(int topRow,
         for (int x = 0; x < width; ++x) {
             float t = (width == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(width - 1);
             float freq = minHz * std::pow(maxHz / minHz, t);
-            float amp = simulateResponse(type, cutoff, gainDb, resonance, drive, feedbackHP, freq, sampleRate);
+            float amp = simulateResponse(type, cutoff, gainDb, resonance, drive, feedbackHP,
+                                         spread, notchFeedback, freq, sampleRate);
             float dB = 20.0f * std::log10(std::max(amp, 1e-5f));
             dB = std::clamp(dB, -80.0f, 12.0f);
             response[x] = dB;
@@ -226,8 +246,12 @@ void UI::drawFilterPage() {
     float feedbackHP = params->filterFeedbackHP.load();
     float sampleRate = (audioSampleRate > 0) ? static_cast<float>(audioSampleRate) : 48000.0f;
 
+    float spread = params->filterSpread.load();
+    float notchFb = params->filterNotchFeedback.load();
+
     drawFilterResponsePreview(previewTop, previewLeft, plotHeight, plotWidth,
-                              enabled, type, cutoff, gainDb, resonance, drive, feedbackHP, sampleRate);
+                              enabled, type, cutoff, gainDb, resonance, drive, feedbackHP,
+                              spread, notchFb, sampleRate);
 
     int parameterCol = previewLeft + plotWidth + 6;
     drawParametersPage(previewTop, parameterCol);
