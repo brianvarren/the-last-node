@@ -316,6 +316,14 @@ void UI::handleInput(int ch) {
                     startModMatrixMenu();
                 }
                 return;
+            case 'x':
+            case 'X':
+            case 'c':
+            case 'C':
+                // Clear the current modulation slot
+                modulationSlots[modMatrixCursorRow] = ModulationSlot();
+                addConsoleMessage("Cleared modulation slot " + std::to_string(modMatrixCursorRow + 1));
+                return;
         }
     }
 

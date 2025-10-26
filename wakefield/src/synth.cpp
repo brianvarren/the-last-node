@@ -25,6 +25,8 @@ Synth::Synth(float sampleRate)
 
     ladderFilterL.setSampleRate(sampleRate);
     ladderFilterR.setSampleRate(sampleRate);
+    diodeFilterL.setSampleRate(sampleRate);
+    diodeFilterR.setSampleRate(sampleRate);
     
     // Initialize voices with sample rate
     for (int i = 0; i < MAX_VOICES; ++i) {
@@ -134,6 +136,15 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain,
     ladderFilterR.setDrive(drive);
     ladderFilterL.setFeedbackHighpass(feedbackHP);
     ladderFilterR.setFeedbackHighpass(feedbackHP);
+
+    diodeFilterL.setCutoff(cutoff);
+    diodeFilterR.setCutoff(cutoff);
+    diodeFilterL.setResonance(resonance);
+    diodeFilterR.setResonance(resonance);
+    diodeFilterL.setDrive(drive);
+    diodeFilterR.setDrive(drive);
+    diodeFilterL.setFeedbackHighpass(feedbackHP);
+    diodeFilterR.setFeedbackHighpass(feedbackHP);
 }
 
 void Synth::noteOn(int midiNote, int velocity) {
@@ -433,6 +444,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             } else if (currentFilterType == 4) {  // Ladder LP (8-pole)
                 output[i * 2] = ladderFilterL.process(left);
                 output[i * 2 + 1] = ladderFilterR.process(right);
+            } else if (currentFilterType == 5) {  // Diode ladder LP
+                output[i * 2] = diodeFilterL.process(left);
+                output[i * 2 + 1] = diodeFilterR.process(right);
             }
         }
     }

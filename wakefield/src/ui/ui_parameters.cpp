@@ -43,7 +43,9 @@ void UI::initializeParameters() {
     parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, true, static_cast<int>(UIPage::REVERB)});
 
     // FILTER page parameters - ALL support MIDI learn
-    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 4, {"Lowpass", "Highpass", "High Shelf", "Low Shelf", "Ladder LP"}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 5,
+                          {"Lowpass", "Highpass", "High Shelf", "Low Shelf", "Ladder LP", "Diode LP"},
+                          true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({32, ParamType::FLOAT, "Cutoff", "Hz", 20.0f, 20000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({33, ParamType::FLOAT, "Gain", "dB", -24.0f, 24.0f, {}, true, static_cast<int>(UIPage::FILTER)});

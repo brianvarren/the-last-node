@@ -124,11 +124,54 @@ Currently, Envelope 1 drives the primary amplitude envelope for each voice.
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
+  Up/Down        - Navigate modulation slots (1-16)
+  Left/Right     - Navigate columns (Source/Curve/Amount/Dest/Type)
+  Enter          - Open selection menu for current column
+  X or C         - Clear current modulation slot
+  Esc            - Cancel menu/input
+
+MODULATION ROUTING:
+  Source      - Modulation source (LFOs, ENVs, Chaos, MIDI controls, Clock)
+  Curve       - Modulation curve (Linear, Exponential, Logarithmic, S-Curve)
+  Amount      - Modulation depth (-99 to +99)
+  Destination - Target parameter (Oscillators, Samplers, LFOs, Filter, etc.)
+  Type        - Unidirectional (-->) or Bidirectional (<->)
+
+SOURCES:
+  LFO 1-4     - Low frequency oscillators
+  ENV 1-4     - ADSR envelopes
+  Velocity    - MIDI note velocity
+  Aftertouch  - MIDI aftertouch
+  Mod Wheel   - MIDI CC1 modulation wheel
+  Pitch Bend  - MIDI pitch bend
+  Clock       - Global clock phase
+  Chaos 1-4   - Chaos generators (X and Y outputs)
+
+DESTINATIONS:
+  Oscillators - Pitch, Morph, Duty, Ratio, Offset, Amp
+  Samplers    - Pitch, Loop Start, Loop Length, Crossfade, Level
+  Filter      - Cutoff, Resonance
+  Reverb      - Mix, Size
+  LFOs        - Rate, Morph, Duty
+  Mixer       - Master Volume, OSC Levels, Sampler Levels
+  Clock       - Sequencer Track Phase, Sampler Phase
+
+WORKFLOW:
+1. Navigate to an empty slot with Up/Down
+2. Press Enter on Source column, select modulation source
+3. Press Enter on Curve column (default: Linear is fine for most uses)
+4. Press Enter on Amount column, type depth value (-99 to +99)
+5. Press Enter on Destination column, navigate and select target
+6. Type is automatically set to Bidirectional (<->)
+7. Press X or C to clear a slot if you want to start over
 
 ABOUT:
-The modulation matrix will route envelopes, LFOs, and other control-rate
-sources to any destination. The UI scaffolding is in place and routing
-controls will arrive in an upcoming update.
+The modulation matrix provides flexible routing from any modulation source
+to any synthesis parameter. Each of the 16 slots can route one source to
+one destination with configurable depth and curve shaping.
+
+Bidirectional routing (default) allows both positive and negative modulation
+from the source. Unidirectional routing only allows positive modulation.
 )";
             break;
 

@@ -243,6 +243,8 @@ private:
     OnePoleTPT filterR;
     Ladder8PoleZdf ladderFilterL;
     Ladder8PoleZdf ladderFilterR;
+    LadderDiodeZdf diodeFilterL;
+    LadderDiodeZdf diodeFilterR;
     OnePoleHighShelfBLT highShelfL;
     OnePoleHighShelfBLT highShelfR;
     OnePoleLowShelfBLT lowShelfL;
