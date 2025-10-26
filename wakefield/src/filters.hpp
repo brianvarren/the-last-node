@@ -457,7 +457,7 @@ public:
     void setSampleRate(float sr) {
         sampleRate = std::max(1.0f, sr);
         for (auto& stage : stages) stage.setSampleRate(sampleRate);
-        highpassFeedback.setSampleRate(sampleRate);
+        widthHighpass.setSampleRate(sampleRate);
         setCutoff(cutoffHz);
     }
 
@@ -466,13 +466,12 @@ public:
         // All 8 stages tuned to same cutoff frequency
         for (auto& stage : stages) stage.setCutoff(cutoffHz);
         // Update HP feedback filter to track cutoff
-        updateHPFeedback();
+        updateWidthState();
     }
 
     void setResonance(float amount) {
-        // Resonance creates peak at cutoff via positive feedback
         resonance = std::clamp(amount, 0.0f, 1.2f);
-        resonanceGain = resonance * 1.8f; // Scale for self-oscillation near 1.0
+        resonanceGain = resonance * 2.2f;
     }
 
     void setDrive(float driveAmount) {
@@ -481,36 +480,27 @@ public:
         for (auto& stage : stages) stage.setDrive(drive);
     }
 
-    void setFeedbackHighpass(float hz) {
-        // Not used in bandpass - width controls HP feedback instead
-        // Keep for API compatibility but don't use
-    }
+    void setFeedbackHighpass(float) {}
 
     void setWidth(float w) {
         // Width controls bandwidth (passband width)
         // Lower width = narrower passband
         // Higher width = wider passband
         width = std::clamp(w, 0.05f, 0.95f);
-        updateHPFeedback();
+        updateWidthState();
     }
 
     void reset() {
         for (auto& stage : stages) stage.reset();
-        highpassFeedback.reset();
-        lastHPFeedback = 0.0f;
-        lastResonanceFeedback = 0.0f;
+        widthHighpass.reset();
+        lastStage = 0.0f;
     }
 
     float process(float in) {
-        // Apply feedback from previous sample
-        // HP feedback creates lower rolloff (bandpass characteristic)
-        // Resonance feedback creates peak at cutoff
-        float feedbackSum = (lastHPFeedback * hpFeedbackGain) +
-                           (lastResonanceFeedback * resonanceGain);
+        float hpComponent = widthHighpass.process(in - lastStage).second;
+        float feedback = widthGain * hpComponent - resonanceGain * lastStage;
+        float x = saturate((in + feedback) * drive);
 
-        float x = in - feedbackSum;
-
-        // Process through 8 cascaded lowpass stages with saturation
         float signal = x;
         for (std::size_t i = 0; i < stages.size(); ++i) {
             signal = stages[i].process(signal);
@@ -524,12 +514,8 @@ public:
             bp += diff;
             previous = stageOutputs[i];
         }
-        bp *= outputGain;
-
-        auto [lp, hp] = highpassFeedback.process(bp);
-        lastHPFeedback = hp;
-        lastResonanceFeedback = stageOutputs[5];
-        return bp;
+        lastStage = stageOutputs.back();
+        return bp * widthNorm;
     }
 
     float getStageOutput(int idx) const {
@@ -538,27 +524,13 @@ public:
     }
 
 private:
-    void updateHPFeedback() {
-        // Width controls the lower cutoff frequency
-        // Width 0.05 = very narrow passband (HP close to cutoff)
-        // Width 0.95 = very wide passband (HP far below cutoff)
-
-        // Map width to octaves below cutoff
-        // Lower width = HP closer to cutoff = narrower bandpass
-        float octavesBelow = width * 6.0f; // 0.05->0.3 oct, 0.95->5.7 oct
+    void updateWidthState() {
+        float octavesBelow = width * 5.0f;
         float hpCutoff = cutoffHz / std::pow(2.0f, octavesBelow);
         hpCutoff = std::clamp(hpCutoff, 20.0f, cutoffHz * 0.8f);
-
-        highpassFeedback.setCutoff(hpCutoff);
-
-        // HP feedback gain needs to be strong to create the bandpass effect
-        // The 8-pole LP will heavily attenuate the HP signal, so we need high gain
-        hpFeedbackGain = 3.5f; // Strong enough to create bandpass
-
-        // Gain compensation: narrower filters need more makeup gain
-        // because they pass less total energy
-        float widthCompensation = 1.0f / std::sqrt(width + 0.1f);
-        outputGain = widthCompensation * 2.0f;
+        widthHighpass.setCutoff(hpCutoff);
+        widthGain = 0.5f + width * 2.5f;
+        widthNorm = 1.0f / (4.0f + width * 10.0f);
     }
 
     float sampleRate = 48000.0f;
@@ -566,15 +538,17 @@ private:
     float resonance = 0.0f;
     float resonanceGain = 0.0f;
     float drive = 1.0f;
+    float widthGain = 1.0f;
+    float widthNorm = 0.25f;
     float width = 0.5f;
-    float hpFeedbackGain = 3.5f;
-    float outputGain = 2.5f;
-
-    std::array<BandpassStageZdf, 8> stages; // 8 cascaded 1-pole stages
+    std::array<BandpassStageZdf, 8> stages;
     std::array<float, 8> stageOutputs{0};
-    OnePoleTPT highpassFeedback; // HP filter for feedback path (creates lower cutoff)
-    float lastHPFeedback = 0.0f;
-    float lastResonanceFeedback = 0.0f;
+    OnePoleTPT widthHighpass;
+    float lastStage = 0.0f;
+
+    inline float saturate(float x) const {
+        return std::tanh(x);
+    }
 };
 
 
