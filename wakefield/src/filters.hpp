@@ -407,17 +407,18 @@ private:
 
 
 
-// Single 1-pole lowpass stage with OTA-style saturation for bandpass filter
-class BandpassStageZdf {
+// Single 1-pole bandpass cell: ZDF 1-pole → HP output → saturation
+// This creates a bandpass response (HP after LP = BP)
+class BandpassCellZdf {
 public:
-    BandpassStageZdf() = default;
+    BandpassCellZdf() = default;
 
     void setSampleRate(float sr) {
-        lpStage.setSampleRate(sr);
+        onePole.setSampleRate(sr);
     }
 
     void setCutoff(float hz) {
-        lpStage.setCutoff(hz);
+        onePole.setCutoff(hz);
     }
 
     void setDrive(float drv) {
@@ -425,130 +426,111 @@ public:
     }
 
     void reset() {
-        lpStage.reset();
+        onePole.reset();
     }
 
-    // Process with OTA-style saturation after integration
+    // Process: LP→HP (bandpass) with saturation on HP output
     float process(float in) {
-        auto [lp, hp] = lpStage.process(in);
-        // Apply soft saturation (OTA-style nonlinearity)
-        float saturated = std::tanh(lp * drive);
-        return saturated;
+        auto [lp, hp] = onePole.process(in);
+        // HP output after LP = bandpass character
+        // Apply soft saturation to HP output
+        return std::tanh(hp * drive);
     }
 
 private:
-    OnePoleTPT lpStage;
+    OnePoleTPT onePole;
     float drive = 1.0f;
 };
 
-// 8-pole bandpass filter with OTA-style saturation
-// Architecture: 8 cascaded LP stages with highpass feedback (creates bandpass response)
-// Width controls HP feedback amount (narrow to wide bandpass)
-// Resonance adds positive feedback for peak at cutoff
-// Drive controls internal saturation in each stage
+// 4-pole bandpass ladder filter (Reaktor-style architecture)
+// Each cell: 1-pole ZDF → HP output (bandpass) → saturation
+// 4 cells cascaded with saturated feedback from output
+// Width parameter unused (kept for API compatibility)
 class LadderBandpassZdf {
 public:
     explicit LadderBandpassZdf(float sampleRate = 48000.0f) {
         setSampleRate(sampleRate);
         setCutoff(1000.0f);
-        setWidth(0.5f); // Initialize width (this calls updateHPFeedback)
+        setResonance(0.0f);
+        setDrive(1.0f);
     }
 
     void setSampleRate(float sr) {
         sampleRate = std::max(1.0f, sr);
-        for (auto& stage : stages) stage.setSampleRate(sampleRate);
-        widthHighpass.setSampleRate(sampleRate);
+        for (auto& cell : cells) {
+            cell.setSampleRate(sampleRate);
+        }
         setCutoff(cutoffHz);
     }
 
     void setCutoff(float hz) {
         cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
-        // All 8 stages tuned to same cutoff frequency
-        for (auto& stage : stages) stage.setCutoff(cutoffHz);
-        // Update HP feedback filter to track cutoff
-        updateWidthState();
+        for (auto& cell : cells) {
+            cell.setCutoff(cutoffHz);
+        }
     }
 
     void setResonance(float amount) {
         resonance = std::clamp(amount, 0.0f, 1.2f);
-        resonanceGain = resonance * 2.2f;
+        // Scale feedback gain based on resonance
+        feedbackGain = resonance * 3.0f;
     }
 
     void setDrive(float driveAmount) {
-        // Drive controls saturation amount in each stage
         drive = std::clamp(driveAmount, 0.1f, 15.0f);
-        for (auto& stage : stages) stage.setDrive(drive);
+        for (auto& cell : cells) {
+            cell.setDrive(drive);
+        }
     }
 
-    void setFeedbackHighpass(float) {}
+    void setFeedbackHighpass(float) {
+        // Unused, kept for API compatibility
+    }
 
     void setWidth(float w) {
-        // Width controls bandwidth (passband width)
-        // Lower width = narrower passband
-        // Higher width = wider passband
+        // Width parameter unused in this architecture
+        // Kept for API compatibility with UI
         width = std::clamp(w, 0.05f, 0.95f);
-        updateWidthState();
     }
 
     void reset() {
-        for (auto& stage : stages) stage.reset();
-        widthHighpass.reset();
-        lastStage = 0.0f;
+        for (auto& cell : cells) {
+            cell.reset();
+        }
+        lastOutput = 0.0f;
     }
 
     float process(float in) {
-        float hpComponent = widthHighpass.process(in - lastStage).second;
-        float feedback = widthGain * hpComponent - resonanceGain * lastStage;
-        float x = saturate((in + feedback) * drive);
+        // Saturated feedback from output
+        float feedback = std::tanh(lastOutput * feedbackGain);
 
-        float signal = x;
-        for (std::size_t i = 0; i < stages.size(); ++i) {
-            signal = stages[i].process(signal);
-            stageOutputs[i] = signal;
+        // Mix input with feedback
+        float x = in + feedback;
+
+        // Process through 4 cascaded bandpass cells
+        for (auto& cell : cells) {
+            x = cell.process(x);
         }
 
-        float bp = 0.0f;
-        float previous = in;
-        for (std::size_t i = 0; i < stageOutputs.size(); ++i) {
-            float diff = previous - stageOutputs[i];
-            bp += diff;
-            previous = stageOutputs[i];
-        }
-        lastStage = stageOutputs.back();
-        return bp * widthNorm;
+        lastOutput = x;
+        return x;
     }
 
     float getStageOutput(int idx) const {
-        if (idx < 0 || idx >= static_cast<int>(stageOutputs.size())) return stageOutputs.back();
-        return stageOutputs[idx];
+        // Return final output (stage taps not exposed in this architecture)
+        return lastOutput;
     }
 
 private:
-    void updateWidthState() {
-        float octavesBelow = width * 5.0f;
-        float hpCutoff = cutoffHz / std::pow(2.0f, octavesBelow);
-        hpCutoff = std::clamp(hpCutoff, 20.0f, cutoffHz * 0.8f);
-        widthHighpass.setCutoff(hpCutoff);
-        widthGain = 0.5f + width * 2.5f;
-        widthNorm = 1.0f / (4.0f + width * 10.0f);
-    }
-
     float sampleRate = 48000.0f;
     float cutoffHz = 1000.0f;
     float resonance = 0.0f;
-    float resonanceGain = 0.0f;
+    float feedbackGain = 0.0f;
     float drive = 1.0f;
-    float widthGain = 1.0f;
-    float widthNorm = 0.25f;
-    float width = 0.5f;
-    std::array<BandpassStageZdf, 8> stages;
-    std::array<float, 8> stageOutputs{0};
-    OnePoleTPT widthHighpass;
-    float lastStage = 0.0f;
+    float width = 0.5f;  // Unused, for API compat
 
-    inline float saturate(float x) const {
-        return std::tanh(x);
-    }
+    std::array<BandpassCellZdf, 4> cells;
+    float lastOutput = 0.0f;
 };
 
 
