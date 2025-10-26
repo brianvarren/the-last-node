@@ -407,18 +407,24 @@ private:
 
 
 
-// Single 1-pole bandpass cell: ZDF 1-pole → HP output → saturation
-// This creates a bandpass response (HP after LP = BP)
+// Two-pole ZDF bandpass cell with controllable width via 2R damping
 class BandpassCellZdf {
 public:
     BandpassCellZdf() = default;
 
     void setSampleRate(float sr) {
-        onePole.setSampleRate(sr);
+        sampleRate = std::max(1.0f, sr);
+        updateCoefficients();
     }
 
     void setCutoff(float hz) {
-        onePole.setCutoff(hz);
+        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        updateCoefficients();
+    }
+
+    void setTwoR(float value) {
+        twoR = std::max(0.05f, value);
+        updateCoefficients();
     }
 
     void setDrive(float drv) {
@@ -426,26 +432,48 @@ public:
     }
 
     void reset() {
-        onePole.reset();
+        ic1 = 0.0f;
+        ic2 = 0.0f;
+        lastOutput = 0.0f;
     }
 
-    // Process: LP→HP (bandpass) with saturation on HP output
     float process(float in) {
-        auto [lp, hp] = onePole.process(in);
-        // HP output after LP = bandpass character
-        // Apply soft saturation to HP output
-        return std::tanh(hp * drive);
+        const float hp = (in - twoR * ic1 - ic2) * a1;
+        float bp = hp * a2 + ic1;
+        float lp = hp * a3 + ic2;
+
+        ic1 = bp + hp * a2;
+        ic2 = lp + hp * a3;
+
+        lastOutput = std::tanh(bp * drive);
+        return lastOutput;
     }
+
+    float getLastOutput() const { return lastOutput; }
 
 private:
-    OnePoleTPT onePole;
+    void updateCoefficients() {
+        const float g = std::tan(float(M_PI) * (cutoffHz / sampleRate));
+        const float gg = g * g;
+        const float denom = 1.0f / (1.0f + twoR * g + gg + 1e-12f);
+        a1 = denom;
+        a2 = g * denom;
+        a3 = g * a2;
+    }
+
+    float sampleRate = 48000.0f;
+    float cutoffHz = 1000.0f;
+    float twoR = 1.5f;
     float drive = 1.0f;
+    float ic1 = 0.0f;
+    float ic2 = 0.0f;
+    float a1 = 0.0f;
+    float a2 = 0.0f;
+    float a3 = 0.0f;
+    float lastOutput = 0.0f;
 };
 
-// 4-pole bandpass ladder filter (Reaktor-style architecture)
-// Each cell: 1-pole ZDF → HP output (bandpass) → saturation
-// 4 cells cascaded with saturated feedback from output
-// Width parameter unused (kept for API compatibility)
+// 4 × 2-pole bandpass ladder with global bandwidth control
 class LadderBandpassZdf {
 public:
     explicit LadderBandpassZdf(float sampleRate = 48000.0f) {
@@ -461,6 +489,7 @@ public:
             cell.setSampleRate(sampleRate);
         }
         setCutoff(cutoffHz);
+        updateTwoR();
     }
 
     void setCutoff(float hz) {
@@ -484,19 +513,19 @@ public:
     }
 
     void setFeedbackHighpass(float) {
-        // Unused, kept for API compatibility
+        // Unused in this architecture but kept for API compatibility
     }
 
     void setWidth(float w) {
-        // Width parameter unused in this architecture
-        // Kept for API compatibility with UI
-        width = std::clamp(w, 0.05f, 0.95f);
+        widthNorm = std::clamp(w, 0.0f, 1.0f);
+        updateTwoR();
     }
 
     void reset() {
         for (auto& cell : cells) {
             cell.reset();
         }
+        stageOutputs.fill(0.0f);
         lastOutput = 0.0f;
     }
 
@@ -507,9 +536,10 @@ public:
         // Mix input with feedback
         float x = in + feedback;
 
-        // Process through 4 cascaded bandpass cells
-        for (auto& cell : cells) {
+        for (std::size_t i = 0; i < cells.size(); ++i) {
+            auto& cell = cells[i];
             x = cell.process(x);
+            stageOutputs[i] = x;
         }
 
         lastOutput = x;
@@ -517,7 +547,9 @@ public:
     }
 
     float getStageOutput(int idx) const {
-        // Return final output (stage taps not exposed in this architecture)
+        if (idx >= 0 && idx < static_cast<int>(stageOutputs.size())) {
+            return stageOutputs[idx];
+        }
         return lastOutput;
     }
 
@@ -527,10 +559,23 @@ private:
     float resonance = 0.0f;
     float feedbackGain = 0.0f;
     float drive = 1.0f;
-    float width = 0.5f;  // Unused, for API compat
+    float widthNorm = 0.5f;
+    float twoR = 1.5f;
 
     std::array<BandpassCellZdf, 4> cells;
+    std::array<float, 4> stageOutputs {0.0f, 0.0f, 0.0f, 0.0f};
     float lastOutput = 0.0f;
+
+    void updateTwoR() {
+        constexpr float INV_SQRT2 = 0.70710678118f;
+        const float bwPrime = std::max(1.0f, widthNorm * 12.0f);
+        const float expBw = std::exp(bwPrime * INV_SQRT2);
+        const float invExp = 1.0f / expBw;
+        twoR = std::clamp(expBw - invExp, 0.05f, 20.0f);
+        for (auto& cell : cells) {
+            cell.setTwoR(twoR);
+        }
+    }
 };
 
 
