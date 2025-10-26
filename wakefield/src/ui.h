@@ -279,8 +279,9 @@ struct SynthParameters {
     // FM Matrix - audio-rate frequency modulation routing
     // fmMatrix[target][source] = depth (0.0 to 1.0)
     // Example: fmMatrix[2][0] = 0.5 means OSC1 modulates OSC3 at 50% depth
-    // 8 total: OSC1-4 (indices 0-3) + SAMP1-4 (indices 4-7)
-    std::atomic<float> fmMatrix[8][8];  // 8 targets × 8 sources (4 OSC + 4 SAMP)
+    // Targets: OSC1-4 (0-3) + SAMP1-4 (4-7) = 8 total
+    // Sources: OSC1-4 (0-3) + SAMP1-4 (4-7) + Chaos1X-4Y (8-15) = 16 total
+    std::atomic<float> fmMatrix[8][16];  // 8 targets × 16 sources
 
     // Constructor to initialize CC map and FM matrix
     SynthParameters() {
@@ -289,7 +290,7 @@ struct SynthParameters {
         }
         // Initialize FM matrix to zero (no FM routing by default)
         for (int target = 0; target < 8; ++target) {
-            for (int source = 0; source < 8; ++source) {
+            for (int source = 0; source < 16; ++source) {
                 fmMatrix[target][source] = 0.0f;
             }
         }
@@ -838,14 +839,16 @@ struct SynthParameters {
         }
     }
 
-    // FM Matrix accessors (8x8: OSC1-4 are 0-3, SAMP1-4 are 4-7)
+    // FM Matrix accessors
+    // Targets: OSC1-4 (0-3), SAMP1-4 (4-7) = 8 total
+    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7), Chaos1X-4Y (8-15) = 16 total
     float getFMDepth(int target, int source) const {
-        if (target < 0 || target >= 8 || source < 0 || source >= 8) return 0.0f;
+        if (target < 0 || target >= 8 || source < 0 || source >= 16) return 0.0f;
         return fmMatrix[target][source].load();
     }
 
     void setFMDepth(int target, int source, float depth) {
-        if (target < 0 || target >= 8 || source < 0 || source >= 8) return;
+        if (target < 0 || target >= 8 || source < 0 || source >= 16) return;
         const float clamped = std::max(-0.99f, std::min(0.99f, depth));
         fmMatrix[target][source] = clamped;
     }

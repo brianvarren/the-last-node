@@ -7,23 +7,41 @@ void UI::drawFMPage() {
 
     // Title
     attron(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(row, 2, "FM MATRIX (8x8: OSC1-4 + SAMP1-4)");
+    mvprintw(row, 2, "FM MATRIX - Audio-Rate Phase Modulation (16 sources × 8 targets)");
     attroff(COLOR_PAIR(1) | A_BOLD);
     row += 2;
 
-    // Column labels (targets)
-    mvprintw(row, 10, "TARGET");
+    // Column labels (targets) with clear abbreviations
+    mvprintw(row, 2, "SOURCE");
+    attron(COLOR_PAIR(1));
+    mvprintw(row, 12, "TARGETS:");
+    attroff(COLOR_PAIR(1));
     row++;
     const int cellStartCol = 12;
-    const int cellStride = 4;
-    mvprintw(row, cellStartCol, "  1   2   3   4   5   6   7   8");
+    const int cellStride = 5;
+    attron(COLOR_PAIR(1));
+    mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4");
+    attroff(COLOR_PAIR(1));
     row += 2;
 
-    // Draw matrix grid (8x8)
-    const char* sourceLabels[] = {"OSC1", "OSC2", "OSC3", "OSC4", "SMP1", "SMP2", "SMP3", "SMP4"};
+    // Draw matrix grid (16 sources × 8 targets)
+    const char* sourceLabels[] = {
+        "OSC1", "OSC2", "OSC3", "OSC4",
+        "SMP1", "SMP2", "SMP3", "SMP4",
+        "C1X ", "C1Y ", "C2X ", "C2Y ",
+        "C3X ", "C3Y ", "C4X ", "C4Y "
+    };
 
-    for (int source = 0; source < 8; ++source) {
+    for (int source = 0; source < 16; ++source) {
         // Row label
+        if (source == 8) {
+            // Visual separator before chaos sources
+            attron(COLOR_PAIR(1));
+            mvhline(row, 0, '-', 80);
+            attroff(COLOR_PAIR(1));
+            row++;
+        }
+
         mvprintw(row, 6, "%s", sourceLabels[source]);
 
         // Draw cells for each target
@@ -47,7 +65,7 @@ void UI::drawFMPage() {
                 attron(A_REVERSE);
             }
 
-            mvprintw(row, cellCol, "%3d", depthPercent);
+            mvprintw(row, cellCol, "%4d", depthPercent);
 
             if (isSelected) {
                 attroff(A_REVERSE);

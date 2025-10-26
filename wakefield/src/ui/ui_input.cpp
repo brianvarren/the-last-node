@@ -512,7 +512,7 @@ void UI::handleInput(int ch) {
         return;
     }
 
-    // FM Matrix navigation and editing
+    // FM Matrix navigation and editing (16 sources × 8 targets)
     if (currentPage == UIPage::FM) {
         auto adjustFMDepth = [&](float delta) {
             float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
@@ -522,11 +522,11 @@ void UI::handleInput(int ch) {
 
         switch (ch) {
             case KEY_UP:
-                fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 8) % 8;
+                fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 16) % 16;
                 return;
 
             case KEY_DOWN:
-                fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 8;
+                fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 16;
                 return;
 
             case KEY_LEFT:

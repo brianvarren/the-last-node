@@ -35,9 +35,10 @@ float Voice::generateSample() {
     }
 
     // Determine FM input for each oscillator using previous outputs (1-sample delay)
-    // FM matrix is 8x8: OSC1-4 are indices 0-3, SAMP1-4 are indices 4-7
+    // FM matrix is 8x16: Targets = OSC1-4 (0-3) + SAMP1-4 (4-7)
+    //                     Sources = OSC1-4 (0-3) + SAMP1-4 (4-7) + Chaos1X-4Y (8-15)
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
-    if (params) {
+    if (params && synth) {
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
@@ -52,6 +53,17 @@ float Voice::generateSample() {
                 float fmDepth = params->getFMDepth(target, 4 + source);
                 if (fmDepth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (fmDepth * 100.0f);
+                }
+            }
+            // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
+            for (int source = 0; source < 8; ++source) {
+                float fmDepth = params->getFMDepth(target, 8 + source);
+                if (fmDepth != 0.0f) {
+                    int chaosIndex = source / 2;  // 0,1->0, 2,3->1, 4,5->2, 6,7->3
+                    bool isY = (source % 2) == 1;  // Odd indices are Y
+                    float chaosOutput = isY ? synth->getChaosOutputY(chaosIndex)
+                                            : synth->getChaosOutput(chaosIndex);
+                    totalFM += chaosOutput * (fmDepth * 100.0f);
                 }
             }
             fmInputs[target] = totalFM;
@@ -121,7 +133,7 @@ float Voice::generateSample() {
 
     // Determine FM input for each sampler using previous outputs (1-sample delay)
     float samplerFMInputs[SAMPLERS_PER_VOICE] = {0.0f};
-    if (params) {
+    if (params && synth) {
         for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
@@ -136,6 +148,17 @@ float Voice::generateSample() {
                 float fmDepth = params->getFMDepth(4 + target, 4 + source);
                 if (fmDepth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (fmDepth * 100.0f);
+                }
+            }
+            // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
+            for (int source = 0; source < 8; ++source) {
+                float fmDepth = params->getFMDepth(4 + target, 8 + source);
+                if (fmDepth != 0.0f) {
+                    int chaosIndex = source / 2;  // 0,1->0, 2,3->1, 4,5->2, 6,7->3
+                    bool isY = (source % 2) == 1;  // Odd indices are Y
+                    float chaosOutput = isY ? synth->getChaosOutputY(chaosIndex)
+                                            : synth->getChaosOutput(chaosIndex);
+                    totalFM += chaosOutput * (fmDepth * 100.0f);
                 }
             }
             samplerFMInputs[target] = totalFM;
