@@ -22,7 +22,6 @@ void UI::drawTabs() {
         {"MOD", UIPage::MOD},
         {"REVERB", UIPage::REVERB},
         {"FILTER", UIPage::FILTER},
-        {"LOOPER", UIPage::LOOPER},
         {"SEQUENCER", UIPage::SEQUENCER},
         {"CHAOS", UIPage::CHAOS},
         {"CONFIG", UIPage::CONFIG}
@@ -197,9 +196,6 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::FILTER:
             drawFilterPage();
-            break;
-        case UIPage::LOOPER:
-            drawLooperPage();
             break;
         case UIPage::SEQUENCER:
             drawSequencerPage();

@@ -1019,7 +1019,6 @@ private:
     void drawModPage();
     void drawReverbPage();
     void drawFilterPage();
-    void drawLooperPage();
     void drawSequencerPage();
     void drawChaosPage();
     void drawConfigPage();

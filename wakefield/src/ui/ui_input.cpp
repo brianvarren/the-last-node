@@ -221,8 +221,7 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::FM) setPage(UIPage::MOD);
         else if (currentPage == UIPage::MOD) setPage(UIPage::REVERB);
         else if (currentPage == UIPage::REVERB) setPage(UIPage::FILTER);
-        else if (currentPage == UIPage::FILTER) setPage(UIPage::LOOPER);
-        else if (currentPage == UIPage::LOOPER) setPage(UIPage::SEQUENCER);
+        else if (currentPage == UIPage::FILTER) setPage(UIPage::SEQUENCER);
         else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CHAOS);
         else if (currentPage == UIPage::CHAOS) setPage(UIPage::CONFIG);
         else setPage(UIPage::OSCILLATOR);
@@ -240,8 +239,7 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::MOD) setPage(UIPage::FM);
         else if (currentPage == UIPage::REVERB) setPage(UIPage::MOD);
         else if (currentPage == UIPage::FILTER) setPage(UIPage::REVERB);
-        else if (currentPage == UIPage::LOOPER) setPage(UIPage::FILTER);
-        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::LOOPER);
+        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::FILTER);
         else if (currentPage == UIPage::CHAOS) setPage(UIPage::SEQUENCER);
         else if (currentPage == UIPage::CONFIG) setPage(UIPage::CHAOS);
         return;
@@ -250,8 +248,7 @@ void UI::handleInput(int ch) {
     // Function keys jump directly to pages
     switch (ch) {
         case KEY_F(1):
-            setPage(UIPage::LOOPER);
-            addConsoleMessage("Sampler page pending – showing Looper page");
+            setPage(UIPage::SAMPLER);
             return;
         case KEY_F(2):
             setPage(UIPage::OSCILLATOR);
@@ -438,12 +435,7 @@ void UI::handleInput(int ch) {
     // Transport and looping hotkeys (keep these)
     if (ch == ' ') {
         // Spacebar behavior depends on current page
-        if (currentPage == UIPage::LOOPER) {
-            if (loopManager) {
-                Looper* loop = loopManager->getCurrentLoop();
-                if (loop) loop->pressRecPlay();
-            }
-        } else if (currentPage == UIPage::SEQUENCER) {
+        if (currentPage == UIPage::SEQUENCER) {
             if (sequencer) {
                 if (sequencer->isPlaying()) {
                     sequencer->stop();
@@ -562,51 +554,6 @@ void UI::handleInput(int ch) {
         }
     }
 
-    // Looper-specific hotkeys (only active on looper page)
-    if (currentPage == UIPage::LOOPER) {
-        switch (ch) {
-            // Loop selection (1-4)
-            case '1': params->currentLoop = 0; break;
-            case '2': params->currentLoop = 1; break;
-            case '3': params->currentLoop = 2; break;
-            case '4': params->currentLoop = 3; break;
-
-            // Overdub toggle (O/o)
-            case 'O':
-            case 'o':
-                if (loopManager) {
-                    Looper* loop = loopManager->getCurrentLoop();
-                    if (loop) loop->pressOverdub();
-                }
-                break;
-
-            // Stop (S/s)
-            case 'S':
-            case 's':
-                if (loopManager) {
-                    Looper* loop = loopManager->getCurrentLoop();
-                    if (loop) loop->pressStop();
-                }
-                break;
-
-            // Clear (C/c)
-            case 'C':
-            case 'c':
-                if (loopManager) {
-                    Looper* loop = loopManager->getCurrentLoop();
-                    if (loop) loop->pressClear();
-                }
-                break;
-
-            // Overdub mix ([/])
-            case '[':
-                params->overdubMix = std::max(0.0f, params->overdubMix.load() - 0.05f);
-                break;
-            case ']':
-                params->overdubMix = std::min(1.0f, params->overdubMix.load() + 0.05f);
-                break;
-        }
-    }
 
     // Mixer-specific hotkeys (only active on mixer page)
     if (currentPage == UIPage::MIXER) {
