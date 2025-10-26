@@ -2,6 +2,7 @@
 #include "../../filters.hpp"
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 namespace {
 
@@ -13,6 +14,7 @@ float simulateResponse(int type,
                        float feedbackHP,
                        float spread,
                        float notchFeedback,
+                       float width,
                        float freq,
                        float sampleRate) {
     const float nyquist = 0.5f * sampleRate;
@@ -104,6 +106,7 @@ float simulateResponse(int type,
         ladder.setResonance(resonance);
         ladder.setDrive(drive);
         ladder.setFeedbackHighpass(feedbackHP);
+        ladder.setWidth(width);
         const float inputLevel = 0.25f;
         for (int n = 0; n < totalSamples; ++n) {
             float x = sineSample(n) * inputLevel;
@@ -148,26 +151,27 @@ void drawFilterResponsePreview(int topRow,
                                float feedbackHP,
                                float spread,
                                float notchFeedback,
+                               float width,
                                float sampleRate) {
     const float minHz = 20.0f;
     const float maxHz = std::min(20000.0f, 0.45f * sampleRate);
-    const int width = std::max(16, plotWidth);
+    const int plotW = std::max(16, plotWidth);
     const int height = std::max(8, plotHeight);
 
-    std::vector<float> response(width, -80.0f);
+    std::vector<float> response(plotW, -80.0f);
     if (enabled) {
-        for (int x = 0; x < width; ++x) {
-            float t = (width == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(width - 1);
+        for (int x = 0; x < plotW; ++x) {
+            float t = (plotW == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(plotW - 1);
             float freq = minHz * std::pow(maxHz / minHz, t);
             float amp = simulateResponse(type, cutoff, gainDb, resonance, drive, feedbackHP,
-                                         spread, notchFeedback, freq, sampleRate);
+                                         spread, notchFeedback, width, freq, sampleRate);
             float dB = 20.0f * std::log10(std::max(amp, 1e-5f));
             dB = std::clamp(dB, -80.0f, 12.0f);
             response[x] = dB;
         }
     }
 
-    std::vector<std::string> grid(height, std::string(width, ' '));
+    std::vector<std::string> grid(height, std::string(plotW, ' '));
     auto dbToRow = [&](float dB) {
         float normalized = (dB + 80.0f) / 92.0f;  // map [-80,12] -> [0,1]
         normalized = std::clamp(1.0f - normalized, 0.0f, 1.0f);
@@ -175,7 +179,7 @@ void drawFilterResponsePreview(int topRow,
         return std::clamp(row, 0, height - 1);
     };
 
-    for (int x = 0; x < width; ++x) {
+    for (int x = 0; x < plotW; ++x) {
         int row = dbToRow(response[x]);
         grid[row][x] = '*';
     }
@@ -183,19 +187,19 @@ void drawFilterResponsePreview(int topRow,
     // Draw reference lines every 12 dB
     for (float ref = -72.0f; ref <= 12.0f; ref += 12.0f) {
         int r = dbToRow(ref);
-        for (int x = 0; x < width; ++x) {
+        for (int x = 0; x < plotW; ++x) {
             if (grid[r][x] == '*') continue;
             grid[r][x] = (std::fabs(std::fmod(ref, 24.0f)) < 1e-3f) ? '-' : '.';
         }
     }
 
-    std::string horizontal(width, '-');
+    std::string horizontal(plotW, '-');
     mvprintw(topRow - 1, leftCol, "Filter Response");
     mvprintw(topRow, leftCol, "+%s+", horizontal.c_str());
     for (int y = 0; y < height; ++y) {
         mvprintw(topRow + 1 + y, leftCol, "|");
         mvprintw(topRow + 1 + y, leftCol + 1, "%s", grid[y].c_str());
-        mvprintw(topRow + 1 + y, leftCol + 1 + width, "|");
+        mvprintw(topRow + 1 + y, leftCol + 1 + plotW, "|");
     }
     mvprintw(topRow + 1 + height, leftCol, "+%s+", horizontal.c_str());
 
@@ -205,7 +209,7 @@ void drawFilterResponsePreview(int topRow,
     for (float hz : tickHz) {
         float norm = std::log(hz / minHz) / std::log(maxHz / minHz);
         norm = std::clamp(norm, 0.0f, 1.0f);
-        int col = leftCol + 1 + static_cast<int>(norm * (width - 1));
+        int col = leftCol + 1 + static_cast<int>(norm * (plotW - 1));
         mvprintw(tickRow, col - 1, "|");
         mvprintw(tickRow + 1, std::max(leftCol, col - 4), "%4.0f", hz);
     }
@@ -218,7 +222,7 @@ void drawFilterResponsePreview(int topRow,
 
     if (!enabled) {
         attron(COLOR_PAIR(4) | A_BOLD);
-        mvprintw(topRow + height / 2, leftCol + width / 2 - 6, "FILTER OFF");
+        mvprintw(topRow + height / 2, leftCol + plotW / 2 - 6, "FILTER OFF");
         attroff(COLOR_PAIR(4) | A_BOLD);
     }
 }
@@ -251,10 +255,17 @@ void UI::drawFilterPage() {
 
     drawFilterResponsePreview(previewTop, previewLeft, plotHeight, plotWidth,
                               enabled, type, cutoff, gainDb, resonance, drive, feedbackHP,
-                              spread, notchFb, sampleRate);
+                              spread, notchFb, params->filterBandWidth.load(), sampleRate);
 
     int parameterCol = previewLeft + plotWidth + 6;
-    drawParametersPage(previewTop, parameterCol);
+
+    std::vector<int> filterParams = getFilterParameterIds();
+    if (!filterParams.empty()) {
+        if (std::find(filterParams.begin(), filterParams.end(), selectedParameterId) == filterParams.end()) {
+            selectedParameterId = filterParams.front();
+        }
+        drawParameterList(previewTop, parameterCol, filterParams);
+    }
 
     // Show MIDI Learn status if active on filter cutoff
     if (params->midiLearnActive.load() && params->midiLearnParameterId.load() == 32) {

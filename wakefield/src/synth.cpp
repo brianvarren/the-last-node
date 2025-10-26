@@ -147,7 +147,7 @@ void Synth::updateReverbParameters(float delayTime, float size, float damping, f
 
 void Synth::updateFilterParameters(int type, float cutoff, float gain,
                                    float resonance, float drive, float feedbackHP,
-                                   float spread, float notchFeedback) {
+                                   float spread, float notchFeedback, float bandWidth) {
     currentFilterType = type;
     
     // Update all filter types (the active one will be used during processing)
@@ -190,6 +190,8 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain,
     bandpassFilterR.setDrive(drive);
     bandpassFilterL.setFeedbackHighpass(feedbackHP);
     bandpassFilterR.setFeedbackHighpass(feedbackHP);
+    bandpassFilterL.setWidth(bandWidth);
+    bandpassFilterR.setWidth(bandWidth);
 
     notchFilterL.setCutoff(cutoff);
     notchFilterR.setCutoff(cutoff);

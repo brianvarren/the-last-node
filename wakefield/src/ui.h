@@ -85,6 +85,7 @@ struct SynthParameters {
     std::atomic<float> filterFeedbackHP{200.0f};
     std::atomic<float> filterSpread{0.5f};
     std::atomic<float> filterNotchFeedback{0.3f};
+    std::atomic<float> filterBandWidth{0.5f};
     
     // Generic MIDI CC Learn for new parameter system
     std::atomic<bool> midiLearnActive{false};
@@ -1016,6 +1017,7 @@ private:
     // Draw helper functions
     void drawTabs();
     void drawParametersPage(int startRow = 3, int startCol = 2);  // Generic parameter page drawing
+    void drawParameterList(int startRow, int startCol, const std::vector<int>& paramIds);
     void drawOscillatorPage();
     void drawSamplerPage();
     void drawMixerPage();
@@ -1064,6 +1066,7 @@ private:
     void initializeParameters();
     InlineParameter* getParameter(int id);
     std::vector<int> getParameterIdsForPage(UIPage page);
+    std::vector<int> getFilterParameterIds() const;
     void adjustParameter(int id, bool increase, bool fine);
     void setParameterValue(int id, float value);
     float getParameterValue(int id);

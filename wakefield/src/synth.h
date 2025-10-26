@@ -51,7 +51,7 @@ public:
     void setFilterEnabled(bool enabled) { filterEnabled = enabled; }
     void updateFilterParameters(int type, float cutoff, float gain,
                                 float resonance, float drive, float feedbackHP,
-                                float spread, float notchFeedback);
+                                float spread, float notchFeedback, float bandWidth);
 
     // LFO control
     void updateLFOParameters(int lfoIndex, float period, int syncMode, int shape, float morph,

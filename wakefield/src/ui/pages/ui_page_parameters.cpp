@@ -2,13 +2,11 @@
 #include <string>
 #include <vector>
 
-void UI::drawParametersPage(int startRow, int startCol) {
+void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& paramIds) {
     int row = startRow;
     int col = startCol;
-    std::vector<int> pageParams = getParameterIdsForPage(currentPage);
 
-    // Draw parameters inline with left/right control indicators
-    for (int paramId : pageParams) {
+    for (int paramId : paramIds) {
         InlineParameter* param = getParameter(paramId);
         if (!param) continue;
 
@@ -42,4 +40,8 @@ void UI::drawParametersPage(int startRow, int startCol) {
 
         row++;
     }
+}
+
+void UI::drawParametersPage(int startRow, int startCol) {
+    drawParameterList(startRow, startCol, getParameterIdsForPage(currentPage));
 }

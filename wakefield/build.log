@@ -1,28 +1,19 @@
 Consolidate compiler generated dependencies of target synth
 [  2%] Building CXX object CMakeFiles/synth.dir/src/main.cpp.o
-/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/main.cpp: In function ‘int audioCallback(void*, void*, unsigned int, double, RtAudioStreamStatus, void*)’:
-/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/main.cpp:518:38: error: no matching function for call to ‘Synth::updateFilterParameters(std::__atomic_base<int>::__int_type, float&, float&, float&, float&, float&)’
-  518 |         synth->updateFilterParameters(
-      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-  519 |             synthParams->filterType.load(),
-      |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  520 |             smoothedFilterCutoff,
-      |             ~~~~~~~~~~~~~~~~~~~~~     
-  521 |             smoothedFilterGain,
-      |             ~~~~~~~~~~~~~~~~~~~       
-  522 |             smoothedFilterResonance,
-      |             ~~~~~~~~~~~~~~~~~~~~~~~~  
-  523 |             smoothedFilterDrive,
-      |             ~~~~~~~~~~~~~~~~~~~~      
-  524 |             smoothedFilterFeedbackHP
-      |             ~~~~~~~~~~~~~~~~~~~~~~~~  
-  525 |         );
-      |         ~                             
-In file included from /srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/main.cpp:11:
-/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/synth.h:52:10: note: candidate: ‘void Synth::updateFilterParameters(int, float, float, float, float, float, float, float)’
-   52 |     void updateFilterParameters(int type, float cutoff, float gain,
-      |          ^~~~~~~~~~~~~~~~~~~~~~
-/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/synth.h:52:10: note:   candidate expects 8 arguments, 6 provided
-make[2]: *** [CMakeFiles/synth.dir/build.make:76: CMakeFiles/synth.dir/src/main.cpp.o] Error 1
-make[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/synth.dir/all] Error 2
-make: *** [Makefile:91: all] Error 2
+[  4%] Building CXX object CMakeFiles/synth.dir/src/synth.cpp.o
+In file included from /usr/include/c++/11/vector:66,
+                 from /srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/synth.h:5,
+                 from /srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/synth.cpp:1:
+/usr/include/c++/11/bits/stl_uninitialized.h: In instantiation of ‘_ForwardIterator std::uninitialized_copy(_InputIterator, _InputIterator, _ForwardIterator) [with _InputIterator = std::move_iterator<Voice*>; _ForwardIterator = Voice*]’:
+/usr/include/c++/11/bits/stl_uninitialized.h:333:37:   required from ‘_ForwardIterator std::__uninitialized_copy_a(_InputIterator, _InputIterator, _ForwardIterator, std::allocator<_Tp>&) [with _InputIterator = std::move_iterator<Voice*>; _ForwardIterator = Voice*; _Tp = Voice]’
+/usr/include/c++/11/bits/stl_uninitialized.h:355:2:   required from ‘_ForwardIterator std::__uninitialized_move_if_noexcept_a(_InputIterator, _InputIterator, _ForwardIterator, _Allocator&) [with _InputIterator = Voice*; _ForwardIterator = Voice*; _Allocator = std::allocator<Voice>]’
+/usr/include/c++/11/bits/vector.tcc:474:3:   required from ‘void std::vector<_Tp, _Alloc>::_M_realloc_insert(std::vector<_Tp, _Alloc>::iterator, _Args&& ...) [with _Args = {float&}; _Tp = Voice; _Alloc = std::allocator<Voice>; std::vector<_Tp, _Alloc>::iterator = std::vector<Voice>::iterator]’
+/usr/include/c++/11/bits/vector.tcc:121:21:   required from ‘std::vector<_Tp, _Alloc>::reference std::vector<_Tp, _Alloc>::emplace_back(_Args&& ...) [with _Args = {float&}; _Tp = Voice; _Alloc = std::allocator<Voice>; std::vector<_Tp, _Alloc>::reference = Voice&]’
+/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/synth.cpp:37:28:   required from here
+/usr/include/c++/11/bits/stl_uninitialized.h:138:72: error: static assertion failed: result type must be constructible from value type of input range
+  138 |       static_assert(is_constructible<_ValueType2, decltype(*__first)>::value,
+      |                                                                        ^~~~~
+/usr/include/c++/11/bits/stl_uninitialized.h:138:72: note: ‘std::integral_constant<bool, false>::value’ evaluates to false
+gmake[2]: *** [CMakeFiles/synth.dir/build.make:90: CMakeFiles/synth.dir/src/synth.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/synth.dir/all] Error 2
+gmake: *** [Makefile:91: all] Error 2

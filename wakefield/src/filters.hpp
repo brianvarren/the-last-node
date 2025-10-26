@@ -414,11 +414,17 @@ public:
     void setSampleRate(float sr) {
         lpStage.setSampleRate(sr);
         hpStage.setSampleRate(sr);
+        updateStages();
     }
 
     void setCutoff(float hz) {
-        lpStage.setCutoff(hz);
-        hpStage.setCutoff(hz);
+        baseCutoff = hz;
+        updateStages();
+    }
+
+    void setWidth(float w) {
+        width = std::clamp(w, 0.05f, 0.95f);
+        updateStages();
     }
 
     void setDrive(float driveAmount) {
@@ -442,8 +448,18 @@ public:
     float getLastOutput() const { return lastOutput; }
 
 private:
+    void updateStages() {
+        float ratio = std::pow(2.0f, (width - 0.5f) * 3.0f);  // +/-1.5 oct
+        float lpCut = std::clamp(baseCutoff * ratio, 20.0f, lpStage.sampleRate() * 0.49f);
+        float hpCut = std::clamp(baseCutoff / ratio, 20.0f, hpStage.sampleRate() * 0.49f);
+        lpStage.setCutoff(lpCut);
+        hpStage.setCutoff(hpCut);
+    }
+
     OnePoleTPT lpStage;
     OnePoleTPT hpStage;
+    float baseCutoff = 1000.0f;
+    float width = 0.5f;
     float drive = 1.0f;
     float satGain = 0.5f;
     float lastOutput = 0.0f;
@@ -461,6 +477,7 @@ public:
         for (auto& cell : cells) cell.setSampleRate(sampleRate);
         feedbackHP.setSampleRate(sampleRate);
         setCutoff(cutoffHz);
+        setWidth(bandWidth);
         setFeedbackHighpass(feedbackHpHz);
     }
 
@@ -485,6 +502,12 @@ public:
         feedbackHP.setCutoff(feedbackHpHz);
     }
 
+    void setWidth(float w) {
+        bandWidth = std::clamp(w, 0.05f, 0.95f);
+        for (auto& cell : cells) cell.setWidth(bandWidth);
+        makeupGain = 1.2f / std::max(0.1f, bandWidth);
+    }
+
     void reset() {
         for (auto& cell : cells) cell.reset();
         feedbackHP.reset();
@@ -502,7 +525,7 @@ public:
 
         auto hpPair = feedbackHP.process(stageOutputs.back());
         lastFeedbackHP = std::tanh(hpPair.second);
-        return stageOutputs.back();
+        return stageOutputs.back() * makeupGain;
     }
 
     float getStageOutput(int idx) const {
@@ -517,6 +540,8 @@ private:
     float resonanceGain = 0.05f;
     float inputDrive = 1.0f;
     float feedbackHpHz = 200.0f;
+    float bandWidth = 0.5f;
+    float makeupGain = 1.0f;
 
     std::array<BandpassCellZdf, 4> cells;
     std::array<float, 4> stageOutputs {0};

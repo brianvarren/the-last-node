@@ -377,6 +377,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     static ParameterSmoother filterFeedbackHPSmoother;
     static ParameterSmoother filterSpreadSmoother;
     static ParameterSmoother filterNotchFeedbackSmoother;
+    static ParameterSmoother filterWidthSmoother;
     static ParameterSmoother overdubMixSmoother;
 
     float* buffer = static_cast<float*>(outputBuffer);
@@ -418,6 +419,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             filterFeedbackHPSmoother.reset(synthParams->filterFeedbackHP.load());
             filterSpreadSmoother.reset(synthParams->filterSpread.load());
             filterNotchFeedbackSmoother.reset(synthParams->filterNotchFeedback.load());
+            filterWidthSmoother.reset(synthParams->filterBandWidth.load());
             overdubMixSmoother.reset(synthParams->overdubMix.load());
             smoothersInitialized = true;
         }
@@ -446,6 +448,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         filterFeedbackHPSmoother.setTarget(synthParams->filterFeedbackHP.load());
         filterSpreadSmoother.setTarget(synthParams->filterSpread.load());
         filterNotchFeedbackSmoother.setTarget(synthParams->filterNotchFeedback.load());
+        filterWidthSmoother.setTarget(synthParams->filterBandWidth.load());
         filterSpreadSmoother.setTarget(synthParams->filterSpread.load());
         filterNotchFeedbackSmoother.setTarget(synthParams->filterNotchFeedback.load());
         overdubMixSmoother.setTarget(synthParams->overdubMix.load());
@@ -474,6 +477,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         float smoothedFilterFeedbackHP = filterFeedbackHPSmoother.process();
         float smoothedFilterSpread = filterSpreadSmoother.process();
         float smoothedFilterNotchFeedback = filterNotchFeedbackSmoother.process();
+        float smoothedFilterWidth = filterWidthSmoother.process();
 
         // Update synth with smoothed values
         synth->updateEnvelopeParameters(
@@ -533,7 +537,8 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             smoothedFilterDrive,
             smoothedFilterFeedbackHP,
             smoothedFilterSpread,
-            smoothedFilterNotchFeedback
+            smoothedFilterNotchFeedback,
+            smoothedFilterWidth
         );
 
         // Update LFO parameters

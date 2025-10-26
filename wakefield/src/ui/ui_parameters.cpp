@@ -54,6 +54,7 @@ void UI::initializeParameters() {
     parameters.push_back({36, ParamType::FLOAT, "FB HP", "Hz", 10.0f, 6000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({37, ParamType::FLOAT, "Spread", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({38, ParamType::FLOAT, "Notch FB", "", 0.0f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({39, ParamType::FLOAT, "Width", "", 0.05f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER)});
 
     // LOOPER page parameters - ALL support MIDI learn
     parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
@@ -144,6 +145,34 @@ std::vector<int> UI::getParameterIdsForPage(UIPage page) {
     return ids;
 }
 
+std::vector<int> UI::getFilterParameterIds() const {
+    std::vector<int> ids = {31, 30, 32};
+    int type = params ? params->filterType.load() : 0;
+
+    if (type == 2 || type == 3) {
+        ids.push_back(33);
+    }
+
+    if (type >= 4) {
+        ids.push_back(34);
+    }
+
+    if (type == 4 || type == 5) {
+        ids.push_back(35);
+        ids.push_back(36);
+    } else if (type == 6) {
+        ids.push_back(35);
+        ids.push_back(36);
+        ids.push_back(39);
+    } else if (type == 7) {
+        ids.push_back(35);
+        ids.push_back(37);
+        ids.push_back(38);
+    }
+
+    return ids;
+}
+
 float UI::getParameterValue(int id) {
     const int oscIndex = currentOscillatorIndex;
     const int lfoIndex = currentLFOIndex;
@@ -206,6 +235,7 @@ float UI::getParameterValue(int id) {
         case 36: return params->filterFeedbackHP.load();
         case 37: return params->filterSpread.load();
         case 38: return params->filterNotchFeedback.load();
+        case 39: return params->filterBandWidth.load();
         case 40: return static_cast<float>(params->currentLoop.load());
         case 41: return params->overdubMix.load();
         // CONFIG page parameters
@@ -308,6 +338,7 @@ void UI::setParameterValue(int id, float value) {
         case 36: params->filterFeedbackHP = value; break;
         case 37: params->filterSpread = value; break;
         case 38: params->filterNotchFeedback = value; break;
+        case 39: params->filterBandWidth = value; break;
         case 40: params->currentLoop = static_cast<int>(value); break;
         case 41: params->overdubMix = value; break;
         // CONFIG page parameters
