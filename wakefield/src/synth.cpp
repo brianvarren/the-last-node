@@ -29,6 +29,8 @@ Synth::Synth(float sampleRate)
     diodeFilterR.setSampleRate(sampleRate);
     bandpassFilterL.setSampleRate(sampleRate);
     bandpassFilterR.setSampleRate(sampleRate);
+    bandpass2FilterL.setSampleRate(sampleRate);
+    bandpass2FilterR.setSampleRate(sampleRate);
     notchFilterL.setSampleRate(sampleRate);
     notchFilterR.setSampleRate(sampleRate);
     
@@ -192,6 +194,17 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain,
     bandpassFilterR.setFeedbackHighpass(feedbackHP);
     bandpassFilterL.setWidth(bandWidth);
     bandpassFilterR.setWidth(bandWidth);
+
+    bandpass2FilterL.setCutoff(cutoff);
+    bandpass2FilterR.setCutoff(cutoff);
+    bandpass2FilterL.setResonance(resonance);
+    bandpass2FilterR.setResonance(resonance);
+    bandpass2FilterL.setDrive(drive);
+    bandpass2FilterR.setDrive(drive);
+    bandpass2FilterL.setFeedbackHighpass(feedbackHP);
+    bandpass2FilterR.setFeedbackHighpass(feedbackHP);
+    bandpass2FilterL.setWidth(bandWidth);
+    bandpass2FilterR.setWidth(bandWidth);
 
     notchFilterL.setCutoff(cutoff);
     notchFilterR.setCutoff(cutoff);
@@ -596,6 +609,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             } else if (currentFilterType == 7) {  // Dual Notch
                 output[i * 2] = notchFilterL.process(left);
                 output[i * 2 + 1] = notchFilterR.process(right);
+            } else if (currentFilterType == 8) {  // 2-pole Bandpass
+                output[i * 2] = bandpass2FilterL.process(left);
+                output[i * 2 + 1] = bandpass2FilterR.process(right);
             }
         }
     }

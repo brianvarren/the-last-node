@@ -161,6 +161,7 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
                 else if (value == "DIODE") params->filterType = 5;
                 else if (value == "BANDPASS") params->filterType = 6;
                 else if (value == "NOTCH") params->filterType = 7;
+                else if (value == "BANDPASS2") params->filterType = 8;
             }
             else if (key == "cutoff") params->filterCutoff = std::stof(value);
             else if (key == "gain") params->filterGain = std::stof(value);
@@ -239,6 +240,7 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     else if (filterType == 5) file << "type=DIODE\n";
     else if (filterType == 6) file << "type=BANDPASS\n";
     else if (filterType == 7) file << "type=NOTCH\n";
+    else if (filterType == 8) file << "type=BANDPASS2\n";
     file << "cutoff=" << params->filterCutoff.load() << "\n";
     file << "gain=" << params->filterGain.load() << "\n";
     file << "spread=" << params->filterSpread.load() << "\n";

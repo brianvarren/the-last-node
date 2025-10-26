@@ -473,6 +473,79 @@ private:
     float lastOutput = 0.0f;
 };
 
+// Standalone 2-pole bandpass using the ZDF cell
+class Bandpass2PoleZdf {
+public:
+    explicit Bandpass2PoleZdf(float sampleRate = 48000.0f) {
+        setSampleRate(sampleRate);
+        setCutoff(1000.0f);
+        setResonance(0.0f);
+        setDrive(1.0f);
+    }
+
+    void setSampleRate(float sr) {
+        sampleRate = std::max(1.0f, sr);
+        cell.setSampleRate(sampleRate);
+        setCutoff(cutoffHz);
+        updateTwoR();
+    }
+
+    void setCutoff(float hz) {
+        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        cell.setCutoff(cutoffHz);
+    }
+
+    void setResonance(float amount) {
+        resonance = std::clamp(amount, 0.0f, 1.2f);
+        feedbackGain = resonance * 3.0f;
+    }
+
+    void setDrive(float driveAmount) {
+        drive = std::clamp(driveAmount, 0.1f, 15.0f);
+        cell.setDrive(drive);
+    }
+
+    void setWidth(float w) {
+        widthNorm = std::clamp(w, 0.0f, 1.0f);
+        updateTwoR();
+    }
+
+    void setFeedbackHighpass(float) {
+        // unused, kept for API compatibility
+    }
+
+    void reset() {
+        cell.reset();
+        lastOutput = 0.0f;
+    }
+
+    float process(float in) {
+        const float feedback = std::tanh(lastOutput * feedbackGain);
+        float x = in + feedback;
+        lastOutput = cell.process(x);
+        return lastOutput;
+    }
+
+private:
+    void updateTwoR() {
+        constexpr float INV_SQRT2 = 0.70710678118f;
+        const float bwPrime = std::max(1.0f, widthNorm * 12.0f);
+        const float expBw = std::exp(bwPrime * INV_SQRT2);
+        const float invExp = 1.0f / expBw;
+        const float twoR = std::clamp(expBw - invExp, 0.05f, 20.0f);
+        cell.setTwoR(twoR);
+    }
+
+    BandpassCellZdf cell;
+    float sampleRate = 48000.0f;
+    float cutoffHz = 1000.0f;
+    float resonance = 0.0f;
+    float feedbackGain = 0.0f;
+    float drive = 1.0f;
+    float widthNorm = 0.5f;
+    float lastOutput = 0.0f;
+};
+
 // 4 × 2-pole bandpass ladder with global bandwidth control
 class LadderBandpassZdf {
 public:

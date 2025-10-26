@@ -77,7 +77,7 @@ struct SynthParameters {
     
     // Filter parameters
     std::atomic<bool> filterEnabled{false};
-    std::atomic<int> filterType{0};  // 0=LP, 1=HP, 2=HighShelf, 3=LowShelf
+    std::atomic<int> filterType{0};  // 0=LP, 1=HP, 2=HighShelf, 3=LowShelf, 4=Ladder, 5=Diode, 6=LadderBP, 7=DualNotch, 8=BP2
     std::atomic<float> filterCutoff{1000.0f};
     std::atomic<float> filterGain{0.0f};  // For shelf filters (dB)
     std::atomic<float> filterResonance{0.4f};

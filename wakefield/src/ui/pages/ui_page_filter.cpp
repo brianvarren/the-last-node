@@ -131,6 +131,21 @@ float simulateResponse(int type,
                 ++count;
             }
         }
+    } else if (type == 8) {
+        Bandpass2PoleZdf bp(sampleRate);
+        bp.setCutoff(cutoff);
+        bp.setResonance(resonance);
+        bp.setDrive(drive);
+        bp.setWidth(width);
+        const float inputLevel = 0.25f;
+        for (int n = 0; n < totalSamples; ++n) {
+            float x = sineSample(n) * inputLevel;
+            float y = bp.process(x);
+            if (n >= settleSamples) {
+                sumSquares += y * y;
+                ++count;
+            }
+        }
     }
 
     if (count <= 0) return 0.0f;
