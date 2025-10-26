@@ -137,6 +137,8 @@ public:
         // Clock target modulation
         float sequencerPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float samplerPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        // FM modulation
+        float fmGlobalDepth = 0.0f;
     };
 
     ModulationOutputs processModulationMatrix(const Voice* voiceContext = nullptr);

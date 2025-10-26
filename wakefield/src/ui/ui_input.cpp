@@ -559,6 +559,48 @@ void UI::handleInput(int ch) {
                     }
                 }
                 return;
+
+            case 'g':
+            case 'G':  // Generate/Randomize FM matrix
+                {
+                    for (int target = 0; target < 8; ++target) {
+                        for (int source = 0; source < 16; ++source) {
+                            float randomDepth = (static_cast<float>(rand()) / RAND_MAX) * 1.98f - 0.99f;  // -0.99 to +0.99
+                            params->setFMDepth(target, source, randomDepth * 0.3f);  // Scale to 30% for subtler results
+                        }
+                    }
+                    addConsoleMessage("FM matrix randomized");
+                }
+                return;
+
+            case 'r':
+            case 'R':  // Reset FM matrix to zero
+                {
+                    for (int target = 0; target < 8; ++target) {
+                        for (int source = 0; source < 16; ++source) {
+                            params->setFMDepth(target, source, 0.0f);
+                        }
+                    }
+                    addConsoleMessage("FM matrix reset");
+                }
+                return;
+
+            case 'm':
+            case 'M':  // Mutate FM matrix (20% variation)
+                {
+                    for (int target = 0; target < 8; ++target) {
+                        for (int source = 0; source < 16; ++source) {
+                            float currentDepth = params->getFMDepth(target, source);
+                            if (currentDepth != 0.0f) {  // Only mutate non-zero values
+                                float variation = (static_cast<float>(rand()) / RAND_MAX) * 0.4f - 0.2f;  // ±20%
+                                float newDepth = std::max(-0.99f, std::min(0.99f, currentDepth + variation));
+                                params->setFMDepth(target, source, newDepth);
+                            }
+                        }
+                    }
+                    addConsoleMessage("FM matrix mutated (±20%)");
+                }
+                return;
         }
     }
 

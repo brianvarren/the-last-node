@@ -101,6 +101,9 @@ const std::vector<ModuleData>& buildDestinationModules() {
             {"Seq Track 3 Phase", "Clk:T3"}, {"Seq Track 4 Phase", "Clk:T4"},
             {"Sampler 1 Phase", "Clk:S1"}, {"Sampler 2 Phase", "Clk:S2"},
             {"Sampler 3 Phase", "Clk:S3"}, {"Sampler 4 Phase", "Clk:S4"}
+        }},
+        {"FM", {
+            {"Global Depth", "FM:Gbl"}
         }}
     };
     return modules;

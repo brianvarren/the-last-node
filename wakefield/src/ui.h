@@ -282,6 +282,7 @@ struct SynthParameters {
     // Targets: OSC1-4 (0-3) + SAMP1-4 (4-7) = 8 total
     // Sources: OSC1-4 (0-3) + SAMP1-4 (4-7) + Chaos1X-4Y (8-15) = 16 total
     std::atomic<float> fmMatrix[8][16];  // 8 targets × 16 sources
+    std::atomic<float> fmGlobalDepth{1.0f};  // Global FM depth scalar (0.0-1.0)
 
     // Constructor to initialize CC map and FM matrix
     SynthParameters() {

@@ -39,6 +39,9 @@ float Voice::generateSample() {
     //                     Sources = OSC1-4 (0-3) + SAMP1-4 (4-7) + Chaos1X-4Y (8-15)
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
     if (params && synth) {
+        // Get global FM depth (base + modulation)
+        float globalDepth = std::clamp(params->fmGlobalDepth.load() + fmGlobalDepthMod, 0.0f, 1.0f);
+
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
@@ -66,7 +69,7 @@ float Voice::generateSample() {
                     totalFM += chaosOutput * (fmDepth * 100.0f);
                 }
             }
-            fmInputs[target] = totalFM;
+            fmInputs[target] = totalFM * globalDepth;
         }
     }
 
@@ -134,6 +137,9 @@ float Voice::generateSample() {
     // Determine FM input for each sampler using previous outputs (1-sample delay)
     float samplerFMInputs[SAMPLERS_PER_VOICE] = {0.0f};
     if (params && synth) {
+        // Get global FM depth (base + modulation)
+        float globalDepth = std::clamp(params->fmGlobalDepth.load() + fmGlobalDepthMod, 0.0f, 1.0f);
+
         for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
@@ -161,7 +167,7 @@ float Voice::generateSample() {
                     totalFM += chaosOutput * (fmDepth * 100.0f);
                 }
             }
-            samplerFMInputs[target] = totalFM;
+            samplerFMInputs[target] = totalFM * globalDepth;
         }
     }
 

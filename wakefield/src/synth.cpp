@@ -328,6 +328,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         voice.samplerLevelMod[2] = modOutputs.samp3Amp;
         voice.samplerLevelMod[3] = modOutputs.samp4Amp;
 
+        // FM global depth modulation
+        voice.fmGlobalDepthMod = modOutputs.fmGlobalDepth;
+
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             if (samplerPhaseSource[i] != kClockModSourceIndex) {
                 voice.samplerPhaseDriver[i] = normalizePhaseForDriver(modOutputs.samplerPhase[i], samplerPhaseType[i]);
@@ -843,6 +846,8 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 74: outputs.samplerPhase[1] += modValue; break;
             case 75: outputs.samplerPhase[2] += modValue; break;
             case 76: outputs.samplerPhase[3] += modValue; break;
+            // FM
+            case 77: outputs.fmGlobalDepth += modValue; break;
         }
     }
 

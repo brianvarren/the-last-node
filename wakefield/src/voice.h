@@ -38,6 +38,9 @@ struct Voice {
     float samplerLevelMod[SAMPLERS_PER_VOICE];
     float samplerPhaseDriver[SAMPLERS_PER_VOICE];
 
+    // FM global depth modulation
+    float fmGlobalDepthMod;
+
     Voice(float sampleRate)
         : active(false)
         , note(-1)
@@ -65,6 +68,7 @@ struct Voice {
             samplerLevelMod[i] = 0.0f;
             samplerPhaseDriver[i] = -1.0f;
         }
+        fmGlobalDepthMod = 0.0f;
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)

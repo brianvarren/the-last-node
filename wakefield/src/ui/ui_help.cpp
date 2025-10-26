@@ -448,38 +448,87 @@ loop region.
 
         case UIPage::FM:
             content = R"(
-=== FM MATRIX ===
+=== FM MATRIX - Audio-Rate Phase Modulation ===
 
 CONTROLS:
   Arrow Keys  - Navigate FM matrix cells (source/target pairs)
   Left/Right  - Adjust FM depth (-99% to +99%)
   Enter       - Type exact value
   Shift+Arrow - Jump by 4 cells
+  G           - Randomize entire FM matrix (30% scaled random values)
+  R           - Reset entire FM matrix to zero
+  M           - Mutate FM matrix (±20% variation on non-zero values)
   Tab         - Navigate between pages
 
-MATRIX LAYOUT:
-  ROWS (Sources):    OSC1, OSC2, OSC3, OSC4, SAMP1, SAMP2, SAMP3, SAMP4
-  COLUMNS (Targets): OSC1, OSC2, OSC3, OSC4, SAMP1, SAMP2, SAMP3, SAMP4
+MATRIX LAYOUT (16 Sources × 8 Targets):
+  TARGETS (Columns): O1, O2, O3, O4, S1, S2, S3, S4
+    O1-O4 = Oscillators 1-4
+    S1-S4 = Samplers 1-4
+
+  SOURCES (Rows):
+    OSC1, OSC2, OSC3, OSC4     - Oscillator outputs
+    SMP1, SMP2, SMP3, SMP4     - Sampler outputs
+    ─────────────────────────
+    C1X, C1Y                   - Chaos Generator 1 (X and Y)
+    C2X, C2Y                   - Chaos Generator 2 (X and Y)
+    C3X, C3Y                   - Chaos Generator 3 (X and Y)
+    C4X, C4Y                   - Chaos Generator 4 (X and Y)
+
+PARAMETERS:
+  Global Depth - Master FM depth control (0.0-1.0, bottom of page)
+                 Scales all FM routings linearly
+                 Available as modulation destination in MOD matrix
 
 ABOUT:
 The FM Matrix provides audio-rate frequency modulation routing between
-all 8 audio sources (4 oscillators + 4 samplers). This creates complex,
+all oscillators, samplers, and chaos generators. This creates complex,
 harmonically rich timbres through phase modulation synthesis.
 
 HOW FM WORKS:
-  - Source oscillators/samplers modulate the frequency of target oscillators
+  - Source signals modulate the frequency/phase of target oscillators
   - Each cell shows FM depth as percentage (-99% to +99%)
   - Positive values: Normal FM (adds harmonics)
   - Negative values: Inverted FM (different harmonic content)
   - Zero depth: No modulation (default)
+  - Global Depth scales ALL routings simultaneously
 
 CREATING FM PATCHES:
 1. Navigate to a cell where row is MODULATOR and column is CARRIER
-   Example: Row=OSC1, Col=OSC2 means OSC1 modulates OSC2
+   Example: Row=OSC1, Col=O2 means OSC1 modulates OSC2
 2. Increase depth to hear frequency modulation effects
 3. Try multiple modulators on one carrier for complex timbres
 4. Experiment with feedback by routing an oscillator to itself
-   Example: Row=OSC1, Col=OSC1 creates self-modulation
+   Example: Row=OSC1, Col=O1 creates self-modulation
+5. Use chaos generators for evolving, non-repeating FM textures
+
+MATRIX OPERATIONS:
+  RANDOMIZE (G):
+    - Generates random FM depths for all connections (-30% to +30%)
+    - Quick way to discover interesting FM combinations
+    - Creates sparse matrices (most values near zero)
+
+  MUTATE (M):
+    - Varies existing non-zero values by ±20%
+    - Keeps zero values at zero
+    - Useful for subtle variations on an existing FM patch
+
+  RESET (R):
+    - Clears entire matrix to zero (no FM routing)
+    - Quick way to start fresh
+
+GLOBAL DEPTH CONTROL:
+  - Master volume for the entire FM matrix
+  - Reduces all FM depths proportionally (0.0 = silent, 1.0 = full)
+  - Useful for fading FM in/out or reducing overall FM intensity
+  - Can be modulated via MOD matrix (FM:Gbl destination)
+  - Example: Route ENV1 → FM Global Depth for evolving FM intensity
+
+CHAOS AS FM SOURCE:
+  - Each chaos generator provides X and Y outputs (8 total sources)
+  - Chaos runs at audio rate (up to 1000 Hz clock)
+  - Creates evolving, non-repeating FM modulation
+  - Try routing C1X → O1 with 20-40% depth for organic timbres
+  - Chaos FM never repeats - perfect for generative music
 
 TIPS:
   - Start with 10-30% depth and adjust to taste
@@ -487,11 +536,24 @@ TIPS:
   - Combine FM with the morph parameter for evolving sounds
   - Higher depth values create more aggressive, harmonically dense sounds
   - Self-modulation (diagonal cells) creates feedback FM
+  - Chaos modulators create constantly evolving harmonic content
+  - Lower Global Depth for subtle FM, increase for aggressive timbres
 
 CLASSIC FM ALGORITHMS:
   - 2-Operator: OSC1→OSC2 (simple, bell-like tones)
   - 3-Operator Stack: OSC1→OSC2→OSC3 (complex harmonics)
   - Parallel: OSC1→OSC3, OSC2→OSC3 (dual modulators)
+  - Chaos FM: C1X→OSC1 (evolving, organic harmonics)
+  - Feedback: OSC1→OSC1 (aggressive, metallic tones)
+
+WORKFLOW EXAMPLE:
+1. Press R to reset matrix to zero
+2. Navigate to C1X row, O1 column (Chaos 1 X modulates Oscillator 1)
+3. Set depth to 25%
+4. Go to CHAOS page, set Chaos=0.6, Clock=10Hz
+5. Set Global Depth to 0.5 (50% scaling)
+6. Press G to randomize for instant complex timbres
+7. Press M repeatedly to mutate and explore variations
 )";
             break;
 
