@@ -184,15 +184,6 @@ void drawFilterResponsePreview(int topRow,
         grid[row][x] = '*';
     }
 
-    // Draw reference lines every 12 dB
-    for (float ref = -72.0f; ref <= 12.0f; ref += 12.0f) {
-        int r = dbToRow(ref);
-        for (int x = 0; x < plotW; ++x) {
-            if (grid[r][x] == '*') continue;
-            grid[r][x] = (std::fabs(std::fmod(ref, 24.0f)) < 1e-3f) ? '-' : '.';
-        }
-    }
-
     std::string horizontal(plotW, '-');
     mvprintw(topRow - 1, leftCol, "Filter Response");
     mvprintw(topRow, leftCol, "+%s+", horizontal.c_str());
@@ -202,23 +193,6 @@ void drawFilterResponsePreview(int topRow,
         mvprintw(topRow + 1 + y, leftCol + 1 + plotW, "|");
     }
     mvprintw(topRow + 1 + height, leftCol, "+%s+", horizontal.c_str());
-
-    // Frequency ticks (bottom)
-    std::vector<float> tickHz = {20.0f, 50.0f, 100.0f, 200.0f, 500.0f, 1000.0f, 2000.0f, 5000.0f, 10000.0f, maxHz};
-    int tickRow = topRow + 2 + height;
-    for (float hz : tickHz) {
-        float norm = std::log(hz / minHz) / std::log(maxHz / minHz);
-        norm = std::clamp(norm, 0.0f, 1.0f);
-        int col = leftCol + 1 + static_cast<int>(norm * (plotW - 1));
-        mvprintw(tickRow, col - 1, "|");
-        mvprintw(tickRow + 1, std::max(leftCol, col - 4), "%4.0f", hz);
-    }
-
-    // Level annotations on left
-    for (float ref = -72.0f; ref <= 12.0f; ref += 12.0f) {
-        int r = dbToRow(ref);
-        mvprintw(topRow + 1 + r, leftCol - 6, "%5.0f", ref);
-    }
 
     if (!enabled) {
         attron(COLOR_PAIR(4) | A_BOLD);

@@ -356,9 +356,9 @@ void UI::handleInput(int ch) {
     };
 
     // Arrow key behavior for parameter pages
-    // SAMPLER page: Up/Down navigate, Left/Right adjust
+    // SAMPLER and FILTER pages: Up/Down navigate, Left/Right adjust
     // Other pages: Up/Down/Left/Right all navigate (legacy behavior)
-    if (currentPage == UIPage::SAMPLER) {
+    if (currentPage == UIPage::SAMPLER || currentPage == UIPage::FILTER) {
         if (ch == KEY_UP) {
             selectPrevParameter();
             return;

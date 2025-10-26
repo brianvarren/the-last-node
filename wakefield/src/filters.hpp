@@ -505,7 +505,8 @@ public:
     void setWidth(float w) {
         bandWidth = std::clamp(w, 0.05f, 0.95f);
         for (auto& cell : cells) cell.setWidth(bandWidth);
-        makeupGain = 1.2f / std::max(0.1f, bandWidth);
+        // Increased makeup gain significantly for better bandpass response
+        makeupGain = 4.0f / std::max(0.1f, bandWidth);
     }
 
     void reset() {
