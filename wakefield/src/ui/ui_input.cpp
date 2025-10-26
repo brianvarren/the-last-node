@@ -200,12 +200,22 @@ void UI::handleInput(int ch) {
     // Get current page parameter IDs (for non-sequencer pages)
     std::vector<int> pageParams;
     if (currentPage != UIPage::SEQUENCER) {
-        pageParams = getParameterIdsForPage(currentPage);
+        // Filter page uses dynamic parameter list based on filter type
+        if (currentPage == UIPage::FILTER) {
+            pageParams = getFilterParameterIds();
+        } else {
+            pageParams = getParameterIdsForPage(currentPage);
+        }
     }
 
     auto setPage = [&](UIPage target) {
         currentPage = target;
-        std::vector<int> newPageParams = getParameterIdsForPage(currentPage);
+        std::vector<int> newPageParams;
+        if (currentPage == UIPage::FILTER) {
+            newPageParams = getFilterParameterIds();
+        } else {
+            newPageParams = getParameterIdsForPage(currentPage);
+        }
         if (!newPageParams.empty()) {
             selectedParameterId = newPageParams[0];
         }
