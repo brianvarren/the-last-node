@@ -46,8 +46,66 @@ Sampler::Sampler()
     voiceB.active = false;
 }
 
+Sampler::Sampler(const Sampler& other)
+    : currentSample(other.currentSample.load(std::memory_order_acquire))
+    , loopStartNorm(other.loopStartNorm)
+    , loopLengthNorm(other.loopLengthNorm)
+    , crossfadeLengthNorm(other.crossfadeLengthNorm)
+    , playbackSpeed(other.playbackSpeed)
+    , tzfmDepth(other.tzfmDepth)
+    , level(other.level)
+    , mode(other.mode)
+    , keyMode(other.keyMode)
+    , voiceA(other.voiceA)
+    , voiceB(other.voiceB)
+    , primaryVoice(&voiceA)
+    , secondaryVoice(&voiceB)
+    , crossfading(other.crossfading)
+    , crossfadeSamplesTotal(other.crossfadeSamplesTotal)
+    , crossfadeSamplesRemaining(other.crossfadeSamplesRemaining)
+    , pendingStart(other.pendingStart)
+    , pendingEnd(other.pendingEnd)
+    , pendingLoopValid(other.pendingLoopValid)
+    , restartRequested(other.restartRequested)
+    , wasInZoneLastSample(other.wasInZoneLastSample)
+    , playingReverse(other.playingReverse)
+    , modulatorSmoothed(other.modulatorSmoothed)
+    , lastPhaseDriver(other.lastPhaseDriver) {
+}
+
+Sampler& Sampler::operator=(const Sampler& other) {
+    if (this != &other) {
+        currentSample.store(other.currentSample.load(std::memory_order_acquire), std::memory_order_release);
+        loopStartNorm = other.loopStartNorm;
+        loopLengthNorm = other.loopLengthNorm;
+        crossfadeLengthNorm = other.crossfadeLengthNorm;
+        playbackSpeed = other.playbackSpeed;
+        tzfmDepth = other.tzfmDepth;
+        level = other.level;
+        mode = other.mode;
+        keyMode = other.keyMode;
+        voiceA = other.voiceA;
+        voiceB = other.voiceB;
+        primaryVoice = &voiceA;
+        secondaryVoice = &voiceB;
+        crossfading = other.crossfading;
+        crossfadeSamplesTotal = other.crossfadeSamplesTotal;
+        crossfadeSamplesRemaining = other.crossfadeSamplesRemaining;
+        pendingStart = other.pendingStart;
+        pendingEnd = other.pendingEnd;
+        pendingLoopValid = other.pendingLoopValid;
+        restartRequested = other.restartRequested;
+        wasInZoneLastSample = other.wasInZoneLastSample;
+        playingReverse = other.playingReverse;
+        modulatorSmoothed = other.modulatorSmoothed;
+        lastPhaseDriver = other.lastPhaseDriver;
+    }
+    return *this;
+}
+
 void Sampler::setSample(const SampleData* sample) {
-    currentSample = sample;
+    // Use atomic store to safely update sample pointer from UI thread
+    currentSample.store(sample, std::memory_order_release);
     pendingLoopValid = false;
     restartRequested = true;
     reset();
@@ -90,11 +148,12 @@ void Sampler::setKeyMode(bool enabled) {
 }
 
 float Sampler::getPlayheadPosition() const {
-    if (!currentSample || currentSample->sampleCount == 0) {
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (!sample || sample->sampleCount == 0) {
         return 0.0f;
     }
     uint32_t idx = static_cast<uint32_t>(primaryVoice->phase_q32_32 >> 32);
-    return static_cast<float>(idx) / static_cast<float>(currentSample->sampleCount);
+    return static_cast<float>(idx) / static_cast<float>(sample->sampleCount);
 }
 
 uint64_t Sampler::getCurrentPhase() const {
@@ -106,7 +165,8 @@ void Sampler::restorePhase(uint64_t phase) {
 }
 
 void Sampler::reset() {
-    if (!currentSample || currentSample->sampleCount == 0) {
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (!sample || sample->sampleCount == 0) {
         primaryVoice->phase_q32_32 = 0;
         primaryVoice->loop_start = 0;
         primaryVoice->loop_end = 0;
@@ -139,21 +199,23 @@ void Sampler::stopPlayback() {
 }
 
 const char* Sampler::getSampleName() const {
-    if (currentSample) {
-        return currentSample->name.c_str();
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (sample) {
+        return sample->name.c_str();
     }
     return "No Sample";
 }
 
 void Sampler::calculateLoopBoundaries(float startMod, float lengthMod) {
-    if (!currentSample || currentSample->sampleCount < MIN_LOOP_LENGTH) {
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (!sample || sample->sampleCount < MIN_LOOP_LENGTH) {
         pendingStart = 0;
         pendingEnd = 0;
         pendingLoopValid = false;
         return;
     }
 
-    const uint32_t totalSamples = currentSample->sampleCount;
+    const uint32_t totalSamples = sample->sampleCount;
     const uint32_t availableSpan = totalSamples > MIN_LOOP_LENGTH ?
                                    totalSamples - MIN_LOOP_LENGTH : 0;
 
@@ -221,7 +283,8 @@ bool Sampler::wrapPhase(SamplerVoice* voice) const {
 }
 
 int16_t Sampler::getSample(const SamplerVoice* voice, bool isReverse) const {
-    if (!voice->active || voice->amplitude <= 0.0f || !currentSample) {
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (!voice->active || voice->amplitude <= 0.0f || !sample) {
         return 0;
     }
     if (voice->loop_end <= voice->loop_start) {
@@ -233,15 +296,15 @@ int16_t Sampler::getSample(const SamplerVoice* voice, bool isReverse) const {
 
     // Bounds check with graceful handling during crossfade
     if (crossfading && voice == primaryVoice) {
-        if (i >= currentSample->sampleCount) {
+        if (i >= sample->sampleCount) {
             if (voice->amplitude > 0.1f) {
-                i = currentSample->sampleCount - 1;
+                i = sample->sampleCount - 1;
             } else {
-                i %= currentSample->sampleCount;
+                i %= sample->sampleCount;
             }
         }
     } else {
-        if (i >= currentSample->sampleCount) {
+        if (i >= sample->sampleCount) {
             return 0;
         }
     }
@@ -249,8 +312,8 @@ int16_t Sampler::getSample(const SamplerVoice* voice, bool isReverse) const {
     // Additional fade near buffer end during crossfade
     float additionalFade = 1.0f;
     if (crossfading && voice == primaryVoice &&
-        i >= currentSample->sampleCount - 8) {
-        uint32_t distanceFromEnd = currentSample->sampleCount - 1 - i;
+        i >= sample->sampleCount - 8) {
+        uint32_t distanceFromEnd = sample->sampleCount - 1 - i;
         additionalFade = static_cast<float>(distanceFromEnd) / 7.0f;
         additionalFade = std::clamp(additionalFade, 0.0f, 1.0f);
     }
@@ -268,25 +331,26 @@ int16_t Sampler::getSample(const SamplerVoice* voice, bool isReverse) const {
     const uint8_t mu8 = static_cast<uint8_t>(frac32 >> 24);
 
     // Perform interpolation
-    int16_t sample = interpolate(currentSample->samples[i],
-                                currentSample->samples[i2],
+    int16_t sampleValue = interpolate(sample->samples[i],
+                                sample->samples[i2],
                                 mu8);
 
     // Apply additional fade if needed
-    sample = static_cast<int16_t>(sample * additionalFade);
+    sampleValue = static_cast<int16_t>(sampleValue * additionalFade);
 
-    return sample;
+    return sampleValue;
 }
 
 int64_t Sampler::calculateIncrement(float sampleRate, float fmInput,
                                     float pitchMod, bool isReverse, int midiNote) {
-    if (!currentSample) {
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (!sample) {
         return 0;
     }
 
     // Calculate base increment from sample rate ratio and playback speed
     // Q32.32 format: (source_rate / output_rate) * playbackSpeed
-    double baseRatio = (static_cast<double>(currentSample->sampleRate) /
+    double baseRatio = (static_cast<double>(sample->sampleRate) /
                        static_cast<double>(sampleRate)) * playbackSpeed;
 
     // KEY mode: apply exponential pitch tracking based on MIDI note
@@ -367,7 +431,8 @@ void Sampler::setupCrossfade(uint32_t xfadeLen, uint32_t xfadeSamples,
 }
 
 void Sampler::applyPhaseDriver(float normalized) {
-    if (!currentSample || !primaryVoice) {
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (!sample || !primaryVoice) {
         return;
     }
 
@@ -397,8 +462,9 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                       float crossfadeMod, float levelMod, float levelOffset,
                       float phaseDriver, int midiNote) {
     // Early exit if no sample loaded
-    if (!currentSample || !currentSample->samples ||
-        currentSample->sampleCount < 2) {
+    const SampleData* sample = currentSample.load(std::memory_order_acquire);
+    if (!sample || !sample->samples ||
+        sample->sampleCount < 2) {
         return 0.0f;
     }
 

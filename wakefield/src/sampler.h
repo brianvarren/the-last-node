@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cmath>
+#include <atomic>
 
 // Playback modes
 enum class PlaybackMode {
@@ -26,6 +27,10 @@ struct SamplerVoice {
 class Sampler {
 public:
     Sampler();
+
+    // Copy constructor and assignment operator (needed because of atomic member)
+    Sampler(const Sampler& other);
+    Sampler& operator=(const Sampler& other);
 
     // Main processing function - generates one sample
     // Parameters:
@@ -80,8 +85,8 @@ public:
     const char* getSampleName() const;
 
 private:
-    // Sample data
-    const SampleData* currentSample;
+    // Sample data (atomic to prevent race conditions between audio and UI threads)
+    std::atomic<const SampleData*> currentSample;
 
     // Playback parameters
     float loopStartNorm;        // 0.0 to 1.0
