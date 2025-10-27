@@ -1064,7 +1064,7 @@ private:
     void finishModMatrixAmountInput();
 
     // Preset management helpers
-    void refreshPresetList();
+    // refreshPresetList is declared public above; no duplicate here
     
     // Parameter management
     std::vector<InlineParameter> parameters;
