@@ -533,7 +533,7 @@ public:
     }
 
     float process(float in) {
-        const float feedback = lastOutput * feedbackGain;
+        const float feedback = std::tanh(lastOutput * feedbackGain);
         float x = in + feedback;
 
         // First cell: feed input through, get LP output
