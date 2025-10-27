@@ -859,6 +859,7 @@ struct SynthParameters {
 };
 
 enum class UIPage {
+    MAIN,
     OSCILLATOR,
     SAMPLER,
     MIXER,
@@ -930,6 +931,7 @@ public:
     // Preset management
     void loadPreset(const std::string& filename);
     void savePreset(const std::string& filename);
+    void refreshPresetList();
     
     // Device change request (returns true if restart requested)
     bool isDeviceChangeRequested() const { return deviceChangeRequested; }
@@ -970,6 +972,8 @@ private:
     std::vector<std::string> availablePresets;
     bool textInputActive;
     std::string textInputBuffer;
+    int presetListIndex;
+    int presetListScroll;
     
     static const int WAVEFORM_BUFFER_SIZE = 8192;
     std::vector<float> waveformBuffer;
@@ -1027,6 +1031,7 @@ private:
     void drawModPage();
     void drawReverbPage();
     void drawFilterPage();
+    void drawMainPage();
     void drawSequencerPage();
     void drawChaosPage();
     void drawConfigPage();

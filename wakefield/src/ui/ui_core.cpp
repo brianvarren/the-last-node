@@ -7,7 +7,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     : synth(synth)
     , params(params)
     , initialized(false)
-    , currentPage(UIPage::OSCILLATOR)
+    , currentPage(UIPage::MAIN)
     , audioDeviceName("Unknown")
     , audioSampleRate(0)
     , audioBufferSize(0)
@@ -20,6 +20,8 @@ UI::UI(Synth* synth, SynthParameters* params)
     , numericInputIsMod(false)
     , currentPresetName("None")
     , textInputActive(false)
+    , presetListIndex(0)
+    , presetListScroll(0)
     , deviceChangeRequested(false)
     , requestedAudioDeviceId(-1)
     , requestedMidiPortNum(-1)
@@ -68,12 +70,16 @@ UI::UI(Synth* synth, SynthParameters* params)
 
     // Load available presets
     refreshPresetList();
+    if (!availablePresets.empty()) {
+        presetListIndex = 0;
+        presetListScroll = 0;
+    }
 
     // Initialize parameter definitions
     initializeParameters();
 
     // Set initial selected parameter to first parameter on main page
-    std::vector<int> initialParams = getParameterIdsForPage(UIPage::OSCILLATOR);
+    std::vector<int> initialParams = getParameterIdsForPage(UIPage::MAIN);
     if (!initialParams.empty()) {
         selectedParameterId = initialParams[0];  // Start with first parameter
     }

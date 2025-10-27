@@ -817,8 +817,10 @@ public:
         s1 = g * hp + bp;
         s2 = g * bp + lp;
 
-        // Allpass output: input - 2*bandpass
-        return input - twoR * bp;
+        // Correct 2-pole allpass output (Zavalishin):
+        // G2(s) = (1 - 2Rs + s^2)/(1 + 2Rs + s^2)
+        // In SVF terms this is hp - 2R*bp + lp
+        return hp - twoR * bp + lp;
     }
 
 private:

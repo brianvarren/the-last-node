@@ -9,7 +9,7 @@ void UI::initializeParameters() {
     parameters.clear();
 
     // Global parameters
-    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CONFIG)});
+    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
 
     // OSCILLATOR page parameters - control the currently selected oscillator
     parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR)});

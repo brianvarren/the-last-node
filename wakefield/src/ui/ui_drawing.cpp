@@ -13,6 +13,7 @@ void UI::drawTabs() {
     };
 
     const TabInfo tabs[] = {
+        {"MAIN", UIPage::MAIN},
         {"OSC", UIPage::OSCILLATOR},
         {"SAMP", UIPage::SAMPLER},
         {"MIX", UIPage::MIXER},
@@ -170,6 +171,9 @@ void UI::draw(int activeVoices) {
     }
 
     switch (currentPage) {
+        case UIPage::MAIN:
+            drawMainPage();
+            break;
         case UIPage::OSCILLATOR:
             drawOscillatorPage();
             break;
@@ -430,4 +434,56 @@ void UI::draw(int activeVoices) {
     }
 
     refresh();
+}
+
+void UI::drawMainPage() {
+    int row = 3;
+    int col = 2;
+
+    // Title
+    attron(A_BOLD);
+    mvprintw(row, col, "Main");
+    attroff(A_BOLD);
+    row += 2;
+
+    // Current preset name
+    mvprintw(row++, col, "Current Preset: %s", currentPresetName.empty() ? "None" : currentPresetName.c_str());
+
+    // Preset list box
+    int maxY = getmaxy(stdscr);
+    int listHeight = std::max(5, maxY - row - 4);
+    int listWidth = 40;
+    int boxTop = row;
+    int boxLeft = col;
+
+    // Draw border
+    mvhline(boxTop, boxLeft, '-', listWidth);
+    mvhline(boxTop + listHeight - 1, boxLeft, '-', listWidth);
+    mvvline(boxTop, boxLeft, '|', listHeight);
+    mvvline(boxTop, boxLeft + listWidth - 1, '|', listHeight);
+
+    // List contents
+    int visible = listHeight - 2;
+    if (presetListIndex < presetListScroll) presetListScroll = presetListIndex;
+    if (presetListIndex >= presetListScroll + visible) presetListScroll = presetListIndex - visible + 1;
+
+    for (int i = 0; i < visible; ++i) {
+        int idx = presetListScroll + i;
+        int y = boxTop + 1 + i;
+        // Clear line
+        for (int x = 0; x < listWidth - 2; ++x) mvaddch(y, boxLeft + 1 + x, ' ');
+        if (idx >= 0 && idx < static_cast<int>(availablePresets.size())) {
+            bool selected = (idx == presetListIndex);
+            if (selected) attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(y, boxLeft + 2, "%s", availablePresets[idx].c_str());
+            if (selected) attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+    }
+
+    // Global parameters on right side (e.g., Master Volume)
+    int rightCol = boxLeft + listWidth + 4;
+    std::vector<int> mainParams = getParameterIdsForPage(UIPage::MAIN);
+    if (!mainParams.empty()) {
+        drawParameterList(boxTop, rightCol, mainParams);
+    }
 }
