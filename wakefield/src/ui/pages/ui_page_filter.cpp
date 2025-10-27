@@ -1,4 +1,5 @@
 #include "../../ui.h"
+#include "../../synth.h"
 #include "../../filters.hpp"
 #include <vector>
 #include <cmath>
@@ -263,5 +264,23 @@ void UI::drawFilterPage() {
         mvprintw(statusRow++, 2, ">>> MIDI LEARN ACTIVE <<<");
         attroff(COLOR_PAIR(3) | A_BOLD);
         mvprintw(statusRow++, 2, "Move a MIDI controller to assign it to Filter Cutoff");
+    }
+
+    // Show debug info for 2-pole bandpass (type 8)
+    if (type == 8 && synth) {
+        const auto* bp = synth->getBandpass2FilterL();
+        if (bp) {
+            int debugRow = previewTop + plotHeight + 4;
+            attron(COLOR_PAIR(4));
+            mvprintw(debugRow++, 2, "=== 2-Pole BP Debug ===");
+            attroff(COLOR_PAIR(4));
+            mvprintw(debugRow++, 2, "widthOct:    %.4f", bp->getWidthOct());
+            mvprintw(debugRow++, 2, "widthOctExp: %.4f", bp->getWidthOctExp());
+            mvprintw(debugRow++, 2, "TwoR:        %.4f", bp->getTwoR());
+            mvprintw(debugRow++, 2, "feedbackGain:%.4f", bp->getFeedbackGain());
+            mvprintw(debugRow++, 2, "outputGain:  %.4f", bp->getOutputGain());
+            mvprintw(debugRow++, 2, "lpFreq:      %.2f Hz", bp->getLpFreq());
+            mvprintw(debugRow++, 2, "hpFreq:      %.2f Hz", bp->getHpFreq());
+        }
     }
 }

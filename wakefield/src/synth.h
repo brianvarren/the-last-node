@@ -214,6 +214,9 @@ public:
     void setChaosInterpMode(int chaosIndex, int mode);
     void resetChaosGenerator(int chaosIndex);
 
+    // Filter access for debugging
+    const Bandpass2PoleZdf* getBandpass2FilterL() const { return &bandpass2FilterL; }
+
 private:
     float sampleRate;
     float masterVolume;

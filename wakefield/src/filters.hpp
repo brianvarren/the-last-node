@@ -545,17 +545,10 @@ public:
 
 private:
     void updateCutoffs() {
-        // Spread cutoffs based on width parameter
-        // Width = 0.0: very narrow (LP and HP very close, high Q)
-        // Width = 1.0: very wide (LP and HP far apart, low Q)
-
-        // Map width to octave spread: 0.0 = ±0.1 octaves, 1.0 = ±2.0 octaves
-        float octaveSpread = 0.1f + width * 1.9f;
-        float ratio = std::pow(2.0f, octaveSpread);
-
-        // LP cutoff is above center, HP cutoff is below center
-        float lpFreq = std::clamp(centerFreq * ratio, 20.0f, 0.45f * sampleRate);
-        float hpFreq = std::clamp(centerFreq / ratio, 20.0f, 0.45f * sampleRate);
+        // Both LP and HP use the same cutoff frequency
+        // Width parameter only affects feedback gain and output gain
+        lpFreq = std::clamp(centerFreq, 20.0f, 0.45f * sampleRate);
+        hpFreq = lpFreq;
 
         lpCell.setCutoff(lpFreq);
         hpCell.setCutoff(hpFreq);
@@ -564,13 +557,13 @@ private:
     void updateFeedbackGain() {
         // TwoR calculation based on width
         // widthOct ranges from 1 to 12 as width goes from 0 to 1
-        float widthOct = std::max(1.0f, width * 12.0f);
+        widthOct = std::max(1.0f, width * 12.0f);
 
         // widthOctExp = sqrt(2)^widthOct = 2^(widthOct/2)
-        float widthOctExp = std::pow(2.0f, widthOct / 2.0f);
+        widthOctExp = std::pow(2.0f, widthOct / 2.0f);
 
         // TwoR = widthOctExp - 1/widthOctExp
-        float TwoR = widthOctExp - (1.0f / widthOctExp);
+        TwoR = widthOctExp - (1.0f / widthOctExp);
 
         // Feedback gain decreases as width increases
         feedbackGain = 2.0f - TwoR;
@@ -579,15 +572,34 @@ private:
         outputGain = TwoR / 2.0f;
     }
 
+public:
+    // Getters for debugging
+    float getWidthOct() const { return widthOct; }
+    float getWidthOctExp() const { return widthOctExp; }
+    float getTwoR() const { return TwoR; }
+    float getFeedbackGain() const { return feedbackGain; }
+    float getOutputGain() const { return outputGain; }
+    float getLpFreq() const { return lpFreq; }
+    float getHpFreq() const { return hpFreq; }
+
+private:
+
     BandpassCellZdf lpCell;  // First stage (extracts LP)
     BandpassCellZdf hpCell;  // Second stage (extracts HP from LP = bandpass)
     float sampleRate = 48000.0f;
     float centerFreq = 1000.0f;
     float width = 0.5f;
-    float feedbackGain = 0.0f;
-    float outputGain = 1.0f;
     float drive = 1.0f;
     float lastOutput = 0.0f;
+
+    // Calculated values (for debugging)
+    float widthOct = 1.0f;
+    float widthOctExp = 1.0f;
+    float TwoR = 0.0f;
+    float feedbackGain = 0.0f;
+    float outputGain = 1.0f;
+    float lpFreq = 1000.0f;
+    float hpFreq = 1000.0f;
 };
 
 // 4-pole bandpass ladder: alternating LP/HP cascade (LP→HP→LP→HP)
