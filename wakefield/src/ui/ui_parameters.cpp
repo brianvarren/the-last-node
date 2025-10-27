@@ -162,9 +162,8 @@ std::vector<int> UI::getFilterParameterIds() const {
     if (type == 4 || type == 5) {
         ids.push_back(35);
         ids.push_back(36);
-    } else if (type == 6) {
+    } else if (type == 6 || type == 9) {
         ids.push_back(35);
-        ids.push_back(36);
         ids.push_back(39);
     } else if (type == 7) {
         ids.push_back(35);
