@@ -779,134 +779,161 @@ private:
 
 
 
-class NotchStageZdf {
+// 2-pole allpass for multinotch filters (Zavalishin Chapter 11)
+// Transfer function: G₂(s) = (1 - 2Rs + s²)/(1 + 2Rs + s²)
+class Allpass2PoleZdf {
 public:
-    NotchStageZdf() = default;
+    Allpass2PoleZdf() = default;
 
     void setSampleRate(float sr) {
         sampleRate = std::max(1.0f, sr);
-        setCutoff(cutoffHz);
+        updateCoefficients();
     }
 
     void setCutoff(float hz) {
         cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
-        const float gRaw = std::tan(static_cast<float>(M_PI) * cutoffHz / sampleRate);
-        g = gRaw;
+        updateCoefficients();
     }
 
-    void setDamping(float value) {
-        damping = std::clamp(value, 0.01f, 0.99f);
-        R = 2.0f * (1.0f - damping);
-    }
-
-    void setDrive(float driveAmount) {
-        float drv = std::clamp(driveAmount, 0.1f, 15.0f);
-        satGain = 0.5f * drv;
+    void setDamping(float R_value) {
+        R = std::clamp(R_value, 0.01f, 10.0f);
+        updateCoefficients();
     }
 
     void reset() {
-        ic1 = 0.0f;
-        ic2 = 0.0f;
+        s1 = 0.0f;
+        s2 = 0.0f;
     }
 
     float process(float input) {
-        float t = (input - ic2 - R * ic1);
-        float v3 = std::tanh(t * satGain);
-        float v1 = g * v3 + ic1;
-        float v2 = g * v1 + ic2;
-        ic1 = v1 + g * v3;
-        ic2 = v2 + g * v1;
-        float hp = v3 - R * v1;
-        float notch = hp + v2;
-        lastOutput = notch;
-        return notch;
+        // ZDF implementation of 2-pole allpass
+        // G₂(s) = (1 - 2Rs + s²)/(1 + 2Rs + s²)
+
+        const float hp = (input - twoR * s1 - s2) * h;
+        const float bp = g * hp + s1;
+        const float lp = g * bp + s2;
+
+        // Update state
+        s1 = g * hp + bp;
+        s2 = g * bp + lp;
+
+        // Allpass output: input - 2*bandpass
+        return input - twoR * bp;
     }
 
-    float getLastOutput() const { return lastOutput; }
-
 private:
+    void updateCoefficients() {
+        g = std::tan(static_cast<float>(M_PI) * cutoffHz / sampleRate);
+        twoR = 2.0f * R;
+        h = 1.0f / (1.0f + twoR * g + g * g);
+    }
+
     float sampleRate = 48000.0f;
     float cutoffHz = 1000.0f;
-    float g = 0.1f;
-    float damping = 0.5f;
     float R = 1.0f;
-    float satGain = 0.5f;
-    float ic1 = 0.0f;
-    float ic2 = 0.0f;
-    float lastOutput = 0.0f;
+    float g = 0.1f;
+    float twoR = 2.0f;
+    float h = 1.0f;
+    float s1 = 0.0f;  // First integrator state
+    float s2 = 0.0f;  // Second integrator state
 };
 
+// Multinotch filter with feedback and corrected mixing (Zavalishin Chapter 11, Fig 11.13)
+// Uses N=2 cascaded 2-pole allpasses to create 2 notches
+// H(s) = (1/2) · (1 + G(s))/(1 - kG(s)) where G(s) = G₂²(s)
 class DualNotchZdf {
 public:
     explicit DualNotchZdf(float sampleRate = 48000.0f) {
         setSampleRate(sampleRate);
         setCutoff(1000.0f);
+        setResonance(0.0f);
+        setNotchFeedback(0.5f);
+        setDryWet(1.0f);
     }
 
     void setSampleRate(float sr) {
         sampleRate = std::max(1.0f, sr);
-        for (auto& stage : stages) stage.setSampleRate(sampleRate);
-        updateCutoffs();
+        for (auto& stage : allpassStages) stage.setSampleRate(sampleRate);
+        setCutoff(cutoffHz);
     }
 
     void setCutoff(float hz) {
-        baseCutoff = std::clamp(hz, 20.0f, 0.45f * sampleRate);
-        updateCutoffs();
-    }
-
-    void setSpread(float value) {
-        spread = std::clamp(value, 0.0f, 1.0f);
-        updateCutoffs();
-        applyDamping();
+        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        for (auto& stage : allpassStages) stage.setCutoff(cutoffHz);
     }
 
     void setResonance(float amount) {
-        baseDamping = std::clamp(1.0f - 0.5f * amount, 0.05f, 0.95f);
-        applyDamping();
+        // Resonance controls damping R
+        // Higher resonance = lower R = narrower notches, taller peaks
+        resonance = std::clamp(amount, 0.0f, 1.0f);
+
+        // Map resonance to R: 0.3 (wide) to 5.0 (narrow)
+        const float R = 0.3f + (1.0f - resonance) * 4.7f;
+        for (auto& stage : allpassStages) stage.setDamping(R);
     }
 
-    void setDrive(float driveAmount) {
-        for (auto& stage : stages) stage.setDrive(driveAmount);
+    void setSpread(float value) {
+        // Spread parameter for future use (could detune the allpass stages)
+        spread = std::clamp(value, 0.0f, 1.0f);
     }
 
     void setNotchFeedback(float value) {
-        feedbackGain = std::clamp(value, 0.0f, 0.95f);
+        // Feedback k: 0 ≤ k < 1 for stability
+        // Higher k makes peaks taller and narrower, notches stay deep
+        feedbackK = std::clamp(value, 0.0f, 0.98f);
+    }
+
+    void setDryWet(float value) {
+        // Dry/wet mix: a parameter from Zavalishin Fig 11.17
+        // a=0: dry (input only), a=1: wet (full multinotch)
+        dryWet = std::clamp(value, 0.0f, 1.0f);
+    }
+
+    void setDrive(float driveAmount) {
+        // Not used in this corrected implementation
+        (void)driveAmount;
     }
 
     void reset() {
-        for (auto& stage : stages) stage.reset();
-        lastOutput = 0.0f;
+        for (auto& stage : allpassStages) stage.reset();
+        lastAllpassOut = 0.0f;
     }
 
     float process(float input) {
-        float fb = feedbackGain * std::tanh(lastOutput);
-        float x = input + fb;
-        float y = x;
-        for (auto& stage : stages) {
-            y = stage.process(y);
+        // Zavalishin Fig 11.13: Correct feedback and mixing topology
+
+        // Pre-allpass signal with feedback: x̃ = x + k*ỹ
+        const float preAllpass = input + feedbackK * lastAllpassOut;
+
+        // Process through cascaded allpasses: ỹ = G(x̃)
+        float postAllpass = preAllpass;
+        for (auto& stage : allpassStages) {
+            postAllpass = stage.process(postAllpass);
         }
-        lastOutput = y;
-        return y;
+        postAllpass = std::tanh(postAllpass);  // Soft clip for stability
+
+        // Store for next feedback iteration
+        lastAllpassOut = postAllpass;
+
+        // Correct mixing: (x̃ + ỹ)/2
+        const float wetSignal = 0.5f * (preAllpass + postAllpass);
+
+        // Dry/wet mixing (Zavalishin Fig 11.17):
+        // y = (1 - a/2)x + (a/2)(1+k)ỹ
+        // Simplified for our use: y = (1-a)*x + a*wet
+        const float output = (1.0f - dryWet) * input + dryWet * wetSignal;
+
+        return output;
     }
 
 private:
-    void updateCutoffs() {
-        float ratio = std::pow(2.0f, (spread - 0.5f) * 2.0f);  // +/-1 octave
-        stages[0].setCutoff(baseCutoff);
-        stages[1].setCutoff(std::clamp(baseCutoff * ratio, 20.0f, 0.45f * sampleRate));
-    }
-
-    void applyDamping() {
-        stages[0].setDamping(baseDamping);
-        float damp2 = std::clamp(baseDamping * (1.0f + spread * 1.5f), 0.05f, 0.99f);
-        stages[1].setDamping(damp2);
-    }
-
     float sampleRate = 48000.0f;
-    float baseCutoff = 1000.0f;
+    float cutoffHz = 1000.0f;
+    float resonance = 0.0f;
     float spread = 0.5f;
-    float feedbackGain = 0.3f;
-    float baseDamping = 0.7f;
-    std::array<NotchStageZdf, 2> stages;
-    float lastOutput = 0.0f;
+    float feedbackK = 0.5f;
+    float dryWet = 1.0f;
+
+    std::array<Allpass2PoleZdf, 2> allpassStages;  // N=2 for 2-notch filter
+    float lastAllpassOut = 0.0f;
 };
