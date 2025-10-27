@@ -481,21 +481,19 @@ private:
     float z = 0.0f;
 };
 
-// True 2-pole bandpass: LP cell → HP cell (cascaded TPT 1-poles)
-// Width control spreads LP/HP cutoffs apart for wider/narrower bandpass
+// Normalized 2-pole bandpass block (LP→BP transform of the halved 1-pole lowpass)
+// Damping R (and thus bandwidth) is controlled via setWidth; no internal feedback
 class Bandpass2PoleZdf {
 public:
     explicit Bandpass2PoleZdf(float sampleRate = 48000.0f) {
         setSampleRate(sampleRate);
         setCutoff(1000.0f);
         setDrive(1.0f);
-        setWidth(0.5f);  // Default to medium width, also sets feedback/output gains
+        setWidth(0.5f);
     }
 
     void setSampleRate(float sr) {
         sampleRate = std::max(1.0f, sr);
-        lpCell.setSampleRate(sampleRate);
-        hpCell.setSampleRate(sampleRate);
         updateCutoffs();
     }
 
@@ -504,113 +502,92 @@ public:
         updateCutoffs();
     }
 
-    void setResonance(float amount) {
-        // Unused, kept for API compatibility
-        (void)amount;
-    }
+    void setResonance(float amount) { (void)amount; }
 
     void setDrive(float driveAmount) {
         drive = std::clamp(driveAmount, 0.1f, 15.0f);
-        lpCell.setDrive(drive);
-        hpCell.setDrive(drive);
     }
 
     void setWidth(float widthAmount) {
-        // Width from 0.0 (very narrow) to 1.0 (very wide)
-        width = std::clamp(widthAmount, 0.0f, 1.0f);
-        updateCutoffs();
-        updateFeedbackGain();
+        widthNorm = std::clamp(widthAmount, 0.0f, 1.0f);
+        updateDamping();
     }
 
-    void setFeedbackHighpass(float) {
-        // Unused, kept for API compatibility
-    }
+    void setFeedbackHighpass(float) { }
 
     void reset() {
-        lpCell.reset();
-        hpCell.reset();
+        ic1 = 0.0f;
+        ic2 = 0.0f;
         lastOutput = 0.0f;
     }
 
     float process(float in) {
-        const float feedback = std::tanh(lastOutput * feedbackGain);
-        float x = in + feedback;
+        const float hp = (in - damping * ic1 - ic2) * invDenom;
+        const float bp = hp * g + ic1;
+        const float lp = bp * g + ic2;
 
-        // First cell: feed input through, get LP output
-        auto lpOut = lpCell.process(x);
+        ic1 = bp + hp * g;
+        ic2 = lp + bp * g;
 
-        // Second cell: feed LP output through, get HP output (= bandpass)
-        auto hpOut = hpCell.process(lpOut.lp);
-
-        lastOutput = hpOut.hp;
-        return lastOutput * outputGain;
+        const float normalized = bp * normGain;
+        lastOutput = std::tanh(normalized * drive);
+        return lastOutput;
     }
+
+    float getWidthOct() const { return widthOct; }
+    float getWidthRatio() const { return widthRatio; }
+    float getTwoR() const { return twoR; }
+    float getDamping() const { return damping; }
+    float getNormGain() const { return normGain; }
+    float getCenterFreq() const { return centerFreq; }
+    float getG() const { return g; }
 
 private:
     void updateCutoffs() {
-        // Both LP and HP use the same cutoff frequency
-        // Width parameter only affects feedback gain and output gain
-        lpFreq = std::clamp(centerFreq, 20.0f, 0.45f * sampleRate);
-        hpFreq = lpFreq;
-
-        lpCell.setCutoff(lpFreq);
-        hpCell.setCutoff(hpFreq);
+        float fc = std::clamp(centerFreq, 20.0f, 0.45f * sampleRate);
+        g = std::tan(static_cast<float>(M_PI) * (fc / sampleRate));
+        updateDenominator();
     }
 
-    void updateFeedbackGain() {
-        // Interpret width (0..1) as total band in semitones (1..12)
-        widthSemi = std::max(1.0f, width * 12.0f);
-        widthOct = widthSemi;  // legacy debug (in semitones)
+    void updateDamping() {
+        constexpr float MIN_OCT = 0.25f;
+        constexpr float MAX_OCT = 10.0f;
+        widthOct = MIN_OCT + widthNorm * (MAX_OCT - MIN_OCT);
 
-        // Half-width in semitones -> symmetric ratio around center
-        const float halfSemi = 0.5f * widthSemi;
-        const float ratio = std::pow(2.0f, halfSemi / 12.0f);
-        widthOctExp = ratio;
+        const float halfSpread = 0.5f * widthOct;
+        const float ratio = std::pow(2.0f, halfSpread);
+        widthRatio = ratio;
 
-        // twoR = BW / fc = r - 1/r, stay within a stable range
-        TwoR = std::clamp(ratio - (1.0f / ratio), 0.01f, 1.9f);
-
-        // Feedback gain controls resonance
-        feedbackGain = std::clamp(2.0f - TwoR, 0.0f, 2.0f);
-
-        // Output gain compensates for perceived level across widths
-        outputGain = 0.5f * TwoR;
+        twoR = std::max(0.005f, ratio - (1.0f / ratio));
+        damping = 0.5f * twoR;
+        normGain = 1.0f / std::max(0.01f, twoR);
+        updateDenominator();
     }
 
-public:
-    // Getters for debugging
-    float getWidthOct() const { return widthOct; }
-    float getWidthOctExp() const { return widthOctExp; }
-    float getTwoR() const { return TwoR; }
-    float getFeedbackGain() const { return feedbackGain; }
-    float getOutputGain() const { return outputGain; }
-    float getLpFreq() const { return lpFreq; }
-    float getHpFreq() const { return hpFreq; }
-    float getG() const { return lpCell.getG(); }  // g = tan(w/2) from LP cell
+    void updateDenominator() {
+        invDenom = 1.0f / (1.0f + g * damping + g * g + 1e-12f);
+    }
 
-private:
-
-    BandpassCellZdf lpCell;  // First stage (extracts LP)
-    BandpassCellZdf hpCell;  // Second stage (extracts HP from LP = bandpass)
     float sampleRate = 48000.0f;
     float centerFreq = 1000.0f;
-    float width = 0.5f;
+    float widthNorm = 0.5f;
     float drive = 1.0f;
-    float lastOutput = 0.0f;
 
-    // Calculated values (for debugging)
-    float widthSemi = 1.0f;
+    float g = 0.0f;
+    float damping = 1.0f;
+    float twoR = 2.0f;
+    float normGain = 0.5f;
+    float invDenom = 1.0f;
+    float ic1 = 0.0f;
+    float ic2 = 0.0f;
+
+    float lastOutput = 0.0f;
     float widthOct = 1.0f;
-    float widthOctExp = 1.0f;
-    float TwoR = 0.0f;
-    float feedbackGain = 0.0f;
-    float outputGain = 1.0f;
-    float lpFreq = 1000.0f;
-    float hpFreq = 1000.0f;
+    float widthRatio = 1.0f;
 };
 
-// 4×(2-pole bandpass) ladder: cascaded Bandpass2PoleZdf cells
-// Shared feedback adds ladder-style resonance and drive
+// 4-pole bandpass ladder built from two normalized 2-pole bandpass stages
+// Positive feedback coefficient k (<4) controls resonance; width maps to damping R
 class LadderBandpassZdf {
 public:
     explicit LadderBandpassZdf(float sampleRate = 48000.0f) {
@@ -623,61 +600,54 @@ public:
 
     void setSampleRate(float sr) {
         sampleRate = std::max(1.0f, sr);
-        for (auto& cell : cells) {
-            cell.setSampleRate(sampleRate);
-        }
+        for (auto& stage : stages) stage.setSampleRate(sampleRate);
         setCutoff(cutoffHz);
-        setWidth(widthNorm);
     }
 
     void setCutoff(float hz) {
         cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
-        for (auto& cell : cells) {
-            cell.setCutoff(cutoffHz);
-        }
+        for (auto& stage : stages) stage.setCutoff(cutoffHz);
     }
 
     void setResonance(float amount) {
         resonance = std::clamp(amount, 0.0f, 1.2f);
-        feedbackGain = resonance * 3.0f;
+        feedbackGain = std::clamp(resonance * (3.8f / 1.2f), 0.0f, 3.8f);
     }
 
     void setDrive(float driveAmount) {
         drive = std::clamp(driveAmount, 0.1f, 15.0f);
-        for (auto& cell : cells) {
-            cell.setDrive(drive);
-        }
+        for (auto& stage : stages) stage.setDrive(drive);
     }
 
-    void setFeedbackHighpass(float) {
-        // Unused, kept for API compatibility
-    }
+    void setFeedbackHighpass(float) { }
 
     void setWidth(float w) {
         widthNorm = std::clamp(w, 0.0f, 1.0f);
-        for (auto& cell : cells) {
-            cell.setWidth(widthNorm);
-        }
+        for (auto& stage : stages) stage.setWidth(widthNorm);
     }
 
     void reset() {
-        for (auto& cell : cells) {
-            cell.reset();
-        }
+        for (auto& stage : stages) stage.reset();
         stageOutputs.fill(0.0f);
+        lastFeedbackNode = 0.0f;
         lastOutput = 0.0f;
     }
 
     float process(float in) {
-        float feedback = std::tanh(lastOutput * feedbackGain);
+        const float feedback = feedbackGain * std::tanh(lastFeedbackNode);
         float x = in + feedback;
 
-        for (std::size_t i = 0; i < cells.size(); ++i) {
-            x = cells[i].process(x);
-            stageOutputs[i] = x;
-        }
+        float stage1 = stages[0].process(x);
+        stageOutputs[0] = stage1;
 
-        lastOutput = x;
+        float stage2Input = 0.5f * stage1;
+        float stage2 = stages[1].process(stage2Input);
+        stageOutputs[1] = stage2;
+
+        float feedforward = 0.5f * stage2;
+        lastFeedbackNode = feedforward;
+
+        lastOutput = feedforward * (4.0f - feedbackGain);
         return lastOutput;
     }
 
@@ -696,8 +666,9 @@ private:
     float drive = 1.0f;
     float widthNorm = 0.5f;
 
-    std::array<Bandpass2PoleZdf, 4> cells;
-    std::array<float, 4> stageOutputs {0.0f, 0.0f, 0.0f, 0.0f};
+    std::array<Bandpass2PoleZdf, 2> stages;
+    std::array<float, 2> stageOutputs {0.0f, 0.0f};
+    float lastFeedbackNode = 0.0f;
     float lastOutput = 0.0f;
 };
 
