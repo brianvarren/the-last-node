@@ -677,6 +677,106 @@ private:
     float lastOutput = 0.0f;
 };
 
+// 8-pole bandpass ladder built from four normalized 2-pole bandpass stages
+// Per Zavalishin Fig. 5.43: 4× BPn stages with 1/2 scaling, feedback k
+// Passband gain is 1/16 (vs 1/4 for 4-pole), requiring more output compensation
+class Ladder8PoleBandpassZdf {
+public:
+    explicit Ladder8PoleBandpassZdf(float sampleRate = 48000.0f) {
+        setSampleRate(sampleRate);
+        setCutoff(1000.0f);
+        setResonance(0.0f);
+        setDrive(1.0f);
+        setWidth(0.5f);
+    }
+
+    void setSampleRate(float sr) {
+        sampleRate = std::max(1.0f, sr);
+        for (auto& stage : stages) stage.setSampleRate(sampleRate);
+        setCutoff(cutoffHz);
+    }
+
+    void setCutoff(float hz) {
+        cutoffHz = std::clamp(hz, 20.0f, 0.42f * sampleRate);
+        for (auto& stage : stages) stage.setCutoff(cutoffHz);
+    }
+
+    void setResonance(float amount) {
+        resonance = std::clamp(amount, 0.0f, 1.2f);
+        // 8-pole ladder: self-oscillation at k=16 (vs k=4 for 4-pole)
+        // Scale feedback range accordingly
+        feedbackGain = std::clamp(resonance * (15.8f / 1.2f), 0.0f, 15.8f);
+    }
+
+    void setDrive(float driveAmount) {
+        drive = std::clamp(driveAmount, 0.1f, 15.0f);
+        for (auto& stage : stages) stage.setDrive(drive);
+    }
+
+    void setFeedbackHighpass(float) { }
+
+    void setWidth(float w) {
+        widthNorm = std::clamp(w, 0.0f, 1.0f);
+        for (auto& stage : stages) stage.setWidth(widthNorm);
+    }
+
+    void reset() {
+        for (auto& stage : stages) stage.reset();
+        stageOutputs.fill(0.0f);
+        lastFeedbackNode = 0.0f;
+        lastOutput = 0.0f;
+    }
+
+    float process(float in) {
+        const float feedback = feedbackGain * std::tanh(lastFeedbackNode);
+        float x = std::tanh(in + feedback);  // Limit input to prevent explosion
+
+        // 4 stages with 0.5 scaling between each
+        float stage1 = stages[0].process(x);
+        stageOutputs[0] = stage1;
+
+        float stage2Input = 0.5f * stage1;
+        float stage2 = stages[1].process(stage2Input);
+        stageOutputs[1] = stage2;
+
+        float stage3Input = 0.5f * stage2;
+        float stage3 = stages[2].process(stage3Input);
+        stageOutputs[2] = stage3;
+
+        float stage4Input = 0.5f * stage3;
+        float stage4 = stages[3].process(stage4Input);
+        stageOutputs[3] = stage4;
+
+        // Final output after all 4 stages (each with 0.5 scaling = 1/16 total)
+        float feedforward = 0.5f * stage4;
+        lastFeedbackNode = std::clamp(feedforward, -2.0f, 2.0f);  // Limit feedback node
+
+        // Compensate for 1/16 passband gain: (16 - feedbackGain)
+        lastOutput = feedforward * (16.0f - feedbackGain);
+        return lastOutput;
+    }
+
+    float getStageOutput(int idx) const {
+        if (idx >= 0 && idx < static_cast<int>(stageOutputs.size())) {
+            return stageOutputs[idx];
+        }
+        return lastOutput;
+    }
+
+private:
+    float sampleRate = 48000.0f;
+    float cutoffHz = 1000.0f;
+    float resonance = 0.0f;
+    float feedbackGain = 0.0f;
+    float drive = 1.0f;
+    float widthNorm = 0.5f;
+
+    std::array<Bandpass2PoleZdf, 4> stages;  // 4 stages for 8-pole
+    std::array<float, 4> stageOutputs {0.0f, 0.0f, 0.0f, 0.0f};
+    float lastFeedbackNode = 0.0f;
+    float lastOutput = 0.0f;
+};
+
 
 
 class NotchStageZdf {
