@@ -479,6 +479,7 @@ private:
 };
 
 // True 2-pole bandpass: LP cell → HP cell (cascaded TPT 1-poles)
+// Width control spreads LP/HP cutoffs apart for wider/narrower bandpass
 class Bandpass2PoleZdf {
 public:
     explicit Bandpass2PoleZdf(float sampleRate = 48000.0f) {
@@ -486,19 +487,19 @@ public:
         setCutoff(1000.0f);
         setResonance(0.0f);
         setDrive(1.0f);
+        setWidth(0.5f);  // Default to medium width
     }
 
     void setSampleRate(float sr) {
         sampleRate = std::max(1.0f, sr);
         lpCell.setSampleRate(sampleRate);
         hpCell.setSampleRate(sampleRate);
-        setCutoff(cutoffHz);
+        updateCutoffs();
     }
 
     void setCutoff(float hz) {
-        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
-        lpCell.setCutoff(cutoffHz);
-        hpCell.setCutoff(cutoffHz);
+        centerFreq = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        updateCutoffs();
     }
 
     void setResonance(float amount) {
@@ -512,8 +513,11 @@ public:
         hpCell.setDrive(drive);
     }
 
-    void setWidth(float) {
-        // Unused in TPT 1-pole architecture, kept for API compatibility
+    void setWidth(float widthAmount) {
+        // Width from 0.0 (very narrow) to 1.0 (very wide)
+        // Maps to frequency spread ratio: narrow = close frequencies, wide = far apart
+        width = std::clamp(widthAmount, 0.0f, 1.0f);
+        updateCutoffs();
     }
 
     void setFeedbackHighpass(float) {
@@ -541,10 +545,28 @@ public:
     }
 
 private:
+    void updateCutoffs() {
+        // Spread cutoffs based on width parameter
+        // Width = 0.0: very narrow (LP and HP very close, high Q)
+        // Width = 1.0: very wide (LP and HP far apart, low Q)
+
+        // Map width to octave spread: 0.0 = ±0.1 octaves, 1.0 = ±2.0 octaves
+        float octaveSpread = 0.1f + width * 1.9f;
+        float ratio = std::pow(2.0f, octaveSpread);
+
+        // LP cutoff is above center, HP cutoff is below center
+        float lpFreq = std::clamp(centerFreq * ratio, 20.0f, 0.45f * sampleRate);
+        float hpFreq = std::clamp(centerFreq / ratio, 20.0f, 0.45f * sampleRate);
+
+        lpCell.setCutoff(lpFreq);
+        hpCell.setCutoff(hpFreq);
+    }
+
     BandpassCellZdf lpCell;  // First stage (extracts LP)
     BandpassCellZdf hpCell;  // Second stage (extracts HP from LP = bandpass)
     float sampleRate = 48000.0f;
-    float cutoffHz = 1000.0f;
+    float centerFreq = 1000.0f;
+    float width = 0.5f;
     float resonance = 0.0f;
     float feedbackGain = 0.0f;
     float drive = 1.0f;
