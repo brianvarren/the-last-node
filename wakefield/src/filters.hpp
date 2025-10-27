@@ -609,8 +609,8 @@ private:
     float hpFreq = 1000.0f;
 };
 
-// 4-pole bandpass ladder: alternating LP/HP cascade (LP→HP→LP→HP)
-// Creates steep bandpass character with resonant feedback
+// 4×(2-pole bandpass) ladder: cascaded Bandpass2PoleZdf cells
+// Shared feedback adds ladder-style resonance and drive
 class LadderBandpassZdf {
 public:
     explicit LadderBandpassZdf(float sampleRate = 48000.0f) {
@@ -618,6 +618,7 @@ public:
         setCutoff(1000.0f);
         setResonance(0.0f);
         setDrive(1.0f);
+        setWidth(0.5f);
     }
 
     void setSampleRate(float sr) {
@@ -626,6 +627,7 @@ public:
             cell.setSampleRate(sampleRate);
         }
         setCutoff(cutoffHz);
+        setWidth(widthNorm);
     }
 
     void setCutoff(float hz) {
@@ -651,8 +653,11 @@ public:
         // Unused, kept for API compatibility
     }
 
-    void setWidth(float) {
-        // Unused in TPT 1-pole architecture, kept for API compatibility
+    void setWidth(float w) {
+        widthNorm = std::clamp(w, 0.0f, 1.0f);
+        for (auto& cell : cells) {
+            cell.setWidth(widthNorm);
+        }
     }
 
     void reset() {
@@ -664,30 +669,15 @@ public:
     }
 
     float process(float in) {
-        // Saturated feedback from output
         float feedback = std::tanh(lastOutput * feedbackGain);
-
-        // Mix input with feedback
         float x = in + feedback;
 
-        // Cascade: LP → HP → LP → HP
-        // Cell 0: use LP output
-        auto out0 = cells[0].process(x);
-        stageOutputs[0] = out0.lp;
+        for (std::size_t i = 0; i < cells.size(); ++i) {
+            x = cells[i].process(x);
+            stageOutputs[i] = x;
+        }
 
-        // Cell 1: use HP output (of the LP from cell 0 = bandpass)
-        auto out1 = cells[1].process(out0.lp);
-        stageOutputs[1] = out1.hp;
-
-        // Cell 2: use LP output
-        auto out2 = cells[2].process(out1.hp);
-        stageOutputs[2] = out2.lp;
-
-        // Cell 3: use HP output (final bandpass)
-        auto out3 = cells[3].process(out2.lp);
-        stageOutputs[3] = out3.hp;
-
-        lastOutput = stageOutputs[3];
+        lastOutput = x;
         return lastOutput;
     }
 
@@ -704,8 +694,9 @@ private:
     float resonance = 0.0f;
     float feedbackGain = 0.0f;
     float drive = 1.0f;
+    float widthNorm = 0.5f;
 
-    std::array<BandpassCellZdf, 4> cells;
+    std::array<Bandpass2PoleZdf, 4> cells;
     std::array<float, 4> stageOutputs {0.0f, 0.0f, 0.0f, 0.0f};
     float lastOutput = 0.0f;
 };
