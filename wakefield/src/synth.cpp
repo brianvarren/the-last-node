@@ -596,7 +596,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             float baseWidth = params->filterBandWidth.load();
             float baseNotchFeedback = params->filterNotchFeedback.load();
             float baseSpread = params->filterSpread.load();
-            float baseDryWet = 1.0f;  // TODO: Add to params if needed
+            float baseDryWet = params->filterDryWet.load();
 
             // Cutoff: multiplicative modulation in octaves (±4 octaves max)
             // modValue of +1 = +4 octaves, -1 = -4 octaves

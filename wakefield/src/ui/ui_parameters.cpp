@@ -57,6 +57,7 @@ void UI::initializeParameters() {
     parameters.push_back({37, ParamType::FLOAT, "Spread", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({38, ParamType::FLOAT, "Notch FB", "", 0.0f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER)});
     parameters.push_back({39, ParamType::FLOAT, "Width", "", 0.05f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER)});
+    parameters.push_back({42, ParamType::FLOAT, "Dry/Wet", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER)});
 
     // LOOPER page parameters - ALL support MIDI learn
     parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
@@ -169,6 +170,7 @@ std::vector<int> UI::getFilterParameterIds() const {
         ids.push_back(35);
         ids.push_back(37);
         ids.push_back(38);
+        ids.push_back(42);
     } else if (type == 8) {
         ids.push_back(35);
         ids.push_back(39);
@@ -240,6 +242,7 @@ float UI::getParameterValue(int id) {
         case 37: return params->filterSpread.load();
         case 38: return params->filterNotchFeedback.load();
         case 39: return params->filterBandWidth.load();
+        case 42: return params->filterDryWet.load();
         case 40: return static_cast<float>(params->currentLoop.load());
         case 41: return params->overdubMix.load();
         // CONFIG page parameters
@@ -343,6 +346,7 @@ void UI::setParameterValue(int id, float value) {
         case 37: params->filterSpread = value; break;
         case 38: params->filterNotchFeedback = value; break;
         case 39: params->filterBandWidth = value; break;
+        case 42: params->filterDryWet = value; break;
         case 40: params->currentLoop = static_cast<int>(value); break;
         case 41: params->overdubMix = value; break;
         // CONFIG page parameters

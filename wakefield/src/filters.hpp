@@ -848,8 +848,8 @@ public:
     explicit DualNotchZdf(float sampleRate = 48000.0f) {
         setSampleRate(sampleRate);
         setCutoff(1000.0f);
-        setResonance(0.0f);
-        setNotchFeedback(0.5f);
+        setSpread(0.5f);      // Initialize spread (controls width via R)
+        setResonance(0.0f);   // Initialize resonance (controls peak height via k)
         setDryWet(1.0f);
     }
 
@@ -865,24 +865,28 @@ public:
     }
 
     void setResonance(float amount) {
-        // Resonance controls damping R
-        // Higher resonance = lower R = narrower notches, taller peaks
+        // CORRECTED: Resonance now controls feedback k (peak height)
+        // Higher resonance = taller peaks, notches stay deep
         resonance = std::clamp(amount, 0.0f, 1.0f);
 
-        // Map resonance to R: 0.3 (wide) to 5.0 (narrow)
-        const float R = 0.3f + (1.0f - resonance) * 4.7f;
-        for (auto& stage : allpassStages) stage.setDamping(R);
+        // Map resonance to k: 0.0 to 0.95 (stay well below 1.0 for stability)
+        feedbackK = std::clamp(resonance * 0.95f, 0.0f, 0.95f);
     }
 
     void setSpread(float value) {
-        // Spread parameter for future use (could detune the allpass stages)
+        // CORRECTED: Spread now controls damping R (notch/peak width)
+        // Higher spread = wider notches/peaks (higher R)
         spread = std::clamp(value, 0.0f, 1.0f);
+
+        // Map spread to R: 0.3 (narrow) to 5.0 (wide)
+        const float R = 0.3f + spread * 4.7f;
+        for (auto& stage : allpassStages) stage.setDamping(R);
     }
 
     void setNotchFeedback(float value) {
-        // Feedback k: 0 ≤ k < 1 for stability
-        // Higher k makes peaks taller and narrower, notches stay deep
-        feedbackK = std::clamp(value, 0.0f, 0.98f);
+        // Legacy parameter - now just forwards to setResonance for compatibility
+        // Users should use Resonance parameter instead
+        setResonance(value);
     }
 
     void setDryWet(float value) {
@@ -904,15 +908,26 @@ public:
     float process(float input) {
         // Zavalishin Fig 11.13: Correct feedback and mixing topology
 
+        // Limit input to prevent DC buildup
+        input = std::clamp(input, -4.0f, 4.0f);
+
         // Pre-allpass signal with feedback: x̃ = x + k*ỹ
-        const float preAllpass = input + feedbackK * lastAllpassOut;
+        const float preAllpass = std::tanh(input + feedbackK * lastAllpassOut);
 
         // Process through cascaded allpasses: ỹ = G(x̃)
         float postAllpass = preAllpass;
         for (auto& stage : allpassStages) {
             postAllpass = stage.process(postAllpass);
         }
-        postAllpass = std::tanh(postAllpass);  // Soft clip for stability
+
+        // Soft clip and limit feedback signal for stability
+        postAllpass = std::clamp(std::tanh(postAllpass), -3.0f, 3.0f);
+
+        // Check for NaN/Inf and reset if necessary
+        if (!std::isfinite(postAllpass)) {
+            reset();
+            postAllpass = 0.0f;
+        }
 
         // Store for next feedback iteration
         lastAllpassOut = postAllpass;

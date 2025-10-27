@@ -86,7 +86,8 @@ struct SynthParameters {
     std::atomic<float> filterSpread{0.5f};
     std::atomic<float> filterNotchFeedback{0.3f};
     std::atomic<float> filterBandWidth{0.5f};
-    
+    std::atomic<float> filterDryWet{1.0f};  // Dry/wet mix for notch filter
+
     // Generic MIDI CC Learn for new parameter system
     std::atomic<bool> midiLearnActive{false};
     std::atomic<int> midiLearnParameterId{-1};  // Which parameter ID to learn (-1 = none)
