@@ -253,6 +253,8 @@ private:
     LadderDiodeZdf diodeFilterR;
     LadderBandpassZdf bandpassFilterL;
     LadderBandpassZdf bandpassFilterR;
+    Ladder8PoleBandpassZdf bandpass8FilterL;
+    Ladder8PoleBandpassZdf bandpass8FilterR;
     Bandpass2PoleZdf bandpass2FilterL;
     Bandpass2PoleZdf bandpass2FilterR;
     DualNotchZdf notchFilterL;

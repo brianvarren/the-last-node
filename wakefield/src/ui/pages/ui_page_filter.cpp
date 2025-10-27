@@ -147,6 +147,21 @@ float simulateResponse(int type,
                 ++count;
             }
         }
+    } else if (type == 9) {
+        Ladder8PoleBandpassZdf ladder(sampleRate);
+        ladder.setCutoff(cutoff);
+        ladder.setResonance(resonance);
+        ladder.setDrive(drive);
+        ladder.setWidth(width);
+        const float inputLevel = 0.25f;
+        for (int n = 0; n < totalSamples; ++n) {
+            float x = sineSample(n) * inputLevel;
+            float y = ladder.process(x);
+            if (n >= settleSamples) {
+                sumSquares += y * y;
+                ++count;
+            }
+        }
     }
 
     if (count <= 0) return 0.0f;
