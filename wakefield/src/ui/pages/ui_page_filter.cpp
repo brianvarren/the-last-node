@@ -250,11 +250,31 @@ void UI::drawFilterPage() {
     int parameterCol = previewLeft + plotWidth + 6;
 
     std::vector<int> filterParams = getFilterParameterIds();
+    int paramCount = 0;
     if (!filterParams.empty()) {
         if (std::find(filterParams.begin(), filterParams.end(), selectedParameterId) == filterParams.end()) {
             selectedParameterId = filterParams.front();
         }
         drawParameterList(previewTop, parameterCol, filterParams);
+        paramCount = filterParams.size();
+    }
+
+    // Show debug info for 2-pole bandpass (type 8) below parameters
+    if (type == 8 && synth) {
+        const auto* bp = synth->getBandpass2FilterL();
+        if (bp) {
+            int debugRow = previewTop + paramCount + 2;  // 2 lines below parameters
+            attron(COLOR_PAIR(4));
+            mvprintw(debugRow++, parameterCol, "=== 2-Pole BP Debug ===");
+            attroff(COLOR_PAIR(4));
+            mvprintw(debugRow++, parameterCol, "widthOct:    %.4f", bp->getWidthOct());
+            mvprintw(debugRow++, parameterCol, "widthOctExp: %.4f", bp->getWidthOctExp());
+            mvprintw(debugRow++, parameterCol, "TwoR:        %.4f", bp->getTwoR());
+            mvprintw(debugRow++, parameterCol, "feedbackGain:%.4f", bp->getFeedbackGain());
+            mvprintw(debugRow++, parameterCol, "outputGain:  %.4f", bp->getOutputGain());
+            mvprintw(debugRow++, parameterCol, "lpFreq:      %.2f Hz", bp->getLpFreq());
+            mvprintw(debugRow++, parameterCol, "hpFreq:      %.2f Hz", bp->getHpFreq());
+        }
     }
 
     // Show MIDI Learn status if active on filter cutoff
@@ -264,23 +284,5 @@ void UI::drawFilterPage() {
         mvprintw(statusRow++, 2, ">>> MIDI LEARN ACTIVE <<<");
         attroff(COLOR_PAIR(3) | A_BOLD);
         mvprintw(statusRow++, 2, "Move a MIDI controller to assign it to Filter Cutoff");
-    }
-
-    // Show debug info for 2-pole bandpass (type 8)
-    if (type == 8 && synth) {
-        const auto* bp = synth->getBandpass2FilterL();
-        if (bp) {
-            int debugRow = previewTop + plotHeight + 4;
-            attron(COLOR_PAIR(4));
-            mvprintw(debugRow++, 2, "=== 2-Pole BP Debug ===");
-            attroff(COLOR_PAIR(4));
-            mvprintw(debugRow++, 2, "widthOct:    %.4f", bp->getWidthOct());
-            mvprintw(debugRow++, 2, "widthOctExp: %.4f", bp->getWidthOctExp());
-            mvprintw(debugRow++, 2, "TwoR:        %.4f", bp->getTwoR());
-            mvprintw(debugRow++, 2, "feedbackGain:%.4f", bp->getFeedbackGain());
-            mvprintw(debugRow++, 2, "outputGain:  %.4f", bp->getOutputGain());
-            mvprintw(debugRow++, 2, "lpFreq:      %.2f Hz", bp->getLpFreq());
-            mvprintw(debugRow++, 2, "hpFreq:      %.2f Hz", bp->getHpFreq());
-        }
     }
 }
