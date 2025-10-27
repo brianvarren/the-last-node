@@ -101,6 +101,11 @@ public:
         float osc4Amp = 0.0f;  // Renamed from osc4Level
         float filterCutoff = 0.0f;
         float filterResonance = 0.0f;
+        float filterDrive = 0.0f;
+        float filterWidth = 0.0f;
+        float filterNotchFeedback = 0.0f;
+        float filterSpread = 0.0f;
+        float filterDryWet = 0.0f;
         float reverbMix = 0.0f;
         float reverbSize = 0.0f;
         // Sampler 1 modulation

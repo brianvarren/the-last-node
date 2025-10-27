@@ -227,6 +227,7 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain,
     notchFilterR.setDrive(drive);
     notchFilterL.setNotchFeedback(notchFeedback);
     notchFilterR.setNotchFeedback(notchFeedback);
+    // Note: DryWet is applied with modulation in processAudio, not here
 }
 
 void Synth::noteOn(int midiNote, int velocity) {
@@ -584,9 +585,78 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             }
         }
     }
-    
+
     // Apply filter if enabled (stereo processing)
     if (filterEnabled && nChannels == 2) {
+        // Apply filter modulation (using lastGlobalModOutputs from previous buffer)
+        if (params) {
+            float baseCutoff = params->filterCutoff.load();
+            float baseResonance = params->filterResonance.load();
+            float baseDrive = params->filterDrive.load();
+            float baseWidth = params->filterBandWidth.load();
+            float baseNotchFeedback = params->filterNotchFeedback.load();
+            float baseSpread = params->filterSpread.load();
+            float baseDryWet = 1.0f;  // TODO: Add to params if needed
+
+            float modulatedCutoff = std::clamp(baseCutoff + lastGlobalModOutputs.filterCutoff, 20.0f, 20000.0f);
+            float modulatedResonance = std::clamp(baseResonance + lastGlobalModOutputs.filterResonance, 0.0f, 1.2f);
+            float modulatedDrive = std::clamp(baseDrive + lastGlobalModOutputs.filterDrive, 0.1f, 15.0f);
+            float modulatedWidth = std::clamp(baseWidth + lastGlobalModOutputs.filterWidth, 0.0f, 1.0f);
+            float modulatedNotchFeedback = std::clamp(baseNotchFeedback + lastGlobalModOutputs.filterNotchFeedback, 0.0f, 0.98f);
+            float modulatedSpread = std::clamp(baseSpread + lastGlobalModOutputs.filterSpread, 0.0f, 1.0f);
+            float modulatedDryWet = std::clamp(baseDryWet + lastGlobalModOutputs.filterDryWet, 0.0f, 1.0f);
+
+            // Apply modulated parameters to all filter types
+            filterL.setCutoff(modulatedCutoff);
+            filterR.setCutoff(modulatedCutoff);
+            ladderFilterL.setCutoff(modulatedCutoff);
+            ladderFilterR.setCutoff(modulatedCutoff);
+            ladderFilterL.setResonance(modulatedResonance);
+            ladderFilterR.setResonance(modulatedResonance);
+            ladderFilterL.setDrive(modulatedDrive);
+            ladderFilterR.setDrive(modulatedDrive);
+            diodeFilterL.setCutoff(modulatedCutoff);
+            diodeFilterR.setCutoff(modulatedCutoff);
+            diodeFilterL.setResonance(modulatedResonance);
+            diodeFilterR.setResonance(modulatedResonance);
+            diodeFilterL.setDrive(modulatedDrive);
+            diodeFilterR.setDrive(modulatedDrive);
+            bandpassFilterL.setCutoff(modulatedCutoff);
+            bandpassFilterR.setCutoff(modulatedCutoff);
+            bandpassFilterL.setResonance(modulatedResonance);
+            bandpassFilterR.setResonance(modulatedResonance);
+            bandpassFilterL.setDrive(modulatedDrive);
+            bandpassFilterR.setDrive(modulatedDrive);
+            bandpassFilterL.setWidth(modulatedWidth);
+            bandpassFilterR.setWidth(modulatedWidth);
+            bandpass8FilterL.setCutoff(modulatedCutoff);
+            bandpass8FilterR.setCutoff(modulatedCutoff);
+            bandpass8FilterL.setResonance(modulatedResonance);
+            bandpass8FilterR.setResonance(modulatedResonance);
+            bandpass8FilterL.setDrive(modulatedDrive);
+            bandpass8FilterR.setDrive(modulatedDrive);
+            bandpass8FilterL.setWidth(modulatedWidth);
+            bandpass8FilterR.setWidth(modulatedWidth);
+            bandpass2FilterL.setCutoff(modulatedCutoff);
+            bandpass2FilterR.setCutoff(modulatedCutoff);
+            bandpass2FilterL.setResonance(modulatedResonance);
+            bandpass2FilterR.setResonance(modulatedResonance);
+            bandpass2FilterL.setDrive(modulatedDrive);
+            bandpass2FilterR.setDrive(modulatedDrive);
+            bandpass2FilterL.setWidth(modulatedWidth);
+            bandpass2FilterR.setWidth(modulatedWidth);
+            notchFilterL.setCutoff(modulatedCutoff);
+            notchFilterR.setCutoff(modulatedCutoff);
+            notchFilterL.setResonance(modulatedResonance);
+            notchFilterR.setResonance(modulatedResonance);
+            notchFilterL.setNotchFeedback(modulatedNotchFeedback);
+            notchFilterR.setNotchFeedback(modulatedNotchFeedback);
+            notchFilterL.setSpread(modulatedSpread);
+            notchFilterR.setSpread(modulatedSpread);
+            notchFilterL.setDryWet(modulatedDryWet);
+            notchFilterR.setDryWet(modulatedDryWet);
+        }
+
         for (unsigned int i = 0; i < nFrames; ++i) {
             float left = output[i * 2];
             float right = output[i * 2 + 1];
@@ -900,18 +970,19 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         // 6-11: OSC 2 Pitch/Morph/Duty/Ratio/Offset/Amp
         // 12-17: OSC 3 Pitch/Morph/Duty/Ratio/Offset/Amp
         // 18-23: OSC 4 Pitch/Morph/Duty/Ratio/Offset/Amp
-        // 24-25: Filter Cutoff/Resonance
-        // 26-27: Reverb Mix/Size
-        // 28-32: SAMP 1 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 33-37: SAMP 2 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 38-42: SAMP 3 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 43-47: SAMP 4 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 48-59: LFO 1-4 Rate/Morph/Duty
-        // 60: Mixer Master Volume
-        // 61-64: Mixer Oscillator Levels
-        // 65-68: Mixer Sampler Levels
-        // 69-72: Sequencer Track 1-4 Phase Drivers
-        // 73-76: Sampler 1-4 Phase Drivers
+        // 24-30: Filter Cutoff/Resonance/Drive/Width/NotchFeedback/Spread/DryWet
+        // 31-32: Reverb Mix/Size
+        // 33-37: SAMP 1 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 38-42: SAMP 2 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 43-47: SAMP 3 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 48-52: SAMP 4 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 53-64: LFO 1-4 Rate/Morph/Duty
+        // 65: Mixer Master Volume
+        // 66-69: Mixer Oscillator Levels
+        // 70-73: Mixer Sampler Levels
+        // 74-77: Sequencer Track 1-4 Phase Drivers
+        // 78-81: Sampler 1-4 Phase Drivers
+        // 82: FM Global Depth
 
         switch (slot.destination) {
             // OSC 1
@@ -945,71 +1016,76 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             // Filter
             case 24: outputs.filterCutoff += modValue; break;
             case 25: outputs.filterResonance += modValue; break;
+            case 26: outputs.filterDrive += modValue; break;
+            case 27: outputs.filterWidth += modValue; break;
+            case 28: outputs.filterNotchFeedback += modValue; break;
+            case 29: outputs.filterSpread += modValue; break;
+            case 30: outputs.filterDryWet += modValue; break;
             // Reverb
-            case 26: outputs.reverbMix += modValue; break;
-            case 27: outputs.reverbSize += modValue; break;
+            case 31: outputs.reverbMix += modValue; break;
+            case 32: outputs.reverbSize += modValue; break;
             // SAMP 1
-            case 28: outputs.samp1Pitch += modValue; break;
-            case 29: outputs.samp1LoopStart += modValue; break;
-            case 30: outputs.samp1LoopLength += modValue; break;
-            case 31: outputs.samp1Crossfade += modValue; break;
-            case 32: outputs.samp1Amp += modValue; break;
+            case 33: outputs.samp1Pitch += modValue; break;
+            case 34: outputs.samp1LoopStart += modValue; break;
+            case 35: outputs.samp1LoopLength += modValue; break;
+            case 36: outputs.samp1Crossfade += modValue; break;
+            case 37: outputs.samp1Amp += modValue; break;
             // SAMP 2
-            case 33: outputs.samp2Pitch += modValue; break;
-            case 34: outputs.samp2LoopStart += modValue; break;
-            case 35: outputs.samp2LoopLength += modValue; break;
-            case 36: outputs.samp2Crossfade += modValue; break;
-            case 37: outputs.samp2Amp += modValue; break;
+            case 38: outputs.samp2Pitch += modValue; break;
+            case 39: outputs.samp2LoopStart += modValue; break;
+            case 40: outputs.samp2LoopLength += modValue; break;
+            case 41: outputs.samp2Crossfade += modValue; break;
+            case 42: outputs.samp2Amp += modValue; break;
             // SAMP 3
-            case 38: outputs.samp3Pitch += modValue; break;
-            case 39: outputs.samp3LoopStart += modValue; break;
-            case 40: outputs.samp3LoopLength += modValue; break;
-            case 41: outputs.samp3Crossfade += modValue; break;
-            case 42: outputs.samp3Amp += modValue; break;
+            case 43: outputs.samp3Pitch += modValue; break;
+            case 44: outputs.samp3LoopStart += modValue; break;
+            case 45: outputs.samp3LoopLength += modValue; break;
+            case 46: outputs.samp3Crossfade += modValue; break;
+            case 47: outputs.samp3Amp += modValue; break;
             // SAMP 4
-            case 43: outputs.samp4Pitch += modValue; break;
-            case 44: outputs.samp4LoopStart += modValue; break;
-            case 45: outputs.samp4LoopLength += modValue; break;
-            case 46: outputs.samp4Crossfade += modValue; break;
-            case 47: outputs.samp4Amp += modValue; break;
+            case 48: outputs.samp4Pitch += modValue; break;
+            case 49: outputs.samp4LoopStart += modValue; break;
+            case 50: outputs.samp4LoopLength += modValue; break;
+            case 51: outputs.samp4Crossfade += modValue; break;
+            case 52: outputs.samp4Amp += modValue; break;
             // LFO 1
-            case 48: outputs.lfoPeriod[0] += modValue; break;
-            case 49: outputs.lfoMorph[0] += modValue; break;
-            case 50: outputs.lfoDuty[0] += modValue; break;
+            case 53: outputs.lfoPeriod[0] += modValue; break;
+            case 54: outputs.lfoMorph[0] += modValue; break;
+            case 55: outputs.lfoDuty[0] += modValue; break;
             // LFO 2
-            case 51: outputs.lfoPeriod[1] += modValue; break;
-            case 52: outputs.lfoMorph[1] += modValue; break;
-            case 53: outputs.lfoDuty[1] += modValue; break;
+            case 56: outputs.lfoPeriod[1] += modValue; break;
+            case 57: outputs.lfoMorph[1] += modValue; break;
+            case 58: outputs.lfoDuty[1] += modValue; break;
             // LFO 3
-            case 54: outputs.lfoPeriod[2] += modValue; break;
-            case 55: outputs.lfoMorph[2] += modValue; break;
-            case 56: outputs.lfoDuty[2] += modValue; break;
+            case 59: outputs.lfoPeriod[2] += modValue; break;
+            case 60: outputs.lfoMorph[2] += modValue; break;
+            case 61: outputs.lfoDuty[2] += modValue; break;
             // LFO 4
-            case 57: outputs.lfoPeriod[3] += modValue; break;
-            case 58: outputs.lfoMorph[3] += modValue; break;
-            case 59: outputs.lfoDuty[3] += modValue; break;
+            case 62: outputs.lfoPeriod[3] += modValue; break;
+            case 63: outputs.lfoMorph[3] += modValue; break;
+            case 64: outputs.lfoDuty[3] += modValue; break;
             // Mixer
-            case 60: outputs.mixerMasterVolume += modValue; break;
-            case 61: outputs.mixerOscLevel[0] += modValue; break;
-            case 62: outputs.mixerOscLevel[1] += modValue; break;
-            case 63: outputs.mixerOscLevel[2] += modValue; break;
-            case 64: outputs.mixerOscLevel[3] += modValue; break;
-            case 65: outputs.mixerSamplerLevel[0] += modValue; break;
-            case 66: outputs.mixerSamplerLevel[1] += modValue; break;
-            case 67: outputs.mixerSamplerLevel[2] += modValue; break;
-            case 68: outputs.mixerSamplerLevel[3] += modValue; break;
+            case 65: outputs.mixerMasterVolume += modValue; break;
+            case 66: outputs.mixerOscLevel[0] += modValue; break;
+            case 67: outputs.mixerOscLevel[1] += modValue; break;
+            case 68: outputs.mixerOscLevel[2] += modValue; break;
+            case 69: outputs.mixerOscLevel[3] += modValue; break;
+            case 70: outputs.mixerSamplerLevel[0] += modValue; break;
+            case 71: outputs.mixerSamplerLevel[1] += modValue; break;
+            case 72: outputs.mixerSamplerLevel[2] += modValue; break;
+            case 73: outputs.mixerSamplerLevel[3] += modValue; break;
             // Sequencer phase drivers
-            case 69: outputs.sequencerPhase[0] += modValue; break;
-            case 70: outputs.sequencerPhase[1] += modValue; break;
-            case 71: outputs.sequencerPhase[2] += modValue; break;
-            case 72: outputs.sequencerPhase[3] += modValue; break;
+            case 74: outputs.sequencerPhase[0] += modValue; break;
+            case 75: outputs.sequencerPhase[1] += modValue; break;
+            case 76: outputs.sequencerPhase[2] += modValue; break;
+            case 77: outputs.sequencerPhase[3] += modValue; break;
             // Sampler phase drivers
-            case 73: outputs.samplerPhase[0] += modValue; break;
-            case 74: outputs.samplerPhase[1] += modValue; break;
-            case 75: outputs.samplerPhase[2] += modValue; break;
-            case 76: outputs.samplerPhase[3] += modValue; break;
+            case 78: outputs.samplerPhase[0] += modValue; break;
+            case 79: outputs.samplerPhase[1] += modValue; break;
+            case 80: outputs.samplerPhase[2] += modValue; break;
+            case 81: outputs.samplerPhase[3] += modValue; break;
             // FM
-            case 77: outputs.fmGlobalDepth += modValue; break;
+            case 82: outputs.fmGlobalDepth += modValue; break;
         }
     }
 

@@ -56,7 +56,9 @@ const std::vector<ModuleData>& buildDestinationModules() {
             {"Ratio", "O4:Ratio"}, {"Offset", "O4:Offset"}, {"Amp", "O4:Amp"}
         }},
         {"Filter", {
-            {"Cutoff", "Flt:Cut"}, {"Resonance", "Flt:Res"}
+            {"Cutoff", "Flt:Cut"}, {"Resonance", "Flt:Res"}, {"Drive", "Flt:Drv"},
+            {"Width", "Flt:Wid"}, {"Notch Feedback", "Flt:NtFB"}, {"Spread", "Flt:Sprd"},
+            {"Dry/Wet", "Flt:D/W"}
         }},
         {"Reverb", {
             {"Mix", "Rvb:Mix"}, {"Size", "Rvb:Size"}
