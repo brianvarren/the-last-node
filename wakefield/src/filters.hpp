@@ -498,7 +498,7 @@ public:
     }
 
     void setCutoff(float hz) {
-        centerFreq = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        centerFreq = std::clamp(hz, 20.0f, 0.42f * sampleRate);
         updateCutoffs();
     }
 
@@ -529,6 +529,11 @@ public:
         ic1 = bp + hp * g;
         ic2 = lp + bp * g;
 
+        // State limiting to prevent explosion at high frequencies
+        constexpr float STATE_LIMIT = 4.0f;
+        ic1 = std::clamp(ic1, -STATE_LIMIT, STATE_LIMIT);
+        ic2 = std::clamp(ic2, -STATE_LIMIT, STATE_LIMIT);
+
         const float normalized = bp * normGain;
         lastOutput = std::tanh(normalized * drive);
         return lastOutput;
@@ -544,7 +549,7 @@ public:
 
 private:
     void updateCutoffs() {
-        float fc = std::clamp(centerFreq, 20.0f, 0.45f * sampleRate);
+        float fc = std::clamp(centerFreq, 20.0f, 0.42f * sampleRate);
         g = std::tan(static_cast<float>(M_PI) * (fc / sampleRate));
         updateDenominator();
     }
@@ -605,7 +610,7 @@ public:
     }
 
     void setCutoff(float hz) {
-        cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        cutoffHz = std::clamp(hz, 20.0f, 0.42f * sampleRate);
         for (auto& stage : stages) stage.setCutoff(cutoffHz);
     }
 
@@ -635,7 +640,7 @@ public:
 
     float process(float in) {
         const float feedback = feedbackGain * std::tanh(lastFeedbackNode);
-        float x = in + feedback;
+        float x = std::tanh(in + feedback);  // Limit input to prevent explosion
 
         float stage1 = stages[0].process(x);
         stageOutputs[0] = stage1;
@@ -645,7 +650,7 @@ public:
         stageOutputs[1] = stage2;
 
         float feedforward = 0.5f * stage2;
-        lastFeedbackNode = feedforward;
+        lastFeedbackNode = std::clamp(feedforward, -2.0f, 2.0f);  // Limit feedback node
 
         lastOutput = feedforward * (4.0f - feedbackGain);
         return lastOutput;
