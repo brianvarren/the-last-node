@@ -558,21 +558,23 @@ private:
     }
 
     void updateFeedbackGain() {
-        // TwoR calculation based on width
-        // widthOct ranges from 1 to 12 as width goes from 0 to 1
-        widthOct = std::max(1.0f, width * 12.0f);
+        // Interpret width (0..1) as total band in semitones (1..12)
+        widthSemi = std::max(1.0f, width * 12.0f);
+        widthOct = widthSemi;  // legacy debug (in semitones)
 
-        // widthOctExp = sqrt(2)^widthOct = 2^(widthOct/2)
-        widthOctExp = std::pow(2.0f, widthOct / 2.0f);
+        // Half-width in semitones -> symmetric ratio around center
+        const float halfSemi = 0.5f * widthSemi;
+        const float ratio = std::pow(2.0f, halfSemi / 12.0f);
+        widthOctExp = ratio;
 
-        // TwoR = widthOctExp - 1/widthOctExp
-        TwoR = widthOctExp - (1.0f / widthOctExp);
+        // twoR = BW / fc = r - 1/r, stay within a stable range
+        TwoR = std::clamp(ratio - (1.0f / ratio), 0.01f, 1.9f);
 
-        // Feedback gain decreases as width increases
-        feedbackGain = 2.0f - TwoR;
+        // Feedback gain controls resonance
+        feedbackGain = std::clamp(2.0f - TwoR, 0.0f, 2.0f);
 
-        // Output gain compensates for bandwidth changes
-        outputGain = TwoR / 2.0f;
+        // Output gain compensates for perceived level across widths
+        outputGain = 0.5f * TwoR;
     }
 
 public:
@@ -597,6 +599,7 @@ private:
     float lastOutput = 0.0f;
 
     // Calculated values (for debugging)
+    float widthSemi = 1.0f;
     float widthOct = 1.0f;
     float widthOctExp = 1.0f;
     float TwoR = 0.0f;
