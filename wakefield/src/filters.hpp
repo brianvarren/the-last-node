@@ -559,8 +559,8 @@ private:
         widthRatio = ratio;
 
         twoR = std::max(0.005f, ratio - (1.0f / ratio));
-        damping = 0.5f * twoR;
-        normGain = 1.0f / std::max(0.01f, twoR);
+        damping = twoR;
+        normGain = twoR;
         updateDenominator();
     }
 
