@@ -267,13 +267,14 @@ void UI::drawFilterPage() {
             attron(COLOR_PAIR(4));
             mvprintw(debugRow++, parameterCol, "=== 2-Pole BP Debug ===");
             attroff(COLOR_PAIR(4));
+            mvprintw(debugRow++, parameterCol, "g (tan w/2): %.6f", bp->getG());
+            mvprintw(debugRow++, parameterCol, "lpFreq:      %.2f Hz", bp->getLpFreq());
+            mvprintw(debugRow++, parameterCol, "hpFreq:      %.2f Hz", bp->getHpFreq());
             mvprintw(debugRow++, parameterCol, "widthOct:    %.4f", bp->getWidthOct());
             mvprintw(debugRow++, parameterCol, "widthOctExp: %.4f", bp->getWidthOctExp());
             mvprintw(debugRow++, parameterCol, "TwoR:        %.4f", bp->getTwoR());
             mvprintw(debugRow++, parameterCol, "feedbackGain:%.4f", bp->getFeedbackGain());
             mvprintw(debugRow++, parameterCol, "outputGain:  %.4f", bp->getOutputGain());
-            mvprintw(debugRow++, parameterCol, "lpFreq:      %.2f Hz", bp->getLpFreq());
-            mvprintw(debugRow++, parameterCol, "hpFreq:      %.2f Hz", bp->getHpFreq());
         }
     }
 

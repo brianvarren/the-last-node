@@ -456,6 +456,9 @@ public:
         };
     }
 
+    // Getter for debugging
+    float getG() const { return g; }
+
 private:
     void updateCoeffs() {
         // Clamp to safe fraction of Nyquist
@@ -581,6 +584,7 @@ public:
     float getOutputGain() const { return outputGain; }
     float getLpFreq() const { return lpFreq; }
     float getHpFreq() const { return hpFreq; }
+    float getG() const { return lpCell.getG(); }  // g = tan(w/2) from LP cell
 
 private:
 
