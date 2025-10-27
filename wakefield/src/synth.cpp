@@ -598,13 +598,24 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             float baseSpread = params->filterSpread.load();
             float baseDryWet = 1.0f;  // TODO: Add to params if needed
 
-            float modulatedCutoff = std::clamp(baseCutoff + lastGlobalModOutputs.filterCutoff, 20.0f, 20000.0f);
-            float modulatedResonance = std::clamp(baseResonance + lastGlobalModOutputs.filterResonance, 0.0f, 1.2f);
-            float modulatedDrive = std::clamp(baseDrive + lastGlobalModOutputs.filterDrive, 0.1f, 15.0f);
+            // Cutoff: multiplicative modulation in octaves (±4 octaves max)
+            // modValue of +1 = +4 octaves, -1 = -4 octaves
+            float cutoffOctaves = lastGlobalModOutputs.filterCutoff * 4.0f;
+            float modulatedCutoff = std::clamp(baseCutoff * std::pow(2.0f, cutoffOctaves), 20.0f, 20000.0f);
+
+            // Resonance: scale to ±0.6 for good range without too much instability
+            float modulatedResonance = std::clamp(baseResonance + lastGlobalModOutputs.filterResonance * 0.6f, 0.0f, 1.2f);
+
+            // Drive: scale to ±7 for useful range
+            float modulatedDrive = std::clamp(baseDrive + lastGlobalModOutputs.filterDrive * 7.0f, 0.1f, 15.0f);
+
+            // Width, Spread, DryWet: full 0-1 range is good
             float modulatedWidth = std::clamp(baseWidth + lastGlobalModOutputs.filterWidth, 0.0f, 1.0f);
-            float modulatedNotchFeedback = std::clamp(baseNotchFeedback + lastGlobalModOutputs.filterNotchFeedback, 0.0f, 0.98f);
             float modulatedSpread = std::clamp(baseSpread + lastGlobalModOutputs.filterSpread, 0.0f, 1.0f);
             float modulatedDryWet = std::clamp(baseDryWet + lastGlobalModOutputs.filterDryWet, 0.0f, 1.0f);
+
+            // Notch Feedback: scale to ±0.5 to avoid hitting stability limits too easily
+            float modulatedNotchFeedback = std::clamp(baseNotchFeedback + lastGlobalModOutputs.filterNotchFeedback * 0.5f, 0.0f, 0.98f);
 
             // Apply modulated parameters to all filter types
             filterL.setCutoff(modulatedCutoff);
