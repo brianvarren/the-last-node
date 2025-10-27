@@ -485,9 +485,8 @@ public:
     explicit Bandpass2PoleZdf(float sampleRate = 48000.0f) {
         setSampleRate(sampleRate);
         setCutoff(1000.0f);
-        setResonance(0.0f);
         setDrive(1.0f);
-        setWidth(0.5f);  // Default to medium width
+        setWidth(0.5f);  // Default to medium width, also sets feedback/output gains
     }
 
     void setSampleRate(float sr) {
@@ -503,8 +502,8 @@ public:
     }
 
     void setResonance(float amount) {
-        resonance = std::clamp(amount, 0.0f, 1.2f);
-        feedbackGain = resonance * 3.0f;
+        // Unused, kept for API compatibility
+        (void)amount;
     }
 
     void setDrive(float driveAmount) {
@@ -515,9 +514,9 @@ public:
 
     void setWidth(float widthAmount) {
         // Width from 0.0 (very narrow) to 1.0 (very wide)
-        // Maps to frequency spread ratio: narrow = close frequencies, wide = far apart
         width = std::clamp(widthAmount, 0.0f, 1.0f);
         updateCutoffs();
+        updateFeedbackGain();
     }
 
     void setFeedbackHighpass(float) {
@@ -531,7 +530,7 @@ public:
     }
 
     float process(float in) {
-        const float feedback = std::tanh(lastOutput * feedbackGain);
+        const float feedback = lastOutput * feedbackGain;
         float x = in + feedback;
 
         // First cell: feed input through, get LP output
@@ -541,7 +540,7 @@ public:
         auto hpOut = hpCell.process(lpOut.lp);
 
         lastOutput = hpOut.hp;
-        return lastOutput;
+        return lastOutput * outputGain;
     }
 
 private:
@@ -562,13 +561,31 @@ private:
         hpCell.setCutoff(hpFreq);
     }
 
+    void updateFeedbackGain() {
+        // TwoR calculation based on width
+        // widthOct ranges from 1 to 12 as width goes from 0 to 1
+        float widthOct = std::max(1.0f, width * 12.0f);
+
+        // widthOctExp = sqrt(2)^widthOct = 2^(widthOct/2)
+        float widthOctExp = std::pow(2.0f, widthOct / 2.0f);
+
+        // TwoR = widthOctExp - 1/widthOctExp
+        float TwoR = widthOctExp - (1.0f / widthOctExp);
+
+        // Feedback gain decreases as width increases
+        feedbackGain = 2.0f - TwoR;
+
+        // Output gain compensates for bandwidth changes
+        outputGain = TwoR / 2.0f;
+    }
+
     BandpassCellZdf lpCell;  // First stage (extracts LP)
     BandpassCellZdf hpCell;  // Second stage (extracts HP from LP = bandpass)
     float sampleRate = 48000.0f;
     float centerFreq = 1000.0f;
     float width = 0.5f;
-    float resonance = 0.0f;
     float feedbackGain = 0.0f;
+    float outputGain = 1.0f;
     float drive = 1.0f;
     float lastOutput = 0.0f;
 };
