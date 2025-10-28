@@ -615,8 +615,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     continue;
                 }
                 float level = params->getChaosLevel(c);
-                float x = chaosOutputs[c];
-                float y = chaos[c].getY();
+                // Use per-frame chaos traces if available (populated by processChaos)
+                float x = (i < chaosBufferX[c].size()) ? chaosBufferX[c][i] : chaosOutputs[c];
+                float y = (i < chaosBufferY[c].size()) ? chaosBufferY[c][i] : chaos[c].getY();
                 chaosL += x * level;
                 chaosR += y * level;
             }

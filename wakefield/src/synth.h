@@ -241,6 +241,9 @@ private:
     // 4 global chaos generators for modulation
     ChaosGenerator chaos[4];
     float chaosOutputs[4] = {0.0f, 0.0f, 0.0f, 0.0f};  // Cached chaos outputs
+    // Per-buffer chaos output traces for audio mixing (filled by processChaos)
+    std::vector<float> chaosBufferX[4];
+    std::vector<float> chaosBufferY[4];
     ModulationOutputs lastGlobalModOutputs;
 
     int samplerPhaseSource[SAMPLERS_PER_VOICE] = {
