@@ -827,7 +827,7 @@ private:
     void updateCoefficients() {
         g = std::tan(static_cast<float>(M_PI) * cutoffHz / sampleRate);
         twoR = 2.0f * R;
-        h = 1.0f / (1.0f + twoR * g + g * g);
+        h = 1.0f / (1.0f + twoR * g + g * g + 1e-12f);
     }
 
     float sampleRate = 48000.0f;
@@ -865,28 +865,21 @@ public:
     }
 
     void setResonance(float amount) {
-        // CORRECTED: Resonance now controls feedback k (peak height)
-        // Higher resonance = taller peaks, notches stay deep
+        // Resonance controls damping R (width)
+        // Higher resonance => lower R => narrower notches, taller peaks
         resonance = std::clamp(amount, 0.0f, 1.0f);
-
-        // Map resonance to k: 0.0 to 0.95 (stay well below 1.0 for stability)
-        feedbackK = std::clamp(resonance * 0.95f, 0.0f, 0.95f);
-    }
-
-    void setSpread(float value) {
-        // CORRECTED: Spread now controls damping R (notch/peak width)
-        // Higher spread = wider notches/peaks (higher R)
-        spread = std::clamp(value, 0.0f, 1.0f);
-
-        // Map spread to R: 0.3 (narrow) to 5.0 (wide)
-        const float R = 0.3f + spread * 4.7f;
+        const float R = 0.3f + (1.0f - resonance) * 4.7f;
         for (auto& stage : allpassStages) stage.setDamping(R);
     }
 
+    void setSpread(float value) {
+        // Optional future detuning or shaping; keep as-is for now
+        spread = std::clamp(value, 0.0f, 1.0f);
+    }
+
     void setNotchFeedback(float value) {
-        // Legacy parameter - now just forwards to setResonance for compatibility
-        // Users should use Resonance parameter instead
-        setResonance(value);
+        // Feedback gain k; stability requires |k| < 1
+        feedbackK = std::clamp(value, 0.0f, 0.98f);
     }
 
     void setDryWet(float value) {
@@ -907,29 +900,13 @@ public:
 
     float process(float input) {
         // Zavalishin Fig 11.13: Correct feedback and mixing topology
-
-        // Limit input to prevent DC buildup
-        input = std::clamp(input, -4.0f, 4.0f);
-
-        // Pre-allpass signal with feedback: x̃ = x + k*ỹ
-        // Don't apply tanh here - we need to let the feedback build up for resonant peaks!
-        // But do apply a generous clamp to prevent extreme values
-        const float preAllpass = std::clamp(input + feedbackK * lastAllpassOut, -10.0f, 10.0f);
+        // Pre-allpass signal with feedback: x̃ = x + k·ỹ
+        const float preAllpass = input + feedbackK * lastAllpassOut;
 
         // Process through cascaded allpasses: ỹ = G(x̃)
         float postAllpass = preAllpass;
         for (auto& stage : allpassStages) {
             postAllpass = stage.process(postAllpass);
-        }
-
-        // ONLY apply limiting AFTER allpass processing to prevent instability
-        // This allows resonant peaks to build up but prevents explosion
-        postAllpass = std::tanh(postAllpass * 0.5f) * 2.0f;  // Soft saturation
-
-        // Check for NaN/Inf and reset if necessary
-        if (!std::isfinite(postAllpass)) {
-            reset();
-            postAllpass = 0.0f;
         }
 
         // Store for next feedback iteration
@@ -940,7 +917,7 @@ public:
 
         // Dry/wet mixing (Zavalishin Fig 11.17):
         // y = (1 - a/2)x + (a/2)(1+k)ỹ
-        // Simplified for our use: y = (1-a)*x + a*wet
+        // Implemented as y = (1-a)x + a·((x̃ + ỹ)/2)
         const float output = (1.0f - dryWet) * input + dryWet * wetSignal;
 
         return output;
