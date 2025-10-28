@@ -27,13 +27,22 @@ public:
         , prevX(0.1)
         , prevY(0.1)
         , prevT(0.0)
-        , interpPhase(0.0) {}
+        , interpPhase(0.0)
+        , fastAccumulator(0.0) {}
 
     // Process one sample and return the chaos output (x coordinate, -1 to 1 range typically)
     float process() {
         if (fastMode) {
-            // Audio rate: iterate the map every sample
-            iterate();
+            // Audio rate: iterate according to clockFrequency using an accumulator
+            // This ties the effective iteration rate to the user clock in FAST mode
+            double inc = clockFrequency / sampleRate;
+            fastAccumulator += inc;
+            // Iterate as many whole steps as accumulated (can be >1)
+            int steps = static_cast<int>(fastAccumulator);
+            if (steps > 0) {
+                for (int i = 0; i < steps; ++i) iterate();
+                fastAccumulator -= steps;
+            }
             return static_cast<float>(x);
         } else {
             // Slow/clocked mode: iterate when clock triggers, interpolate between
@@ -163,6 +172,7 @@ private:
     bool fastMode;
     double prevX, prevY, prevT;
     double interpPhase;
+    double fastAccumulator; // For FAST mode clocked iterations per sample
 };
 
 #endif // CHAOS_H
