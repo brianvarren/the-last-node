@@ -1100,12 +1100,12 @@ private:
     bool isParameterModulated(int id);  // Check if parameter has active modulation
 
     // Global parameter operations (respect randomizable whitelist)
-    void randomizeAllParameters();
+    void randomizeAllParameters(float amount01);
     void mutateAllParameters(float amount01);
     void resetAllParametersToNeutral();
 
     // Per-page parameter operations
-    void randomizePageParameters(UIPage page);
+    void randomizePageParameters(UIPage page, float amount01);
     void mutatePageParameters(UIPage page, float amount01);
     void resetPageParameters(UIPage page);
 
@@ -1209,6 +1209,7 @@ private:
     // Main page action buttons state
     int mainPageActionIndex;         // 0=Save, 1=Load, 2=Randomize, 3=Mutate, 4=MutateAmount, 5=Reset, 6=CPU Monitor
     float globalMutatePercentage;    // 0-100%
+    float globalRandomizePercentage; // 0-100%
     bool mainPageFocusLeft;          // true=left column (actions), false=right column (mixer)
 
     // Main page mixer state

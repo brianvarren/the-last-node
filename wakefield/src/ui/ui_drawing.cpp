@@ -16,7 +16,6 @@ void UI::drawTabs() {
         {"MAIN", UIPage::MAIN},
         {"OSC", UIPage::OSCILLATOR},
         {"SAMP", UIPage::SAMPLER},
-        {"MIX", UIPage::MIXER},
         {"LFO", UIPage::LFO},
         {"ENV", UIPage::ENV},
         {"FILTER", UIPage::FILTER},
@@ -466,6 +465,7 @@ void UI::drawMainPage() {
         "Load Preset",
         "Global Randomize",
         "Global Mutate",
+        "Random Amount",
         "Mutate Amount",
         "Global Reset",
         "CPU Monitor"
@@ -486,13 +486,16 @@ void UI::drawMainPage() {
             mvprintw(row, col, "  %s", actionLabels[i]);
         }
 
-        // Show mutate percentage for Mutate Amount item
-        if (i == 4) {  // Mutate Amount
+        // Show percentages for Amount items
+        if (i == 4) {  // Random Amount
+            mvprintw(row, col + 20, "%.0f%%", globalRandomizePercentage);
+        }
+        if (i == 5) {  // Mutate Amount
             mvprintw(row, col + 20, "%.0f%%", globalMutatePercentage);
         }
 
         // Show CPU monitor state
-        if (i == 6) {  // CPU Monitor
+        if (i == 7) {  // CPU Monitor
             const char* state = cpuMonitor.isEnabled() ? "ON" : "OFF";
             mvprintw(row, col + 20, "%s", state);
         }

@@ -230,14 +230,28 @@ void UI::handleInput(int ch) {
                 return;
             case '+':
             case '=':
-                if (mainPageFocusLeft && mainPageActionIndex == 4) {  // Mutate Amount
-                    globalMutatePercentage = std::min(100.0f, globalMutatePercentage + 5.0f);
+                if (mainPageFocusLeft) {
+                    if (mainPageActionIndex == 4) {  // Random Amount
+                        globalRandomizePercentage = std::min(100.0f, globalRandomizePercentage + 5.0f);
+                        return;
+                    }
+                    if (mainPageActionIndex == 5) {  // Mutate Amount
+                        globalMutatePercentage = std::min(100.0f, globalMutatePercentage + 5.0f);
+                        return;
+                    }
                 }
                 return;
             case '-':
             case '_':
-                if (mainPageFocusLeft && mainPageActionIndex == 4) {  // Mutate Amount
-                    globalMutatePercentage = std::max(0.0f, globalMutatePercentage - 5.0f);
+                if (mainPageFocusLeft) {
+                    if (mainPageActionIndex == 4) {  // Random Amount
+                        globalRandomizePercentage = std::max(0.0f, globalRandomizePercentage - 5.0f);
+                        return;
+                    }
+                    if (mainPageActionIndex == 5) {  // Mutate Amount
+                        globalMutatePercentage = std::max(0.0f, globalMutatePercentage - 5.0f);
+                        return;
+                    }
                 }
                 return;
             case '\n':
@@ -252,20 +266,22 @@ void UI::handleInput(int ch) {
                             startPresetBrowser();
                             return;
                         case 2:  // Global Randomize
-                            randomizeAllParameters();
+                            randomizeAllParameters(std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
                             addConsoleMessage("Global randomize applied (whitelist-respecting)");
                             return;
                         case 3:  // Global Mutate
                             mutateAllParameters(std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
                             addConsoleMessage("Global mutate applied");
                             return;
-                        case 4:  // Mutate Amount (no action on enter)
+                        case 4:  // Random Amount (no action)
                             return;
-                        case 5:  // Global Reset
+                        case 5:  // Mutate Amount (no action)
+                            return;
+                        case 6:  // Global Reset
                             resetAllParametersToNeutral();
                             addConsoleMessage("Global parameters reset to neutral");
                             return;
-                        case 6:  // CPU Monitor Toggle
+                        case 7:  // CPU Monitor Toggle
                             cpuMonitor.setEnabled(!cpuMonitor.isEnabled());
                             addConsoleMessage(cpuMonitor.isEnabled() ? "CPU Monitor: ON" : "CPU Monitor: OFF");
                             return;
@@ -609,7 +625,7 @@ void UI::handleInput(int ch) {
 
     // Per-page actions on parameter pages
     if (parameterPage) {
-        if (ch == 'G') { randomizePageParameters(currentPage); addConsoleMessage("Page randomize applied"); return; }
+        if (ch == 'G') { randomizePageParameters(currentPage, std::clamp(globalRandomizePercentage/100.0f, 0.0f, 1.0f)); addConsoleMessage("Page randomize applied"); return; }
         if (ch == 'M') { mutatePageParameters(currentPage, std::clamp(globalMutatePercentage/100.0f, 0.0f, 1.0f)); addConsoleMessage("Page mutate applied"); return; }
         if (ch == 'R') { resetPageParameters(currentPage); addConsoleMessage("Page parameters reset"); return; }
     }
@@ -735,13 +751,14 @@ void UI::handleInput(int ch) {
                 return;
 
             case 'g':
-            case 'G':  // Generate/Randomize FM matrix (skip locked)
+            case 'G':  // Generate/Randomize FM matrix (skip locked), scale by random amount
                 {
+                    float randAmt = std::clamp(globalRandomizePercentage/100.0f, 0.0f, 1.0f);
                     for (int target = 0; target < 8; ++target) {
                         for (int source = 0; source < 16; ++source) {
                             if (fmMatrixLocked[target][source]) continue;
                             float randomDepth = (static_cast<float>(rand()) / RAND_MAX) * 1.98f - 0.99f;  // -0.99 to +0.99
-                            params->setFMDepth(target, source, randomDepth * 0.3f);  // Scale to 30% for subtler results
+                            params->setFMDepth(target, source, randomDepth * 0.3f * randAmt);  // Scale to amount
                         }
                     }
                     addConsoleMessage("FM matrix randomized");
@@ -763,13 +780,15 @@ void UI::handleInput(int ch) {
                 return;
 
             case 'm':
-            case 'M':  // Mutate FM matrix (20% variation, skip locked)
+            case 'M':  // Mutate FM matrix (scaled variation, skip locked)
                 {
+                    float mutateAmt = std::clamp(globalMutatePercentage/100.0f, 0.0f, 1.0f);
                     for (int target = 0; target < 8; ++target) {
                         for (int source = 0; source < 16; ++source) {
                             float currentDepth = params->getFMDepth(target, source);
                             if (currentDepth != 0.0f && !fmMatrixLocked[target][source]) {  // Only mutate non-zero values
                                 float variation = (static_cast<float>(rand()) / RAND_MAX) * 0.4f - 0.2f;  // ±20%
+                                variation *= mutateAmt;
                                 float newDepth = std::max(-0.99f, std::min(0.99f, currentDepth + variation));
                                 params->setFMDepth(target, source, newDepth);
                             }

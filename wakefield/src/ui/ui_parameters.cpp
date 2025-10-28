@@ -277,7 +277,8 @@ static inline float frand(float a, float b) {
     return a + (b - a) * r;
 }
 
-void UI::randomizeAllParameters() {
+void UI::randomizeAllParameters(float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
     auto ids = getRandomizableParameterIds();
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -288,8 +289,10 @@ void UI::randomizeAllParameters() {
                 setIndex(i);
                 switch (p->type) {
                     case ParamType::FLOAT: {
-                        float v = frand(p->min_val, p->max_val);
-                        setParameterValue(id, v);
+                        float cur = getParameterValue(id);
+                        float rnd = frand(p->min_val, p->max_val);
+                        float v = cur + (rnd - cur) * amount01;
+                        setParameterValue(id, std::clamp(v, p->min_val, p->max_val));
                         break;
                     }
                     case ParamType::INT:
@@ -297,13 +300,19 @@ void UI::randomizeAllParameters() {
                         int minI = static_cast<int>(p->min_val);
                         int maxI = static_cast<int>(p->max_val);
                         int span = std::max(0, maxI - minI);
-                        int r = span == 0 ? minI : (minI + (rand() % (span + 1)));
-                        setParameterValue(id, static_cast<float>(r));
+                        float roll = frand(0.0f, 1.0f);
+                        if (roll < amount01) {
+                            int r = span == 0 ? minI : (minI + (rand() % (span + 1)));
+                            setParameterValue(id, static_cast<float>(r));
+                        }
                         break;
                     }
                     case ParamType::BOOL: {
-                        int r = rand() & 1;
-                        setParameterValue(id, r ? 1.0f : 0.0f);
+                        float roll = frand(0.0f, 1.0f);
+                        if (roll < amount01) {
+                            bool cur = getParameterValue(id) > 0.5f;
+                            setParameterValue(id, cur ? 0.0f : 1.0f);
+                        }
                         break;
                     }
                 }
@@ -334,17 +343,33 @@ void UI::randomizeAllParameters() {
 
         // Global param (no index)
         switch (p->type) {
-            case ParamType::FLOAT: setParameterValue(id, frand(p->min_val, p->max_val)); break;
-            case ParamType::INT:
-            case ParamType::ENUM: {
-                int minI = static_cast<int>(p->min_val);
-                int maxI = static_cast<int>(p->max_val);
-                int span = std::max(0, maxI - minI);
-                int r = span == 0 ? minI : (minI + (rand() % (span + 1)));
-                setParameterValue(id, static_cast<float>(r));
+            case ParamType::FLOAT: {
+                float cur = getParameterValue(id);
+                float rnd = frand(p->min_val, p->max_val);
+                float v = cur + (rnd - cur) * amount01;
+                setParameterValue(id, std::clamp(v, p->min_val, p->max_val));
                 break;
             }
-            case ParamType::BOOL: setParameterValue(id, (rand() & 1) ? 1.0f : 0.0f); break;
+            case ParamType::INT:
+            case ParamType::ENUM: {
+                float roll = frand(0.0f, 1.0f);
+                if (roll < amount01) {
+                    int minI = static_cast<int>(p->min_val);
+                    int maxI = static_cast<int>(p->max_val);
+                    int span = std::max(0, maxI - minI);
+                    int r = span == 0 ? minI : (minI + (rand() % (span + 1)));
+                    setParameterValue(id, static_cast<float>(r));
+                }
+                break;
+            }
+            case ParamType::BOOL: {
+                float roll = frand(0.0f, 1.0f);
+                if (roll < amount01) {
+                    bool cur = getParameterValue(id) > 0.5f;
+                    setParameterValue(id, cur ? 0.0f : 1.0f);
+                }
+                break;
+            }
         }
     }
 }
@@ -509,7 +534,8 @@ void UI::resetAllParametersToNeutral() {
 }
 
 // Per-page helpers reuse the same logic as global ops, but filter to IDs on a page
-void UI::randomizePageParameters(UIPage page) {
+void UI::randomizePageParameters(UIPage page, float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
     auto ids = getParameterIdsForPage(page);
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -521,9 +547,9 @@ void UI::randomizePageParameters(UIPage page) {
             int saved = currentOscillatorIndex; for (int i=0;i<4;++i){ currentOscillatorIndex=i; }
             // Apply across all indices
             for (int i=0;i<4;++i){ currentOscillatorIndex=i;
-                if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
-                else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
-                else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+                if (p->type==ParamType::FLOAT) { float cur=getParameterValue(id); float rnd=frand(p->min_val,p->max_val); float v=cur+(rnd-cur)*amount01; setParameterValue(id,std::clamp(v,p->min_val,p->max_val)); }
+                else if (p->type==ParamType::INT || p->type==ParamType::ENUM){ if (frand(0.0f,1.0f)<amount01){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} } 
+                else { if (frand(0.0f,1.0f)<amount01){ bool cur=getParameterValue(id)>0.5f; setParameterValue(id, cur?0.0f:1.0f);} }
             }
             currentOscillatorIndex = saved; continue;
         }
@@ -561,9 +587,9 @@ void UI::randomizePageParameters(UIPage page) {
         }
 
         // Global param
-        if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
-        else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
-        else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+        if (p->type==ParamType::FLOAT) { float cur=getParameterValue(id); float rnd=frand(p->min_val,p->max_val); float v=cur+(rnd-cur)*amount01; setParameterValue(id,std::clamp(v,p->min_val,p->max_val)); }
+        else if (p->type==ParamType::INT || p->type==ParamType::ENUM){ if (frand(0.0f,1.0f)<amount01){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} }
+        else { if (frand(0.0f,1.0f)<amount01){ bool cur=getParameterValue(id)>0.5f; setParameterValue(id, cur?0.0f:1.0f);} }
     }
 }
 
