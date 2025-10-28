@@ -48,6 +48,17 @@ void UI::drawConfigPage() {
 
     row += 2;
 
+    // Display info
+    attron(A_BOLD);
+    mvprintw(row++, 1, "DISPLAY");
+    attroff(A_BOLD);
+    int maxY, maxX;
+    getmaxyx(stdscr, maxY, maxX);
+    mvprintw(row++, 2, "Terminal Size: %d cols x %d rows", maxX, maxY);
+    mvprintw(row++, 2, "Character Grid: %d x %d", maxX, maxY);
+
+    row += 2;
+
     // Build info
     attron(A_BOLD);
     mvprintw(row++, 1, "BUILD INFO");

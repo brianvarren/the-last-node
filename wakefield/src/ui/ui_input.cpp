@@ -231,69 +231,82 @@ void UI::handleInput(int ch) {
     // Main page action button and mixer handling
     if (currentPage == UIPage::MAIN && !textInputActive && !numericInputActive) {
         switch (ch) {
+            case KEY_LEFT:
+                mainPageFocusLeft = true;
+                return;
+            case KEY_RIGHT:
+                mainPageFocusLeft = false;
+                return;
             case KEY_UP:
-                if (mainPageActionIndex > 0) {
-                    mainPageActionIndex--;
+                if (mainPageFocusLeft) {
+                    if (mainPageActionIndex > 0) {
+                        mainPageActionIndex--;
+                    }
+                } else {
+                    if (mainPageMixerChannel > 0) {
+                        mainPageMixerChannel--;
+                    }
                 }
                 return;
             case KEY_DOWN:
-                if (mainPageActionIndex < 5) {
-                    mainPageActionIndex++;
+                if (mainPageFocusLeft) {
+                    if (mainPageActionIndex < 6) {
+                        mainPageActionIndex++;
+                    }
+                } else {
+                    if (mainPageMixerChannel < 11) {
+                        mainPageMixerChannel++;
+                    }
                 }
                 return;
             case '+':
             case '=':
-                if (mainPageActionIndex == 3) {  // Global Mutate
+                if (mainPageFocusLeft && mainPageActionIndex == 4) {  // Mutate Amount
                     globalMutatePercentage = std::min(100.0f, globalMutatePercentage + 5.0f);
                 }
                 return;
             case '-':
             case '_':
-                if (mainPageActionIndex == 3) {  // Global Mutate
+                if (mainPageFocusLeft && mainPageActionIndex == 4) {  // Mutate Amount
                     globalMutatePercentage = std::max(0.0f, globalMutatePercentage - 5.0f);
                 }
                 return;
             case '\n':
             case KEY_ENTER:
-                // Execute selected action
-                switch (mainPageActionIndex) {
-                    case 0:  // Save
-                        startTextInput();
-                        return;
-                    case 1:  // Load
-                        startPresetBrowser();
-                        return;
-                    case 2:  // Global Randomize
-                        // TODO: Implement global randomize
-                        addConsoleMessage("Global Randomize: Not yet implemented");
-                        return;
-                    case 3:  // Global Mutate
-                        // TODO: Implement global mutate
-                        addConsoleMessage("Global Mutate: Not yet implemented");
-                        return;
-                    case 4:  // Global Reset
-                        // TODO: Implement global reset
-                        addConsoleMessage("Global Reset: Not yet implemented");
-                        return;
-                    case 5:  // CPU Monitor Toggle
-                        cpuMonitor.setEnabled(!cpuMonitor.isEnabled());
-                        addConsoleMessage(cpuMonitor.isEnabled() ? "CPU Monitor: ON" : "CPU Monitor: OFF");
-                        return;
+                if (mainPageFocusLeft) {
+                    // Execute selected action
+                    switch (mainPageActionIndex) {
+                        case 0:  // Save Preset
+                            startTextInput();
+                            return;
+                        case 1:  // Load Preset
+                            startPresetBrowser();
+                            return;
+                        case 2:  // Global Randomize
+                            // TODO: Implement global randomize
+                            addConsoleMessage("Global Randomize: Not yet implemented");
+                            return;
+                        case 3:  // Global Mutate
+                            // TODO: Implement global mutate
+                            addConsoleMessage("Global Mutate: Not yet implemented");
+                            return;
+                        case 4:  // Mutate Amount (no action on enter)
+                            return;
+                        case 5:  // Global Reset
+                            // TODO: Implement global reset
+                            addConsoleMessage("Global Reset: Not yet implemented");
+                            return;
+                        case 6:  // CPU Monitor Toggle
+                            cpuMonitor.setEnabled(!cpuMonitor.isEnabled());
+                            addConsoleMessage(cpuMonitor.isEnabled() ? "CPU Monitor: ON" : "CPU Monitor: OFF");
+                            return;
+                    }
                 }
                 return;
 
-            // Mixer channel selection (1-8 for OSC/SAMP, Shift+1-4 for CHAOS)
-            case '1': case '!': mainPageMixerChannel = (ch == '!') ? 8 : 0; return;
-            case '2': case '@': mainPageMixerChannel = (ch == '@') ? 9 : 1; return;
-            case '3': case '#': mainPageMixerChannel = (ch == '#') ? 10 : 2; return;
-            case '4': case '$': mainPageMixerChannel = (ch == '$') ? 11 : 3; return;
-            case '5': mainPageMixerChannel = 4; return;
-            case '6': mainPageMixerChannel = 5; return;
-            case '7': mainPageMixerChannel = 6; return;
-            case '8': mainPageMixerChannel = 7; return;
-
-            // Mixer controls
+            // Mixer controls (only when focused on right column)
             case 'm': case 'M': {
+                if (mainPageFocusLeft) return;
                 // Toggle mute for selected channel
                 if (mainPageMixerChannel < 4) {
                     params->oscMuted[mainPageMixerChannel] = !params->oscMuted[mainPageMixerChannel].load();
@@ -307,6 +320,7 @@ void UI::handleInput(int ch) {
                 return;
             }
             case 's': case 'S': {
+                if (mainPageFocusLeft) return;
                 // Toggle solo for selected channel
                 if (mainPageMixerChannel < 4) {
                     params->oscSolo[mainPageMixerChannel] = !params->oscSolo[mainPageMixerChannel].load();
@@ -320,6 +334,7 @@ void UI::handleInput(int ch) {
                 return;
             }
             case '[': case ']': {
+                if (mainPageFocusLeft) return;
                 // Adjust level for selected channel
                 float delta = (ch == ']') ? 0.05f : -0.05f;
                 if (mainPageMixerChannel < 4) {
@@ -402,33 +417,34 @@ void UI::handleInput(int ch) {
     }
 
     // Function keys jump directly to pages
+    // F1=Main, F2=Osc, F3=Samp, F4=LFO, F5=Env, F6=Filter, F7=FX, F8=Chaos, F9=Mod, F10=FM, F11=Seq, F12=Config
     switch (ch) {
         case KEY_F(1):
-            setPage(UIPage::SAMPLER);
+            setPage(UIPage::MAIN);
             return;
         case KEY_F(2):
             setPage(UIPage::OSCILLATOR);
             return;
         case KEY_F(3):
-            setPage(UIPage::ENV);
+            setPage(UIPage::SAMPLER);
             return;
         case KEY_F(4):
             setPage(UIPage::LFO);
             return;
         case KEY_F(5):
-            setPage(UIPage::REVERB);
+            setPage(UIPage::ENV);
             return;
         case KEY_F(6):
             setPage(UIPage::FILTER);
             return;
         case KEY_F(7):
-            setPage(UIPage::MIXER);
+            setPage(UIPage::REVERB);  // FX page (reverb)
             return;
         case KEY_F(8):
-            setPage(UIPage::MOD);
+            setPage(UIPage::CHAOS);
             return;
         case KEY_F(9):
-            setPage(UIPage::CHAOS);
+            setPage(UIPage::MOD);
             return;
         case KEY_F(10):
             setPage(UIPage::FM);

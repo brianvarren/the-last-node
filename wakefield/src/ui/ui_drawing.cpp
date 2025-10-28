@@ -437,6 +437,10 @@ void UI::draw(int activeVoices) {
 }
 
 void UI::drawMainPage() {
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
+    int leftWidth = maxX / 2 - 4;  // Left column takes ~half width
+
     int row = 3;
     int col = 2;
 
@@ -452,10 +456,11 @@ void UI::drawMainPage() {
 
     // Action buttons section
     const char* actionLabels[] = {
-        "Save",
-        "Load",
+        "Save Preset",
+        "Load Preset",
         "Global Randomize",
         "Global Mutate",
+        "Mutate Amount",
         "Global Reset",
         "CPU Monitor"
     };
@@ -464,8 +469,8 @@ void UI::drawMainPage() {
     row += 2;
 
     // Draw action buttons
-    for (int i = 0; i < 6; ++i) {
-        bool selected = (i == mainPageActionIndex);
+    for (int i = 0; i < 7; ++i) {
+        bool selected = (i == mainPageActionIndex && mainPageFocusLeft);
 
         if (selected) {
             attron(COLOR_PAIR(5) | A_BOLD);
@@ -475,29 +480,29 @@ void UI::drawMainPage() {
             mvprintw(row, col, "  %s", actionLabels[i]);
         }
 
-        // Show mutate percentage next to Mutate button
-        if (i == 3) {  // Global Mutate
-            mvprintw(row, col + 25, "(%.0f%%)", globalMutatePercentage);
+        // Show mutate percentage for Mutate Amount item
+        if (i == 4) {  // Mutate Amount
+            mvprintw(row, col + 20, "%.0f%%", globalMutatePercentage);
         }
 
         // Show CPU monitor state
-        if (i == 5) {  // CPU Monitor
+        if (i == 6) {  // CPU Monitor
             const char* state = cpuMonitor.isEnabled() ? "ON" : "OFF";
-            mvprintw(row, col + 25, "(%s)", state);
+            mvprintw(row, col + 20, "%s", state);
         }
 
         row++;
     }
 
     row += 2;
-    mvprintw(row, col, "Use arrow keys to navigate, Enter to execute");
-    row++;
-    mvprintw(row, col, "For Mutate: +/- to adjust percentage");
-    row++;
-    mvprintw(row, col, "Press '?' for help");
+    attron(COLOR_PAIR(8));
+    mvprintw(row++, col, "Left/Right: Switch columns");
+    mvprintw(row++, col, "Up/Down: Navigate items");
+    mvprintw(row++, col, "Enter: Execute | ?: Help");
+    attroff(COLOR_PAIR(8));
 
     // Mixer on right side
-    int rightCol = col + 50;
+    int rightCol = leftWidth + 4;
     int mixerRow = 3;
 
     // Mixer title
@@ -516,7 +521,7 @@ void UI::drawMainPage() {
         float level = params->getOscLevel(i);
         bool muted = params->oscMuted[i].load();
         bool solo = params->oscSolo[i].load();
-        bool selected = (mainPageMixerChannel == i);
+        bool selected = (mainPageMixerChannel == i && !mainPageFocusLeft);
 
         if (selected) {
             attron(COLOR_PAIR(5) | A_BOLD);
@@ -559,7 +564,7 @@ void UI::drawMainPage() {
         float level = synth->getSamplerLevel(i);
         bool muted = params->samplerMuted[i].load();
         bool solo = params->samplerSolo[i].load();
-        bool selected = (mainPageMixerChannel == i + 4);
+        bool selected = (mainPageMixerChannel == i + 4 && !mainPageFocusLeft);
 
         if (selected) {
             attron(COLOR_PAIR(5) | A_BOLD);
@@ -602,7 +607,7 @@ void UI::drawMainPage() {
         float level = 0.5f;  // TODO: Add actual chaos level parameters
         bool muted = params->chaosMuted[i].load();
         bool solo = params->chaosSolo[i].load();
-        bool selected = (mainPageMixerChannel == i + 8);
+        bool selected = (mainPageMixerChannel == i + 8 && !mainPageFocusLeft);
 
         if (selected) {
             attron(COLOR_PAIR(5) | A_BOLD);

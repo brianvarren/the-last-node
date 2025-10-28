@@ -1181,8 +1181,9 @@ private:
     void loadSampleForCurrentSampler(const std::string& filepath);
 
     // Main page action buttons state
-    int mainPageActionIndex;         // 0=Save, 1=Load, 2=Randomize, 3=Mutate, 4=Reset, 5=CPU Monitor
+    int mainPageActionIndex;         // 0=Save, 1=Load, 2=Randomize, 3=Mutate, 4=MutateAmount, 5=Reset, 6=CPU Monitor
     float globalMutatePercentage;    // 0-100%
+    bool mainPageFocusLeft;          // true=left column (actions), false=right column (mixer)
 
     // Main page mixer state
     int mainPageMixerChannel;        // 0-11: 0-3=OSC, 4-7=SAMP, 8-11=CHAOS
