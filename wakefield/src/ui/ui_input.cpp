@@ -252,18 +252,18 @@ void UI::handleInput(int ch) {
                             startPresetBrowser();
                             return;
                         case 2:  // Global Randomize
-                            // TODO: Implement global randomize
-                            addConsoleMessage("Global Randomize: Not yet implemented");
+                            randomizeAllParameters();
+                            addConsoleMessage("Global randomize applied (whitelist-respecting)");
                             return;
                         case 3:  // Global Mutate
-                            // TODO: Implement global mutate
-                            addConsoleMessage("Global Mutate: Not yet implemented");
+                            mutateAllParameters(std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
+                            addConsoleMessage("Global mutate applied");
                             return;
                         case 4:  // Mutate Amount (no action on enter)
                             return;
                         case 5:  // Global Reset
-                            // TODO: Implement global reset
-                            addConsoleMessage("Global Reset: Not yet implemented");
+                            resetAllParametersToNeutral();
+                            addConsoleMessage("Global parameters reset to neutral");
                             return;
                         case 6:  // CPU Monitor Toggle
                             cpuMonitor.setEnabled(!cpuMonitor.isEnabled());
@@ -578,10 +578,25 @@ void UI::handleInput(int ch) {
         return;
     }
 
-    // 'L' key starts MIDI learn for current parameter
-    if (ch == 'L' || ch == 'l') {
+    // 'L' starts MIDI learn; 'l' toggles parameter lock (randomize immunity)
+    if (ch == 'L') {
         startMidiLearn(selectedParameterId);
         return;
+    }
+    if (ch == 'l') {
+        InlineParameter* p = getParameter(selectedParameterId);
+        if (p) {
+            p->randomizable = !p->randomizable;
+            addConsoleMessage(std::string("Parameter ") + p->name + (p->randomizable ? ": unlocked" : ": locked"));
+        }
+        return;
+    }
+
+    // Per-page actions on parameter pages
+    if (parameterPage) {
+        if (ch == 'G') { randomizePageParameters(currentPage); addConsoleMessage("Page randomize applied"); return; }
+        if (ch == 'M') { mutatePageParameters(currentPage, std::clamp(globalMutatePercentage/100.0f, 0.0f, 1.0f)); addConsoleMessage("Page mutate applied"); return; }
+        if (ch == 'R') { resetPageParameters(currentPage); addConsoleMessage("Page parameters reset"); return; }
     }
 
     // Transport and looping hotkeys (keep these)

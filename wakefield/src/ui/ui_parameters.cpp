@@ -5,127 +5,175 @@
 #include <chrono>
 #include <string>
 
+/*
+ * RANDOMIZATION WHITELIST POLICY
+ *
+ * The 'randomizable' flag determines which parameters can be affected by
+ * global randomize and mutate operations.
+ *
+ * IMMUNE (randomizable = false):
+ * - Master Volume (prevents sudden loud sounds)
+ * - Mix levels (OSC/SAMP levels - prevents silencing active sources)
+ * - Mute/Solo states (not in parameter list, but immune via separate handling)
+ * - CPU Monitor toggle
+ * - Special UI controls (sample selector, looper controls)
+ * - Filter/Reverb enabled states (prevents disabling core FX)
+ * - Key modes (prevents changing between FREE/KEY unexpectedly)
+ * - Chaos Running state (prevents stopping generators mid-performance)
+ *
+ * RANDOMIZABLE (randomizable = true):
+ * - Sound design parameters (morph, duty, ratio, offset, amp)
+ * - Effect parameters (reverb settings, filter settings)
+ * - Modulation sources (LFO, envelope, chaos parameters)
+ * - Sampler controls (loop points, tuning, xfade)
+ * - FM depth
+ */
+
 void UI::initializeParameters() {
     parameters.clear();
 
-    // Global parameters
-    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN)});
+    // ============================================================================
+    // MAIN PAGE - IMMUNE (prevent volume disasters)
+    // ============================================================================
+    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN), false});
 
-    // OSCILLATOR page parameters - control the currently selected oscillator
-    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({19, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
-    parameters.push_back({18, ParamType::FLOAT, "Amp", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR)});
+    // ============================================================================
+    // OSCILLATOR PAGE - MOSTLY RANDOMIZABLE (except mode)
+    // ============================================================================
+    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR), false});  // IMMUNE
+    parameters.push_back({19, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::OSCILLATOR), true});
+    parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
+    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
+    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
+    parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
+    parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
+    parameters.push_back({18, ParamType::FLOAT, "Amp", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
 
-    // LFO page parameters - control the currently selected LFO
-    parameters.push_back({200, ParamType::FLOAT, "Period", "s", 0.1f, 1800.0f, {}, true, static_cast<int>(UIPage::LFO)});
-    parameters.push_back({201, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::LFO)});
-    parameters.push_back({206, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::LFO)});
-    parameters.push_back({202, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::LFO)});
-    parameters.push_back({203, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LFO)});
-    parameters.push_back({204, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO)});
-    parameters.push_back({205, ParamType::BOOL, "Reset On Note", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO)});
+    // ============================================================================
+    // LFO PAGE - ALL RANDOMIZABLE (modulation sources)
+    // ============================================================================
+    parameters.push_back({200, ParamType::FLOAT, "Period", "s", 0.1f, 1800.0f, {}, true, static_cast<int>(UIPage::LFO), true});
+    parameters.push_back({201, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::LFO), true});
+    parameters.push_back({206, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::LFO), true});
+    parameters.push_back({202, ParamType::FLOAT, "Morph", "", 0.0001f, 0.9999f, {}, true, static_cast<int>(UIPage::LFO), true});
+    parameters.push_back({203, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LFO), true});
+    parameters.push_back({204, ParamType::BOOL, "Flip", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO), true});
+    parameters.push_back({205, ParamType::BOOL, "Reset On Note", "", 0, 1, {}, true, static_cast<int>(UIPage::LFO), true});
 
-    // REVERB page parameters - ALL support MIDI learn
-    parameters.push_back({20, ParamType::ENUM, "Reverb Type", "", 0, 4, {"Greyhole", "Plate", "Room", "Hall", "Spring"}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({21, ParamType::BOOL, "Reverb Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({22, ParamType::FLOAT, "Delay Time", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({23, ParamType::FLOAT, "Size", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({24, ParamType::FLOAT, "Damping", "", 0.0f, 0.99f, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({25, ParamType::FLOAT, "Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({26, ParamType::FLOAT, "Decay", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({27, ParamType::FLOAT, "Diffusion", "", 0.0f, 0.99f, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({28, ParamType::FLOAT, "Mod Depth", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB)});
-    parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, true, static_cast<int>(UIPage::REVERB)});
+    // ============================================================================
+    // REVERB PAGE - IMMUNE enabled state, randomizable settings
+    // ============================================================================
+    parameters.push_back({20, ParamType::ENUM, "Reverb Type", "", 0, 4, {"Greyhole", "Plate", "Room", "Hall", "Spring"}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({21, ParamType::BOOL, "Reverb Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::REVERB), false});  // IMMUNE
+    parameters.push_back({22, ParamType::FLOAT, "Delay Time", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({23, ParamType::FLOAT, "Size", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({24, ParamType::FLOAT, "Damping", "", 0.0f, 0.99f, {}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({25, ParamType::FLOAT, "Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({26, ParamType::FLOAT, "Decay", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({27, ParamType::FLOAT, "Diffusion", "", 0.0f, 0.99f, {}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({28, ParamType::FLOAT, "Mod Depth", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::REVERB), true});
+    parameters.push_back({29, ParamType::FLOAT, "Mod Freq", "", 0.0f, 10.0f, {}, true, static_cast<int>(UIPage::REVERB), true});
 
-    // FILTER page parameters - ALL support MIDI learn
+    // ============================================================================
+    // FILTER PAGE - IMMUNE enabled state, randomizable settings
+    // ============================================================================
     parameters.push_back({30, ParamType::ENUM, "Filter Type", "", 0, 9,
                           {"Lowpass", "Highpass", "High Shelf", "Low Shelf",
                            "Ladder LP", "Diode LP", "Ladder BP", "Dual Notch",
                            "Bandpass 2P", "Ladder BP 8P"},
-                          true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({32, ParamType::FLOAT, "Cutoff", "Hz", 20.0f, 20000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({33, ParamType::FLOAT, "Gain", "dB", -24.0f, 24.0f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({34, ParamType::FLOAT, "Resonance", "", 0.0f, 1.2f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({35, ParamType::FLOAT, "Drive", "", 0.1f, 15.0f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({36, ParamType::FLOAT, "FB HP", "Hz", 10.0f, 6000.0f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({37, ParamType::FLOAT, "Spread", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({38, ParamType::FLOAT, "Notch FB", "", 0.0f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({39, ParamType::FLOAT, "Width", "", 0.05f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER)});
-    parameters.push_back({42, ParamType::FLOAT, "Dry/Wet", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER)});
+                          true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({31, ParamType::BOOL, "Filter Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::FILTER), false});  // IMMUNE
+    parameters.push_back({32, ParamType::FLOAT, "Cutoff", "Hz", 20.0f, 20000.0f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({33, ParamType::FLOAT, "Gain", "dB", -24.0f, 24.0f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({34, ParamType::FLOAT, "Resonance", "", 0.0f, 1.2f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({35, ParamType::FLOAT, "Drive", "", 0.1f, 15.0f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({36, ParamType::FLOAT, "FB HP", "Hz", 10.0f, 6000.0f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({37, ParamType::FLOAT, "Spread", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({38, ParamType::FLOAT, "Notch FB", "", 0.0f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({39, ParamType::FLOAT, "Width", "", 0.05f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER), true});
+    parameters.push_back({42, ParamType::FLOAT, "Dry/Wet", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER), true});
 
-    // LOOPER page parameters - ALL support MIDI learn
-    parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER)});
-    parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LOOPER)});
+    // ============================================================================
+    // LOOPER PAGE - IMMUNE (special UI controls, performance-critical)
+    // ============================================================================
+    parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER), false});  // IMMUNE
+    parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LOOPER), false});  // IMMUNE
 
-    // MIXER page parameters - oscillator and sampler mix levels (50-57)
-    parameters.push_back({50, ParamType::FLOAT, "OSC 1 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
-    parameters.push_back({51, ParamType::FLOAT, "OSC 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
-    parameters.push_back({52, ParamType::FLOAT, "OSC 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
-    parameters.push_back({53, ParamType::FLOAT, "OSC 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
-    parameters.push_back({54, ParamType::FLOAT, "SAMP 1 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
-    parameters.push_back({55, ParamType::FLOAT, "SAMP 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
-    parameters.push_back({56, ParamType::FLOAT, "SAMP 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
-    parameters.push_back({57, ParamType::FLOAT, "SAMP 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER)});
+    // ============================================================================
+    // MIXER PAGE - ALL IMMUNE (prevents silencing sources)
+    // ============================================================================
+    parameters.push_back({50, ParamType::FLOAT, "OSC 1 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
+    parameters.push_back({51, ParamType::FLOAT, "OSC 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
+    parameters.push_back({52, ParamType::FLOAT, "OSC 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
+    parameters.push_back({53, ParamType::FLOAT, "OSC 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
+    parameters.push_back({54, ParamType::FLOAT, "SAMP 1 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
+    parameters.push_back({55, ParamType::FLOAT, "SAMP 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
+    parameters.push_back({56, ParamType::FLOAT, "SAMP 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
+    parameters.push_back({57, ParamType::FLOAT, "SAMP 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});  // IMMUNE
 
-    // SAMPLER page parameters - control the currently selected sampler (60-69)
-    parameters.push_back({69, ParamType::ENUM, "Sample", "", 0, 0, {}, false, static_cast<int>(UIPage::SAMPLER)});  // Special: opens sample browser
-    parameters.push_back({60, ParamType::ENUM, "Key Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({68, ParamType::ENUM, "Direction", "", 0, 2, {"Forward", "Reverse", "Ping-Pong"}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({61, ParamType::FLOAT, "Loop Start", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({62, ParamType::FLOAT, "Loop Length", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({63, ParamType::FLOAT, "Xfade", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({64, ParamType::INT, "Octave", "", -5, 5, {}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({65, ParamType::FLOAT, "Tune", "", -1.0f, 1.0f, {}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({66, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::SAMPLER)});
-    parameters.push_back({67, ParamType::BOOL, "Note Reset", "", 0, 1, {}, true, static_cast<int>(UIPage::SAMPLER)});
+    // ============================================================================
+    // SAMPLER PAGE - MOSTLY RANDOMIZABLE (except key mode and sample selector)
+    // ============================================================================
+    parameters.push_back({69, ParamType::ENUM, "Sample", "", 0, 0, {}, false, static_cast<int>(UIPage::SAMPLER), false});  // IMMUNE (special)
+    parameters.push_back({60, ParamType::ENUM, "Key Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER), false});  // IMMUNE
+    parameters.push_back({68, ParamType::ENUM, "Direction", "", 0, 2, {"Forward", "Reverse", "Ping-Pong"}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({61, ParamType::FLOAT, "Loop Start", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({62, ParamType::FLOAT, "Loop Length", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({63, ParamType::FLOAT, "Xfade", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({64, ParamType::INT, "Octave", "", -5, 5, {}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({65, ParamType::FLOAT, "Tune", "", -1.0f, 1.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({66, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({67, ParamType::BOOL, "Note Reset", "", 0, 1, {}, true, static_cast<int>(UIPage::SAMPLER), true});
 
-    // CONFIG page parameters
-    parameters.push_back({400, ParamType::BOOL, "CPU Monitor", "", 0, 1, {}, false, static_cast<int>(UIPage::CONFIG)});
+    // ============================================================================
+    // CONFIG PAGE - IMMUNE (UI settings)
+    // ============================================================================
+    parameters.push_back({400, ParamType::BOOL, "CPU Monitor", "", 0, 1, {}, false, static_cast<int>(UIPage::CONFIG), false});  // IMMUNE
 
-    // ENV page parameters - control the currently selected envelope (300-323)
+    // ============================================================================
+    // ENVELOPE PAGE - ALL RANDOMIZABLE (modulation sources)
+    // ============================================================================
     // Envelope 1: 300-305
-    parameters.push_back({300, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({301, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({302, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({303, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({304, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({305, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({300, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({301, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({302, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({303, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({304, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({305, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     // Envelope 2: 306-311
-    parameters.push_back({306, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({307, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({308, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({309, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({310, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({311, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({306, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({307, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({308, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({309, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({310, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({311, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     // Envelope 3: 312-317
-    parameters.push_back({312, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({313, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({314, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({315, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({316, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({317, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({312, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({313, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({314, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({315, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({316, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({317, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     // Envelope 4: 318-323
-    parameters.push_back({318, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({319, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({320, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({321, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({322, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
-    parameters.push_back({323, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV)});
+    parameters.push_back({318, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({319, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({320, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({321, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({322, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
+    parameters.push_back({323, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
 
-    // CHAOS page parameters - control the currently selected chaos generator (350-353)
-    parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
-    parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS)});
-    parameters.push_back({352, ParamType::ENUM, "Interp", "", 0, 2, {"LINEAR", "CUBIC", "HOLD"}, true, static_cast<int>(UIPage::CHAOS)});
-    parameters.push_back({353, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS)});
+    // ============================================================================
+    // CHAOS PAGE - RANDOMIZABLE (except running state)
+    // ============================================================================
+    parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
+    parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
+    parameters.push_back({352, ParamType::ENUM, "Interp", "", 0, 2, {"LINEAR", "CUBIC", "HOLD"}, true, static_cast<int>(UIPage::CHAOS), true});
+    parameters.push_back({353, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS), false});  // IMMUNE
 
-    // FM page parameters (360-360)
-    parameters.push_back({360, ParamType::FLOAT, "Global Depth", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FM)});
+    // ============================================================================
+    // FM PAGE - RANDOMIZABLE
+    // ============================================================================
+    parameters.push_back({360, ParamType::FLOAT, "Global Depth", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FM), true});
 }
 
 InlineParameter* UI::getParameter(int id) {
@@ -177,6 +225,397 @@ std::vector<int> UI::getFilterParameterIds() const {
     }
 
     return ids;
+}
+
+std::vector<int> UI::getRandomizableParameterIds() {
+    std::vector<int> ids;
+    for (const auto& param : parameters) {
+        if (param.randomizable) {
+            ids.push_back(param.id);
+        }
+    }
+    return ids;
+}
+
+// Helper to detect which selector index a parameter uses (if any)
+static inline bool paramUsesOscIndex(int id) {
+    switch (id) {
+        case 10: case 11: case 12: case 13: case 14: case 15: case 18: case 19:
+            return true;
+        default: return false;
+    }
+}
+
+static inline bool paramUsesLfoIndex(int id) {
+    return (id >= 200 && id <= 206);
+}
+
+static inline bool paramUsesEnvIndex(int id) {
+    return (id >= 300 && id <= 323);
+}
+
+static inline bool paramUsesSamplerIndex(int id) {
+    // SAMPLER page (60-69). 69 is a file picker placeholder; it's never randomizable.
+    return (id >= 60 && id <= 68);
+}
+
+static inline bool paramUsesChaosIndex(int id) {
+    return (id >= 350 && id <= 353);
+}
+
+// Generate a random float in [a,b]
+static inline float frand(float a, float b) {
+    float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+    return a + (b - a) * r;
+}
+
+void UI::randomizeAllParameters() {
+    auto ids = getRandomizableParameterIds();
+    for (int id : ids) {
+        InlineParameter* p = getParameter(id);
+        if (!p) continue;
+
+        auto applyOne = [&](int count, auto setIndex, int saved) {
+            for (int i = 0; i < count; ++i) {
+                setIndex(i);
+                switch (p->type) {
+                    case ParamType::FLOAT: {
+                        float v = frand(p->min_val, p->max_val);
+                        setParameterValue(id, v);
+                        break;
+                    }
+                    case ParamType::INT:
+                    case ParamType::ENUM: {
+                        int minI = static_cast<int>(p->min_val);
+                        int maxI = static_cast<int>(p->max_val);
+                        int span = std::max(0, maxI - minI);
+                        int r = span == 0 ? minI : (minI + (rand() % (span + 1)));
+                        setParameterValue(id, static_cast<float>(r));
+                        break;
+                    }
+                    case ParamType::BOOL: {
+                        int r = rand() & 1;
+                        setParameterValue(id, r ? 1.0f : 0.0f);
+                        break;
+                    }
+                }
+            }
+            setIndex(saved);
+        };
+
+        if (paramUsesOscIndex(id)) {
+            int saved = currentOscillatorIndex; auto setIdx = [&](int v){ currentOscillatorIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesLfoIndex(id)) {
+            int saved = currentLFOIndex; auto setIdx = [&](int v){ currentLFOIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesEnvIndex(id)) {
+            int saved = currentEnvelopeIndex; auto setIdx = [&](int v){ currentEnvelopeIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesSamplerIndex(id)) {
+            int saved = currentSamplerIndex; auto setIdx = [&](int v){ currentSamplerIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesChaosIndex(id)) {
+            int saved = currentChaosIndex; auto setIdx = [&](int v){ currentChaosIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+
+        // Global param (no index)
+        switch (p->type) {
+            case ParamType::FLOAT: setParameterValue(id, frand(p->min_val, p->max_val)); break;
+            case ParamType::INT:
+            case ParamType::ENUM: {
+                int minI = static_cast<int>(p->min_val);
+                int maxI = static_cast<int>(p->max_val);
+                int span = std::max(0, maxI - minI);
+                int r = span == 0 ? minI : (minI + (rand() % (span + 1)));
+                setParameterValue(id, static_cast<float>(r));
+                break;
+            }
+            case ParamType::BOOL: setParameterValue(id, (rand() & 1) ? 1.0f : 0.0f); break;
+        }
+    }
+}
+
+void UI::mutateAllParameters(float amount01) {
+    amount01 = std::max(0.0f, std::min(1.0f, amount01));
+    auto ids = getRandomizableParameterIds();
+    for (int id : ids) {
+        InlineParameter* p = getParameter(id);
+        if (!p) continue;
+
+        auto applyOne = [&](int count, auto setIndex, int saved) {
+            for (int i = 0; i < count; ++i) {
+                setIndex(i);
+                switch (p->type) {
+                    case ParamType::FLOAT: {
+                        float cur = getParameterValue(id);
+                        float range = (p->max_val - p->min_val);
+                        float maxDelta = range * (0.3f * amount01);
+                        float delta = frand(-maxDelta, maxDelta);
+                        float v = std::max(p->min_val, std::min(p->max_val, cur + delta));
+                        setParameterValue(id, v);
+                        break;
+                    }
+                    case ParamType::INT:
+                    case ParamType::ENUM: {
+                        float roll = frand(0.0f, 1.0f);
+                        int cur = static_cast<int>(getParameterValue(id));
+                        if (roll < amount01) {
+                            int dir = (rand() % 3) - 1; // -1,0,1
+                            int v = std::max(static_cast<int>(p->min_val), std::min(static_cast<int>(p->max_val), cur + dir));
+                            setParameterValue(id, static_cast<float>(v));
+                        }
+                        break;
+                    }
+                    case ParamType::BOOL: {
+                        float roll = frand(0.0f, 1.0f);
+                        if (roll < amount01 * 0.25f) {
+                            bool cur = getParameterValue(id) > 0.5f;
+                            setParameterValue(id, cur ? 0.0f : 1.0f);
+                        }
+                        break;
+                    }
+                }
+            }
+            setIndex(saved);
+        };
+
+        if (paramUsesOscIndex(id)) {
+            int saved = currentOscillatorIndex; auto setIdx = [&](int v){ currentOscillatorIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesLfoIndex(id)) {
+            int saved = currentLFOIndex; auto setIdx = [&](int v){ currentLFOIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesEnvIndex(id)) {
+            int saved = currentEnvelopeIndex; auto setIdx = [&](int v){ currentEnvelopeIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesSamplerIndex(id)) {
+            int saved = currentSamplerIndex; auto setIdx = [&](int v){ currentSamplerIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesChaosIndex(id)) {
+            int saved = currentChaosIndex; auto setIdx = [&](int v){ currentChaosIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+
+        // Global (no index)
+        switch (p->type) {
+            case ParamType::FLOAT: {
+                float cur = getParameterValue(id);
+                float range = (p->max_val - p->min_val);
+                float maxDelta = range * (0.3f * amount01);
+                float delta = frand(-maxDelta, maxDelta);
+                float v = std::max(p->min_val, std::min(p->max_val, cur + delta));
+                setParameterValue(id, v);
+                break;
+            }
+            case ParamType::INT:
+            case ParamType::ENUM: {
+                float roll = frand(0.0f, 1.0f);
+                int cur = static_cast<int>(getParameterValue(id));
+                if (roll < amount01) {
+                    int dir = (rand() % 3) - 1;
+                    int v = std::max(static_cast<int>(p->min_val), std::min(static_cast<int>(p->max_val), cur + dir));
+                    setParameterValue(id, static_cast<float>(v));
+                }
+                break;
+            }
+            case ParamType::BOOL: {
+                float roll = frand(0.0f, 1.0f);
+                if (roll < amount01 * 0.25f) {
+                    bool cur = getParameterValue(id) > 0.5f;
+                    setParameterValue(id, cur ? 0.0f : 1.0f);
+                }
+                break;
+            }
+        }
+    }
+}
+
+void UI::resetAllParametersToNeutral() {
+    auto ids = getRandomizableParameterIds();
+    for (int id : ids) {
+        InlineParameter* p = getParameter(id);
+        if (!p) continue;
+
+        auto applyOne = [&](int count, auto setIndex, int saved) {
+            for (int i = 0; i < count; ++i) {
+                setIndex(i);
+                switch (p->type) {
+                    case ParamType::FLOAT: {
+                        float v = (p->min_val + p->max_val) * 0.5f;
+                        setParameterValue(id, v);
+                        break;
+                    }
+                    case ParamType::INT:
+                    case ParamType::ENUM: {
+                        setParameterValue(id, p->min_val);
+                        break;
+                    }
+                    case ParamType::BOOL: {
+                        setParameterValue(id, 0.0f);
+                        break;
+                    }
+                }
+            }
+            setIndex(saved);
+        };
+
+        if (paramUsesOscIndex(id)) {
+            int saved = currentOscillatorIndex; auto setIdx = [&](int v){ currentOscillatorIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesLfoIndex(id)) {
+            int saved = currentLFOIndex; auto setIdx = [&](int v){ currentLFOIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesEnvIndex(id)) {
+            int saved = currentEnvelopeIndex; auto setIdx = [&](int v){ currentEnvelopeIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesSamplerIndex(id)) {
+            int saved = currentSamplerIndex; auto setIdx = [&](int v){ currentSamplerIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+        if (paramUsesChaosIndex(id)) {
+            int saved = currentChaosIndex; auto setIdx = [&](int v){ currentChaosIndex = v;};
+            applyOne(4, setIdx, saved); continue;
+        }
+
+        // Global (no index)
+        switch (p->type) {
+            case ParamType::FLOAT: setParameterValue(id, (p->min_val + p->max_val) * 0.5f); break;
+            case ParamType::INT:
+            case ParamType::ENUM: setParameterValue(id, p->min_val); break;
+            case ParamType::BOOL: setParameterValue(id, 0.0f); break;
+        }
+    }
+}
+
+// Per-page helpers reuse the same logic as global ops, but filter to IDs on a page
+void UI::randomizePageParameters(UIPage page) {
+    auto ids = getParameterIdsForPage(page);
+    for (int id : ids) {
+        InlineParameter* p = getParameter(id);
+        if (!p || !p->randomizable) continue;
+
+        // Reuse the same per-id logic as randomizeAllParameters
+        // Indexed params are handled by the same branches
+        if (paramUsesOscIndex(id)) {
+            int saved = currentOscillatorIndex; for (int i=0;i<4;++i){ currentOscillatorIndex=i; }
+            // Apply across all indices
+            for (int i=0;i<4;++i){ currentOscillatorIndex=i;
+                if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
+                else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
+                else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+            }
+            currentOscillatorIndex = saved; continue;
+        }
+        if (paramUsesLfoIndex(id)) {
+            int saved = currentLFOIndex; for (int i=0;i<4;++i){ currentLFOIndex=i;
+                if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
+                else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
+                else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+            }
+            currentLFOIndex = saved; continue;
+        }
+        if (paramUsesEnvIndex(id)) {
+            int saved = currentEnvelopeIndex; for (int i=0;i<4;++i){ currentEnvelopeIndex=i;
+                if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
+                else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
+                else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+            }
+            currentEnvelopeIndex = saved; continue;
+        }
+        if (paramUsesSamplerIndex(id)) {
+            int saved = currentSamplerIndex; for (int i=0;i<4;++i){ currentSamplerIndex=i;
+                if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
+                else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
+                else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+            }
+            currentSamplerIndex = saved; continue;
+        }
+        if (paramUsesChaosIndex(id)) {
+            int saved = currentChaosIndex; for (int i=0;i<4;++i){ currentChaosIndex=i;
+                if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
+                else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
+                else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+            }
+            currentChaosIndex = saved; continue;
+        }
+
+        // Global param
+        if (p->type==ParamType::FLOAT) setParameterValue(id, frand(p->min_val,p->max_val));
+        else if (p->type==ParamType::INT || p->type==ParamType::ENUM){int minI=(int)p->min_val,maxI=(int)p->max_val;int span=std::max(0,maxI-minI);int r= span==0?minI:(minI + (rand()%(span+1))); setParameterValue(id,(float)r);} 
+        else setParameterValue(id,(rand()&1)?1.0f:0.0f);
+    }
+}
+
+void UI::mutatePageParameters(UIPage page, float amount01) {
+    amount01 = std::max(0.0f, std::min(1.0f, amount01));
+    auto ids = getParameterIdsForPage(page);
+    for (int id : ids) {
+        InlineParameter* p = getParameter(id);
+        if (!p || !p->randomizable) continue;
+
+        auto mutateOne = [&](int /*i*/){
+            if (p->type==ParamType::FLOAT){
+                float cur = getParameterValue(id);
+                float range = (p->max_val - p->min_val);
+                float maxDelta = range * (0.3f * amount01);
+                float v = std::max(p->min_val, std::min(p->max_val, cur + frand(-maxDelta, maxDelta)));
+                setParameterValue(id, v);
+            } else if (p->type==ParamType::INT || p->type==ParamType::ENUM){
+                if (frand(0.0f,1.0f) < amount01){
+                    int cur = (int)getParameterValue(id);
+                    int dir = (rand()%3)-1;
+                    int v = std::max((int)p->min_val, std::min((int)p->max_val, cur+dir));
+                    setParameterValue(id,(float)v);
+                }
+            } else {
+                if (frand(0.0f,1.0f) < amount01*0.25f){
+                    bool cur = getParameterValue(id) > 0.5f;
+                    setParameterValue(id, cur?0.0f:1.0f);
+                }
+            }
+        };
+
+        if (paramUsesOscIndex(id)) { int s=currentOscillatorIndex; for(int i=0;i<4;++i){ currentOscillatorIndex=i; mutateOne(i);} currentOscillatorIndex=s; continue; }
+        if (paramUsesLfoIndex(id)) { int s=currentLFOIndex; for(int i=0;i<4;++i){ currentLFOIndex=i; mutateOne(i);} currentLFOIndex=s; continue; }
+        if (paramUsesEnvIndex(id)) { int s=currentEnvelopeIndex; for(int i=0;i<4;++i){ currentEnvelopeIndex=i; mutateOne(i);} currentEnvelopeIndex=s; continue; }
+        if (paramUsesSamplerIndex(id)) { int s=currentSamplerIndex; for(int i=0;i<4;++i){ currentSamplerIndex=i; mutateOne(i);} currentSamplerIndex=s; continue; }
+        if (paramUsesChaosIndex(id)) { int s=currentChaosIndex; for(int i=0;i<4;++i){ currentChaosIndex=i; mutateOne(i);} currentChaosIndex=s; continue; }
+        mutateOne(0);
+    }
+}
+
+void UI::resetPageParameters(UIPage page) {
+    auto ids = getParameterIdsForPage(page);
+    for (int id : ids) {
+        InlineParameter* p = getParameter(id);
+        if (!p || !p->randomizable) continue;
+
+        auto resetOne = [&](){
+            if (p->type==ParamType::FLOAT) setParameterValue(id, (p->min_val+p->max_val)*0.5f);
+            else if (p->type==ParamType::INT || p->type==ParamType::ENUM) setParameterValue(id, p->min_val);
+            else setParameterValue(id, 0.0f);
+        };
+
+        if (paramUsesOscIndex(id)) { int s=currentOscillatorIndex; for(int i=0;i<4;++i){ currentOscillatorIndex=i; resetOne(); } currentOscillatorIndex=s; continue; }
+        if (paramUsesLfoIndex(id)) { int s=currentLFOIndex; for(int i=0;i<4;++i){ currentLFOIndex=i; resetOne(); } currentLFOIndex=s; continue; }
+        if (paramUsesEnvIndex(id)) { int s=currentEnvelopeIndex; for(int i=0;i<4;++i){ currentEnvelopeIndex=i; resetOne(); } currentEnvelopeIndex=s; continue; }
+        if (paramUsesSamplerIndex(id)) { int s=currentSamplerIndex; for(int i=0;i<4;++i){ currentSamplerIndex=i; resetOne(); } currentSamplerIndex=s; continue; }
+        if (paramUsesChaosIndex(id)) { int s=currentChaosIndex; for(int i=0;i<4;++i){ currentChaosIndex=i; resetOne(); } currentChaosIndex=s; continue; }
+        resetOne();
+    }
 }
 
 float UI::getParameterValue(int id) {

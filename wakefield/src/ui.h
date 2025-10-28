@@ -50,6 +50,7 @@ struct InlineParameter {
     std::vector<std::string> enum_values; // For enum type
     bool supports_midi_learn;
     int page; // Which UIPage this parameter belongs to
+    bool randomizable; // Can be affected by global randomize/mutate operations
 };
 
 // Parameters that can be controlled via UI
@@ -1075,6 +1076,7 @@ private:
     InlineParameter* getParameter(int id);
     std::vector<int> getParameterIdsForPage(UIPage page);
     std::vector<int> getFilterParameterIds() const;
+    std::vector<int> getRandomizableParameterIds();
     void adjustParameter(int id, bool increase, bool fine);
     void setParameterValue(int id, float value);
     float getParameterValue(int id);
@@ -1084,6 +1086,16 @@ private:
     void startMidiLearn(int id);
     void finishMidiLearn();
     bool isParameterModulated(int id);  // Check if parameter has active modulation
+
+    // Global parameter operations (respect randomizable whitelist)
+    void randomizeAllParameters();
+    void mutateAllParameters(float amount01);
+    void resetAllParametersToNeutral();
+
+    // Per-page parameter operations
+    void randomizePageParameters(UIPage page);
+    void mutatePageParameters(UIPage page, float amount01);
+    void resetPageParameters(UIPage page);
 
     // Oscillator/LFO/Envelope UI state
     int currentOscillatorIndex;  // 0-3: which oscillator is selected on OSCILLATOR page

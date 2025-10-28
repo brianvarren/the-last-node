@@ -28,23 +28,35 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
             mvprintw(row, col, " ");
         }
 
-        // Use green color for modulated parameters
-        if (isModulated) {
-            attron(COLOR_PAIR(2));  // Green
+        // Color priority: Locked (yellow) > Modulated (green)
+        bool locked = !param->randomizable;
+        if (locked) {
+            attron(COLOR_PAIR(3));  // Yellow for locked
+        } else if (isModulated) {
+            attron(COLOR_PAIR(2));  // Green for modulated
         }
 
         // Parameter name and value
         std::string displayValue = getParameterDisplayString(paramId);
         mvprintw(row, col + 2, "%-18s: %s", param->name.c_str(), displayValue.c_str());
 
-        // Show MIDI CC mapping indicator if mapped
+        // Show lock and CC indicators
+        int indicCol = col + 36;
+        if (locked) {
+            attron(COLOR_PAIR(3));
+            mvprintw(row, indicCol, "[LOCK]");
+            attroff(COLOR_PAIR(3));
+            indicCol += 7;
+        }
         if (mappedCC >= 0) {
-            attron(COLOR_PAIR(3));  // Yellow
-            mvprintw(row, col + 36, "[CC%d]", mappedCC);
+            attron(COLOR_PAIR(3));
+            mvprintw(row, indicCol, "[CC%d]", mappedCC);
             attroff(COLOR_PAIR(3));
         }
 
-        if (isModulated) {
+        if (locked) {
+            attroff(COLOR_PAIR(3));
+        } else if (isModulated) {
             attroff(COLOR_PAIR(2));
         }
 
