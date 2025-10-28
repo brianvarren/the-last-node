@@ -610,7 +610,7 @@ void UI::drawMainPage() {
 
     // Draw chaos generators
     for (int i = 0; i < 4; ++i) {
-        float level = 0.5f;  // TODO: Add actual chaos level parameters
+        float level = params->getChaosLevel(i);
         bool muted = params->chaosMuted[i].load();
         bool solo = params->chaosSolo[i].load();
         bool selected = (mainPageMixerChannel == i + 8 && !mainPageFocusLeft);

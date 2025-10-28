@@ -275,7 +275,7 @@ private:
 
     // Per-oscillator mix levels (control-rate, static mixer)
     // These are multiplied with (amp + ampMod) in voice mixing
-    float oscillatorBaseLevels[OSCILLATORS_PER_VOICE] = {1.0f, 0.0f, 0.0f, 0.0f};
+    float oscillatorBaseLevels[OSCILLATORS_PER_VOICE] = {0.8f, 0.8f, 0.8f, 0.8f};
 
     // Sample bank for all voices
     SampleBank sampleBank;

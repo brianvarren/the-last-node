@@ -126,7 +126,7 @@ struct SynthParameters {
     std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
     std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
     std::atomic<float> osc1Amp{1.0f};          // Amplitude (modulation target, 0.0-1.0)
-    std::atomic<float> osc1Level{1.0f};        // Mix level (static, 0.0-1.0)
+    std::atomic<float> osc1Level{0.8f};        // Mix level (static, 0.0-1.0)
 
     // Oscillator 2 (index 1)
     std::atomic<int> osc2Mode{1};
@@ -137,7 +137,7 @@ struct SynthParameters {
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
     std::atomic<float> osc2Amp{1.0f};
-    std::atomic<float> osc2Level{0.0f};        // Default: off
+    std::atomic<float> osc2Level{0.8f};
 
     // Oscillator 3 (index 2)
     std::atomic<int> osc3Mode{1};
@@ -148,7 +148,7 @@ struct SynthParameters {
     std::atomic<float> osc3Ratio{1.0f};
     std::atomic<float> osc3Offset{0.0f};
     std::atomic<float> osc3Amp{1.0f};
-    std::atomic<float> osc3Level{0.0f};        // Default: off
+    std::atomic<float> osc3Level{0.8f};
 
     // Oscillator 4 (index 3)
     std::atomic<int> osc4Mode{1};
@@ -159,7 +159,7 @@ struct SynthParameters {
     std::atomic<float> osc4Ratio{1.0f};
     std::atomic<float> osc4Offset{0.0f};
     std::atomic<float> osc4Amp{1.0f};
-    std::atomic<float> osc4Level{0.0f};        // Default: off
+    std::atomic<float> osc4Level{0.8f};
 
     // Mixer mute/solo state (4 OSC + 4 SAMP + 4 CHAOS = 12 channels)
     std::atomic<bool> oscMuted[4]{false, true, true, true};     // OSC 1 unmuted, others muted by default
@@ -168,6 +168,7 @@ struct SynthParameters {
     std::atomic<bool> samplerSolo[4]{false, false, false, false};
     std::atomic<bool> chaosMuted[4]{true, true, true, true};    // All chaos muted by default
     std::atomic<bool> chaosSolo[4]{false, false, false, false};
+    std::atomic<float> chaosLevel[4]{0.8f, 0.8f, 0.8f, 0.8f};   // Chaos mix levels
 
     // LFO parameters - 4 global modulation sources
     std::atomic<float> lfo1Period{1.0f};
@@ -213,6 +214,16 @@ struct SynthParameters {
     float getLfoVisualPhase(int index) const {
         if (index < 0 || index >= 4) return 0.0f;
         return lfoVisualPhase[index].load();
+    }
+
+    // Chaos mixer level helpers
+    float getChaosLevel(int index) const {
+        if (index < 0 || index >= 4) return 0.0f;
+        return chaosLevel[index].load();
+    }
+    void setChaosLevel(int index, float value) {
+        if (index < 0 || index >= 4) return;
+        chaosLevel[index] = std::clamp(value, 0.0f, 1.0f);
     }
 
     void setLfoVisualState(int index, float value, float phase) {

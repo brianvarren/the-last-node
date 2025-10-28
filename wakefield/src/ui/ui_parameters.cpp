@@ -174,6 +174,14 @@ void UI::initializeParameters() {
     // FM PAGE - RANDOMIZABLE
     // ============================================================================
     parameters.push_back({360, ParamType::FLOAT, "Global Depth", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FM), true});
+
+    // ============================================================================
+    // MIXER PAGE - IMMUNE (mixer levels shouldn't be randomized)
+    // (OSC 1-4 Level: 50-53, SAMP 1-4 Level: 54-57 defined elsewhere)
+    parameters.push_back({410, ParamType::FLOAT, "CHAOS 1 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});
+    parameters.push_back({411, ParamType::FLOAT, "CHAOS 2 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});
+    parameters.push_back({412, ParamType::FLOAT, "CHAOS 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});
+    parameters.push_back({413, ParamType::FLOAT, "CHAOS 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});
 }
 
 InlineParameter* UI::getParameter(int id) {
@@ -643,6 +651,10 @@ float UI::getParameterValue(int id) {
         case 55: return synth->getSamplerLevel(1);  // SAMP 2 Level (mixer)
         case 56: return synth->getSamplerLevel(2);  // SAMP 3 Level (mixer)
         case 57: return synth->getSamplerLevel(3);  // SAMP 4 Level (mixer)
+        case 410: return params->getChaosLevel(0);   // CHAOS 1 Level (mixer)
+        case 411: return params->getChaosLevel(1);   // CHAOS 2 Level (mixer)
+        case 412: return params->getChaosLevel(2);   // CHAOS 3 Level (mixer)
+        case 413: return params->getChaosLevel(3);   // CHAOS 4 Level (mixer)
         // SAMPLER page parameters (60-69)
         case 69: return 0.0f;  // Sample name selector (special: no value)
         case 60: return synth->getSamplerKeyMode(samplerIndex) ? 0.0f : 1.0f;
@@ -747,6 +759,10 @@ void UI::setParameterValue(int id, float value) {
         case 55: synth->setSamplerLevel(1, value); break;  // SAMP 2 Level (mixer)
         case 56: synth->setSamplerLevel(2, value); break;  // SAMP 3 Level (mixer)
         case 57: synth->setSamplerLevel(3, value); break;  // SAMP 4 Level (mixer)
+        case 410: params->setChaosLevel(0, value); break;   // CHAOS 1 Level (mixer)
+        case 411: params->setChaosLevel(1, value); break;   // CHAOS 2 Level (mixer)
+        case 412: params->setChaosLevel(2, value); break;   // CHAOS 3 Level (mixer)
+        case 413: params->setChaosLevel(3, value); break;   // CHAOS 4 Level (mixer)
         // SAMPLER page parameters (60-69)
         case 69: break;  // Sample name selector (special: no-op, handled by Enter key)
         case 60: synth->setSamplerKeyMode(samplerIndex, value < 0.5f); break;
@@ -867,7 +883,11 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
                 (id >= 300 && id <= 323) &&
                 ((id % 6 == 0) || (id % 6 == 1) || (id % 6 == 3));
 
-            if (isEnvelopeTime) { // Envelope attack/decay/release
+            if (id == 351) { // Chaos Clock (explicit step: 5 Hz coarse, 0.5 Hz fine)
+                float step = fine ? 0.5f : 5.0f;
+                if (increase) newValue = clampValue(currentValue + step);
+                else newValue = clampValue(currentValue - step);
+            } else if (isEnvelopeTime) { // Envelope attack/decay/release
                 adjustMultiplicative(1.1f, 1.3f);
             } else if (id == 11) { // Oscillator frequency - semitone steps
                 adjustMultiplicative(1.059463f, 1.122462f);

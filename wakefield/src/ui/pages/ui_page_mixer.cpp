@@ -115,4 +115,47 @@ void UI::drawMixerPage() {
     mvprintw(row++, col, "Mix levels control the static volume for each source.");
     mvprintw(row++, col, "Hotkeys: M=Toggle Mute | S=Toggle Solo");
     attroff(COLOR_PAIR(8));
+
+    row += 1;
+    // Draw chaos generators (IDs 410-413)
+    for (int i = 0; i < 4; ++i) {
+        int paramId = 410 + i;
+        float level = params->getChaosLevel(i);
+        bool muted = params->chaosMuted[i].load();
+        bool solo = params->chaosSolo[i].load();
+
+        // Highlight selected parameter
+        if (paramId == selectedParameterId) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(row, col, ">");
+        } else {
+            mvprintw(row, col, " ");
+        }
+
+        mvprintw(row, col + 2, "CHAOS %d", i + 1);
+
+        // Draw mute/solo indicators
+        if (muted) {
+            attron(COLOR_PAIR(4) | A_BOLD);
+            mvprintw(row, col + 10, "M");
+            attroff(COLOR_PAIR(4) | A_BOLD);
+        } else {
+            mvprintw(row, col + 10, "-");
+        }
+        if (solo) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvprintw(row, col + 12, "S");
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            mvprintw(row, col + 12, "-");
+        }
+
+        drawBar(row, col + 15, "", level, 0.0f, 1.0f, 28);
+
+        if (paramId == selectedParameterId) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        row++;
+    }
 }

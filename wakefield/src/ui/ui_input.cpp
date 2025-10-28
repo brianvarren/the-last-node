@@ -313,8 +313,11 @@ void UI::handleInput(int ch) {
                     int idx = mainPageMixerChannel - 4;
                     float newLevel = std::max(0.0f, std::min(1.0f, synth->getSamplerLevel(idx) + delta));
                     synth->setSamplerLevel(idx, newLevel);
+                } else {
+                    int idx = mainPageMixerChannel - 8;
+                    float newLevel = std::max(0.0f, std::min(1.0f, params->getChaosLevel(idx) + delta));
+                    params->setChaosLevel(idx, newLevel);
                 }
-                // TODO: Add chaos level control when chaos level parameters are added
                 return;
             }
         }

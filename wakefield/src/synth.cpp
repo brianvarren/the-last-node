@@ -41,6 +41,16 @@ Synth::Synth(float sampleRate)
         voices.emplace_back(sampleRate);
     }
 
+    // Initialize sampler levels to 0.8 across all voices and free samplers
+    for (auto& voice : voices) {
+        for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+            voice.samplers[s].setLevel(0.8f);
+        }
+    }
+    for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+        freeSamplers[s].setLevel(0.8f);
+    }
+
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         freeSamplers[i].setKeyMode(false);
     }
@@ -581,6 +591,35 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             if (freeMix != 0.0f) {
                 for (unsigned int ch = 0; ch < nChannels; ++ch) {
                     output[i * nChannels + ch] += freeMix * 0.5f * masterGain;
+                }
+            }
+        }
+    }
+
+    // Mix chaos generators directly to output (post-voices, pre-filter)
+    if (nChannels >= 2 && params) {
+        // Determine solo state for chaos
+        bool anyChaosSolo = false;
+        for (int c = 0; c < 4; ++c) {
+            if (params->chaosSolo[c].load()) { anyChaosSolo = true; break; }
+        }
+        for (unsigned int i = 0; i < nFrames; ++i) {
+            float chaosMix = 0.0f;
+            for (int c = 0; c < 4; ++c) {
+                bool muted = params->chaosMuted[c].load();
+                bool solo = params->chaosSolo[c].load();
+                if (anyChaosSolo) {
+                    if (!solo) continue;
+                } else if (muted) {
+                    continue;
+                }
+                float level = params->getChaosLevel(c);
+                // Simple stereo: same to L and R (optionally could add slight width later)
+                chaosMix += chaosOutputs[c] * level;
+            }
+            if (chaosMix != 0.0f) {
+                for (unsigned int ch = 0; ch < nChannels; ++ch) {
+                    output[i * nChannels + ch] += chaosMix * 0.5f * masterGain;
                 }
             }
         }

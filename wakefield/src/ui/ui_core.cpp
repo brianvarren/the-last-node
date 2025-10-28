@@ -98,7 +98,7 @@ UI::UI(Synth* synth, SynthParameters* params)
         modulationSlots[i].curve = 0;            // Linear curve
         modulationSlots[i].amount = 100;         // 100% modulation
         modulationSlots[i].destination = i * 6 + 5;  // OSC (i+1) Amp (indices 5, 11, 17, 23)
-        modulationSlots[i].type = 0;             // Unidirectional
+        modulationSlots[i].type = 1;             // Bidirectional (0-1 maps to full range)
     }
 
     // Initialize default modulation routing: ENV 1 → SAMP 1-4 Amp (slots 4-7)

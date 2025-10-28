@@ -404,3 +404,80 @@ Consolidate compiler generated dependencies of target synth
 [ 36%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_input.cpp.o
 [ 38%] Linking CXX executable synth
 [100%] Built target synth
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /srv/storage/Dropbox/_brian-varren/the-last-node/wakefield
+Consolidate compiler generated dependencies of target synth
+[  1%] Building CXX object CMakeFiles/synth.dir/src/main.cpp.o
+[  3%] Building CXX object CMakeFiles/synth.dir/src/synth.cpp.o
+[  5%] Building CXX object CMakeFiles/synth.dir/src/midi.cpp.o
+[  7%] Building CXX object CMakeFiles/synth.dir/src/voice.cpp.o
+[  9%] Building CXX object CMakeFiles/synth.dir/src/preset.cpp.o
+[ 11%] Building CXX object CMakeFiles/synth.dir/src/ui.cpp.o
+[ 13%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_core.cpp.o
+[ 15%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_parameters.cpp.o
+[ 17%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_presets.cpp.o
+[ 19%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_help.cpp.o
+[ 21%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_input.cpp.o
+[ 23%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_drawing.cpp.o
+[ 25%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_mod.cpp.o
+[ 27%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_sample_browser.cpp.o
+[ 29%] Building CXX object CMakeFiles/synth.dir/src/ui/ui_preset_browser.cpp.o
+[ 31%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_parameters.cpp.o
+[ 33%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_oscillator.cpp.o
+[ 35%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_sampler.cpp.o
+[ 37%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_mixer.cpp.o
+[ 39%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_lfo.cpp.o
+[ 41%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_envelope.cpp.o
+[ 43%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_fm.cpp.o
+[ 45%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_mod.cpp.o
+[ 47%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_reverb.cpp.o
+[ 49%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_filter.cpp.o
+[ 50%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_chaos.cpp.o
+[ 52%] Building CXX object CMakeFiles/synth.dir/src/ui/pages/ui_page_config.cpp.o
+[ 54%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_state.cpp.o
+[ 56%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_drawing.cpp.o
+[ 58%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_fields.cpp.o
+[ 60%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_actions.cpp.o
+[ 62%] Building CXX object CMakeFiles/synth.dir/src/ui/sequencer/ui_sequencer_input.cpp.o
+[ 64%] Linking CXX executable synth
+/usr/bin/ld: CMakeFiles/synth.dir/src/main.cpp.o: in function `onControlChange(int, int)':
+main.cpp:(.text+0x2330): undefined reference to `UI::getParameterName[abi:cxx11](int)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/ui_core.cpp.o: in function `UI::UI(Synth*, SynthParameters*)':
+ui_core.cpp:(.text+0x666): undefined reference to `UI::getParameterIdsForPage(UIPage)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/ui_core.cpp.o: in function `UI::update()':
+ui_core.cpp:(.text+0xebf): undefined reference to `UI::finishMidiLearn()'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/ui_input.cpp.o: in function `UI::handleInput(int)::{lambda(UIPage)#1}::operator()(UIPage) const':
+ui_input.cpp:(.text+0x59): undefined reference to `UI::getFilterParameterIds() const'
+/usr/bin/ld: ui_input.cpp:(.text+0x9a): undefined reference to `UI::getParameterIdsForPage(UIPage)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/ui_input.cpp.o: in function `UI::handleInput(int)':
+ui_input.cpp:(.text+0xf41): undefined reference to `UI::finishNumericInput()'
+/usr/bin/ld: ui_input.cpp:(.text+0x109c): undefined reference to `UI::finishMidiLearn()'
+/usr/bin/ld: ui_input.cpp:(.text+0x1d11): undefined reference to `UI::getFilterParameterIds() const'
+/usr/bin/ld: ui_input.cpp:(.text+0x1d5e): undefined reference to `UI::getParameterIdsForPage(UIPage)'
+/usr/bin/ld: ui_input.cpp:(.text+0x28b7): undefined reference to `UI::adjustParameter(int, bool, bool)'
+/usr/bin/ld: ui_input.cpp:(.text+0x2a00): undefined reference to `UI::adjustParameter(int, bool, bool)'
+/usr/bin/ld: ui_input.cpp:(.text+0x2bf6): undefined reference to `UI::adjustParameter(int, bool, bool)'
+/usr/bin/ld: ui_input.cpp:(.text+0x2c65): undefined reference to `UI::startNumericInput(int)'
+/usr/bin/ld: ui_input.cpp:(.text+0x2cb1): undefined reference to `UI::startNumericInput(int)'
+/usr/bin/ld: ui_input.cpp:(.text+0x2d0d): undefined reference to `UI::startMidiLearn(int)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/ui_drawing.cpp.o: in function `UI::draw(int)':
+ui_drawing.cpp:(.text+0x1525): undefined reference to `UI::getParameter(int)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/pages/ui_page_parameters.cpp.o: in function `UI::drawParameterList(int, int, std::vector<int, std::allocator<int> > const&)':
+ui_page_parameters.cpp:(.text+0xa8): undefined reference to `UI::getParameter(int)'
+/usr/bin/ld: ui_page_parameters.cpp:(.text+0xce): undefined reference to `UI::isParameterModulated(int)'
+/usr/bin/ld: ui_page_parameters.cpp:(.text+0x1f0): undefined reference to `UI::getParameterDisplayString[abi:cxx11](int)'
+/usr/bin/ld: ui_page_parameters.cpp:(.text+0x46d): undefined reference to `UI::getParameter(int)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/pages/ui_page_parameters.cpp.o: in function `UI::drawParametersPage(int, int)':
+ui_page_parameters.cpp:(.text+0x55c): undefined reference to `UI::getParameterIdsForPage(UIPage)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/pages/ui_page_mixer.cpp.o: in function `UI::drawMixerPage()':
+ui_page_mixer.cpp:(.text+0xec): undefined reference to `UI::getParameterIdsForPage(UIPage)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/pages/ui_page_envelope.cpp.o: in function `UI::drawEnvelopePage()':
+ui_page_envelope.cpp:(.text+0x1348): undefined reference to `UI::getParameter(int)'
+/usr/bin/ld: ui_page_envelope.cpp:(.text+0x13d9): undefined reference to `UI::getParameterDisplayString[abi:cxx11](int)'
+/usr/bin/ld: CMakeFiles/synth.dir/src/ui/pages/ui_page_filter.cpp.o: in function `UI::drawFilterPage()':
+ui_page_filter.cpp:(.text+0x18ae): undefined reference to `UI::getFilterParameterIds() const'
+collect2: error: ld returned 1 exit status
+make[2]: *** [CMakeFiles/synth.dir/build.make:883: synth] Error 1
+make[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/synth.dir/all] Error 2
+make: *** [Makefile:91: all] Error 2
