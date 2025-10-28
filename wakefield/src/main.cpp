@@ -209,6 +209,27 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
         case 33:  // Gain (linear)
             synthParams->filterGain = mapCCToParameter(ccValue, -24.0f, 24.0f);
             break;
+        case 34:  // Resonance (linear)
+            synthParams->filterResonance = mapCCToParameter(ccValue, 0.0f, 1.2f);
+            break;
+        case 35:  // Drive (linear)
+            synthParams->filterDrive = mapCCToParameter(ccValue, 0.1f, 15.0f);
+            break;
+        case 36:  // FB HP (logarithmic)
+            synthParams->filterFeedbackHP = mapCCToParameter(ccValue, 10.0f, 6000.0f, true);
+            break;
+        case 37:  // Spread (linear)
+            synthParams->filterSpread = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+        case 38:  // Notch FB (linear)
+            synthParams->filterNotchFeedback = mapCCToParameter(ccValue, 0.0f, 0.95f);
+            break;
+        case 39:  // Width (linear)
+            synthParams->filterBandWidth = mapCCToParameter(ccValue, 0.05f, 0.95f);
+            break;
+        case 42:  // Dry/Wet (linear)
+            synthParams->filterDryWet = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
 
         // LOOPER page parameters
         case 40:  // Current Loop (INT 0-3)
@@ -216,6 +237,245 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             break;
         case 41:  // Overdub Mix (linear)
             synthParams->overdubMix = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+
+        // MIXER page parameters - Oscillator levels (50-53)
+        case 50:  // OSC 1 Level (linear)
+            synthParams->setOscLevel(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 51:  // OSC 2 Level (linear)
+            synthParams->setOscLevel(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 52:  // OSC 3 Level (linear)
+            synthParams->setOscLevel(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 53:  // OSC 4 Level (linear)
+            synthParams->setOscLevel(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+
+        // MIXER page parameters - Sampler levels (54-57)
+        case 54:  // SAMP 1 Level (linear)
+            if (synth) synth->setSamplerLevel(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 55:  // SAMP 2 Level (linear)
+            if (synth) synth->setSamplerLevel(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 56:  // SAMP 3 Level (linear)
+            if (synth) synth->setSamplerLevel(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 57:  // SAMP 4 Level (linear)
+            if (synth) synth->setSamplerLevel(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+
+        // SAMPLER page parameters (60-68)
+        // Note: These apply to the current sampler based on UI state
+        case 60:  // Key Mode (ENUM 0-1: KEY=0, FREE=1)
+            if (synth && ui) {
+                // We need to get current sampler index from UI - for now, apply to sampler 0
+                // TODO: This should use ui->getCurrentSamplerIndex() when available
+                synth->setSamplerKeyMode(0, ccValue < 64);  // <64 = KEY mode
+            }
+            break;
+        case 61:  // Loop Start (linear, 0-100%)
+            if (synth && ui) {
+                synth->setSamplerLoopStart(0, mapCCToParameter(ccValue, 0.0f, 100.0f) / 100.0f);
+            }
+            break;
+        case 62:  // Loop Length (linear, 0-100%)
+            if (synth && ui) {
+                synth->setSamplerLoopLength(0, mapCCToParameter(ccValue, 0.0f, 100.0f) / 100.0f);
+            }
+            break;
+        case 63:  // Crossfade (linear, 0-100%)
+            if (synth && ui) {
+                synth->setSamplerCrossfadeLength(0, mapCCToParameter(ccValue, 0.0f, 100.0f) / 100.0f);
+            }
+            break;
+        case 64:  // Octave (INT -5 to 5)
+            if (synth && ui) {
+                synth->setSamplerOctave(0, static_cast<int>(mapCCToParameter(ccValue, -5.0f, 5.0f)));
+            }
+            break;
+        case 65:  // Tune (linear, -1.0 to 1.0)
+            if (synth && ui) {
+                synth->setSamplerTune(0, mapCCToParameter(ccValue, -1.0f, 1.0f));
+            }
+            break;
+        case 66:  // Sync Mode (ENUM 0-3)
+            if (synth && ui) {
+                synth->setSamplerSyncMode(0, static_cast<int>(mapCCToParameter(ccValue, 0, 3)));
+            }
+            break;
+        case 67:  // Note Reset (BOOL)
+            if (synth && ui) {
+                synth->setSamplerNoteReset(0, ccValue > 63);
+            }
+            break;
+        case 68:  // Direction (ENUM 0-2: Forward, Reverse, Ping-Pong)
+            if (synth && ui) {
+                synth->setSamplerPlaybackMode(0, static_cast<PlaybackMode>(static_cast<int>(mapCCToParameter(ccValue, 0, 2))));
+            }
+            break;
+
+        // LFO page parameters (200-206)
+        // Note: These apply to the current LFO based on UI state - for now apply to LFO 0
+        case 200:  // Period (logarithmic, 0.1-1800s)
+            synthParams->setLfoPeriod(0, mapCCToParameter(ccValue, 0.1f, 1800.0f, true));
+            break;
+        case 201:  // Sync Mode (ENUM 0-3)
+            synthParams->setLfoSyncMode(0, static_cast<int>(mapCCToParameter(ccValue, 0, 3)));
+            break;
+        case 202:  // Morph (linear, 0.0001-0.9999)
+            synthParams->setLfoMorph(0, mapCCToParameter(ccValue, 0.0001f, 0.9999f));
+            break;
+        case 203:  // Duty (linear, 0.0-1.0)
+            synthParams->setLfoDuty(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 204:  // Flip (BOOL)
+            synthParams->setLfoFlip(0, ccValue > 63);
+            break;
+        case 205:  // Reset On Note (BOOL)
+            synthParams->setLfoResetOnNote(0, ccValue > 63);
+            break;
+        case 206:  // Shape (ENUM 0-1: Saw, Pulse)
+            synthParams->setLfoShape(0, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
+            break;
+
+        // ENV page parameters (300-323)
+        // Envelope 1 (300-305)
+        case 300:  // Attack (logarithmic)
+            {
+                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+                synthParams->setEnvAttack(0, mapped);
+                synthParams->attack = mapped;
+            }
+            break;
+        case 301:  // Decay (logarithmic)
+            {
+                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+                synthParams->setEnvDecay(0, mapped);
+                synthParams->decay = mapped;
+            }
+            break;
+        case 302:  // Sustain (linear)
+            {
+                float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
+                synthParams->setEnvSustain(0, mapped);
+                synthParams->sustain = mapped;
+            }
+            break;
+        case 303:  // Release (logarithmic)
+            {
+                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
+                synthParams->setEnvRelease(0, mapped);
+                synthParams->release = mapped;
+            }
+            break;
+        case 304:  // Attack Bend (linear)
+            synthParams->setEnvAttackBend(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 305:  // Release Bend (linear)
+            synthParams->setEnvReleaseBend(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+
+        // Envelope 2 (306-311)
+        case 306:  // Attack (logarithmic)
+            synthParams->setEnvAttack(1, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 307:  // Decay (logarithmic)
+            synthParams->setEnvDecay(1, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 308:  // Sustain (linear)
+            synthParams->setEnvSustain(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 309:  // Release (logarithmic)
+            synthParams->setEnvRelease(1, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 310:  // Attack Bend (linear)
+            synthParams->setEnvAttackBend(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 311:  // Release Bend (linear)
+            synthParams->setEnvReleaseBend(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+
+        // Envelope 3 (312-317)
+        case 312:  // Attack (logarithmic)
+            synthParams->setEnvAttack(2, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 313:  // Decay (logarithmic)
+            synthParams->setEnvDecay(2, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 314:  // Sustain (linear)
+            synthParams->setEnvSustain(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 315:  // Release (logarithmic)
+            synthParams->setEnvRelease(2, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 316:  // Attack Bend (linear)
+            synthParams->setEnvAttackBend(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 317:  // Release Bend (linear)
+            synthParams->setEnvReleaseBend(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+
+        // Envelope 4 (318-323)
+        case 318:  // Attack (logarithmic)
+            synthParams->setEnvAttack(3, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 319:  // Decay (logarithmic)
+            synthParams->setEnvDecay(3, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 320:  // Sustain (linear)
+            synthParams->setEnvSustain(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 321:  // Release (logarithmic)
+            synthParams->setEnvRelease(3, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
+            break;
+        case 322:  // Attack Bend (linear)
+            synthParams->setEnvAttackBend(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 323:  // Release Bend (linear)
+            synthParams->setEnvReleaseBend(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+
+        // CHAOS page parameters (350-353)
+        // Note: Apply to chaos generator 0 for now
+        case 350:  // Chaos Parameter (linear, 0.0-1.0, maps to 0.6-0.99 internally)
+            {
+                float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
+                synthParams->setChaosParameter(0, mapped);
+                if (synth) synth->setChaosParameter(0, mapped);
+            }
+            break;
+        case 351:  // Clock Frequency (logarithmic, 0.01-1000 Hz)
+            {
+                float mapped = mapCCToParameter(ccValue, 0.01f, 1000.0f, true);
+                synthParams->setChaosClockFreq(0, mapped);
+                if (synth) synth->setChaosClockFreq(0, mapped);
+            }
+            break;
+        case 352:  // Interp Mode (ENUM 0-2: LINEAR, CUBIC, HOLD)
+            {
+                int mode = static_cast<int>(mapCCToParameter(ccValue, 0, 2));
+                synthParams->setChaosInterpMode(0, mode);
+                if (synth) synth->setChaosInterpMode(0, mode);
+            }
+            break;
+        case 353:  // Running (BOOL)
+            synthParams->setChaosRunning(0, ccValue > 63);
+            break;
+
+        // FM page parameters (360)
+        case 360:  // FM Global Depth (linear, 0.0-1.0)
+            synthParams->fmGlobalDepth = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+
+        // Additional oscillator parameters (18, 19)
+        case 18:  // Oscillator Amp (linear, 0.0-1.0)
+            synthParams->setOscAmp(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 19:  // Oscillator Shape (ENUM 0-1: Saw, Pulse)
+            synthParams->setOscShape(0, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
             break;
     }
 }

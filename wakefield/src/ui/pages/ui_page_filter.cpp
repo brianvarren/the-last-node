@@ -291,13 +291,4 @@ void UI::drawFilterPage() {
             mvprintw(debugRow++, parameterCol, "normGain:    %.4f", bp->getNormGain());
         }
     }
-
-    // Show MIDI Learn status if active on filter cutoff
-    if (params->midiLearnActive.load() && params->midiLearnParameterId.load() == 32) {
-        int statusRow = previewTop + plotHeight + 4;
-        attron(COLOR_PAIR(3) | A_BOLD);
-        mvprintw(statusRow++, 2, ">>> MIDI LEARN ACTIVE <<<");
-        attroff(COLOR_PAIR(3) | A_BOLD);
-        mvprintw(statusRow++, 2, "Move a MIDI controller to assign it to Filter Cutoff");
-    }
 }
