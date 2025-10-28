@@ -59,6 +59,12 @@ UI::UI(Synth* synth, SynthParameters* params)
     , sampleBrowserCurrentDir("../samples")
     , sampleBrowserSelectedIndex(0)
     , sampleBrowserScrollOffset(0)
+    , mainPageActionIndex(0)
+    , globalMutatePercentage(20.0f)
+    , mainPageMixerChannel(0)
+    , presetBrowserActive(false)
+    , presetBrowserSelectedIndex(0)
+    , presetBrowserScrollOffset(0)
     , midiKeyboardMode(false)
     , midiKeyboardOctave(4) {
 

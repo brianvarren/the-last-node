@@ -221,6 +221,121 @@ void UI::handleInput(int ch) {
         if (ch != 'q' && ch != 'Q') return;
     }
 
+    // Preset browser handling
+    if (presetBrowserActive) {
+        handlePresetBrowserInput(ch);
+        // Don't return if 'q'/'Q' - let it propagate to quit check
+        if (ch != 'q' && ch != 'Q') return;
+    }
+
+    // Main page action button and mixer handling
+    if (currentPage == UIPage::MAIN && !textInputActive && !numericInputActive) {
+        switch (ch) {
+            case KEY_UP:
+                if (mainPageActionIndex > 0) {
+                    mainPageActionIndex--;
+                }
+                return;
+            case KEY_DOWN:
+                if (mainPageActionIndex < 5) {
+                    mainPageActionIndex++;
+                }
+                return;
+            case '+':
+            case '=':
+                if (mainPageActionIndex == 3) {  // Global Mutate
+                    globalMutatePercentage = std::min(100.0f, globalMutatePercentage + 5.0f);
+                }
+                return;
+            case '-':
+            case '_':
+                if (mainPageActionIndex == 3) {  // Global Mutate
+                    globalMutatePercentage = std::max(0.0f, globalMutatePercentage - 5.0f);
+                }
+                return;
+            case '\n':
+            case KEY_ENTER:
+                // Execute selected action
+                switch (mainPageActionIndex) {
+                    case 0:  // Save
+                        startTextInput();
+                        return;
+                    case 1:  // Load
+                        startPresetBrowser();
+                        return;
+                    case 2:  // Global Randomize
+                        // TODO: Implement global randomize
+                        addConsoleMessage("Global Randomize: Not yet implemented");
+                        return;
+                    case 3:  // Global Mutate
+                        // TODO: Implement global mutate
+                        addConsoleMessage("Global Mutate: Not yet implemented");
+                        return;
+                    case 4:  // Global Reset
+                        // TODO: Implement global reset
+                        addConsoleMessage("Global Reset: Not yet implemented");
+                        return;
+                    case 5:  // CPU Monitor Toggle
+                        cpuMonitor.setEnabled(!cpuMonitor.isEnabled());
+                        addConsoleMessage(cpuMonitor.isEnabled() ? "CPU Monitor: ON" : "CPU Monitor: OFF");
+                        return;
+                }
+                return;
+
+            // Mixer channel selection (1-8 for OSC/SAMP, Shift+1-4 for CHAOS)
+            case '1': case '!': mainPageMixerChannel = (ch == '!') ? 8 : 0; return;
+            case '2': case '@': mainPageMixerChannel = (ch == '@') ? 9 : 1; return;
+            case '3': case '#': mainPageMixerChannel = (ch == '#') ? 10 : 2; return;
+            case '4': case '$': mainPageMixerChannel = (ch == '$') ? 11 : 3; return;
+            case '5': mainPageMixerChannel = 4; return;
+            case '6': mainPageMixerChannel = 5; return;
+            case '7': mainPageMixerChannel = 6; return;
+            case '8': mainPageMixerChannel = 7; return;
+
+            // Mixer controls
+            case 'm': case 'M': {
+                // Toggle mute for selected channel
+                if (mainPageMixerChannel < 4) {
+                    params->oscMuted[mainPageMixerChannel] = !params->oscMuted[mainPageMixerChannel].load();
+                } else if (mainPageMixerChannel < 8) {
+                    int idx = mainPageMixerChannel - 4;
+                    params->samplerMuted[idx] = !params->samplerMuted[idx].load();
+                } else {
+                    int idx = mainPageMixerChannel - 8;
+                    params->chaosMuted[idx] = !params->chaosMuted[idx].load();
+                }
+                return;
+            }
+            case 's': case 'S': {
+                // Toggle solo for selected channel
+                if (mainPageMixerChannel < 4) {
+                    params->oscSolo[mainPageMixerChannel] = !params->oscSolo[mainPageMixerChannel].load();
+                } else if (mainPageMixerChannel < 8) {
+                    int idx = mainPageMixerChannel - 4;
+                    params->samplerSolo[idx] = !params->samplerSolo[idx].load();
+                } else {
+                    int idx = mainPageMixerChannel - 8;
+                    params->chaosSolo[idx] = !params->chaosSolo[idx].load();
+                }
+                return;
+            }
+            case '[': case ']': {
+                // Adjust level for selected channel
+                float delta = (ch == ']') ? 0.05f : -0.05f;
+                if (mainPageMixerChannel < 4) {
+                    float newLevel = std::max(0.0f, std::min(1.0f, params->getOscLevel(mainPageMixerChannel) + delta));
+                    params->setOscLevel(mainPageMixerChannel, newLevel);
+                } else if (mainPageMixerChannel < 8) {
+                    int idx = mainPageMixerChannel - 4;
+                    float newLevel = std::max(0.0f, std::min(1.0f, synth->getSamplerLevel(idx) + delta));
+                    synth->setSamplerLevel(idx, newLevel);
+                }
+                // TODO: Add chaos level control when chaos level parameters are added
+                return;
+            }
+        }
+    }
+
     // Sequencer-specific navigation and editing
     if (currentPage == UIPage::SEQUENCER && sequencer) {
         if (handleSequencerInput(ch)) {
@@ -252,12 +367,11 @@ void UI::handleInput(int ch) {
         }
     };
 
-    // Tab key cycles forward through pages
+    // Tab key cycles forward through pages (MIXER removed - now integrated in MAIN)
     if (ch == '\t') {
         if (currentPage == UIPage::MAIN) setPage(UIPage::OSCILLATOR);
         else if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::SAMPLER);
-        else if (currentPage == UIPage::SAMPLER) setPage(UIPage::MIXER);
-        else if (currentPage == UIPage::MIXER) setPage(UIPage::LFO);
+        else if (currentPage == UIPage::SAMPLER) setPage(UIPage::LFO);
         else if (currentPage == UIPage::LFO) setPage(UIPage::ENV);
         else if (currentPage == UIPage::ENV) setPage(UIPage::FM);
         else if (currentPage == UIPage::FM) setPage(UIPage::MOD);
@@ -270,13 +384,12 @@ void UI::handleInput(int ch) {
         return;
     }
 
-    // Ctrl+Tab (KEY_BTAB or Shift+Tab) cycles backward through pages
+    // Ctrl+Tab (KEY_BTAB or Shift+Tab) cycles backward through pages (MIXER removed)
     if (ch == KEY_BTAB || ch == 353) {  // KEY_BTAB = Shift+Tab, 353 = some terminals
         if (currentPage == UIPage::MAIN) setPage(UIPage::CONFIG);
-        else if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::CONFIG);
+        else if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::MAIN);
         else if (currentPage == UIPage::SAMPLER) setPage(UIPage::OSCILLATOR);
-        else if (currentPage == UIPage::MIXER) setPage(UIPage::SAMPLER);
-        else if (currentPage == UIPage::LFO) setPage(UIPage::MIXER);
+        else if (currentPage == UIPage::LFO) setPage(UIPage::SAMPLER);
         else if (currentPage == UIPage::ENV) setPage(UIPage::LFO);
         else if (currentPage == UIPage::FM) setPage(UIPage::ENV);
         else if (currentPage == UIPage::MOD) setPage(UIPage::FM);

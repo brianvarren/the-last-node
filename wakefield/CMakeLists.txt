@@ -47,6 +47,7 @@ add_executable(synth
     src/ui/ui_mod.cpp
     src/ui/ui_mod_data.cpp
     src/ui/ui_sample_browser.cpp
+    src/ui/ui_preset_browser.cpp
     # UI page files
     src/ui/pages/ui_page_parameters.cpp
     src/ui/pages/ui_page_oscillator.cpp

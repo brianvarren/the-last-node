@@ -19,6 +19,75 @@ std::string UI::getHelpContent(UIPage page) {
     std::string content;
 
     switch (page) {
+        case UIPage::MAIN:
+            content = R"(
+=== MAIN PAGE ===
+
+CONTROLS:
+  Up/Down    - Navigate action buttons
+  Enter      - Execute selected action
+  +/-        - Adjust mutate percentage (when Mutate is selected)
+  Tab        - Navigate to next page
+  ?          - Show this help
+  Q          - Quit application
+
+ACTIONS:
+  Save           - Save current settings as a preset
+                   Opens text input for preset name
+                   Presets are stored in ~/.config/wakefield/presets/
+
+  Load           - Load a preset from disk
+                   Opens preset browser with up/down navigation
+                   Press Enter to load, Esc/Q to cancel
+
+  Global Randomize - Randomize all synthesis parameters
+                     Creates completely new random sounds
+                     Affects oscillators, filter, reverb, LFOs, etc.
+
+  Global Mutate  - Mutate current parameters by percentage
+                   Adjustable from 0-100% (default 20%)
+                   Keeps character of current sound
+                   Use +/- keys to adjust percentage
+
+  Global Reset   - Reset all parameters to default values
+                   Returns synth to initial state
+                   Useful for starting fresh
+
+  CPU Monitor    - Toggle CPU usage monitor on/off
+                   Shows CPU usage in top bar
+                   Press Enter to toggle
+
+ABOUT:
+The Main page provides quick access to preset management and global
+parameter operations. This is your starting point for:
+- Saving your patches for later recall
+- Loading existing presets
+- Exploring new sounds through randomization
+- Fine-tuning sounds with mutation
+- Starting over with a clean slate
+
+WORKFLOW:
+1. Tweak parameters on other pages (Oscillator, Filter, etc.)
+2. Return to Main page (Tab key cycles through pages)
+3. Press Enter on "Save" and name your preset
+4. Later, press Enter on "Load" to browse and recall presets
+5. Use "Global Mutate" to create variations on existing presets
+6. Adjust mutate percentage with +/- for subtle or drastic changes
+
+PRESET MANAGEMENT:
+- Presets store ALL synthesizer parameters
+- Presets are human-readable INI files
+- Located in ~/.config/wakefield/presets/
+- Can be edited manually or shared with others
+- Preset browser shows all available presets alphabetically
+
+GLOBAL RANDOMIZE vs MUTATE:
+- RANDOMIZE: Completely random parameters, creates new sounds
+- MUTATE: Varies existing parameters, keeps sound character
+- Mutate percentage controls how much variation (0% = no change, 100% = random)
+)";
+            break;
+
         case UIPage::OSCILLATOR:
             content = R"(
 === OSCILLATOR ===

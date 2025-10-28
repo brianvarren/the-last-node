@@ -448,42 +448,266 @@ void UI::drawMainPage() {
 
     // Current preset name
     mvprintw(row++, col, "Current Preset: %s", currentPresetName.empty() ? "None" : currentPresetName.c_str());
+    row++;
 
-    // Preset list box
-    int maxY = getmaxy(stdscr);
-    int listHeight = std::max(5, maxY - row - 4);
-    int listWidth = 40;
-    int boxTop = row;
-    int boxLeft = col;
+    // Action buttons section
+    const char* actionLabels[] = {
+        "Save",
+        "Load",
+        "Global Randomize",
+        "Global Mutate",
+        "Global Reset",
+        "CPU Monitor"
+    };
 
-    // Draw border
-    mvhline(boxTop, boxLeft, '-', listWidth);
-    mvhline(boxTop + listHeight - 1, boxLeft, '-', listWidth);
-    mvvline(boxTop, boxLeft, '|', listHeight);
-    mvvline(boxTop, boxLeft + listWidth - 1, '|', listHeight);
+    mvprintw(row, col, "Actions:");
+    row += 2;
 
-    // List contents
-    int visible = listHeight - 2;
-    if (presetListIndex < presetListScroll) presetListScroll = presetListIndex;
-    if (presetListIndex >= presetListScroll + visible) presetListScroll = presetListIndex - visible + 1;
+    // Draw action buttons
+    for (int i = 0; i < 6; ++i) {
+        bool selected = (i == mainPageActionIndex);
 
-    for (int i = 0; i < visible; ++i) {
-        int idx = presetListScroll + i;
-        int y = boxTop + 1 + i;
-        // Clear line
-        for (int x = 0; x < listWidth - 2; ++x) mvaddch(y, boxLeft + 1 + x, ' ');
-        if (idx >= 0 && idx < static_cast<int>(availablePresets.size())) {
-            bool selected = (idx == presetListIndex);
-            if (selected) attron(COLOR_PAIR(5) | A_BOLD);
-            mvprintw(y, boxLeft + 2, "%s", availablePresets[idx].c_str());
-            if (selected) attroff(COLOR_PAIR(5) | A_BOLD);
+        if (selected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(row, col, "> %s", actionLabels[i]);
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        } else {
+            mvprintw(row, col, "  %s", actionLabels[i]);
         }
+
+        // Show mutate percentage next to Mutate button
+        if (i == 3) {  // Global Mutate
+            mvprintw(row, col + 25, "(%.0f%%)", globalMutatePercentage);
+        }
+
+        // Show CPU monitor state
+        if (i == 5) {  // CPU Monitor
+            const char* state = cpuMonitor.isEnabled() ? "ON" : "OFF";
+            mvprintw(row, col + 25, "(%s)", state);
+        }
+
+        row++;
     }
 
-    // Global parameters on right side (e.g., Master Volume)
-    int rightCol = boxLeft + listWidth + 4;
-    std::vector<int> mainParams = getParameterIdsForPage(UIPage::MAIN);
-    if (!mainParams.empty()) {
-        drawParameterList(boxTop, rightCol, mainParams);
+    row += 2;
+    mvprintw(row, col, "Use arrow keys to navigate, Enter to execute");
+    row++;
+    mvprintw(row, col, "For Mutate: +/- to adjust percentage");
+    row++;
+    mvprintw(row, col, "Press '?' for help");
+
+    // Mixer on right side
+    int rightCol = col + 50;
+    int mixerRow = 3;
+
+    // Mixer title
+    attron(COLOR_PAIR(1) | A_BOLD);
+    mvprintw(mixerRow++, rightCol, "MIXER");
+    attroff(COLOR_PAIR(1) | A_BOLD);
+    mixerRow++; // Blank line
+
+    // Mixer header
+    attron(COLOR_PAIR(3));
+    mvprintw(mixerRow++, rightCol, "Source   M S  Level");
+    attroff(COLOR_PAIR(3));
+
+    // Draw oscillators
+    for (int i = 0; i < 4; ++i) {
+        float level = params->getOscLevel(i);
+        bool muted = params->oscMuted[i].load();
+        bool solo = params->oscSolo[i].load();
+        bool selected = (mainPageMixerChannel == i);
+
+        if (selected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(mixerRow, rightCol, ">OSC %d", i + 1);
+        } else {
+            mvprintw(mixerRow, rightCol, " OSC %d", i + 1);
+        }
+
+        // Draw mute/solo indicators
+        if (muted) {
+            attron(COLOR_PAIR(4) | A_BOLD);
+            mvprintw(mixerRow, rightCol + 9, "M");
+            attroff(COLOR_PAIR(4) | A_BOLD);
+        } else {
+            mvprintw(mixerRow, rightCol + 9, "-");
+        }
+
+        if (solo) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvprintw(mixerRow, rightCol + 11, "S");
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            mvprintw(mixerRow, rightCol + 11, "-");
+        }
+
+        // Draw compact bar (20 chars)
+        drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+
+        if (selected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        mixerRow++;
+    }
+
+    mixerRow++; // Blank line
+
+    // Draw samplers
+    for (int i = 0; i < 4; ++i) {
+        float level = synth->getSamplerLevel(i);
+        bool muted = params->samplerMuted[i].load();
+        bool solo = params->samplerSolo[i].load();
+        bool selected = (mainPageMixerChannel == i + 4);
+
+        if (selected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(mixerRow, rightCol, ">SMP %d", i + 1);
+        } else {
+            mvprintw(mixerRow, rightCol, " SMP %d", i + 1);
+        }
+
+        // Draw mute/solo indicators
+        if (muted) {
+            attron(COLOR_PAIR(4) | A_BOLD);
+            mvprintw(mixerRow, rightCol + 9, "M");
+            attroff(COLOR_PAIR(4) | A_BOLD);
+        } else {
+            mvprintw(mixerRow, rightCol + 9, "-");
+        }
+
+        if (solo) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvprintw(mixerRow, rightCol + 11, "S");
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            mvprintw(mixerRow, rightCol + 11, "-");
+        }
+
+        // Draw compact bar (20 chars)
+        drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+
+        if (selected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        mixerRow++;
+    }
+
+    mixerRow++; // Blank line
+
+    // Draw chaos generators
+    for (int i = 0; i < 4; ++i) {
+        float level = 0.5f;  // TODO: Add actual chaos level parameters
+        bool muted = params->chaosMuted[i].load();
+        bool solo = params->chaosSolo[i].load();
+        bool selected = (mainPageMixerChannel == i + 8);
+
+        if (selected) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+            mvprintw(mixerRow, rightCol, ">CHS %d", i + 1);
+        } else {
+            mvprintw(mixerRow, rightCol, " CHS %d", i + 1);
+        }
+
+        // Draw mute/solo indicators
+        if (muted) {
+            attron(COLOR_PAIR(4) | A_BOLD);
+            mvprintw(mixerRow, rightCol + 9, "M");
+            attroff(COLOR_PAIR(4) | A_BOLD);
+        } else {
+            mvprintw(mixerRow, rightCol + 9, "-");
+        }
+
+        if (solo) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvprintw(mixerRow, rightCol + 11, "S");
+            attroff(COLOR_PAIR(2) | A_BOLD);
+        } else {
+            mvprintw(mixerRow, rightCol + 11, "-");
+        }
+
+        // Draw compact bar (20 chars)
+        drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+
+        if (selected) {
+            attroff(COLOR_PAIR(5) | A_BOLD);
+        }
+
+        mixerRow++;
+    }
+
+    mixerRow += 2;
+    attron(COLOR_PAIR(8));
+    mvprintw(mixerRow++, rightCol, "1-4: Select OSC | 5-8: Select SAMP");
+    mvprintw(mixerRow++, rightCol, "Shift+1-4: Select CHAOS");
+    mvprintw(mixerRow++, rightCol, "M: Mute | S: Solo | [/]: Level");
+    attroff(COLOR_PAIR(8));
+
+    // Draw preset browser if active
+    if (presetBrowserActive) {
+        int maxY = getmaxy(stdscr);
+        int maxX = getmaxx(stdscr);
+        int boxWidth = std::min(60, maxX - 10);
+        int boxHeight = std::min(25, maxY - 10);
+        int boxTop = (maxY - boxHeight) / 2;
+        int boxLeft = (maxX - boxWidth) / 2;
+
+        // Draw background
+        for (int y = boxTop; y < boxTop + boxHeight; ++y) {
+            for (int x = boxLeft; x < boxLeft + boxWidth; ++x) {
+                mvaddch(y, x, ' ' | COLOR_PAIR(1));
+            }
+        }
+
+        // Draw border
+        attron(COLOR_PAIR(1) | A_BOLD);
+        mvhline(boxTop, boxLeft, '-', boxWidth);
+        mvhline(boxTop + boxHeight - 1, boxLeft, '-', boxWidth);
+        mvvline(boxTop, boxLeft, '|', boxHeight);
+        mvvline(boxTop, boxLeft + boxWidth - 1, '|', boxHeight);
+
+        // Corners
+        mvaddch(boxTop, boxLeft, '+');
+        mvaddch(boxTop, boxLeft + boxWidth - 1, '+');
+        mvaddch(boxTop + boxHeight - 1, boxLeft, '+');
+        mvaddch(boxTop + boxHeight - 1, boxLeft + boxWidth - 1, '+');
+        attroff(COLOR_PAIR(1) | A_BOLD);
+
+        // Title
+        attron(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(boxTop + 1, boxLeft + 2, "Load Preset");
+        attroff(COLOR_PAIR(1) | A_BOLD);
+
+        // List contents
+        int visible = boxHeight - 4;
+        if (presetBrowserSelectedIndex < presetBrowserScrollOffset) {
+            presetBrowserScrollOffset = presetBrowserSelectedIndex;
+        }
+        if (presetBrowserSelectedIndex >= presetBrowserScrollOffset + visible) {
+            presetBrowserScrollOffset = presetBrowserSelectedIndex - visible + 1;
+        }
+
+        for (int i = 0; i < visible; ++i) {
+            int idx = presetBrowserScrollOffset + i;
+            int y = boxTop + 3 + i;
+
+            if (idx >= 0 && idx < static_cast<int>(presetBrowserPresets.size())) {
+                bool selected = (idx == presetBrowserSelectedIndex);
+                if (selected) {
+                    attron(COLOR_PAIR(5) | A_BOLD);
+                    mvprintw(y, boxLeft + 2, "> %s", presetBrowserPresets[idx].c_str());
+                    attroff(COLOR_PAIR(5) | A_BOLD);
+                } else {
+                    mvprintw(y, boxLeft + 2, "  %s", presetBrowserPresets[idx].c_str());
+                }
+            }
+        }
+
+        // Instructions
+        attron(COLOR_PAIR(1));
+        mvprintw(boxTop + boxHeight - 2, boxLeft + 2, "Enter=Load  Esc/Q=Cancel");
+        attroff(COLOR_PAIR(1));
     }
 }

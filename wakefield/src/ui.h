@@ -160,11 +160,13 @@ struct SynthParameters {
     std::atomic<float> osc4Amp{1.0f};
     std::atomic<float> osc4Level{0.0f};        // Default: off
 
-    // Mixer mute/solo state (4 OSC + 4 SAMP = 8 channels)
-    std::atomic<bool> oscMuted[4]{false, false, false, false};
+    // Mixer mute/solo state (4 OSC + 4 SAMP + 4 CHAOS = 12 channels)
+    std::atomic<bool> oscMuted[4]{false, true, true, true};     // OSC 1 unmuted, others muted by default
     std::atomic<bool> oscSolo[4]{false, false, false, false};
-    std::atomic<bool> samplerMuted[4]{false, false, false, false};
+    std::atomic<bool> samplerMuted[4]{true, true, true, true};  // All samplers muted by default
     std::atomic<bool> samplerSolo[4]{false, false, false, false};
+    std::atomic<bool> chaosMuted[4]{true, true, true, true};    // All chaos muted by default
+    std::atomic<bool> chaosSolo[4]{false, false, false, false};
 
     // LFO parameters - 4 global modulation sources
     std::atomic<float> lfo1Period{1.0f};
@@ -1177,6 +1179,25 @@ private:
     void finishSampleBrowser(bool applySelection);
     void refreshSampleBrowserFiles();
     void loadSampleForCurrentSampler(const std::string& filepath);
+
+    // Main page action buttons state
+    int mainPageActionIndex;         // 0=Save, 1=Load, 2=Randomize, 3=Mutate, 4=Reset, 5=CPU Monitor
+    float globalMutatePercentage;    // 0-100%
+
+    // Main page mixer state
+    int mainPageMixerChannel;        // 0-11: 0-3=OSC, 4-7=SAMP, 8-11=CHAOS
+
+    // Preset browser state (similar to sample browser)
+    bool presetBrowserActive;
+    std::vector<std::string> presetBrowserPresets;
+    int presetBrowserSelectedIndex;
+    int presetBrowserScrollOffset;
+
+    // Preset browser helpers
+    void startPresetBrowser();
+    void handlePresetBrowserInput(int ch);
+    void finishPresetBrowser(bool applySelection);
+    void refreshPresetBrowserList();
 };
 
 #endif // UI_H
