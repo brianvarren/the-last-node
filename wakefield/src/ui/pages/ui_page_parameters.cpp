@@ -16,7 +16,7 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
 
         // Check if parameter has MIDI CC mapping
         int mappedCC = -1;
-        if (paramId >= 0 && paramId < 50) {
+        if (paramId >= 0 && paramId < SynthParameters::kMaxParamMap) {
             mappedCC = params->parameterCCMap[paramId].load();
         }
 

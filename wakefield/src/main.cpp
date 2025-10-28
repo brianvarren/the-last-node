@@ -502,7 +502,7 @@ void onControlChange(int controller, int value) {
         int paramId = synthParams->midiLearnParameterId.load();
 
         // Learn CC for any parameter
-        if (paramId >= 0 && paramId < 50) {
+        if (paramId >= 0 && paramId < SynthParameters::kMaxParamMap) {
             synthParams->parameterCCMap[paramId] = controller;
             synthParams->midiLearnActive = false;
             synthParams->midiLearnParameterId = -1;

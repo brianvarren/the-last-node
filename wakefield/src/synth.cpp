@@ -1003,15 +1003,17 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         // Apply curve shaping
         float shapedValue = applyModCurve(sourceValue, slot.curve);
 
-        // Apply amount scaling (-99 to +99 maps to a reasonable modulation range)
+        // Amount scaling (-99..+99 -> -1..+1 approx)
         float amount = static_cast<float>(slot.amount) / 99.0f;
-        float modValue = shapedValue * amount;
+        float modValue;
 
-        // Handle bidirectional vs unidirectional
-        // Type 0 = Unidirectional (-->), Type 1 = Bidirectional (<->)
+        // Type 0 = Unidirectional (-->) maps source -1..+1 to 0..1, then scales by amount
+        // Type 1 = Bidirectional (<->) scales -1..+1 directly by amount
         if (slot.type == 0) {
-            // Unidirectional: map -1..+1 to 0..+1
-            modValue = (modValue + 1.0f) * 0.5f * amount;
+            float mapped01 = (shapedValue + 1.0f) * 0.5f;  // 0..1
+            modValue = mapped01 * amount;
+        } else {
+            modValue = shapedValue * amount;
         }
 
         // Apply to destination

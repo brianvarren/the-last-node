@@ -95,7 +95,8 @@ struct SynthParameters {
     std::atomic<double> midiLearnStartTime{0.0};  // Timestamp when MIDI learn started
 
     // MIDI CC mappings for all parameters (parameter ID -> CC number, -1 means not mapped)
-    std::atomic<int> parameterCCMap[50];  // Support up to 50 parameters
+    static constexpr int kMaxParamMap = 1024;
+    std::atomic<int> parameterCCMap[kMaxParamMap];  // Broad range for parameter IDs
 
     // Legacy - keep for backwards compatibility
     std::atomic<int> filterCutoffCC{-1};  // Which CC controls filter cutoff (-1 = none)
@@ -304,7 +305,7 @@ struct SynthParameters {
 
     // Constructor to initialize CC map and FM matrix
     SynthParameters() {
-        for (int i = 0; i < 50; ++i) {
+        for (int i = 0; i < kMaxParamMap; ++i) {
             parameterCCMap[i] = -1;  // -1 means no CC assigned
         }
         // Initialize FM matrix to zero (no FM routing by default)

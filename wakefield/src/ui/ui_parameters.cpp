@@ -851,9 +851,10 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
     switch (param->type) {
         case ParamType::FLOAT: {
             float range = param->max_val - param->min_val;
-            float linearStep = (fine ? 0.01f : 0.05f) * range;
+            float coarseStep = 0.05f * range;
+            float linearStep = fine ? (coarseStep * 0.1f) : coarseStep;
             if (linearStep <= 0.0f) {
-                linearStep = fine ? 0.001f : 0.01f;
+                linearStep = fine ? 0.001f : 0.01f; // fallback
             }
 
             auto clampValue = [&](float value) {
@@ -868,8 +869,8 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
                 }
             };
 
-            auto adjustMultiplicative = [&](float fineFactor, float coarseFactor) {
-                float factor = fine ? fineFactor : coarseFactor;
+            auto adjustMultiplicative = [&](float coarseFactor) {
+                float factor = fine ? (1.0f + (coarseFactor - 1.0f) * 0.1f) : coarseFactor;
                 factor = std::max(factor, 1.0f);
                 float baseline = std::max(currentValue, param->min_val);
                 if (increase) {
@@ -888,22 +889,22 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
                 if (increase) newValue = clampValue(currentValue + step);
                 else newValue = clampValue(currentValue - step);
             } else if (isEnvelopeTime) { // Envelope attack/decay/release
-                adjustMultiplicative(1.1f, 1.3f);
+                adjustMultiplicative(1.3f);
             } else if (id == 11) { // Oscillator frequency - semitone steps
-                adjustMultiplicative(1.059463f, 1.122462f);
+                adjustMultiplicative(1.122462f);
             } else if (id == 14) { // Oscillator ratio
-                adjustMultiplicative(1.1f, 1.25f);
+                adjustMultiplicative(1.25f);
             } else if (id == 32) { // Filter cutoff
-                adjustMultiplicative(1.1f, 1.3f);
+                adjustMultiplicative(1.3f);
             } else if (id == 35) { // Filter drive - fine increments (0.2 coarse, 0.05 fine)
-                float step = fine ? 0.05f : 0.2f;
+                float step = fine ? 0.02f : 0.2f;
                 if (increase) {
                     newValue = clampValue(currentValue + step);
                 } else {
                     newValue = clampValue(currentValue - step);
                 }
             } else if (id == 200) { // LFO period
-                adjustMultiplicative(1.1f, 1.3f);
+                adjustMultiplicative(1.3f);
             } else {
                 adjustLinear();
             }
