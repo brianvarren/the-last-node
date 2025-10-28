@@ -198,11 +198,11 @@ void UI::drawEnvelopePage() {
     }
 
     // Draw live voice envelope meters to the right of parameters
-    int voiceMeterCol = 50;
+    int voiceMeterCol = 47; // Shift left to avoid wrapping
     int voiceMeterRow = row + 1;
 
     attron(COLOR_PAIR(3));
-    mvprintw(voiceMeterRow++, voiceMeterCol, "VOICE ENVELOPES (Debug)");
+    mvprintw(voiceMeterRow++, voiceMeterCol, "VOICE ENVELOPES");
     attroff(COLOR_PAIR(3));
     voiceMeterRow++;
 

@@ -519,8 +519,8 @@ void UI::handleInput(int ch) {
     };
 
     // Arrow key behavior for parameter pages
-    // SAMPLER and FILTER pages: Up/Down navigate, Left/Right adjust
-    // Other pages: Up/Down/Left/Right all navigate (legacy behavior)
+    // SAMPLER and FILTER pages: Up/Down navigate, Left/Right adjust (two-column/special layout)
+    // Other parameter pages: Up/Down navigate, Left/Right adjust current parameter (global behavior)
     if (currentPage == UIPage::SAMPLER || currentPage == UIPage::FILTER) {
         if (ch == KEY_UP) {
             selectPrevParameter();
@@ -553,12 +553,31 @@ void UI::handleInput(int ch) {
             }
             return;
         }
-    } else if (parameterPage && (ch == KEY_UP || ch == KEY_LEFT)) {
-        selectPrevParameter();
-        return;
-    } else if (parameterPage && (ch == KEY_DOWN || ch == KEY_RIGHT)) {
-        selectNextParameter();
-        return;
+    } else if (parameterPage) {
+        if (ch == KEY_UP) {
+            selectPrevParameter();
+            return;
+        }
+        if (ch == KEY_DOWN) {
+            selectNextParameter();
+            return;
+        }
+        if ((ch == KEY_LEFT || ch == KEY_SLEFT) && !numericInputActive) {
+            if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
+                selectedParameterId = pageParams.front();
+            }
+            bool fine = (ch == KEY_SLEFT);
+            adjustParameter(selectedParameterId, false, fine);
+            return;
+        }
+        if ((ch == KEY_RIGHT || ch == KEY_SRIGHT) && !numericInputActive) {
+            if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
+                selectedParameterId = pageParams.front();
+            }
+            bool fine = (ch == KEY_SRIGHT);
+            adjustParameter(selectedParameterId, true, fine);
+            return;
+        }
     }
 
     // +/- keys adjust the currently selected parameter (Shift for fine control)
