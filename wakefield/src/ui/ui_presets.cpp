@@ -1,5 +1,8 @@
 #include "../ui.h"
 #include "../preset.h"
+#include "../sequencer.h"
+
+extern Sequencer* sequencer;
 
 void UI::refreshPresetList() {
     availablePresets = PresetManager::listPresets();
@@ -8,11 +11,32 @@ void UI::refreshPresetList() {
 void UI::loadPreset(const std::string& filename) {
     if (PresetManager::loadPreset(filename, params)) {
         currentPresetName = filename;
+        // Also load sequencer patterns if available
+        if (sequencer) {
+            std::string baseDir = PresetManager::getPresetDirectory();
+            for (int t = 0; t < 4; ++t) {
+                std::string trackPath = baseDir + "/" + filename + "_track" + std::to_string(t+1) + ".csv";
+                // Attempt load (if file missing, leave pattern as-is)
+                try {
+                    sequencer->getTrack(t).getPattern().loadFromFile(trackPath);
+                } catch (...) {
+                    // Ignore errors for missing/invalid files
+                }
+            }
+        }
     }
 }
 
 void UI::savePreset(const std::string& filename) {
     if (PresetManager::savePreset(filename, params)) {
+        // Save sequencer patterns alongside preset
+        if (sequencer) {
+            std::string baseDir = PresetManager::getPresetDirectory();
+            for (int t = 0; t < 4; ++t) {
+                std::string trackPath = baseDir + "/" + filename + "_track" + std::to_string(t+1) + ".csv";
+                sequencer->getTrack(t).getPattern().saveToFile(trackPath);
+            }
+        }
         currentPresetName = filename;
         refreshPresetList();
     }
