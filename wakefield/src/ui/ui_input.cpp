@@ -173,37 +173,6 @@ void UI::handleInput(int ch) {
         return;
     }
 
-    // MAIN page: handle preset list interactions before MIDI learn check
-    if (currentPage == UIPage::MAIN) {
-        switch (ch) {
-            case KEY_UP:
-                if (!availablePresets.empty()) {
-                    presetListIndex = std::max(0, presetListIndex - 1);
-                }
-                return;
-            case KEY_DOWN:
-                if (!availablePresets.empty()) {
-                    presetListIndex = std::min((int)availablePresets.size() - 1, presetListIndex + 1);
-                }
-                return;
-            case '\n':
-            case KEY_ENTER:
-                if (!availablePresets.empty()) {
-                    loadPreset(availablePresets[presetListIndex]);
-                }
-                return;
-            case 's':
-            case 'S':
-                startTextInput();
-                return;
-            case 'r':
-            case 'R':
-                refreshPresetList();
-                if (presetListIndex >= (int)availablePresets.size()) presetListIndex = std::max(0, (int)availablePresets.size() - 1);
-                return;
-        }
-    }
-
     // Handle MIDI learn mode - allow Escape to cancel
     if (params->midiLearnActive.load()) {
         if (ch == 27) {  // Escape key
