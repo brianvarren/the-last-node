@@ -604,7 +604,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             if (params->chaosSolo[c].load()) { anyChaosSolo = true; break; }
         }
         for (unsigned int i = 0; i < nFrames; ++i) {
-            float chaosMix = 0.0f;
+            float chaosL = 0.0f;
+            float chaosR = 0.0f;
             for (int c = 0; c < 4; ++c) {
                 bool muted = params->chaosMuted[c].load();
                 bool solo = params->chaosSolo[c].load();
@@ -614,12 +615,15 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     continue;
                 }
                 float level = params->getChaosLevel(c);
-                // Simple stereo: same to L and R (optionally could add slight width later)
-                chaosMix += chaosOutputs[c] * level;
+                float x = chaosOutputs[c];
+                float y = chaos[c].getY();
+                chaosL += x * level;
+                chaosR += y * level;
             }
-            if (chaosMix != 0.0f) {
-                for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                    output[i * nChannels + ch] += chaosMix * 0.5f * masterGain;
+            if (chaosL != 0.0f || chaosR != 0.0f) {
+                output[i * nChannels + 0] += chaosL * 0.5f * masterGain;
+                if (nChannels > 1) {
+                    output[i * nChannels + 1] += chaosR * 0.5f * masterGain;
                 }
             }
         }

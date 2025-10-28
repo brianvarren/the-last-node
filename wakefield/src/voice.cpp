@@ -81,21 +81,20 @@ float Voice::generateSample() {
                                                     ratioMod[i], offsetMod[i]);
     }
 
-    // Check if any oscillators or samplers are solo'd
+    // Check if any channels are solo'd (OSC, SAMP, or CHAOS)
     bool anySolo = false;
     if (params) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            if (params->oscSolo[i].load()) {
-                anySolo = true;
-                break;
-            }
+            if (params->oscSolo[i].load()) { anySolo = true; break; }
         }
         if (!anySolo) {
             for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-                if (params->samplerSolo[i].load()) {
-                    anySolo = true;
-                    break;
-                }
+                if (params->samplerSolo[i].load()) { anySolo = true; break; }
+            }
+        }
+        if (!anySolo) {
+            for (int i = 0; i < 4; ++i) {
+                if (params->chaosSolo[i].load()) { anySolo = true; break; }
             }
         }
     }
