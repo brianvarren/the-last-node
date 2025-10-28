@@ -1487,6 +1487,10 @@ void Synth::setChaosParameter(int chaosIndex, float value) {
 void Synth::setChaosClockFreq(int chaosIndex, float freq) {
     if (chaosIndex < 0 || chaosIndex >= 4) return;
     chaos[chaosIndex].setClockFrequency(freq);
+    // Auto-enable FAST mode at high rates so chaos runs per-sample
+    if (freq >= (sampleRate * 0.5f)) {
+        chaos[chaosIndex].setFastMode(true);
+    }
 }
 
 void Synth::setChaosFastMode(int chaosIndex, bool fast) {

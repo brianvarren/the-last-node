@@ -166,7 +166,7 @@ void UI::initializeParameters() {
     // CHAOS PAGE - RANDOMIZABLE (except running state)
     // ============================================================================
     parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
-    parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 1000.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
+    parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 20000.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
     parameters.push_back({352, ParamType::ENUM, "Interp", "", 0, 2, {"LINEAR", "CUBIC", "HOLD"}, true, static_cast<int>(UIPage::CHAOS), true});
     parameters.push_back({353, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS), false});  // IMMUNE
 
