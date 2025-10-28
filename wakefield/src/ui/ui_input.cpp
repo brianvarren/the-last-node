@@ -584,6 +584,18 @@ void UI::handleInput(int ch) {
         return;
     }
     if (ch == 'l') {
+        if (currentPage == UIPage::FM) {
+            int src = fmMatrixCursorRow;
+            int tgt = fmMatrixCursorCol;
+            fmMatrixLocked[tgt][src] = !fmMatrixLocked[tgt][src];
+            addConsoleMessage(std::string("FM cell ") + std::to_string(src) + "," + std::to_string(tgt) + (fmMatrixLocked[tgt][src] ? " locked" : " unlocked"));
+            return;
+        }
+        if (currentPage == UIPage::MOD) {
+            modSlotLocked[modMatrixCursorRow] = !modSlotLocked[modMatrixCursorRow];
+            addConsoleMessage(std::string("Mod slot ") + std::to_string(modMatrixCursorRow + 1) + (modSlotLocked[modMatrixCursorRow] ? " locked" : " unlocked"));
+            return;
+        }
         InlineParameter* p = getParameter(selectedParameterId);
         if (p) {
             p->randomizable = !p->randomizable;
@@ -720,10 +732,11 @@ void UI::handleInput(int ch) {
                 return;
 
             case 'g':
-            case 'G':  // Generate/Randomize FM matrix
+            case 'G':  // Generate/Randomize FM matrix (skip locked)
                 {
                     for (int target = 0; target < 8; ++target) {
                         for (int source = 0; source < 16; ++source) {
+                            if (fmMatrixLocked[target][source]) continue;
                             float randomDepth = (static_cast<float>(rand()) / RAND_MAX) * 1.98f - 0.99f;  // -0.99 to +0.99
                             params->setFMDepth(target, source, randomDepth * 0.3f);  // Scale to 30% for subtler results
                         }
@@ -733,11 +746,13 @@ void UI::handleInput(int ch) {
                 return;
 
             case 'r':
-            case 'R':  // Reset FM matrix to zero
+            case 'R':  // Reset FM matrix to zero (skip locked)
                 {
                     for (int target = 0; target < 8; ++target) {
                         for (int source = 0; source < 16; ++source) {
-                            params->setFMDepth(target, source, 0.0f);
+                            if (!fmMatrixLocked[target][source]) {
+                                params->setFMDepth(target, source, 0.0f);
+                            }
                         }
                     }
                     addConsoleMessage("FM matrix reset");
@@ -745,12 +760,12 @@ void UI::handleInput(int ch) {
                 return;
 
             case 'm':
-            case 'M':  // Mutate FM matrix (20% variation)
+            case 'M':  // Mutate FM matrix (20% variation, skip locked)
                 {
                     for (int target = 0; target < 8; ++target) {
                         for (int source = 0; source < 16; ++source) {
                             float currentDepth = params->getFMDepth(target, source);
-                            if (currentDepth != 0.0f) {  // Only mutate non-zero values
+                            if (currentDepth != 0.0f && !fmMatrixLocked[target][source]) {  // Only mutate non-zero values
                                 float variation = (static_cast<float>(rand()) / RAND_MAX) * 0.4f - 0.2f;  // ±20%
                                 float newDepth = std::max(-0.99f, std::min(0.99f, currentDepth + variation));
                                 params->setFMDepth(target, source, newDepth);

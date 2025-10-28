@@ -192,6 +192,9 @@ void UI::drawSamplerPage() {
             mvprintw(paramRow, col1, " ");
         }
 
+        InlineParameter* p = getParameter(paramIds1[i]);
+        bool locked = p && !p->randomizable;
+        if (locked) attron(COLOR_PAIR(3));
         mvprintw(paramRow, col1 + 2, "%s", labels1[i]);
 
         if (i == 0) {
@@ -205,6 +208,16 @@ void UI::drawSamplerPage() {
         } else if (i == 4) {
             printw("%.1f%%", crossfade * 100.0f);
         }
+
+        // Lock indicator
+        if (locked) {
+            int x = col1 + 2 + 14; // end of label area approx
+            attron(COLOR_PAIR(3));
+            mvprintw(paramRow, x, " [LOCK]");
+            attroff(COLOR_PAIR(3));
+        }
+
+        if (locked) attroff(COLOR_PAIR(3));
 
         if (paramIds1[i] == selectedParameterId) {
             attroff(COLOR_PAIR(5) | A_BOLD);
@@ -225,6 +238,9 @@ void UI::drawSamplerPage() {
             mvprintw(paramRow, col2, " ");
         }
 
+        InlineParameter* p2 = getParameter(paramIds2[i]);
+        bool locked2 = p2 && !p2->randomizable;
+        if (locked2) attron(COLOR_PAIR(3));
         mvprintw(paramRow, col2 + 2, "%s", labels2[i]);
 
         if (i == 0) {
@@ -236,6 +252,15 @@ void UI::drawSamplerPage() {
         } else if (i == 3) {
             printw("%s", noteReset ? "On" : "Off");
         }
+
+        if (locked2) {
+            int x = col2 + 2 + 14;
+            attron(COLOR_PAIR(3));
+            mvprintw(paramRow, x, " [LOCK]");
+            attroff(COLOR_PAIR(3));
+        }
+
+        if (locked2) attroff(COLOR_PAIR(3));
 
         if (paramIds2[i] == selectedParameterId) {
             attroff(COLOR_PAIR(5) | A_BOLD);

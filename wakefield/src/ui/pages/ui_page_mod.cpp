@@ -293,8 +293,10 @@ void UI::drawModPage() {
         cellValues[4] = (modSlot.type >= 0 && modSlot.type < static_cast<int>(types.size()))
                         ? types[modSlot.type].symbol : "--";
 
+        bool locked = modSlotLocked[slot];
         for (int col = 0; col < columnCount; ++col) {
             bool selected = (slot == modMatrixCursorRow && col == modMatrixCursorCol);
+            if (locked) attron(COLOR_PAIR(3));
             if (selected) {
                 attron(A_REVERSE);
             }
@@ -302,13 +304,14 @@ void UI::drawModPage() {
             if (selected) {
                 attroff(A_REVERSE);
             }
+            if (locked) attroff(COLOR_PAIR(3));
         }
         row++;
     }
 
     row += 1;
     attron(COLOR_PAIR(6));
-    mvprintw(row++, 2, "Arrow keys navigate. Enter to select. Esc to cancel.");
+    mvprintw(row++, 2, "Arrow keys navigate. Enter to select. 'l' lock slot. Esc to cancel.");
     attroff(COLOR_PAIR(6));
 
     // Draw selection menu if active

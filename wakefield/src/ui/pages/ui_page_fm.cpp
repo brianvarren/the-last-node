@@ -58,22 +58,37 @@ void UI::drawFMPage() {
 
             bool isNonZero = (depthPercent != 0);
 
-            if (isNonZero) {
+            bool isLocked = fmMatrixLocked[target][source];
+
+            if (isLocked) {
+                attron(COLOR_PAIR(3));
+            } else if (isNonZero) {
                 attron(COLOR_PAIR(5));
             }
             if (isSelected) {
                 attron(A_REVERSE);
             }
 
-            mvprintw(row, cellCol, "%4d", depthPercent);
+            if (isLocked) {
+                mvprintw(row, cellCol, "%3dL", depthPercent);
+            } else {
+                mvprintw(row, cellCol, "%4d", depthPercent);
+            }
 
             if (isSelected) {
                 attroff(A_REVERSE);
             }
-            if (isNonZero) {
+            if (isLocked) {
+                attroff(COLOR_PAIR(3));
+            } else if (isNonZero) {
                 attroff(COLOR_PAIR(5));
             }
         }
         row++;
     }
+
+    // Legend
+    attron(COLOR_PAIR(3));
+    mvprintw(row + 1, 2, "Legend: yellow = locked (immune to G/M/R)  |  'l' toggles lock");
+    attroff(COLOR_PAIR(3));
 }

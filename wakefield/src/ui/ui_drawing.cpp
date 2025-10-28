@@ -19,12 +19,12 @@ void UI::drawTabs() {
         {"MIX", UIPage::MIXER},
         {"LFO", UIPage::LFO},
         {"ENV", UIPage::ENV},
-        {"FM", UIPage::FM},
-        {"MOD", UIPage::MOD},
-        {"REVERB", UIPage::REVERB},
         {"FILTER", UIPage::FILTER},
-        {"SEQUENCER", UIPage::SEQUENCER},
+        {"REVERB", UIPage::REVERB},
         {"CHAOS", UIPage::CHAOS},
+        {"MOD", UIPage::MOD},
+        {"FM", UIPage::FM},
+        {"SEQUENCER", UIPage::SEQUENCER},
         {"CONFIG", UIPage::CONFIG}
     };
 
@@ -141,7 +141,13 @@ void UI::drawHotkeyLine() {
     } else if (params->midiLearnActive.load()) {
         mvprintw(row, 1, "Move MIDI controller to assign  |  Esc Cancel  |  Q Quit");
     } else {
-        mvprintw(row, 1, "Tab/Shift+Tab Page  |  Up/Dn Param  |  Left/Right Adjust  |  Enter Type  |  L Learn  |  Q Quit");
+        if (currentPage == UIPage::FM) {
+            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  Left/Right Adjust  |  Enter Type  |  l Lock  |  G/M/R Ops  |  Q Quit");
+        } else if (currentPage == UIPage::MOD) {
+            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  Enter Edit  |  l Lock Slot  |  Q Quit");
+        } else {
+            mvprintw(row, 1, "Tab Page  |  Up/Dn Param  |  Left/Right Adjust  |  Enter Type  |  l Lock  |  L Learn  |  G/M/R Page Ops  |  Q Quit");
+        }
     }
 }
 

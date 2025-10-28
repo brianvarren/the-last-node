@@ -40,16 +40,16 @@ ACTIONS:
                    Opens preset browser with up/down navigation
                    Press Enter to load, Esc/Q to cancel
 
-  Global Randomize - Randomize all synthesis parameters
+  Global Randomize - Randomize all synthesis parameters (respects locks)
                      Creates completely new random sounds
                      Affects oscillators, filter, reverb, LFOs, etc.
 
-  Global Mutate  - Mutate current parameters by percentage
+  Global Mutate  - Mutate current parameters by percentage (respects locks)
                    Adjustable from 0-100% (default 20%)
                    Keeps character of current sound
                    Use +/- keys to adjust percentage
 
-  Global Reset   - Reset all parameters to default values
+  Global Reset   - Reset all parameters to default values (respects locks)
                    Returns synth to initial state
                    Useful for starting fresh
 
@@ -97,7 +97,9 @@ CONTROLS:
   Up/Down        - Select parameter
   Left/Right     - Adjust parameter value
   Enter          - Type exact value
+  l              - Toggle parameter lock (immune to randomize/mutate)
   L              - MIDI Learn (assign MIDI CC)
+  G/M/R          - Randomize/Mutate/Reset this page (respects locks)
 
 PARAMETERS:
   Mode       - FREE (manual freq) or KEY (MIDI tracking)
@@ -127,7 +129,9 @@ CONTROLS:
   Up/Down        - Select parameter
   Left/Right     - Adjust parameter value
   Enter          - Type exact value
+  l              - Toggle parameter lock (immune to randomize/mutate)
   L              - MIDI Learn (assign MIDI CC)
+  G/M/R          - Randomize/Mutate/Reset this page (respects locks)
 
 PARAMETERS:
   Period     - LFO cycle time (0.1s - 30min) with semantic input
@@ -467,7 +471,9 @@ CONTROLS:
   Left/Right     - Adjust selected parameter (toggles wrap around)
   Enter          - Type exact value or load sample
   -/= keys       - Coarse adjust, Shift for fine
+  l              - Toggle parameter lock (immune to randomize/mutate)
   L              - MIDI Learn (assign MIDI CC)
+  G/M/R          - Randomize/Mutate/Reset this page (respects locks)
   1-4            - Select sampler (4 independent samplers)
 
 PARAMETERS:

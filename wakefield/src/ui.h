@@ -1107,10 +1107,12 @@ private:
     // FM Matrix UI state
     int fmMatrixCursorRow;        // 0-3: source oscillator (row)
     int fmMatrixCursorCol;        // 0-3: target oscillator (column)
+    bool fmMatrixLocked[8][16] = {{false}}; // target x source lock flags
 
     // MOD Matrix UI state
     int modMatrixCursorRow;       // 0-15: modulation slot
     int modMatrixCursorCol;       // 0-4: column within slot (Source/Curve/Amount/Destination/Type)
+    bool modSlotLocked[16] = {false};
 
     // Sequencer UI state
     enum class SequencerTrackerColumn {

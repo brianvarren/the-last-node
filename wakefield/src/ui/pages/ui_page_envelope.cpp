@@ -179,12 +179,20 @@ void UI::drawEnvelopePage() {
         }
 
         // Parameter name and value
+        bool locked = !param->randomizable;
+        if (locked) attron(COLOR_PAIR(3));
         std::string displayValue = getParameterDisplayString(paramId);
         mvprintw(paramRow, 4, "%-18s: %s", param->name.c_str(), displayValue.c_str());
+        if (locked) {
+            attron(COLOR_PAIR(3));
+            mvprintw(paramRow, 4 + 18 + 2 + static_cast<int>(displayValue.size()), " [LOCK]");
+            attroff(COLOR_PAIR(3));
+        }
 
         if (paramId == selectedParameterId) {
             attroff(COLOR_PAIR(5) | A_BOLD);
         }
+        if (locked) attroff(COLOR_PAIR(3));
 
         paramRow++;
     }
