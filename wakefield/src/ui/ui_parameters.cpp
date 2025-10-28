@@ -166,9 +166,10 @@ void UI::initializeParameters() {
     // CHAOS PAGE - RANDOMIZABLE (except running state)
     // ============================================================================
     parameters.push_back({350, ParamType::FLOAT, "Chaos", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
-    parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.01f, 20000.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
+    parameters.push_back({351, ParamType::FLOAT, "Clock", "Hz", 0.00001f, 20000.0f, {}, true, static_cast<int>(UIPage::CHAOS), true});
     parameters.push_back({352, ParamType::ENUM, "Interp", "", 0, 2, {"LINEAR", "CUBIC", "HOLD"}, true, static_cast<int>(UIPage::CHAOS), true});
     parameters.push_back({353, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS), false});  // IMMUNE
+    parameters.push_back({354, ParamType::BOOL, "FAST", "", 0, 1, {}, true, static_cast<int>(UIPage::CHAOS), true});
 
     // ============================================================================
     // FM PAGE - RANDOMIZABLE
@@ -754,6 +755,7 @@ float UI::getParameterValue(int id) {
         case 351: return params->getChaosClockFreq(chaosIndex);
         case 352: return static_cast<float>(params->getChaosInterpMode(chaosIndex));
         case 353: return params->getChaosRunning(chaosIndex) ? 1.0f : 0.0f;
+        case 354: return params->getChaosFastMode(chaosIndex) ? 1.0f : 0.0f;
         // FM page parameters (360-360)
         case 360: return params->fmGlobalDepth.load();
         default: return 0.0f;
@@ -859,9 +861,19 @@ void UI::setParameterValue(int id, float value) {
         case 323: params->setEnvReleaseBend(3, value); break;
         // CHAOS page parameters (350-353) - use currentChaosIndex
         case 350: params->setChaosParameter(chaosIndex, value); synth->setChaosParameter(chaosIndex, value); break;
-        case 351: params->setChaosClockFreq(chaosIndex, value); synth->setChaosClockFreq(chaosIndex, value); break;
+        case 351: {
+            // Clamp to mode-specific ranges: slow 1e-5..300, fast 20..20000
+            bool fast = params->getChaosFastMode(chaosIndex);
+            float clamped = value;
+            if (fast) clamped = std::clamp(value, 20.0f, 20000.0f);
+            else clamped = std::clamp(value, 0.00001f, 300.0f);
+            params->setChaosClockFreq(chaosIndex, clamped);
+            synth->setChaosClockFreq(chaosIndex, clamped);
+            break;
+        }
         case 352: params->setChaosInterpMode(chaosIndex, static_cast<int>(value)); synth->setChaosInterpMode(chaosIndex, static_cast<int>(value)); break;
         case 353: params->setChaosRunning(chaosIndex, value > 0.5f); break;
+        case 354: params->setChaosFastMode(chaosIndex, value > 0.5f); synth->setChaosFastMode(chaosIndex, value > 0.5f); break;
         // FM page parameters (360-360)
         case 360: params->fmGlobalDepth.store(std::clamp(value, 0.0f, 1.0f)); break;
     }
@@ -910,10 +922,22 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
                 (id >= 300 && id <= 323) &&
                 ((id % 6 == 0) || (id % 6 == 1) || (id % 6 == 3));
 
-            if (id == 351) { // Chaos Clock (explicit step: 5 Hz coarse, 0.5 Hz fine)
-                float step = fine ? 0.5f : 5.0f;
-                if (increase) newValue = clampValue(currentValue + step);
-                else newValue = clampValue(currentValue - step);
+            if (id == 351) { // Chaos Clock
+                int chaosIndex = currentChaosIndex;
+                bool fast = params->getChaosFastMode(chaosIndex);
+                if (fast) {
+                    // FAST: 20..20000 Hz, linear step
+                    float step = fine ? 0.5f : 5.0f;
+                    newValue = clampValue(increase ? currentValue + step : currentValue - step);
+                    newValue = std::clamp(newValue, 20.0f, 20000.0f);
+                } else {
+                    // SLOW: 1e-5..300 Hz, multiplicative step for better low control
+                    float factorCoarse = 1.3f;
+                    float factor = fine ? (1.0f + (factorCoarse - 1.0f) * 0.1f) : factorCoarse;
+                    float base = std::max(currentValue, 0.00001f);
+                    newValue = increase ? base * factor : base / factor;
+                    newValue = std::clamp(newValue, 0.00001f, 300.0f);
+                }
             } else if (isEnvelopeTime) { // Envelope attack/decay/release
                 adjustMultiplicative(1.3f);
             } else if (id == 11) { // Oscillator frequency - semitone steps

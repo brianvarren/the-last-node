@@ -117,8 +117,8 @@ public:
         u = std::max(0.0, std::min(1.0, static_cast<double>(chaos)));
     }
     void setClockFrequency(float freq) {
-        // Allow much higher rates for audio-rate chaos (up to 20 kHz)
-        clockFrequency = std::max(0.01, std::min(20000.0, static_cast<double>(freq)));
+        // Allow very low rates for LFO use, and high rates for audio chaos
+        clockFrequency = std::max(0.00001, std::min(20000.0, static_cast<double>(freq)));
     }
     void setInterpMode(int mode) { interpMode = std::max(0, std::min(2, mode)); }
     void setFastMode(bool fast) { fastMode = fast; }
