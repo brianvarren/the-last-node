@@ -351,37 +351,40 @@ void UI::handleInput(int ch) {
         }
     };
 
-    // Tab key cycles forward through pages (MIXER removed - now integrated in MAIN)
+    // Tab key cycles forward through pages (matches F-key order)
+    // F1=Main, F2=Osc, F3=Samp, F4=LFO, F5=Env, F6=Filter, F7=FX, F8=Chaos, F9=Mod, F10=FM, F11=Seq, F12=Config
     if (ch == '\t') {
         if (currentPage == UIPage::MAIN) setPage(UIPage::OSCILLATOR);
         else if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::SAMPLER);
         else if (currentPage == UIPage::SAMPLER) setPage(UIPage::LFO);
         else if (currentPage == UIPage::LFO) setPage(UIPage::ENV);
-        else if (currentPage == UIPage::ENV) setPage(UIPage::FM);
-        else if (currentPage == UIPage::FM) setPage(UIPage::MOD);
-        else if (currentPage == UIPage::MOD) setPage(UIPage::REVERB);
-        else if (currentPage == UIPage::REVERB) setPage(UIPage::FILTER);
-        else if (currentPage == UIPage::FILTER) setPage(UIPage::SEQUENCER);
-        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CHAOS);
-        else if (currentPage == UIPage::CHAOS) setPage(UIPage::CONFIG);
+        else if (currentPage == UIPage::ENV) setPage(UIPage::FILTER);
+        else if (currentPage == UIPage::FILTER) setPage(UIPage::REVERB);
+        else if (currentPage == UIPage::REVERB) setPage(UIPage::CHAOS);
+        else if (currentPage == UIPage::CHAOS) setPage(UIPage::MOD);
+        else if (currentPage == UIPage::MOD) setPage(UIPage::FM);
+        else if (currentPage == UIPage::FM) setPage(UIPage::SEQUENCER);
+        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::CONFIG);
+        else if (currentPage == UIPage::CONFIG) setPage(UIPage::MAIN);
         else setPage(UIPage::MAIN);
         return;
     }
 
-    // Ctrl+Tab (KEY_BTAB or Shift+Tab) cycles backward through pages (MIXER removed)
+    // Shift+Tab cycles backward through pages (matches F-key order in reverse)
     if (ch == KEY_BTAB || ch == 353) {  // KEY_BTAB = Shift+Tab, 353 = some terminals
         if (currentPage == UIPage::MAIN) setPage(UIPage::CONFIG);
         else if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::MAIN);
         else if (currentPage == UIPage::SAMPLER) setPage(UIPage::OSCILLATOR);
         else if (currentPage == UIPage::LFO) setPage(UIPage::SAMPLER);
         else if (currentPage == UIPage::ENV) setPage(UIPage::LFO);
-        else if (currentPage == UIPage::FM) setPage(UIPage::ENV);
-        else if (currentPage == UIPage::MOD) setPage(UIPage::FM);
-        else if (currentPage == UIPage::REVERB) setPage(UIPage::MOD);
-        else if (currentPage == UIPage::FILTER) setPage(UIPage::REVERB);
-        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::FILTER);
-        else if (currentPage == UIPage::CHAOS) setPage(UIPage::SEQUENCER);
-        else if (currentPage == UIPage::CONFIG) setPage(UIPage::CHAOS);
+        else if (currentPage == UIPage::FILTER) setPage(UIPage::ENV);
+        else if (currentPage == UIPage::REVERB) setPage(UIPage::FILTER);
+        else if (currentPage == UIPage::CHAOS) setPage(UIPage::REVERB);
+        else if (currentPage == UIPage::MOD) setPage(UIPage::CHAOS);
+        else if (currentPage == UIPage::FM) setPage(UIPage::MOD);
+        else if (currentPage == UIPage::SEQUENCER) setPage(UIPage::FM);
+        else if (currentPage == UIPage::CONFIG) setPage(UIPage::SEQUENCER);
+        else setPage(UIPage::MAIN);
         return;
     }
 
