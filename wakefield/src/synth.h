@@ -244,6 +244,13 @@ private:
     // Per-buffer chaos output traces for audio mixing (filled by processChaos)
     std::vector<float> chaosBufferX[4];
     std::vector<float> chaosBufferY[4];
+    // Diff mode and last-sample state for whitening
+    bool chaosDiffMode = false;
+    float chaosLastX[4] = {0.0f,0.0f,0.0f,0.0f};
+    float chaosLastY[4] = {0.0f,0.0f,0.0f,0.0f};
+
+public:
+    void setChaosDiffMode(bool enabled) { chaosDiffMode = enabled; }
     ModulationOutputs lastGlobalModOutputs;
 
     int samplerPhaseSource[SAMPLERS_PER_VOICE] = {

@@ -170,6 +170,7 @@ void UI::initializeParameters() {
     parameters.push_back({352, ParamType::ENUM, "Interp", "", 0, 2, {"LINEAR", "CUBIC", "HOLD"}, true, static_cast<int>(UIPage::CHAOS), true});
     parameters.push_back({353, ParamType::BOOL, "Running", "", 0, 1, {}, false, static_cast<int>(UIPage::CHAOS), false});  // IMMUNE
     parameters.push_back({354, ParamType::BOOL, "FAST", "", 0, 1, {}, true, static_cast<int>(UIPage::CHAOS), true});
+    parameters.push_back({355, ParamType::BOOL, "DIFF", "", 0, 1, {}, true, static_cast<int>(UIPage::CHAOS), true});
 
     // ============================================================================
     // FM PAGE - RANDOMIZABLE
@@ -756,6 +757,7 @@ float UI::getParameterValue(int id) {
         case 352: return static_cast<float>(params->getChaosInterpMode(chaosIndex));
         case 353: return params->getChaosRunning(chaosIndex) ? 1.0f : 0.0f;
         case 354: return params->getChaosFastMode(chaosIndex) ? 1.0f : 0.0f;
+        case 355: return params->chaosDiff.load() ? 1.0f : 0.0f;
         // FM page parameters (360-360)
         case 360: return params->fmGlobalDepth.load();
         default: return 0.0f;
@@ -874,6 +876,7 @@ void UI::setParameterValue(int id, float value) {
         case 352: params->setChaosInterpMode(chaosIndex, static_cast<int>(value)); synth->setChaosInterpMode(chaosIndex, static_cast<int>(value)); break;
         case 353: params->setChaosRunning(chaosIndex, value > 0.5f); break;
         case 354: params->setChaosFastMode(chaosIndex, value > 0.5f); synth->setChaosFastMode(chaosIndex, value > 0.5f); break;
+        case 355: params->chaosDiff = (value > 0.5f); if (synth) synth->setChaosDiffMode(value > 0.5f); break;
         // FM page parameters (360-360)
         case 360: params->fmGlobalDepth.store(std::clamp(value, 0.0f, 1.0f)); break;
     }

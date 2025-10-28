@@ -295,6 +295,9 @@ struct SynthParameters {
     std::atomic<float> chaos4VisualX{0.0f};
     std::atomic<float> chaos4VisualY{0.0f};
 
+    // Chaos global diff-mix toggle (mix X/Y deltas for a whiter sound)
+    std::atomic<bool> chaosDiff{false};
+
     // FM Matrix - audio-rate frequency modulation routing
     // fmMatrix[target][source] = depth (0.0 to 1.0)
     // Example: fmMatrix[2][0] = 0.5 means OSC1 modulates OSC3 at 50% depth

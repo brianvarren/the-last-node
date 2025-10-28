@@ -618,6 +618,12 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                 // Use per-frame chaos traces if available (populated by processChaos)
                 float x = (i < chaosBufferX[c].size()) ? chaosBufferX[c][i] : chaosOutputs[c];
                 float y = (i < chaosBufferY[c].size()) ? chaosBufferY[c][i] : chaos[c].getY();
+                if (chaosDiffMode) {
+                    float prevX = (i > 0 && i-1 < chaosBufferX[c].size()) ? chaosBufferX[c][i-1] : chaosLastX[c];
+                    float prevY = (i > 0 && i-1 < chaosBufferY[c].size()) ? chaosBufferY[c][i-1] : chaosLastY[c];
+                    x -= prevX;
+                    y -= prevY;
+                }
                 chaosL += x * level;
                 chaosR += y * level;
             }
@@ -626,6 +632,13 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                 if (nChannels > 1) {
                     output[i * nChannels + 1] += chaosR * 0.5f * masterGain;
                 }
+            }
+        }
+        // Update last-sample state for diff mode
+        if (chaosDiffMode) {
+            for (int c = 0; c < 4; ++c) {
+                if (!chaosBufferX[c].empty()) chaosLastX[c] = chaosBufferX[c].back();
+                if (!chaosBufferY[c].empty()) chaosLastY[c] = chaosBufferY[c].back();
             }
         }
     }
