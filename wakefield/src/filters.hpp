@@ -912,7 +912,9 @@ public:
         input = std::clamp(input, -4.0f, 4.0f);
 
         // Pre-allpass signal with feedback: x̃ = x + k*ỹ
-        const float preAllpass = std::tanh(input + feedbackK * lastAllpassOut);
+        // Don't apply tanh here - we need to let the feedback build up for resonant peaks!
+        // But do apply a generous clamp to prevent extreme values
+        const float preAllpass = std::clamp(input + feedbackK * lastAllpassOut, -10.0f, 10.0f);
 
         // Process through cascaded allpasses: ỹ = G(x̃)
         float postAllpass = preAllpass;
@@ -920,8 +922,9 @@ public:
             postAllpass = stage.process(postAllpass);
         }
 
-        // Soft clip and limit feedback signal for stability
-        postAllpass = std::clamp(std::tanh(postAllpass), -3.0f, 3.0f);
+        // ONLY apply limiting AFTER allpass processing to prevent instability
+        // This allows resonant peaks to build up but prevents explosion
+        postAllpass = std::tanh(postAllpass * 0.5f) * 2.0f;  // Soft saturation
 
         // Check for NaN/Inf and reset if necessary
         if (!std::isfinite(postAllpass)) {
