@@ -837,14 +837,28 @@ void Synth::processLFOs(float sampleRate, unsigned int nFrames) {
 }
 
 void Synth::processChaos(unsigned int nFrames) {
-    // Process all 4 chaos generators once per buffer to advance their state
-    for (unsigned int frame = 0; frame < nFrames; ++frame) {
-        for (int i = 0; i < 4; ++i) {
-            // Only process if running
-            bool running = params ? params->getChaosRunning(i) : true;
-            if (running) {
-                chaosOutputs[i] = chaos[i].process();  // Advance and cache output
+    // Process all 4 chaos generators per sample and populate buffers
+    for (int i = 0; i < 4; ++i) {
+        bool running = params ? params->getChaosRunning(i) : true;
+        if (running) {
+            // Clear and reserve space for per-sample values
+            chaosBufferX[i].clear();
+            chaosBufferY[i].clear();
+            chaosBufferX[i].reserve(nFrames);
+            chaosBufferY[i].reserve(nFrames);
+
+            // Generate per-sample chaos values
+            for (unsigned int frame = 0; frame < nFrames; ++frame) {
+                chaosBufferX[i].push_back(chaos[i].process());
+                chaosBufferY[i].push_back(chaos[i].getY());
             }
+
+            // Update cached output (last sample)
+            chaosOutputs[i] = chaosBufferX[i].back();
+        } else {
+            // If not running, clear buffers so fallback to chaosOutputs is used
+            chaosBufferX[i].clear();
+            chaosBufferY[i].clear();
         }
     }
 
