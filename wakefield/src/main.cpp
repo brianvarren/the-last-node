@@ -464,10 +464,34 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
         case 353:  // Running (BOOL)
             synthParams->setChaosRunning(0, ccValue > 63);
             break;
+        case 354:  // FAST Mode (BOOL)
+            {
+                bool fast = ccValue > 63;
+                synthParams->setChaosFastMode(0, fast);
+                if (synth) synth->setChaosFastMode(0, fast);
+            }
+            break;
+        case 355:  // DIFF Mode (BOOL)
+            synthParams->chaosDiff = (ccValue > 63);
+            break;
 
         // FM page parameters (360)
         case 360:  // FM Global Depth (linear, 0.0-1.0)
             synthParams->fmGlobalDepth = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            break;
+
+        // MIXER page parameters - Chaos levels (410-413)
+        case 410:  // CHAOS 1 Level (linear)
+            synthParams->setChaosLevel(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 411:  // CHAOS 2 Level (linear)
+            synthParams->setChaosLevel(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 412:  // CHAOS 3 Level (linear)
+            synthParams->setChaosLevel(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            break;
+        case 413:  // CHAOS 4 Level (linear)
+            synthParams->setChaosLevel(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
             break;
 
         // Additional oscillator parameters (18, 19)
@@ -554,7 +578,7 @@ void onControlChange(int controller, int value) {
     // Process CC messages - check if any parameter is mapped to this controller
     // TODO: Add parameter smoothing at control rate (100Hz) to prevent zipper noise
     // Current implementation: Atomic writes provide thread-safe direct updates
-    for (int paramId = 0; paramId < 50; ++paramId) {
+    for (int paramId = 0; paramId < 500; ++paramId) {
         int mappedCC = synthParams->parameterCCMap[paramId].load();
         if (mappedCC >= 0 && mappedCC == controller) {
             applyMIDICCToParameter(paramId, value);

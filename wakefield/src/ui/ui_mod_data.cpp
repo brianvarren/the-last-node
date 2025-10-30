@@ -106,6 +106,18 @@ const std::vector<ModuleData>& buildDestinationModules() {
         }},
         {"FM", {
             {"Global Depth", "FM:Gbl"}
+        }},
+        {"Chaos 1", {
+            {"Clock Freq", "C1:Clk"}, {"U Parameter", "C1:U"}, {"Level", "C1:Lvl"}
+        }},
+        {"Chaos 2", {
+            {"Clock Freq", "C2:Clk"}, {"U Parameter", "C2:U"}, {"Level", "C2:Lvl"}
+        }},
+        {"Chaos 3", {
+            {"Clock Freq", "C3:Clk"}, {"U Parameter", "C3:U"}, {"Level", "C3:Lvl"}
+        }},
+        {"Chaos 4", {
+            {"Clock Freq", "C4:Clk"}, {"U Parameter", "C4:U"}, {"Level", "C4:Lvl"}
         }}
     };
     return modules;

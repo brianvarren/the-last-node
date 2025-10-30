@@ -615,6 +615,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     continue;
                 }
                 float level = params->getChaosLevel(c);
+                // Apply modulation to level
+                float modulatedLevel = std::clamp(level + lastGlobalModOutputs.chaosLevel[c], 0.0f, 1.0f);
                 // Use per-frame chaos traces if available (populated by processChaos)
                 float x = (i < chaosBufferX[c].size()) ? chaosBufferX[c][i] : chaosOutputs[c];
                 float y = (i < chaosBufferY[c].size()) ? chaosBufferY[c][i] : chaos[c].getY();
@@ -624,8 +626,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     x -= prevX;
                     y -= prevY;
                 }
-                chaosL += x * level;
-                chaosR += y * level;
+                chaosL += x * modulatedLevel;
+                chaosR += y * modulatedLevel;
             }
             if (chaosL != 0.0f || chaosR != 0.0f) {
                 output[i * nChannels + 0] += chaosL * 0.5f * masterGain;
@@ -837,6 +839,25 @@ void Synth::processLFOs(float sampleRate, unsigned int nFrames) {
 }
 
 void Synth::processChaos(unsigned int nFrames) {
+    // Apply modulation to chaos parameters before processing
+    if (params) {
+        for (int i = 0; i < 4; ++i) {
+            // Get base parameter values
+            float baseClockFreq = params->getChaosClockFreq(i);
+            float baseParameter = params->getChaosParameter(i);
+
+            // Apply modulation (chaos clock is typically 0.00001-20000 Hz, modulate in octaves)
+            // For clock freq: multiplicative modulation in octaves (±4 octaves max)
+            float clockOctaves = lastGlobalModOutputs.chaosClockFreq[i] * 4.0f;
+            float modulatedClock = std::clamp(baseClockFreq * std::pow(2.0f, clockOctaves), 0.00001f, 20000.0f);
+            chaos[i].setClockFrequency(modulatedClock);
+
+            // For U parameter: additive modulation (0.6-0.99 range, scale mod to ±0.2)
+            float modulatedParam = std::clamp(baseParameter + lastGlobalModOutputs.chaosParameter[i] * 0.2f, 0.6f, 0.99f);
+            chaos[i].setChaosParameter(modulatedParam);
+        }
+    }
+
     // Process all 4 chaos generators per sample and populate buffers
     for (int i = 0; i < 4; ++i) {
         bool running = params ? params->getChaosRunning(i) : true;
@@ -1170,6 +1191,22 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 81: outputs.samplerPhase[3] += modValue; break;
             // FM
             case 82: outputs.fmGlobalDepth += modValue; break;
+            // Chaos 1
+            case 83: outputs.chaosClockFreq[0] += modValue; break;
+            case 84: outputs.chaosParameter[0] += modValue; break;
+            case 85: outputs.chaosLevel[0] += modValue; break;
+            // Chaos 2
+            case 86: outputs.chaosClockFreq[1] += modValue; break;
+            case 87: outputs.chaosParameter[1] += modValue; break;
+            case 88: outputs.chaosLevel[1] += modValue; break;
+            // Chaos 3
+            case 89: outputs.chaosClockFreq[2] += modValue; break;
+            case 90: outputs.chaosParameter[2] += modValue; break;
+            case 91: outputs.chaosLevel[2] += modValue; break;
+            // Chaos 4
+            case 92: outputs.chaosClockFreq[3] += modValue; break;
+            case 93: outputs.chaosParameter[3] += modValue; break;
+            case 94: outputs.chaosLevel[3] += modValue; break;
         }
     }
 

@@ -145,6 +145,10 @@ public:
         float samplerPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         // FM modulation
         float fmGlobalDepth = 0.0f;
+        // Chaos modulation
+        float chaosClockFreq[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float chaosParameter[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float chaosLevel[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     };
 
     ModulationOutputs processModulationMatrix(const Voice* voiceContext = nullptr);
