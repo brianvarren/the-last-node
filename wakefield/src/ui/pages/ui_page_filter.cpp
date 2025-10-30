@@ -23,8 +23,16 @@ float simulateResponse(int type,
         return 0.0f;
     }
 
-    constexpr int totalSamples = 512;
-    constexpr int settleSamples = 256;
+    // Use cycle-aware simulation lengths so low frequencies get enough time
+    // to settle and measure. This avoids underestimating response <200 Hz.
+    const int settleCycles = 4;   // number of cycles to discard
+    const int measureCycles = 8;  // number of cycles to measure RMS
+    const int minTotal = 1024;    // minimum absolute number of samples
+    const int minSettle = 256;
+    const double samplesPerCycle = sampleRate / std::max(freq, 1.0f);
+    const int settleSamples = std::max(minSettle, static_cast<int>(std::ceil(settleCycles * samplesPerCycle)));
+    const int measureSamples = std::max(minSettle, static_cast<int>(std::ceil(measureCycles * samplesPerCycle)));
+    const int totalSamples = std::max(minTotal, settleSamples + measureSamples);
     const float omega = 2.0f * static_cast<float>(M_PI) * freq / sampleRate;
     auto sineSample = [&](int n) {
         return std::sin(omega * static_cast<float>(n));
@@ -77,7 +85,8 @@ float simulateResponse(int type,
         ladder.setResonance(resonance);
         ladder.setDrive(drive);
         ladder.setFeedbackHighpass(feedbackHP);
-        const float inputLevel = 0.25f;
+        // Keep input small to avoid non-linear saturation skewing response
+        const float inputLevel = 0.1f;
         for (int n = 0; n < totalSamples; ++n) {
             float x = sineSample(n) * inputLevel;
             float y = ladder.process(x);
@@ -92,7 +101,7 @@ float simulateResponse(int type,
         ladder.setResonance(resonance);
         ladder.setDrive(drive);
         ladder.setFeedbackHighpass(feedbackHP);
-        const float inputLevel = 0.25f;
+        const float inputLevel = 0.1f;
         for (int n = 0; n < totalSamples; ++n) {
             float x = sineSample(n) * inputLevel;
             float y = ladder.process(x);
@@ -108,7 +117,7 @@ float simulateResponse(int type,
         ladder.setDrive(drive);
         ladder.setFeedbackHighpass(feedbackHP);
         ladder.setWidth(width);
-        const float inputLevel = 0.25f;
+        const float inputLevel = 0.1f;
         for (int n = 0; n < totalSamples; ++n) {
             float x = sineSample(n) * inputLevel;
             float y = ladder.process(x);

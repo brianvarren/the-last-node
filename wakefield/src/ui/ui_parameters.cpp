@@ -1078,6 +1078,13 @@ void UI::startMidiLearn(int id) {
         params->midiLearnActive = true;
         params->midiLearnParameterId = id;
 
+        // Save current context indices for this parameter
+        params->parameterContextOsc[id] = currentOscillatorIndex;
+        params->parameterContextLFO[id] = currentLFOIndex;
+        params->parameterContextEnv[id] = currentEnvelopeIndex;
+        params->parameterContextSampler[id] = currentSamplerIndex;
+        params->parameterContextChaos[id] = currentChaosIndex;
+
         // Record start time for timeout
         auto now = std::chrono::steady_clock::now();
         double currentTime = std::chrono::duration<double>(now.time_since_epoch()).count();

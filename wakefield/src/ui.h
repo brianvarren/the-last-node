@@ -97,6 +97,12 @@ struct SynthParameters {
     // MIDI CC mappings for all parameters (parameter ID -> CC number, -1 means not mapped)
     static constexpr int kMaxParamMap = 1024;
     std::atomic<int> parameterCCMap[kMaxParamMap];  // Broad range for parameter IDs
+    // Context storage for parameters (which osc/LFO/env/sampler/chaos instance)
+    std::atomic<int> parameterContextOsc[kMaxParamMap];
+    std::atomic<int> parameterContextLFO[kMaxParamMap];
+    std::atomic<int> parameterContextEnv[kMaxParamMap];
+    std::atomic<int> parameterContextSampler[kMaxParamMap];
+    std::atomic<int> parameterContextChaos[kMaxParamMap];
 
     // Legacy - keep for backwards compatibility
     std::atomic<int> filterCutoffCC{-1};  // Which CC controls filter cutoff (-1 = none)
@@ -310,6 +316,11 @@ struct SynthParameters {
     SynthParameters() {
         for (int i = 0; i < kMaxParamMap; ++i) {
             parameterCCMap[i] = -1;  // -1 means no CC assigned
+            parameterContextOsc[i] = -1;
+            parameterContextLFO[i] = -1;
+            parameterContextEnv[i] = -1;
+            parameterContextSampler[i] = -1;
+            parameterContextChaos[i] = -1;
         }
         // Initialize FM matrix to zero (no FM routing by default)
         for (int target = 0; target < 8; ++target) {

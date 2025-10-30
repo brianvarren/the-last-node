@@ -145,24 +145,42 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             synthParams->masterVolume = mapCCToParameter(ccValue, 0.0f, 1.0f);
             break;
 
-        // OSCILLATOR page parameters (Oscillator 1 for now)
+        // OSCILLATOR page parameters (context-aware via saved index)
         case 10:  // Mode (ENUM 0-1)
-            synthParams->osc1Mode = static_cast<int>(mapCCToParameter(ccValue, 0, 1));
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscMode(oscIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
+            }
             break;
         case 11:  // Frequency (logarithmic)
-            synthParams->osc1Freq = mapCCToParameter(ccValue, 20.0f, 2000.0f, true);
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscFrequency(oscIndex, mapCCToParameter(ccValue, 20.0f, 2000.0f, true));
+            }
             break;
         case 12:  // Morph (linear)
-            synthParams->osc1Morph = mapCCToParameter(ccValue, 0.0001f, 0.9999f);
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscMorph(oscIndex, mapCCToParameter(ccValue, 0.0001f, 0.9999f));
+            }
             break;
         case 13:  // Duty (linear)
-            synthParams->osc1Duty = mapCCToParameter(ccValue, 0.0f, 1.0f);
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscDuty(oscIndex, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            }
             break;
         case 14:  // Ratio (logarithmic, 0.125-16.0)
-            synthParams->osc1Ratio = mapCCToParameter(ccValue, 0.125f, 16.0f, true);
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscRatio(oscIndex, mapCCToParameter(ccValue, 0.125f, 16.0f, true));
+            }
             break;
         case 15:  // Offset (linear, -1000 to 1000 Hz)
-            synthParams->osc1Offset = mapCCToParameter(ccValue, -1000.0f, 1000.0f);
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscOffset(oscIndex, mapCCToParameter(ccValue, -1000.0f, 1000.0f));
+            }
             break;
         // REVERB page parameters
         case 20:  // Reverb Type (ENUM 0-4)
@@ -317,28 +335,48 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             }
             break;
 
-        // LFO page parameters (200-206)
-        // Note: These apply to the current LFO based on UI state - for now apply to LFO 0
+        // LFO page parameters (200-206) - context-aware
         case 200:  // Period (logarithmic, 0.1-1800s)
-            synthParams->setLfoPeriod(0, mapCCToParameter(ccValue, 0.1f, 1800.0f, true));
+            {
+                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+                if (lfoIndex >= 0) synthParams->setLfoPeriod(lfoIndex, mapCCToParameter(ccValue, 0.1f, 1800.0f, true));
+            }
             break;
         case 201:  // Sync Mode (ENUM 0-3)
-            synthParams->setLfoSyncMode(0, static_cast<int>(mapCCToParameter(ccValue, 0, 3)));
+            {
+                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+                if (lfoIndex >= 0) synthParams->setLfoSyncMode(lfoIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 3)));
+            }
             break;
         case 202:  // Morph (linear, 0.0001-0.9999)
-            synthParams->setLfoMorph(0, mapCCToParameter(ccValue, 0.0001f, 0.9999f));
+            {
+                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+                if (lfoIndex >= 0) synthParams->setLfoMorph(lfoIndex, mapCCToParameter(ccValue, 0.0001f, 0.9999f));
+            }
             break;
         case 203:  // Duty (linear, 0.0-1.0)
-            synthParams->setLfoDuty(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            {
+                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+                if (lfoIndex >= 0) synthParams->setLfoDuty(lfoIndex, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            }
             break;
         case 204:  // Flip (BOOL)
-            synthParams->setLfoFlip(0, ccValue > 63);
+            {
+                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+                if (lfoIndex >= 0) synthParams->setLfoFlip(lfoIndex, ccValue > 63);
+            }
             break;
         case 205:  // Reset On Note (BOOL)
-            synthParams->setLfoResetOnNote(0, ccValue > 63);
+            {
+                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+                if (lfoIndex >= 0) synthParams->setLfoResetOnNote(lfoIndex, ccValue > 63);
+            }
             break;
         case 206:  // Shape (ENUM 0-1: Saw, Pulse)
-            synthParams->setLfoShape(0, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
+            {
+                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+                if (lfoIndex >= 0) synthParams->setLfoShape(lfoIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
+            }
             break;
 
         // ENV page parameters (300-323)
@@ -438,37 +476,51 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             synthParams->setEnvReleaseBend(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
             break;
 
-        // CHAOS page parameters (350-353)
-        // Note: Apply to chaos generator 0 for now
+        // CHAOS page parameters (350-354) - context-aware
         case 350:  // Chaos Parameter (linear, 0.0-1.0, maps to 0.6-0.99 internally)
             {
-                float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
-                synthParams->setChaosParameter(0, mapped);
-                if (synth) synth->setChaosParameter(0, mapped);
+                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
+                if (chaosIndex >= 0) {
+                    float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
+                    synthParams->setChaosParameter(chaosIndex, mapped);
+                    if (synth) synth->setChaosParameter(chaosIndex, mapped);
+                }
             }
             break;
         case 351:  // Clock Frequency (logarithmic, 0.01-1000 Hz)
             {
-                float mapped = mapCCToParameter(ccValue, 0.01f, 1000.0f, true);
-                synthParams->setChaosClockFreq(0, mapped);
-                if (synth) synth->setChaosClockFreq(0, mapped);
+                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
+                if (chaosIndex >= 0) {
+                    float mapped = mapCCToParameter(ccValue, 0.01f, 1000.0f, true);
+                    synthParams->setChaosClockFreq(chaosIndex, mapped);
+                    if (synth) synth->setChaosClockFreq(chaosIndex, mapped);
+                }
             }
             break;
         case 352:  // Interp Mode (ENUM 0-2: LINEAR, CUBIC, HOLD)
             {
-                int mode = static_cast<int>(mapCCToParameter(ccValue, 0, 2));
-                synthParams->setChaosInterpMode(0, mode);
-                if (synth) synth->setChaosInterpMode(0, mode);
+                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
+                if (chaosIndex >= 0) {
+                    int mode = static_cast<int>(mapCCToParameter(ccValue, 0, 2));
+                    synthParams->setChaosInterpMode(chaosIndex, mode);
+                    if (synth) synth->setChaosInterpMode(chaosIndex, mode);
+                }
             }
             break;
         case 353:  // Running (BOOL)
-            synthParams->setChaosRunning(0, ccValue > 63);
+            {
+                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
+                if (chaosIndex >= 0) synthParams->setChaosRunning(chaosIndex, ccValue > 63);
+            }
             break;
         case 354:  // FAST Mode (BOOL)
             {
-                bool fast = ccValue > 63;
-                synthParams->setChaosFastMode(0, fast);
-                if (synth) synth->setChaosFastMode(0, fast);
+                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
+                if (chaosIndex >= 0) {
+                    bool fast = ccValue > 63;
+                    synthParams->setChaosFastMode(chaosIndex, fast);
+                    if (synth) synth->setChaosFastMode(chaosIndex, fast);
+                }
             }
             break;
         case 355:  // DIFF Mode (BOOL)
@@ -494,12 +546,18 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
             synthParams->setChaosLevel(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
             break;
 
-        // Additional oscillator parameters (18, 19)
+        // Additional oscillator parameters (18, 19) - context-aware
         case 18:  // Oscillator Amp (linear, 0.0-1.0)
-            synthParams->setOscAmp(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscAmp(oscIndex, mapCCToParameter(ccValue, 0.0f, 1.0f));
+            }
             break;
         case 19:  // Oscillator Shape (ENUM 0-1: Saw, Pulse)
-            synthParams->setOscShape(0, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
+            {
+                int oscIndex = synthParams->parameterContextOsc[paramId].load();
+                if (oscIndex >= 0) synthParams->setOscShape(oscIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
+            }
             break;
     }
 }
