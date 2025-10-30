@@ -230,8 +230,15 @@ public:
 
     void setCutoff(float hz) {
         cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
+        // Compensate for frequency shift when cascading 8 identical poles
+        // For N-pole cascade: fc_stage = fc_desired * (2^(1/N) - 1)^(-0.5)
+        // For N=8: compensation factor ≈ 1.965
+        constexpr float N = 8.0f;
+        const float compensation = 1.0f / std::sqrt(std::pow(2.0f, 1.0f / N) - 1.0f);
+        const float stageCutoff = cutoffHz * compensation;
+
         for (auto& stage : stages) {
-            stage.setCutoff(cutoffHz);
+            stage.setCutoff(stageCutoff);
         }
     }
 
@@ -325,7 +332,14 @@ public:
 
     void setCutoff(float hz) {
         cutoffHz = std::clamp(hz, 20.0f, 0.45f * sampleRate);
-        for (auto& stage : stages) stage.setCutoff(cutoffHz);
+        // Compensate for frequency shift when cascading 4 identical poles
+        // For N-pole cascade: fc_stage = fc_desired * (2^(1/N) - 1)^(-0.5)
+        // For N=4: compensation factor ≈ 1.553
+        constexpr float N = 4.0f;
+        const float compensation = 1.0f / std::sqrt(std::pow(2.0f, 1.0f / N) - 1.0f);
+        const float stageCutoff = cutoffHz * compensation;
+
+        for (auto& stage : stages) stage.setCutoff(stageCutoff);
     }
 
     void setResonance(float amount) {
