@@ -43,7 +43,7 @@ void drawSamplerWaveform(int topRow, int leftCol, int height, int width, const S
 
         // Determine color: bright green in loop region, dim green outside
         bool inLoop = (col >= loopStartCol && col < loopEndCol);
-        int colorAttr = inLoop ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(2) | A_DIM);
+        int colorAttr = inLoop ? (COLOR_MODULATED | A_BOLD) : (COLOR_MODULATED | A_DIM);
 
         // Draw above center
         for (int i = 0; i < columnHeight; ++i) {
@@ -83,15 +83,15 @@ void UI::drawSamplerPage() {
     const SampleData* sample = (sampleIndex >= 0) ? bank->getSample(sampleIndex) : nullptr;
 
     // Title with sampler index in bright cyan, sample name inline to the right
-    attron(COLOR_PAIR(1) | A_BOLD);  // Bright cyan like other page titles
+    attron(COLOR_CURSOR | A_BOLD);  // Bright cyan like other page titles
     mvprintw(row, leftCol, "SAMPLER %d", currentSamplerIndex + 1);
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
 
     // Sample name as selectable parameter (ID 69) - inline with title
     const int sampleCol = leftCol + 15;
     bool sampleSelected = (selectedParameterId == 69);
     if (sampleSelected) {
-        attron(COLOR_PAIR(5) | A_BOLD);
+        attron(COLOR_SELECTION | A_BOLD);
         mvprintw(row, sampleCol, ">");
     } else {
         mvprintw(row, sampleCol, " ");
@@ -103,7 +103,7 @@ void UI::drawSamplerPage() {
         printw("No sample loaded");
     }
     if (sampleSelected) {
-        attroff(COLOR_PAIR(5) | A_BOLD);
+        attroff(COLOR_SELECTION | A_BOLD);
     }
     row += 2;  // Spacing before waveform
 
@@ -137,9 +137,9 @@ void UI::drawSamplerPage() {
     } else {
         // Draw empty waveform with just centerline
         int centerRow = row + waveformHeight / 2;
-        attron(COLOR_PAIR(2));
+        attron(COLOR_MODULATED);
         mvhline(centerRow, leftCol, '*', waveformWidth);
-        attroff(COLOR_PAIR(2));
+        attroff(COLOR_MODULATED);
     }
     row += waveformHeight;
 
@@ -148,9 +148,9 @@ void UI::drawSamplerPage() {
     row += 2; // Skip past border and add blank line
 
     // Parameters in two columns
-    attron(COLOR_PAIR(5) | A_BOLD);
+    attron(COLOR_SELECTION | A_BOLD);
     mvprintw(row++, leftCol, "PARAMETERS");
-    attroff(COLOR_PAIR(5) | A_BOLD);
+    attroff(COLOR_SELECTION | A_BOLD);
 
     // Get parameters from synth
     bool keyMode = synth->getSamplerKeyMode(currentSamplerIndex);
@@ -186,7 +186,7 @@ void UI::drawSamplerPage() {
 
     for (int i = 0; i < 5; ++i) {
         if (paramIds1[i] == selectedParameterId) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(paramRow, col1, ">");
         } else {
             mvprintw(paramRow, col1, " ");
@@ -194,7 +194,7 @@ void UI::drawSamplerPage() {
 
         InlineParameter* p = getParameter(paramIds1[i]);
         bool locked = p && !p->randomizable;
-        if (locked) attron(COLOR_PAIR(4));
+        if (locked) attron(COLOR_LOCKED);
         mvprintw(paramRow, col1 + 2, "%s", labels1[i]);
 
         if (i == 0) {
@@ -212,15 +212,15 @@ void UI::drawSamplerPage() {
         // Lock indicator
         if (locked) {
             int x = col1 + 2 + 14; // end of label area approx
-            attron(COLOR_PAIR(4));
+            attron(COLOR_LOCKED);
             mvprintw(paramRow, x, " [LOCK]");
-            attroff(COLOR_PAIR(4));
+            attroff(COLOR_LOCKED);
         }
 
-        if (locked) attroff(COLOR_PAIR(4));
+        if (locked) attroff(COLOR_LOCKED);
 
         if (paramIds1[i] == selectedParameterId) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
         paramRow++;
     }
@@ -232,7 +232,7 @@ void UI::drawSamplerPage() {
 
     for (int i = 0; i < 4; ++i) {
         if (paramIds2[i] == selectedParameterId) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(paramRow, col2, ">");
         } else {
             mvprintw(paramRow, col2, " ");
@@ -240,7 +240,7 @@ void UI::drawSamplerPage() {
 
         InlineParameter* p2 = getParameter(paramIds2[i]);
         bool locked2 = p2 && !p2->randomizable;
-        if (locked2) attron(COLOR_PAIR(4));
+        if (locked2) attron(COLOR_LOCKED);
         mvprintw(paramRow, col2 + 2, "%s", labels2[i]);
 
         if (i == 0) {
@@ -255,15 +255,15 @@ void UI::drawSamplerPage() {
 
         if (locked2) {
             int x = col2 + 2 + 14;
-            attron(COLOR_PAIR(4));
+            attron(COLOR_LOCKED);
             mvprintw(paramRow, x, " [LOCK]");
-            attroff(COLOR_PAIR(4));
+            attroff(COLOR_LOCKED);
         }
 
-        if (locked2) attroff(COLOR_PAIR(4));
+        if (locked2) attroff(COLOR_LOCKED);
 
         if (paramIds2[i] == selectedParameterId) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
         paramRow++;
     }

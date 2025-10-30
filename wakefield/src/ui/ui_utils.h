@@ -6,6 +6,21 @@
 #include <ncursesw/curses.h>
 #include "constraint.h"  // For Subdivision, Scale enums
 #include "pattern.h"     // For Subdivision
+#include "theme.h"       // For theme system
+
+// Theme color helper macros (for easier migration)
+#ifndef COLOR_SELECTION
+#define COLOR_SELECTION globalTheme->getColorPair(ThemeColor::TabActiveFg)
+#define COLOR_CURSOR globalTheme->getColorPair(ThemeColor::Cursor)
+#define COLOR_MODULATED globalTheme->getColorPair(ThemeColor::ParamModulated)
+#define COLOR_LOCKED globalTheme->getColorPair(ThemeColor::ParamLocked)
+#define COLOR_HEADER globalTheme->getColorPair(ThemeColor::Header)
+#define COLOR_BORDER globalTheme->getColorPair(ThemeColor::Border)
+#define COLOR_HINT globalTheme->getColorPair(ThemeColor::HintText)
+#define COLOR_TAB_ACTIVE globalTheme->getColorPair(ThemeColor::TabActiveFg)
+#define COLOR_TAB_INACTIVE globalTheme->getColorPair(ThemeColor::TabInactiveFg)
+#define COLOR_MIDI_MAPPED globalTheme->getColorPair(ThemeColor::ParamMidiMapped)
+#endif
 
 namespace UIUtils {
 

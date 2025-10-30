@@ -6,16 +6,16 @@ void UI::drawMixerPage() {
     int col = 2;
 
     // Page title
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(row++, col, "MIXER");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
 
     row++; // Blank line
 
     // Header
-    attron(COLOR_PAIR(3));
+    attron(COLOR_HEADER);
     mvprintw(row++, col, "Source    M S  Level");
-    attroff(COLOR_PAIR(3));
+    attroff(COLOR_HEADER);
 
     // Get parameter IDs for this page
     std::vector<int> pageParams = getParameterIdsForPage(UIPage::MIXER);
@@ -29,7 +29,7 @@ void UI::drawMixerPage() {
 
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, ">");
         } else {
             mvprintw(row, col, " ");
@@ -39,17 +39,17 @@ void UI::drawMixerPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_PAIR(4) | A_BOLD);  // Red for mute
+            attron(COLOR_LOCKED | A_BOLD);  // Red for mute
             mvprintw(row, col + 10, "M");
-            attroff(COLOR_PAIR(4) | A_BOLD);
+            attroff(COLOR_LOCKED | A_BOLD);
         } else {
             mvprintw(row, col + 10, "-");
         }
 
         if (solo) {
-            attron(COLOR_PAIR(2) | A_BOLD);  // Green for solo
+            attron(COLOR_MODULATED | A_BOLD);  // Green for solo
             mvprintw(row, col + 12, "S");
-            attroff(COLOR_PAIR(2) | A_BOLD);
+            attroff(COLOR_MODULATED | A_BOLD);
         } else {
             mvprintw(row, col + 12, "-");
         }
@@ -58,7 +58,7 @@ void UI::drawMixerPage() {
         drawBar(row, col + 15, "", level, 0.0f, 1.0f, 28);
 
         if (paramId == selectedParameterId) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
 
         row++;
@@ -75,7 +75,7 @@ void UI::drawMixerPage() {
 
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, ">");
         } else {
             mvprintw(row, col, " ");
@@ -85,17 +85,17 @@ void UI::drawMixerPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_PAIR(4) | A_BOLD);  // Red for mute
+            attron(COLOR_LOCKED | A_BOLD);  // Red for mute
             mvprintw(row, col + 10, "M");
-            attroff(COLOR_PAIR(4) | A_BOLD);
+            attroff(COLOR_LOCKED | A_BOLD);
         } else {
             mvprintw(row, col + 10, "-");
         }
 
         if (solo) {
-            attron(COLOR_PAIR(2) | A_BOLD);  // Green for solo
+            attron(COLOR_MODULATED | A_BOLD);  // Green for solo
             mvprintw(row, col + 12, "S");
-            attroff(COLOR_PAIR(2) | A_BOLD);
+            attroff(COLOR_MODULATED | A_BOLD);
         } else {
             mvprintw(row, col + 12, "-");
         }
@@ -104,7 +104,7 @@ void UI::drawMixerPage() {
         drawBar(row, col + 15, "", level, 0.0f, 1.0f, 28);
 
         if (paramId == selectedParameterId) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
 
         row++;
@@ -126,7 +126,7 @@ void UI::drawMixerPage() {
 
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, ">");
         } else {
             mvprintw(row, col, " ");
@@ -136,16 +136,16 @@ void UI::drawMixerPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_PAIR(4) | A_BOLD);
+            attron(COLOR_LOCKED | A_BOLD);
             mvprintw(row, col + 10, "M");
-            attroff(COLOR_PAIR(4) | A_BOLD);
+            attroff(COLOR_LOCKED | A_BOLD);
         } else {
             mvprintw(row, col + 10, "-");
         }
         if (solo) {
-            attron(COLOR_PAIR(2) | A_BOLD);
+            attron(COLOR_MODULATED | A_BOLD);
             mvprintw(row, col + 12, "S");
-            attroff(COLOR_PAIR(2) | A_BOLD);
+            attroff(COLOR_MODULATED | A_BOLD);
         } else {
             mvprintw(row, col + 12, "-");
         }
@@ -153,7 +153,7 @@ void UI::drawMixerPage() {
         drawBar(row, col + 15, "", level, 0.0f, 1.0f, 28);
 
         if (paramId == selectedParameterId) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
 
         row++;

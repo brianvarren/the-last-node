@@ -140,27 +140,27 @@ void UI::drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWi
 void UI::drawEnvelopePage() {
     // Draw envelope selector at top
     int row = 3;
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(row, 2, "Select Envelope (1-4): ");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
 
     // Draw envelope buttons
     for (int i = 0; i < 4; ++i) {
         if (i == currentEnvelopeIndex) {
-            attron(COLOR_PAIR(5) | A_BOLD);  // Highlight selected
+            attron(COLOR_SELECTION | A_BOLD);  // Highlight selected
             mvprintw(row, 26 + (i * 4), "[%d]", i + 1);
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         } else {
-            attron(COLOR_PAIR(6));
+            attron(COLOR_TAB_INACTIVE);
             mvprintw(row, 26 + (i * 4), " %d ", i + 1);
-            attroff(COLOR_PAIR(6));
+            attroff(COLOR_TAB_INACTIVE);
         }
     }
 
     row += 2;
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvprintw(row, 2, "Envelope %d Parameters:", currentEnvelopeIndex + 1);
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
 
     // Draw parameters for the currently selected envelope only (6 params per envelope)
     int startParamId = 300 + (currentEnvelopeIndex * 6);
@@ -172,7 +172,7 @@ void UI::drawEnvelopePage() {
 
         // Highlight selected parameter
         if (paramId == selectedParameterId) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(paramRow, 2, ">");
         } else {
             mvprintw(paramRow, 2, " ");
@@ -180,19 +180,19 @@ void UI::drawEnvelopePage() {
 
         // Parameter name and value
         bool locked = !param->randomizable;
-        if (locked) attron(COLOR_PAIR(4));
+        if (locked) attron(COLOR_LOCKED);
         std::string displayValue = getParameterDisplayString(paramId);
         mvprintw(paramRow, 4, "%-18s: %s", param->name.c_str(), displayValue.c_str());
         if (locked) {
-            attron(COLOR_PAIR(4));
+            attron(COLOR_LOCKED);
             mvprintw(paramRow, 4 + 18 + 2 + static_cast<int>(displayValue.size()), " [LOCK]");
-            attroff(COLOR_PAIR(4));
+            attroff(COLOR_LOCKED);
         }
 
         if (paramId == selectedParameterId) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
-        if (locked) attroff(COLOR_PAIR(4));
+        if (locked) attroff(COLOR_LOCKED);
 
         paramRow++;
     }
@@ -201,9 +201,9 @@ void UI::drawEnvelopePage() {
     int voiceMeterCol = 47; // Shift left to avoid wrapping
     int voiceMeterRow = row + 1;
 
-    attron(COLOR_PAIR(3));
+    attron(COLOR_HEADER);
     mvprintw(voiceMeterRow++, voiceMeterCol, "VOICE ENVELOPES");
-    attroff(COLOR_PAIR(3));
+    attroff(COLOR_HEADER);
     voiceMeterRow++;
 
     // Draw 8 voice meters (showing envelope level for each voice)
@@ -214,9 +214,9 @@ void UI::drawEnvelopePage() {
 
         // Voice label
         if (active) {
-            attron(COLOR_PAIR(2) | A_BOLD);
+            attron(COLOR_MODULATED | A_BOLD);
             mvprintw(voiceMeterRow, voiceMeterCol, "V%d[%3d]", v + 1, note);
-            attroff(COLOR_PAIR(2) | A_BOLD);
+            attroff(COLOR_MODULATED | A_BOLD);
         } else {
             attron(COLOR_PAIR(8));
             mvprintw(voiceMeterRow, voiceMeterCol, "V%d[ - ]", v + 1);
@@ -231,9 +231,9 @@ void UI::drawEnvelopePage() {
         mvprintw(voiceMeterRow, barStart, "[");
         for (int i = 0; i < barWidth; ++i) {
             if (i < filledWidth && active) {
-                attron(COLOR_PAIR(2));
+                attron(COLOR_MODULATED);
                 mvaddch(voiceMeterRow, barStart + 1 + i, '=');
-                attroff(COLOR_PAIR(2));
+                attroff(COLOR_MODULATED);
             } else {
                 attron(COLOR_PAIR(8));
                 mvaddch(voiceMeterRow, barStart + 1 + i, '-');

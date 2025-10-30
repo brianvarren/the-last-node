@@ -235,9 +235,9 @@ void drawFilterResponsePreview(int topRow,
     mvprintw(topRow + 1 + height, leftCol, "+%s+", horizontal.c_str());
 
     if (!enabled) {
-        attron(COLOR_PAIR(4) | A_BOLD);
+        attron(COLOR_LOCKED | A_BOLD);
         mvprintw(topRow + height / 2, leftCol + plotW / 2 - 6, "FILTER OFF");
-        attroff(COLOR_PAIR(4) | A_BOLD);
+        attroff(COLOR_LOCKED | A_BOLD);
     }
 }
 
@@ -245,9 +245,9 @@ void drawFilterResponsePreview(int topRow,
 
 void UI::drawFilterPage() {
     int row = 2;
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(row, 2, "FILTER");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
     row += 2;
 
     const int plotWidth = 42;
@@ -288,9 +288,9 @@ void UI::drawFilterPage() {
         const auto* bp = synth->getBandpass2FilterL();
         if (bp) {
             int debugRow = previewTop + paramCount + 2;  // 2 lines below parameters
-            attron(COLOR_PAIR(4));
+            attron(COLOR_LOCKED);
             mvprintw(debugRow++, parameterCol, "=== 2-Pole BP Debug ===");
-            attroff(COLOR_PAIR(4));
+            attroff(COLOR_LOCKED);
             mvprintw(debugRow++, parameterCol, "g (tan w/2): %.6f", bp->getG());
             mvprintw(debugRow++, parameterCol, "fc (Hz):     %.2f", bp->getCenterFreq());
             mvprintw(debugRow++, parameterCol, "widthOct:    %.4f", bp->getWidthOct());

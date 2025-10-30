@@ -58,7 +58,7 @@ void UI::drawSequencerPage() {
     int rightCol = leftCol + 35;  // Place right pane closer to tracker
 
     // Status indicators at top
-    int statusAttr = playing ? (COLOR_PAIR(2) | A_BOLD) : (COLOR_PAIR(4) | A_BOLD);
+    int statusAttr = playing ? (COLOR_MODULATED | A_BOLD) : (COLOR_LOCKED | A_BOLD);
     attron(statusAttr);
     mvprintw(row, leftCol, "[%s]", playing ? "PLAYING" : "STOPPED");
     attroff(statusAttr);
@@ -80,20 +80,20 @@ void UI::drawSequencerPage() {
     // Generate and Clear buttons
     bool generateSelected = sequencerFocusActionsPane && sequencerActionsRow == 0;
     if (generateSelected) {
-        attron(COLOR_PAIR(5) | A_BOLD);
+        attron(COLOR_SELECTION | A_BOLD);
     }
     mvprintw(actionsStartRow, rightCol, "[Generate]");
     if (generateSelected) {
-        attroff(COLOR_PAIR(5) | A_BOLD);
+        attroff(COLOR_SELECTION | A_BOLD);
     }
 
     bool clearSelected = sequencerFocusActionsPane && sequencerActionsRow == 1;
     if (clearSelected) {
-        attron(COLOR_PAIR(5) | A_BOLD);
+        attron(COLOR_SELECTION | A_BOLD);
     }
     mvprintw(actionsStartRow, rightCol + 12, "[Clear]");
     if (clearSelected) {
-        attroff(COLOR_PAIR(5) | A_BOLD);
+        attroff(COLOR_SELECTION | A_BOLD);
     }
     actionsStartRow += 2;
 
@@ -111,11 +111,11 @@ void UI::drawSequencerPage() {
                                 sequencerActionsColumn == aCol;
             int xPos = rightCol + 12 + aCol * 5;
             if (cellSelected) {
-                attron(COLOR_PAIR(5) | A_BOLD);
+                attron(COLOR_SELECTION | A_BOLD);
             }
             mvprintw(actionsStartRow, xPos, "[ ]");
             if (cellSelected) {
-                attroff(COLOR_PAIR(5) | A_BOLD);
+                attroff(COLOR_SELECTION | A_BOLD);
             }
         }
         actionsStartRow++;
@@ -191,13 +191,13 @@ void UI::drawSequencerPage() {
             case SequencerInfoField::MUTED: {
                 bool muted = track.isMuted();
                 text = muted ? "YES" : "NO";
-                attr = muted ? (COLOR_PAIR(4) | A_BOLD) : 0;
+                attr = muted ? (COLOR_LOCKED | A_BOLD) : 0;
                 break;
             }
             case SequencerInfoField::SOLO: {
                 bool solo = track.isSolo();
                 text = solo ? "YES" : "NO";
-                attr = solo ? (COLOR_PAIR(3) | A_BOLD) : 0;
+                attr = solo ? (COLOR_HEADER | A_BOLD) : 0;
                 break;
             }
             case SequencerInfoField::ACTIVE_COUNT: {
@@ -208,7 +208,7 @@ void UI::drawSequencerPage() {
                 Sequencer::PhaseDriver mode = sequencer->getTrackPhaseDriver(trackIdx);
                 bool usingMod = (mode == Sequencer::PhaseDriver::MODULATION);
                 text = usingMod ? "Modulation" : "Clock";
-                attr = usingMod ? (COLOR_PAIR(3) | A_BOLD) : 0;
+                attr = usingMod ? (COLOR_HEADER | A_BOLD) : 0;
                 break;
             }
             default:
@@ -220,7 +220,7 @@ void UI::drawSequencerPage() {
     }
 
     for (const auto& info : infoValues) {
-        int attr = info.highlight ? (COLOR_PAIR(5) | A_BOLD) : info.attr;
+        int attr = info.highlight ? (COLOR_SELECTION | A_BOLD) : info.attr;
         if (attr != 0) {
             attron(attr);
         }
@@ -257,7 +257,7 @@ void UI::drawSequencerPage() {
 
         // Apply cyan color to entire row if it's the current step
         if (isCurrentStep) {
-            attron(COLOR_PAIR(1) | A_BOLD);
+            attron(COLOR_CURSOR | A_BOLD);
         }
 
         // Step number (1-based)
@@ -266,8 +266,8 @@ void UI::drawSequencerPage() {
         // Lock indicator - with selection highlight
         bool lockSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::LOCK);
         if (!isCurrentStep && lockSelected) {
-            attroff(COLOR_PAIR(1) | A_BOLD);  // Turn off cyan if needed
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_CURSOR | A_BOLD);  // Turn off cyan if needed
+            attron(COLOR_SELECTION | A_BOLD);
         }
         if (step.locked) {
             mvprintw(row, leftCol + 3, "L");
@@ -275,15 +275,15 @@ void UI::drawSequencerPage() {
             mvprintw(row, leftCol + 3, " ");
         }
         if (!isCurrentStep && lockSelected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
-            attron(COLOR_PAIR(1) | A_BOLD);  // Restore cyan if needed
+            attroff(COLOR_SELECTION | A_BOLD);
+            attron(COLOR_CURSOR | A_BOLD);  // Restore cyan if needed
         }
 
         // Note field
         bool noteSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::NOTE);
         if (!isCurrentStep && noteSelected) {
-            attroff(COLOR_PAIR(1) | A_BOLD);
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_CURSOR | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
         }
         if (step.active) {
             mvprintw(row, leftCol + 5, "%-6s", UIUtils::midiNoteToString(step.midiNote).c_str());
@@ -291,15 +291,15 @@ void UI::drawSequencerPage() {
             mvprintw(row, leftCol + 5, "---   ");
         }
         if (!isCurrentStep && noteSelected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
-            attron(COLOR_PAIR(1) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
+            attron(COLOR_CURSOR | A_BOLD);
         }
 
         // Velocity field
         bool velSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::VELOCITY);
         if (!isCurrentStep && velSelected) {
-            attroff(COLOR_PAIR(1) | A_BOLD);
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_CURSOR | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
         }
         if (step.active) {
             mvprintw(row, leftCol + 12, "%3d", step.velocity);
@@ -307,15 +307,15 @@ void UI::drawSequencerPage() {
             mvprintw(row, leftCol + 12, "---");
         }
         if (!isCurrentStep && velSelected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
-            attron(COLOR_PAIR(1) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
+            attron(COLOR_CURSOR | A_BOLD);
         }
 
         // Gate field
         bool gateSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::GATE);
         if (!isCurrentStep && gateSelected) {
-            attroff(COLOR_PAIR(1) | A_BOLD);
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_CURSOR | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
         }
         if (step.active) {
             mvprintw(row, leftCol + 16, "%3d%%", static_cast<int>(step.gateLength * 100.0f));
@@ -323,15 +323,15 @@ void UI::drawSequencerPage() {
             mvprintw(row, leftCol + 16, "--- ");
         }
         if (!isCurrentStep && gateSelected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
-            attron(COLOR_PAIR(1) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
+            attron(COLOR_CURSOR | A_BOLD);
         }
 
         // Probability field
         bool probSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::PROBABILITY);
         if (!isCurrentStep && probSelected) {
-            attroff(COLOR_PAIR(1) | A_BOLD);
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_CURSOR | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
         }
         if (step.active) {
             mvprintw(row, leftCol + 21, "%3d%%", static_cast<int>(step.probability * 100.0f));
@@ -339,8 +339,8 @@ void UI::drawSequencerPage() {
             mvprintw(row, leftCol + 21, "--- ");
         }
         if (!isCurrentStep && probSelected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
-            attron(COLOR_PAIR(1) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
+            attron(COLOR_CURSOR | A_BOLD);
         }
 
         // Reset attributes at end of row

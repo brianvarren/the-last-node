@@ -769,20 +769,20 @@ void UI::drawHelpPage() {
     getmaxyx(stdscr, rows, cols);
 
     // Draw title bar
-    attron(COLOR_PAIR(5) | A_BOLD);
+    attron(COLOR_SELECTION | A_BOLD);
     mvprintw(0, 0, " HELP ");
-    attroff(COLOR_PAIR(5) | A_BOLD);
+    attroff(COLOR_SELECTION | A_BOLD);
 
-    attron(COLOR_PAIR(6));
+    attron(COLOR_TAB_INACTIVE);
     for (int i = 6; i < cols; ++i) {
         mvaddch(0, i, ' ');
     }
-    attroff(COLOR_PAIR(6));
+    attroff(COLOR_TAB_INACTIVE);
 
     // Draw separator
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvhline(1, 0, '-', cols);
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
 
     // Get help content for current page
     std::string content = getHelpContent(currentPage);
@@ -813,13 +813,13 @@ void UI::drawHelpPage() {
     }
 
     // Draw footer with scroll indicator
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvhline(rows - 2, 0, '-', cols);
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
 
-    attron(COLOR_PAIR(5) | A_BOLD);
+    attron(COLOR_SELECTION | A_BOLD);
     mvprintw(rows - 1, 1, "Up/Down/PgUp/PgDn: Scroll  |  H/Esc/Q: Close");
-    attroff(COLOR_PAIR(5) | A_BOLD);
+    attroff(COLOR_SELECTION | A_BOLD);
 
     // Scroll indicator
     if (lines.size() > contentHeight) {

@@ -51,9 +51,9 @@ void drawSourcePicker(const std::vector<ModOption>& sources,
     mvaddch(bottom, right, '+');
 
     // Title
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(top, left + 2, "Select Source");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
 
     // Two column layout
     int listTop = top + 2;
@@ -98,10 +98,10 @@ void drawSourcePicker(const std::vector<ModOption>& sources,
     mvvline(listTop, left + width / 2, ':', std::min(visibleRows, maxY - listTop - 3));
 
     // Instructions
-    attron(COLOR_PAIR(6));
+    attron(COLOR_TAB_INACTIVE);
     mvprintw(bottom - 1, left + 2,
              "Up/Down navigate   Enter confirm   Esc cancel");
-    attroff(COLOR_PAIR(6));
+    attroff(COLOR_TAB_INACTIVE);
 }
 
 void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
@@ -140,9 +140,9 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
     mvaddch(bottom, right, '+');
 
     // Title
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(top, left + 2, "Select Destination");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
 
     // Column layout
     int moduleColWidth = std::min(28, std::max(20, width / 3));
@@ -202,9 +202,9 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
             paramScroll = std::clamp(selectedParam - visibleRows / 2, 0, totalParams - visibleRows);
         }
 
-        attron(COLOR_PAIR(1));
+        attron(COLOR_CURSOR);
         mvprintw(listTop - 1, paramColX, "%s Parameters", modules[selectedModule].name);
-        attroff(COLOR_PAIR(1));
+        attroff(COLOR_CURSOR);
 
         for (int row = 0; row < visibleRows && (row + paramScroll) < totalParams; ++row) {
             int paramIndex = paramScroll + row;
@@ -238,10 +238,10 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
     }
 
     // Instructions
-    attron(COLOR_PAIR(6));
+    attron(COLOR_TAB_INACTIVE);
     mvprintw(bottom - 1, left + 2,
              "Left/Right switch column   Up/Down navigate   Enter confirm   Esc cancel");
-    attroff(COLOR_PAIR(6));
+    attroff(COLOR_TAB_INACTIVE);
 }
 
 } // namespace
@@ -261,15 +261,15 @@ void UI::drawModPage() {
 
     int row = 3;
 
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(row, 2, "MODULATION MATRIX");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
     row += 2;
 
     for (int h = 0; h < 6; ++h) {
-        attron(COLOR_PAIR(1));
+        attron(COLOR_CURSOR);
         mvprintw(row, headerCols[h], "%s", headers[h]);
-        attroff(COLOR_PAIR(1));
+        attroff(COLOR_CURSOR);
     }
     row++;
     mvhline(row, 2, '-', 78);
@@ -296,7 +296,7 @@ void UI::drawModPage() {
         bool locked = modSlotLocked[slot];
         for (int col = 0; col < columnCount; ++col) {
             bool selected = (slot == modMatrixCursorRow && col == modMatrixCursorCol);
-            if (locked) attron(COLOR_PAIR(4));
+            if (locked) attron(COLOR_LOCKED);
             if (selected) {
                 attron(A_REVERSE);
             }
@@ -304,15 +304,15 @@ void UI::drawModPage() {
             if (selected) {
                 attroff(A_REVERSE);
             }
-            if (locked) attroff(COLOR_PAIR(4));
+            if (locked) attroff(COLOR_LOCKED);
         }
         row++;
     }
 
     row += 1;
-    attron(COLOR_PAIR(6));
+    attron(COLOR_TAB_INACTIVE);
     mvprintw(row++, 2, "Arrow keys navigate. Enter to select. 'l' lock slot. Esc to cancel.");
-    attroff(COLOR_PAIR(6));
+    attroff(COLOR_TAB_INACTIVE);
 
     // Draw selection menu if active
     if (modMatrixMenuActive) {
@@ -347,11 +347,11 @@ void UI::drawModPage() {
                 int menuX = 25;
                 int menuY = 8;
 
-                attron(COLOR_PAIR(1) | A_BOLD);
+                attron(COLOR_CURSOR | A_BOLD);
                 mvprintw(menuY, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
                 mvprintw(menuY + 1, menuX, "| %-*s |", menuWidth - 4, title);
                 mvhline(menuY + 2, menuX + 1, '-', menuWidth - 2);
-                attroff(COLOR_PAIR(1) | A_BOLD);
+                attroff(COLOR_CURSOR | A_BOLD);
 
                 for (int i = 0; i < static_cast<int>(options->size()); ++i) {
                     int optRow = menuY + 3 + i;
@@ -364,9 +364,9 @@ void UI::drawModPage() {
                     }
                 }
 
-                attron(COLOR_PAIR(1));
+                attron(COLOR_CURSOR);
                 mvprintw(menuY + menuHeight - 1, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
-                attroff(COLOR_PAIR(1));
+                attroff(COLOR_CURSOR);
             }
         }
     }

@@ -25,7 +25,7 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
         bool locked = !param->randomizable;
 
         if (isSelected) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, ">");
         } else {
             mvprintw(row, col, " ");
@@ -33,11 +33,11 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
 
         // Apply color based on state, but selection (white-on-blue) overrides all
         if (isSelected) {
-            // Keep COLOR_PAIR(5) active for entire line (white on blue)
+            // Keep COLOR_SELECTION active for entire line (white on blue)
         } else if (locked) {
-            attron(COLOR_PAIR(4));  // Red for locked
+            attron(COLOR_LOCKED);  // Red for locked
         } else if (isModulated) {
-            attron(COLOR_PAIR(2));  // Green for modulated
+            attron(COLOR_MODULATED);  // Green for modulated
         }
 
         // Parameter name and value
@@ -47,28 +47,28 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
         // Show lock and CC indicators (keep in their own colors even when selected)
         int indicCol = col + 36;
         if (locked) {
-            if (isSelected) attroff(COLOR_PAIR(5) | A_BOLD);
-            attron(COLOR_PAIR(4));
+            if (isSelected) attroff(COLOR_SELECTION | A_BOLD);
+            attron(COLOR_LOCKED);
             mvprintw(row, indicCol, "[LOCK]");
-            attroff(COLOR_PAIR(4));
-            if (isSelected) attron(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_LOCKED);
+            if (isSelected) attron(COLOR_SELECTION | A_BOLD);
             indicCol += 7;
         }
         if (mappedCC >= 0) {
-            if (isSelected) attroff(COLOR_PAIR(5) | A_BOLD);
-            attron(COLOR_PAIR(3));
+            if (isSelected) attroff(COLOR_SELECTION | A_BOLD);
+            attron(COLOR_HEADER);
             mvprintw(row, indicCol, "[CC%d]", mappedCC);
-            attroff(COLOR_PAIR(3));
-            if (isSelected) attron(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_HEADER);
+            if (isSelected) attron(COLOR_SELECTION | A_BOLD);
         }
 
         // Turn off colors at end of line
         if (isSelected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         } else if (locked) {
-            attroff(COLOR_PAIR(4));
+            attroff(COLOR_LOCKED);
         } else if (isModulated) {
-            attroff(COLOR_PAIR(2));
+            attroff(COLOR_MODULATED);
         }
 
         row++;

@@ -157,18 +157,18 @@ void UI::drawChaosVisualization(int topRow, int leftCol, int plotHeight, int plo
 
 void UI::drawChaosPage() {
     int row = 2;
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(row, 2, "CHAOS");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
 
     row += 2;
     // Draw tabs for chaos generators 1-4
     for (int i = 0; i < 4; ++i) {
         int col = 2 + i * 4;
         if (i == currentChaosIndex) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, "[%d]", i + 1);
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         } else {
             mvprintw(row, col, " %d ", i + 1);
         }

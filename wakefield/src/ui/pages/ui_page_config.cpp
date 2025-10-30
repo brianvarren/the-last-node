@@ -9,9 +9,9 @@ void UI::drawConfigPage() {
     attroff(A_BOLD);
     row++;
 
-    attron(COLOR_PAIR(3));
+    attron(COLOR_HEADER);
     mvprintw(row++, 2, "Audio and MIDI device configuration");
-    attroff(COLOR_PAIR(3));
+    attroff(COLOR_HEADER);
     row++;
 
     // Audio device info
@@ -37,13 +37,13 @@ void UI::drawConfigPage() {
 
     if (midiPortNum >= 0) {
         mvprintw(row++, 2, "Port: %d", midiPortNum);
-        attron(COLOR_PAIR(2));
+        attron(COLOR_MODULATED);
         mvprintw(row++, 2, "Status: Connected");
-        attroff(COLOR_PAIR(2));
+        attroff(COLOR_MODULATED);
     } else {
-        attron(COLOR_PAIR(4));
+        attron(COLOR_LOCKED);
         mvprintw(row++, 2, "Status: Not connected");
-        attroff(COLOR_PAIR(4));
+        attroff(COLOR_LOCKED);
     }
 
     row += 2;

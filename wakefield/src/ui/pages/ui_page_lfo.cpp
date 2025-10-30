@@ -187,17 +187,17 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
 
 void UI::drawLFOPage() {
     int row = 2;
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(row, 2, "LFOs");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
 
     row += 2;
     for (int i = 0; i < 4; ++i) {
         int col = 2 + i * 4;
         if (i == currentLFOIndex) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, "[%d]", i + 1);
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         } else {
             mvprintw(row, col, " %d ", i + 1);
         }

@@ -32,6 +32,7 @@ add_executable(synth
     src/track.cpp
     src/sequencer.cpp
     src/cpu_monitor.cpp
+    src/theme.cpp
     # Sampler files
     src/sampler.cpp
     src/sample_bank.cpp

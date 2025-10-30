@@ -1,4 +1,5 @@
 #include "ui_utils.h"
+#include "../theme.h"
 #include <algorithm>
 #include <cctype>
 #include <cwchar>
@@ -203,13 +204,13 @@ void RenderSequencerCell(WINDOW* win,
         wattron(win, COLOR_PAIR(dimColorPair));
     }
     if (highlight) {
-        wattron(win, COLOR_PAIR(1) | A_BOLD);
+        wattron(win, COLOR_CURSOR | A_BOLD);
     }
 
     mvwaddnwstr(win, y, x, slot.c_str(), slot.size());
 
     if (highlight) {
-        wattroff(win, COLOR_PAIR(1) | A_BOLD);
+        wattroff(win, COLOR_CURSOR | A_BOLD);
     }
     if (dim && !highlight && dimColorPair > 0) {
         wattroff(win, COLOR_PAIR(dimColorPair));

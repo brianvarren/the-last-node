@@ -6,22 +6,22 @@ void UI::drawFMPage() {
     int row = 2;
 
     // Title
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(row, 2, "FM MATRIX - Audio-Rate Phase Modulation (16 sources × 8 targets)");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
     row += 2;
 
     // Column labels (targets) with clear abbreviations
     mvprintw(row, 2, "SOURCE");
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvprintw(row, 12, "TARGETS:");
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
     row++;
     const int cellStartCol = 12;
     const int cellStride = 5;
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4");
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
     row += 2;
 
     // Draw matrix grid (16 sources × 8 targets)
@@ -36,9 +36,9 @@ void UI::drawFMPage() {
         // Row label
         if (source == 8) {
             // Visual separator before chaos sources
-            attron(COLOR_PAIR(1));
+            attron(COLOR_CURSOR);
             mvhline(row, 0, '-', 80);
-            attroff(COLOR_PAIR(1));
+            attroff(COLOR_CURSOR);
             row++;
         }
 
@@ -61,9 +61,9 @@ void UI::drawFMPage() {
             bool isLocked = fmMatrixLocked[target][source];
 
             if (isLocked) {
-                attron(COLOR_PAIR(4));
+                attron(COLOR_LOCKED);
             } else if (isNonZero) {
-                attron(COLOR_PAIR(5));
+                attron(COLOR_SELECTION);
             }
             if (isSelected) {
                 attron(A_REVERSE);
@@ -79,16 +79,16 @@ void UI::drawFMPage() {
                 attroff(A_REVERSE);
             }
             if (isLocked) {
-                attroff(COLOR_PAIR(4));
+                attroff(COLOR_LOCKED);
             } else if (isNonZero) {
-                attroff(COLOR_PAIR(5));
+                attroff(COLOR_SELECTION);
             }
         }
         row++;
     }
 
     // Legend
-    attron(COLOR_PAIR(3));
+    attron(COLOR_HEADER);
     mvprintw(row + 1, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles lock");
-    attroff(COLOR_PAIR(3));
+    attroff(COLOR_HEADER);
 }

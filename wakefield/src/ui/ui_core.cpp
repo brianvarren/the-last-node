@@ -1,6 +1,7 @@
 #include "../ui.h"
 #include "../synth.h"
 #include "../preset.h"
+#include "../theme.h"
 #include <chrono>
 
 UI::UI(Synth* synth, SynthParameters* params)
@@ -129,33 +130,15 @@ bool UI::initialize() {
     nodelay(stdscr, TRUE);
     curs_set(0);
 
-    if (has_colors()) {
-        start_color();
-        init_pair(1, COLOR_CYAN, COLOR_BLACK);
-        init_pair(2, COLOR_GREEN, COLOR_BLACK);
-        init_pair(3, COLOR_YELLOW, COLOR_BLACK);
-        init_pair(4, COLOR_RED, COLOR_BLACK);
-        init_pair(5, COLOR_WHITE, COLOR_BLUE);   // Active tab
-        init_pair(6, COLOR_BLACK, COLOR_CYAN);   // Inactive tab
-
-        // Check if we have 256 colors available
-        if (COLORS >= 256) {
-            // Use 256-color grayscale palette (colors 232-255 are grayscale)
-            // Map to pairs 7-26 for 20 levels of gray
-            for (int i = 0; i < 20; ++i) {
-                int grayColor = 232 + i * 23 / 19;  // Map 0-19 to 232-255
-                init_pair(7 + i, grayColor, COLOR_BLACK);
-            }
-        } else {
-            // Fallback to 8-color mode with attributes
-            // Use pairs 7-12 for basic grayscale (6 levels)
-            init_pair(7, COLOR_BLACK, COLOR_BLACK);    // Level 0 - darkest
-            init_pair(8, COLOR_BLACK, COLOR_BLACK);    // Level 1 - very dim (will use A_BOLD)
-            init_pair(9, COLOR_WHITE, COLOR_BLACK);    // Level 2 - dim (will use A_DIM)
-            init_pair(10, COLOR_WHITE, COLOR_BLACK);   // Level 3 - medium (will use A_NORMAL)
-            init_pair(11, COLOR_WHITE, COLOR_BLACK);   // Level 4 - bright (will use A_BOLD)
-            init_pair(12, COLOR_CYAN, COLOR_BLACK);    // Level 5 - brightest (cyan bold for extra pop)
+    // Initialize global theme system
+    if (!globalTheme) {
+        globalTheme = new Theme();
+        // Try to load theme from file, fallback to defaults if it fails
+        std::string themePath = "themes/default.ini";
+        if (!globalTheme->loadFromFile(themePath)) {
+            // File not found or parse error - use built-in defaults
         }
+        globalTheme->initializeColors();
     }
 
     // Start CPU monitoring

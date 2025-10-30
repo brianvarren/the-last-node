@@ -34,13 +34,13 @@ void UI::drawTabs() {
         int textLen = static_cast<int>(text.size());
 
         if (currentPage == tabs[i].page) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(0, x, "%s", text.c_str());
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         } else {
-            attron(COLOR_PAIR(6));
+            attron(COLOR_TAB_INACTIVE);
             mvprintw(0, x, "%s", text.c_str());
-            attroff(COLOR_PAIR(6));
+            attroff(COLOR_TAB_INACTIVE);
         }
 
         x += textLen;
@@ -56,9 +56,9 @@ void UI::drawTabs() {
     }
 
     // Draw separator line
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvhline(1, 0, '-', cols);
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
 }
 
 void UI::drawBar(int y, int x, const char* label, float value, float min, float max, int width) {
@@ -73,7 +73,7 @@ void UI::drawBar(int y, int x, const char* label, float value, float min, float 
     int barStart = x + labelLen + 1;
 
     mvaddch(y, barStart, '[');
-    attron(COLOR_PAIR(2));
+    attron(COLOR_MODULATED);
     for (int i = 0; i < width; ++i) {
         if (i < fillWidth) {
             mvaddch(y, barStart + 1 + i, '=');
@@ -81,7 +81,7 @@ void UI::drawBar(int y, int x, const char* label, float value, float min, float 
             mvaddch(y, barStart + 1 + i, ' ');
         }
     }
-    attroff(COLOR_PAIR(2));
+    attroff(COLOR_MODULATED);
     mvaddch(y, barStart + width + 1, ']');
 
     mvprintw(y, barStart + width + 3, "%.3f", value);
@@ -103,9 +103,9 @@ void UI::drawCPUOverlay() {
     }
 
     // Format: "CPU: XX.X%"
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvprintw(0, x, "CPU:");
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
 
     // Color code based on usage
     int colorPair;
@@ -127,9 +127,9 @@ void UI::drawHotkeyLine() {
     int maxX = getmaxx(stdscr);
     int row = maxY - 1;
 
-    attron(COLOR_PAIR(1));
+    attron(COLOR_CURSOR);
     mvhline(row - 1, 0, '-', maxX);
-    attroff(COLOR_PAIR(1));
+    attroff(COLOR_CURSOR);
 
     if (numericInputActive) {
         mvprintw(row, 1, "Type value  |  Enter Confirm  |  Esc Cancel  |  Q Quit");
@@ -170,9 +170,9 @@ void UI::draw(int activeVoices) {
         int indicatorLen = static_cast<int>(indicator.length());
         int x = (maxX - indicatorLen) / 2;  // Center it
 
-        attron(COLOR_PAIR(4) | A_BOLD | A_REVERSE);  // Red/yellow bold reverse (attention-grabbing)
+        attron(COLOR_LOCKED | A_BOLD | A_REVERSE);  // Red/yellow bold reverse (attention-grabbing)
         mvprintw(0, x, "%s", indicator.c_str());
-        attroff(COLOR_PAIR(4) | A_BOLD | A_REVERSE);
+        attroff(COLOR_LOCKED | A_BOLD | A_REVERSE);
     }
 
     switch (currentPage) {
@@ -229,13 +229,13 @@ void UI::draw(int activeVoices) {
         int startX = (maxX - width) / 2;
 
         // Draw box
-        attron(COLOR_PAIR(5));
+        attron(COLOR_SELECTION);
         for (int y = startY; y < startY + height; ++y) {
             for (int x = startX; x < startX + width; ++x) {
                 mvaddch(y, x, ' ');
             }
         }
-        attroff(COLOR_PAIR(5));
+        attroff(COLOR_SELECTION);
 
         // Draw border
         attron(A_BOLD);
@@ -246,17 +246,17 @@ void UI::draw(int activeVoices) {
         attroff(A_BOLD);
 
         // Draw title
-        attron(COLOR_PAIR(5) | A_BOLD);
+        attron(COLOR_SELECTION | A_BOLD);
         mvprintw(startY + 1, startX + 2, "Save Preset As:");
-        attroff(COLOR_PAIR(5) | A_BOLD);
+        attroff(COLOR_SELECTION | A_BOLD);
 
         // Draw input field
         mvprintw(startY + 3, startX + 2, "> %s_", textInputBuffer.c_str());
 
         // Draw hint
-        attron(COLOR_PAIR(3));
+        attron(COLOR_HEADER);
         mvprintw(startY + 5, startX + 2, "Press Enter to save, Esc to cancel");
-        attroff(COLOR_PAIR(3));
+        attroff(COLOR_HEADER);
     } else if (numericInputActive) {
         int maxY = getmaxy(stdscr);
         int maxX = getmaxx(stdscr);
@@ -266,13 +266,13 @@ void UI::draw(int activeVoices) {
         int startX = (maxX - width) / 2;
 
         // Draw box
-        attron(COLOR_PAIR(5));
+        attron(COLOR_SELECTION);
         for (int y = startY; y < startY + height; ++y) {
             for (int x = startX; x < startX + width; ++x) {
                 mvaddch(y, x, ' ');
             }
         }
-        attroff(COLOR_PAIR(5));
+        attroff(COLOR_SELECTION);
 
         // Draw border
         attron(A_BOLD);
@@ -311,22 +311,22 @@ void UI::draw(int activeVoices) {
         }
 
         if (label) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(startY + 1, startX + 2, "Enter %s:", label);
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
 
         // Draw input field
         mvprintw(startY + 3, startX + 2, "> %s_", numericInputBuffer.c_str());
 
         // Draw hint
-        attron(COLOR_PAIR(3));
+        attron(COLOR_HEADER);
         if (numericInputIsSequencer) {
             mvprintw(startY + 5, startX + 2, "Enter value, Esc cancel");
         } else {
             mvprintw(startY + 5, startX + 2, "Press Enter to confirm, Esc to cancel");
         }
-        attroff(COLOR_PAIR(3));
+        attroff(COLOR_HEADER);
     } else if (sequencerScaleMenuActive) {
         int maxY = getmaxy(stdscr);
         int maxX = getmaxx(stdscr);
@@ -358,17 +358,17 @@ void UI::draw(int activeVoices) {
             const char* name = UIUtils::scaleDisplayName(UIUtils::kScaleOrder[i]);
             bool selected = (i == sequencerScaleMenuIndex);
             if (selected) {
-                attron(COLOR_PAIR(5) | A_BOLD);
+                attron(COLOR_SELECTION | A_BOLD);
                 mvprintw(y, startX + 2, "> %-20s", name);
-                attroff(COLOR_PAIR(5) | A_BOLD);
+                attroff(COLOR_SELECTION | A_BOLD);
             } else {
                 mvprintw(y, startX + 2, "  %-20s", name);
             }
         }
 
-        attron(COLOR_PAIR(3));
+        attron(COLOR_HEADER);
         mvprintw(startY + height - 2, startX + 2, "Enter confirm, Esc cancel");
-        attroff(COLOR_PAIR(3));
+        attroff(COLOR_HEADER);
     } else if (sampleBrowserActive) {
         int maxY = getmaxy(stdscr);
         int maxX = getmaxx(stdscr);
@@ -396,9 +396,9 @@ void UI::draw(int activeVoices) {
         attroff(A_BOLD);
 
         // Draw title
-        attron(COLOR_PAIR(5) | A_BOLD);
+        attron(COLOR_SELECTION | A_BOLD);
         mvprintw(startY + 1, startX + 2, "Load Sample - %s", sampleBrowserCurrentDir.c_str());
-        attroff(COLOR_PAIR(5) | A_BOLD);
+        attroff(COLOR_SELECTION | A_BOLD);
 
         // Draw items
         int displayRow = startY + 3;
@@ -422,9 +422,9 @@ void UI::draw(int activeVoices) {
             }
 
             if (isSelected) {
-                attron(COLOR_PAIR(5) | A_BOLD);
+                attron(COLOR_SELECTION | A_BOLD);
                 mvprintw(displayRow, startX + 2, "> %-54s", displayName.c_str());
-                attroff(COLOR_PAIR(5) | A_BOLD);
+                attroff(COLOR_SELECTION | A_BOLD);
             } else {
                 mvprintw(displayRow, startX + 2, "  %-54s", displayName.c_str());
             }
@@ -433,9 +433,9 @@ void UI::draw(int activeVoices) {
         }
 
         // Draw hint
-        attron(COLOR_PAIR(3));
+        attron(COLOR_HEADER);
         mvprintw(startY + height - 2, startX + 2, "Enter: Select | Arrows: Navigate | Esc: Cancel");
-        attroff(COLOR_PAIR(3));
+        attroff(COLOR_HEADER);
     }
 
     // Draw MIDI Learn popup if active (drawn last so it overlays everything)
@@ -450,7 +450,7 @@ void UI::draw(int activeVoices) {
         int startY = (maxY - popupHeight) / 2;
 
         // Draw box border
-        attron(COLOR_PAIR(3) | A_BOLD);
+        attron(COLOR_HEADER | A_BOLD);
         for (int y = startY; y < startY + popupHeight; ++y) {
             mvhline(y, startX, ' ', popupWidth);
         }
@@ -483,7 +483,7 @@ void UI::draw(int activeVoices) {
             mvprintw(startY + 4, msgX, "%s", msg.c_str());
         }
 
-        attroff(COLOR_PAIR(3) | A_BOLD);
+        attroff(COLOR_HEADER | A_BOLD);
     }
 
     refresh();
@@ -527,9 +527,9 @@ void UI::drawMainPage() {
         bool selected = (i == mainPageActionIndex && mainPageFocusLeft);
 
         if (selected) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, "> %s", actionLabels[i]);
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         } else {
             mvprintw(row, col, "  %s", actionLabels[i]);
         }
@@ -563,15 +563,15 @@ void UI::drawMainPage() {
     int mixerRow = 3;
 
     // Mixer title
-    attron(COLOR_PAIR(1) | A_BOLD);
+    attron(COLOR_CURSOR | A_BOLD);
     mvprintw(mixerRow++, rightCol, "MIXER");
-    attroff(COLOR_PAIR(1) | A_BOLD);
+    attroff(COLOR_CURSOR | A_BOLD);
     mixerRow++; // Blank line
 
     // Mixer header
-    attron(COLOR_PAIR(3));
+    attron(COLOR_HEADER);
     mvprintw(mixerRow++, rightCol, "Source   M S  Level");
-    attroff(COLOR_PAIR(3));
+    attroff(COLOR_HEADER);
 
     // Draw oscillators
     for (int i = 0; i < 4; ++i) {
@@ -581,7 +581,7 @@ void UI::drawMainPage() {
         bool selected = (mainPageMixerChannel == i && !mainPageFocusLeft);
 
         if (selected) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(mixerRow, rightCol, ">OSC %d", i + 1);
         } else {
             mvprintw(mixerRow, rightCol, " OSC %d", i + 1);
@@ -589,17 +589,17 @@ void UI::drawMainPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_PAIR(4) | A_BOLD);
+            attron(COLOR_LOCKED | A_BOLD);
             mvprintw(mixerRow, rightCol + 9, "M");
-            attroff(COLOR_PAIR(4) | A_BOLD);
+            attroff(COLOR_LOCKED | A_BOLD);
         } else {
             mvprintw(mixerRow, rightCol + 9, "-");
         }
 
         if (solo) {
-            attron(COLOR_PAIR(2) | A_BOLD);
+            attron(COLOR_MODULATED | A_BOLD);
             mvprintw(mixerRow, rightCol + 11, "S");
-            attroff(COLOR_PAIR(2) | A_BOLD);
+            attroff(COLOR_MODULATED | A_BOLD);
         } else {
             mvprintw(mixerRow, rightCol + 11, "-");
         }
@@ -608,7 +608,7 @@ void UI::drawMainPage() {
         drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
 
         if (selected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
 
         mixerRow++;
@@ -624,7 +624,7 @@ void UI::drawMainPage() {
         bool selected = (mainPageMixerChannel == i + 4 && !mainPageFocusLeft);
 
         if (selected) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(mixerRow, rightCol, ">SMP %d", i + 1);
         } else {
             mvprintw(mixerRow, rightCol, " SMP %d", i + 1);
@@ -632,17 +632,17 @@ void UI::drawMainPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_PAIR(4) | A_BOLD);
+            attron(COLOR_LOCKED | A_BOLD);
             mvprintw(mixerRow, rightCol + 9, "M");
-            attroff(COLOR_PAIR(4) | A_BOLD);
+            attroff(COLOR_LOCKED | A_BOLD);
         } else {
             mvprintw(mixerRow, rightCol + 9, "-");
         }
 
         if (solo) {
-            attron(COLOR_PAIR(2) | A_BOLD);
+            attron(COLOR_MODULATED | A_BOLD);
             mvprintw(mixerRow, rightCol + 11, "S");
-            attroff(COLOR_PAIR(2) | A_BOLD);
+            attroff(COLOR_MODULATED | A_BOLD);
         } else {
             mvprintw(mixerRow, rightCol + 11, "-");
         }
@@ -651,7 +651,7 @@ void UI::drawMainPage() {
         drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
 
         if (selected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
 
         mixerRow++;
@@ -667,7 +667,7 @@ void UI::drawMainPage() {
         bool selected = (mainPageMixerChannel == i + 8 && !mainPageFocusLeft);
 
         if (selected) {
-            attron(COLOR_PAIR(5) | A_BOLD);
+            attron(COLOR_SELECTION | A_BOLD);
             mvprintw(mixerRow, rightCol, ">CHS %d", i + 1);
         } else {
             mvprintw(mixerRow, rightCol, " CHS %d", i + 1);
@@ -675,17 +675,17 @@ void UI::drawMainPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_PAIR(4) | A_BOLD);
+            attron(COLOR_LOCKED | A_BOLD);
             mvprintw(mixerRow, rightCol + 9, "M");
-            attroff(COLOR_PAIR(4) | A_BOLD);
+            attroff(COLOR_LOCKED | A_BOLD);
         } else {
             mvprintw(mixerRow, rightCol + 9, "-");
         }
 
         if (solo) {
-            attron(COLOR_PAIR(2) | A_BOLD);
+            attron(COLOR_MODULATED | A_BOLD);
             mvprintw(mixerRow, rightCol + 11, "S");
-            attroff(COLOR_PAIR(2) | A_BOLD);
+            attroff(COLOR_MODULATED | A_BOLD);
         } else {
             mvprintw(mixerRow, rightCol + 11, "-");
         }
@@ -694,7 +694,7 @@ void UI::drawMainPage() {
         drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
 
         if (selected) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+            attroff(COLOR_SELECTION | A_BOLD);
         }
 
         mixerRow++;
@@ -719,12 +719,12 @@ void UI::drawMainPage() {
         // Draw background
         for (int y = boxTop; y < boxTop + boxHeight; ++y) {
             for (int x = boxLeft; x < boxLeft + boxWidth; ++x) {
-                mvaddch(y, x, ' ' | COLOR_PAIR(1));
+                mvaddch(y, x, ' ' | COLOR_CURSOR);
             }
         }
 
         // Draw border
-        attron(COLOR_PAIR(1) | A_BOLD);
+        attron(COLOR_CURSOR | A_BOLD);
         mvhline(boxTop, boxLeft, '-', boxWidth);
         mvhline(boxTop + boxHeight - 1, boxLeft, '-', boxWidth);
         mvvline(boxTop, boxLeft, '|', boxHeight);
@@ -735,12 +735,12 @@ void UI::drawMainPage() {
         mvaddch(boxTop, boxLeft + boxWidth - 1, '+');
         mvaddch(boxTop + boxHeight - 1, boxLeft, '+');
         mvaddch(boxTop + boxHeight - 1, boxLeft + boxWidth - 1, '+');
-        attroff(COLOR_PAIR(1) | A_BOLD);
+        attroff(COLOR_CURSOR | A_BOLD);
 
         // Title
-        attron(COLOR_PAIR(1) | A_BOLD);
+        attron(COLOR_CURSOR | A_BOLD);
         mvprintw(boxTop + 1, boxLeft + 2, "Load Preset");
-        attroff(COLOR_PAIR(1) | A_BOLD);
+        attroff(COLOR_CURSOR | A_BOLD);
 
         // List contents
         int visible = boxHeight - 4;
@@ -758,9 +758,9 @@ void UI::drawMainPage() {
             if (idx >= 0 && idx < static_cast<int>(presetBrowserPresets.size())) {
                 bool selected = (idx == presetBrowserSelectedIndex);
                 if (selected) {
-                    attron(COLOR_PAIR(5) | A_BOLD);
+                    attron(COLOR_SELECTION | A_BOLD);
                     mvprintw(y, boxLeft + 2, "> %s", presetBrowserPresets[idx].c_str());
-                    attroff(COLOR_PAIR(5) | A_BOLD);
+                    attroff(COLOR_SELECTION | A_BOLD);
                 } else {
                     mvprintw(y, boxLeft + 2, "  %s", presetBrowserPresets[idx].c_str());
                 }
@@ -768,8 +768,8 @@ void UI::drawMainPage() {
         }
 
         // Instructions
-        attron(COLOR_PAIR(1));
+        attron(COLOR_CURSOR);
         mvprintw(boxTop + boxHeight - 2, boxLeft + 2, "Enter=Load  Esc/Q=Cancel");
-        attroff(COLOR_PAIR(1));
+        attroff(COLOR_CURSOR);
     }
 }
