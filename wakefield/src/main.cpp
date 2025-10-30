@@ -596,7 +596,7 @@ void onControlChange(int controller, int value) {
 
             if (ui) {
                 std::string paramName = ui->getParameterName(paramId);
-                ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for " + paramName);
+                ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for param ID " + std::to_string(paramId) + " (" + paramName + ")");
             }
             return;  // Exit early after learning
         }
@@ -639,6 +639,9 @@ void onControlChange(int controller, int value) {
     for (int paramId = 0; paramId < SynthParameters::kMaxParamMap; ++paramId) {
         int mappedCC = synthParams->parameterCCMap[paramId].load();
         if (mappedCC >= 0 && mappedCC == controller) {
+            if (ui) {
+                ui->addConsoleMessage("Applying CC#" + std::to_string(controller) + " value=" + std::to_string(value) + " to param ID " + std::to_string(paramId));
+            }
             applyMIDICCToParameter(paramId, value);
         }
     }

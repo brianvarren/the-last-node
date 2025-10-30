@@ -618,6 +618,22 @@ void UI::handleInput(int ch) {
 
     // 'L' starts MIDI learn; 'l' toggles parameter lock (randomize immunity)
     if (ch == 'L') {
+        // Special-case MAIN page mixer: map current channel to a parameter ID
+        if (currentPage == UIPage::MAIN && !mainPageFocusLeft) {
+            int pid = -1;
+            if (mainPageMixerChannel >= 0 && mainPageMixerChannel < 4) {
+                pid = 50 + mainPageMixerChannel; // OSC levels 50-53
+            } else if (mainPageMixerChannel >= 4 && mainPageMixerChannel < 8) {
+                pid = 54 + (mainPageMixerChannel - 4); // SAMP levels 54-57
+            } else if (mainPageMixerChannel >= 8 && mainPageMixerChannel < 12) {
+                pid = 410 + (mainPageMixerChannel - 8); // CHAOS levels 410-413
+            }
+            if (pid >= 0) {
+                selectedParameterId = pid;
+                startMidiLearn(pid);
+                return;
+            }
+        }
         startMidiLearn(selectedParameterId);
         return;
     }
