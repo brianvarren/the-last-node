@@ -5,6 +5,7 @@
 #include <csignal>
 #include <unistd.h>
 #include <locale.h>
+#include <algorithm>
 #include <cmath>
 #include <sys/stat.h>
 #include <pwd.h>
@@ -89,480 +90,39 @@ void restartWithNewDevices(int audioDeviceId, int midiPort, SynthParameters* par
     std::cerr << "Failed to restart application\n";
 }
 
-// Helper function to map MIDI CC value (0-127) to parameter range
-float mapCCToParameter(int ccValue, float minVal, float maxVal, bool logarithmic = false) {
-    float normalized = ccValue / 127.0f;  // 0.0 to 1.0
-
-    if (logarithmic) {
-        // Logarithmic mapping (for frequency-like parameters)
-        float logMin = std::log(minVal);
-        float logMax = std::log(maxVal);
-        return std::exp(logMin + normalized * (logMax - logMin));
-    } else {
-        // Linear mapping
-        return minVal + normalized * (maxVal - minVal);
-    }
-}
-
 // Helper function to apply MIDI CC to a parameter
 void applyMIDICCToParameter(int paramId, int ccValue) {
     if (!synthParams) return;
 
-    switch (paramId) {
-        // Global parameters
-        case 1:  // Waveform (ENUM 0-3)
-            synthParams->waveform = static_cast<int>(mapCCToParameter(ccValue, 0, 3));
-            break;
-        case 2:  // Attack (exponential)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
-                synthParams->attack = mapped;
-                synthParams->setEnvAttack(0, mapped);
-            }
-            break;
-        case 3:  // Decay (exponential)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
-                synthParams->decay = mapped;
-                synthParams->setEnvDecay(0, mapped);
-            }
-            break;
-        case 4:  // Sustain (linear)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
-                synthParams->sustain = mapped;
-                synthParams->setEnvSustain(0, mapped);
-            }
-            break;
-        case 5:  // Release (exponential)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
-                synthParams->release = mapped;
-                synthParams->setEnvRelease(0, mapped);
-            }
-            break;
-        case 6:  // Master Volume (linear)
-            synthParams->masterVolume = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
+    float normalized = std::clamp(static_cast<float>(ccValue) / 127.0f, 0.0f, 1.0f);
 
-        // OSCILLATOR page parameters (context-aware via saved index)
-        case 10:  // Mode (ENUM 0-1)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscMode(oscIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
-            }
-            break;
-        case 11:  // Frequency (logarithmic)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscFrequency(oscIndex, mapCCToParameter(ccValue, 20.0f, 2000.0f, true));
-            }
-            break;
-        case 12:  // Morph (linear)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscMorph(oscIndex, mapCCToParameter(ccValue, 0.0001f, 0.9999f));
-            }
-            break;
-        case 13:  // Duty (linear)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscDuty(oscIndex, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            }
-            break;
-        case 14:  // Ratio (logarithmic, 0.125-16.0)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscRatio(oscIndex, mapCCToParameter(ccValue, 0.125f, 16.0f, true));
-            }
-            break;
-        case 15:  // Offset (linear, -1000 to 1000 Hz)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscOffset(oscIndex, mapCCToParameter(ccValue, -1000.0f, 1000.0f));
-            }
-            break;
-        // REVERB page parameters
-        case 20:  // Reverb Type (ENUM 0-4)
-            synthParams->reverbType = static_cast<int>(mapCCToParameter(ccValue, 0, 4));
-            break;
-        case 21:  // Reverb Enabled (BOOL)
-            synthParams->reverbEnabled = (ccValue > 63);
-            break;
-        case 22:  // Delay Time (linear)
-            synthParams->reverbDelayTime = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-        case 23:  // Size (linear)
-            synthParams->reverbSize = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-        case 24:  // Damping (linear)
-            synthParams->reverbDamping = mapCCToParameter(ccValue, 0.0f, 0.99f);
-            break;
-        case 25:  // Mix (linear)
-            synthParams->reverbMix = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-        case 26:  // Decay (linear)
-            synthParams->reverbDecay = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-        case 27:  // Diffusion (linear)
-            synthParams->reverbDiffusion = mapCCToParameter(ccValue, 0.0f, 0.99f);
-            break;
-        case 28:  // Mod Depth (linear)
-            synthParams->reverbModDepth = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-        case 29:  // Mod Freq (linear)
-            synthParams->reverbModFreq = mapCCToParameter(ccValue, 0.0f, 10.0f);
-            break;
-
-        // FILTER page parameters
-        case 30:  // Filter Type (ENUM 0-7)
-            synthParams->filterType = static_cast<int>(mapCCToParameter(ccValue, 0, 8));
-            break;
-        case 31:  // Filter Enabled (BOOL)
-            synthParams->filterEnabled = (ccValue > 63);
-            break;
-        case 32:  // Cutoff (logarithmic)
-            synthParams->filterCutoff = mapCCToParameter(ccValue, 20.0f, 20000.0f, true);
-            break;
-        case 33:  // Gain (linear)
-            synthParams->filterGain = mapCCToParameter(ccValue, -24.0f, 24.0f);
-            break;
-        case 34:  // Resonance (linear)
-            synthParams->filterResonance = mapCCToParameter(ccValue, 0.0f, 1.2f);
-            break;
-        case 35:  // Drive (linear)
-            synthParams->filterDrive = mapCCToParameter(ccValue, 0.1f, 15.0f);
-            break;
-        case 36:  // FB HP (logarithmic)
-            synthParams->filterFeedbackHP = mapCCToParameter(ccValue, 10.0f, 6000.0f, true);
-            break;
-        case 37:  // Spread (linear)
-            synthParams->filterSpread = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-        case 38:  // Notch FB (linear)
-            synthParams->filterNotchFeedback = mapCCToParameter(ccValue, 0.0f, 0.95f);
-            break;
-        case 39:  // Width (linear)
-            synthParams->filterBandWidth = mapCCToParameter(ccValue, 0.05f, 0.95f);
-            break;
-        case 42:  // Dry/Wet (linear)
-            synthParams->filterDryWet = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-
-        // LOOPER page parameters
-        case 40:  // Current Loop (INT 0-3)
-            synthParams->currentLoop = static_cast<int>(mapCCToParameter(ccValue, 0, 3));
-            break;
-        case 41:  // Overdub Mix (linear)
-            synthParams->overdubMix = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-
-        // MIXER page parameters - Oscillator levels (50-53)
-        case 50:  // OSC 1 Level (linear)
-            synthParams->setOscLevel(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 51:  // OSC 2 Level (linear)
-            synthParams->setOscLevel(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 52:  // OSC 3 Level (linear)
-            synthParams->setOscLevel(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 53:  // OSC 4 Level (linear)
-            synthParams->setOscLevel(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-
-        // MIXER page parameters - Sampler levels (54-57)
-        case 54:  // SAMP 1 Level (linear)
-            if (synth) synth->setSamplerLevel(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 55:  // SAMP 2 Level (linear)
-            if (synth) synth->setSamplerLevel(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 56:  // SAMP 3 Level (linear)
-            if (synth) synth->setSamplerLevel(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 57:  // SAMP 4 Level (linear)
-            if (synth) synth->setSamplerLevel(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-
-        // SAMPLER page parameters (60-68)
-        // Note: These apply to the current sampler based on UI state
-        case 60:  // Key Mode (ENUM 0-1: KEY=0, FREE=1)
-            if (synth && ui) {
-                // We need to get current sampler index from UI - for now, apply to sampler 0
-                // TODO: This should use ui->getCurrentSamplerIndex() when available
-                synth->setSamplerKeyMode(0, ccValue < 64);  // <64 = KEY mode
-            }
-            break;
-        case 61:  // Loop Start (linear, 0-100%)
-            if (synth && ui) {
-                synth->setSamplerLoopStart(0, mapCCToParameter(ccValue, 0.0f, 100.0f) / 100.0f);
-            }
-            break;
-        case 62:  // Loop Length (linear, 0-100%)
-            if (synth && ui) {
-                synth->setSamplerLoopLength(0, mapCCToParameter(ccValue, 0.0f, 100.0f) / 100.0f);
-            }
-            break;
-        case 63:  // Crossfade (linear, 0-100%)
-            if (synth && ui) {
-                synth->setSamplerCrossfadeLength(0, mapCCToParameter(ccValue, 0.0f, 100.0f) / 100.0f);
-            }
-            break;
-        case 64:  // Octave (INT -5 to 5)
-            if (synth && ui) {
-                synth->setSamplerOctave(0, static_cast<int>(mapCCToParameter(ccValue, -5.0f, 5.0f)));
-            }
-            break;
-        case 65:  // Tune (linear, -1.0 to 1.0)
-            if (synth && ui) {
-                synth->setSamplerTune(0, mapCCToParameter(ccValue, -1.0f, 1.0f));
-            }
-            break;
-        case 66:  // Sync Mode (ENUM 0-3)
-            if (synth && ui) {
-                synth->setSamplerSyncMode(0, static_cast<int>(mapCCToParameter(ccValue, 0, 3)));
-            }
-            break;
-        case 67:  // Note Reset (BOOL)
-            if (synth && ui) {
-                synth->setSamplerNoteReset(0, ccValue > 63);
-            }
-            break;
-        case 68:  // Direction (ENUM 0-2: Forward, Reverse, Ping-Pong)
-            if (synth && ui) {
-                synth->setSamplerPlaybackMode(0, static_cast<PlaybackMode>(static_cast<int>(mapCCToParameter(ccValue, 0, 2))));
-            }
-            break;
-
-        // LFO page parameters (200-206) - context-aware
-        case 200:  // Period (logarithmic, 0.1-1800s)
-            {
-                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
-                if (lfoIndex >= 0) synthParams->setLfoPeriod(lfoIndex, mapCCToParameter(ccValue, 0.1f, 1800.0f, true));
-            }
-            break;
-        case 201:  // Sync Mode (ENUM 0-3)
-            {
-                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
-                if (lfoIndex >= 0) synthParams->setLfoSyncMode(lfoIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 3)));
-            }
-            break;
-        case 202:  // Morph (linear, 0.0001-0.9999)
-            {
-                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
-                if (lfoIndex >= 0) synthParams->setLfoMorph(lfoIndex, mapCCToParameter(ccValue, 0.0001f, 0.9999f));
-            }
-            break;
-        case 203:  // Duty (linear, 0.0-1.0)
-            {
-                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
-                if (lfoIndex >= 0) synthParams->setLfoDuty(lfoIndex, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            }
-            break;
-        case 204:  // Flip (BOOL)
-            {
-                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
-                if (lfoIndex >= 0) synthParams->setLfoFlip(lfoIndex, ccValue > 63);
-            }
-            break;
-        case 205:  // Reset On Note (BOOL)
-            {
-                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
-                if (lfoIndex >= 0) synthParams->setLfoResetOnNote(lfoIndex, ccValue > 63);
-            }
-            break;
-        case 206:  // Shape (ENUM 0-1: Saw, Pulse)
-            {
-                int lfoIndex = synthParams->parameterContextLFO[paramId].load();
-                if (lfoIndex >= 0) synthParams->setLfoShape(lfoIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
-            }
-            break;
-
-        // ENV page parameters (300-323)
-        // Envelope 1 (300-305)
-        case 300:  // Attack (logarithmic)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
-                synthParams->setEnvAttack(0, mapped);
-                synthParams->attack = mapped;
-            }
-            break;
-        case 301:  // Decay (logarithmic)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
-                synthParams->setEnvDecay(0, mapped);
-                synthParams->decay = mapped;
-            }
-            break;
-        case 302:  // Sustain (linear)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
-                synthParams->setEnvSustain(0, mapped);
-                synthParams->sustain = mapped;
-            }
-            break;
-        case 303:  // Release (logarithmic)
-            {
-                float mapped = mapCCToParameter(ccValue, 0.001f, 30.0f, true);
-                synthParams->setEnvRelease(0, mapped);
-                synthParams->release = mapped;
-            }
-            break;
-        case 304:  // Attack Bend (linear)
-            synthParams->setEnvAttackBend(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 305:  // Release Bend (linear)
-            synthParams->setEnvReleaseBend(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-
-        // Envelope 2 (306-311)
-        case 306:  // Attack (logarithmic)
-            synthParams->setEnvAttack(1, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 307:  // Decay (logarithmic)
-            synthParams->setEnvDecay(1, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 308:  // Sustain (linear)
-            synthParams->setEnvSustain(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 309:  // Release (logarithmic)
-            synthParams->setEnvRelease(1, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 310:  // Attack Bend (linear)
-            synthParams->setEnvAttackBend(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 311:  // Release Bend (linear)
-            synthParams->setEnvReleaseBend(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-
-        // Envelope 3 (312-317)
-        case 312:  // Attack (logarithmic)
-            synthParams->setEnvAttack(2, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 313:  // Decay (logarithmic)
-            synthParams->setEnvDecay(2, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 314:  // Sustain (linear)
-            synthParams->setEnvSustain(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 315:  // Release (logarithmic)
-            synthParams->setEnvRelease(2, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 316:  // Attack Bend (linear)
-            synthParams->setEnvAttackBend(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 317:  // Release Bend (linear)
-            synthParams->setEnvReleaseBend(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-
-        // Envelope 4 (318-323)
-        case 318:  // Attack (logarithmic)
-            synthParams->setEnvAttack(3, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 319:  // Decay (logarithmic)
-            synthParams->setEnvDecay(3, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 320:  // Sustain (linear)
-            synthParams->setEnvSustain(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 321:  // Release (logarithmic)
-            synthParams->setEnvRelease(3, mapCCToParameter(ccValue, 0.001f, 30.0f, true));
-            break;
-        case 322:  // Attack Bend (linear)
-            synthParams->setEnvAttackBend(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 323:  // Release Bend (linear)
-            synthParams->setEnvReleaseBend(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-
-        // CHAOS page parameters (350-354) - context-aware
-        case 350:  // Chaos Parameter (linear, 0.0-1.0, maps to 0.6-0.99 internally)
-            {
-                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
-                if (chaosIndex >= 0) {
-                    float mapped = mapCCToParameter(ccValue, 0.0f, 1.0f);
-                    synthParams->setChaosParameter(chaosIndex, mapped);
-                    if (synth) synth->setChaosParameter(chaosIndex, mapped);
-                }
-            }
-            break;
-        case 351:  // Clock Frequency (logarithmic, 0.01-1000 Hz)
-            {
-                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
-                if (chaosIndex >= 0) {
-                    float mapped = mapCCToParameter(ccValue, 0.01f, 1000.0f, true);
-                    synthParams->setChaosClockFreq(chaosIndex, mapped);
-                    if (synth) synth->setChaosClockFreq(chaosIndex, mapped);
-                }
-            }
-            break;
-        case 352:  // Interp Mode (ENUM 0-2: LINEAR, CUBIC, HOLD)
-            {
-                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
-                if (chaosIndex >= 0) {
-                    int mode = static_cast<int>(mapCCToParameter(ccValue, 0, 2));
-                    synthParams->setChaosInterpMode(chaosIndex, mode);
-                    if (synth) synth->setChaosInterpMode(chaosIndex, mode);
-                }
-            }
-            break;
-        case 353:  // Running (BOOL)
-            {
-                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
-                if (chaosIndex >= 0) synthParams->setChaosRunning(chaosIndex, ccValue > 63);
-            }
-            break;
-        case 354:  // FAST Mode (BOOL)
-            {
-                int chaosIndex = synthParams->parameterContextChaos[paramId].load();
-                if (chaosIndex >= 0) {
-                    bool fast = ccValue > 63;
-                    synthParams->setChaosFastMode(chaosIndex, fast);
-                    if (synth) synth->setChaosFastMode(chaosIndex, fast);
-                }
-            }
-            break;
-        case 355:  // DIFF Mode (BOOL)
-            synthParams->chaosDiff = (ccValue > 63);
-            break;
-
-        // FM page parameters (360)
-        case 360:  // FM Global Depth (linear, 0.0-1.0)
-            synthParams->fmGlobalDepth = mapCCToParameter(ccValue, 0.0f, 1.0f);
-            break;
-
-        // MIXER page parameters - Chaos levels (410-413)
-        case 410:  // CHAOS 1 Level (linear)
-            synthParams->setChaosLevel(0, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 411:  // CHAOS 2 Level (linear)
-            synthParams->setChaosLevel(1, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 412:  // CHAOS 3 Level (linear)
-            synthParams->setChaosLevel(2, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-        case 413:  // CHAOS 4 Level (linear)
-            synthParams->setChaosLevel(3, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            break;
-
-        // Additional oscillator parameters (18, 19) - context-aware
-        case 18:  // Oscillator Amp (linear, 0.0-1.0)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscAmp(oscIndex, mapCCToParameter(ccValue, 0.0f, 1.0f));
-            }
-            break;
-        case 19:  // Oscillator Shape (ENUM 0-1: Saw, Pulse)
-            {
-                int oscIndex = synthParams->parameterContextOsc[paramId].load();
-                if (oscIndex >= 0) synthParams->setOscShape(oscIndex, static_cast<int>(mapCCToParameter(ccValue, 0, 1)));
-            }
-            break;
+    const InlineParameter* parameter = ParameterRegistry::Lookup(paramId);
+    if (!parameter) {
+        return;
     }
+
+    if (paramId == 400) {
+        return;
+    }
+
+    float value = parameter->denormalize(normalized);
+
+    int oscIndex = synthParams->parameterContextOsc[paramId].load();
+    int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+    int envIndex = synthParams->parameterContextEnv[paramId].load();
+    int samplerIndex = synthParams->parameterContextSampler[paramId].load();
+    int chaosIndex = synthParams->parameterContextChaos[paramId].load();
+
+    synthParams->applyParameterValue(paramId,
+                                     value,
+                                     synth,
+                                     oscIndex,
+                                     lfoIndex,
+                                     envIndex,
+                                     samplerIndex,
+                                     chaosIndex);
 }
 
-// Callbacks for MIDI events
 void onNoteOn(int note, int velocity) {
     if (synth) {
         synth->noteOn(note, velocity);
@@ -575,36 +135,31 @@ void onNoteOff(int note) {
     }
 }
 
-// Callback for MIDI CC messages
 void onControlChange(int controller, int value) {
     if (!synthParams) return;
-    
-    // Check if we're in the new unified MIDI learn mode
+
     if (synthParams->midiLearnActive.load()) {
         int paramId = synthParams->midiLearnParameterId.load();
 
-        // Learn CC for any parameter
         if (paramId >= 0 && paramId < SynthParameters::kMaxParamMap) {
             synthParams->parameterCCMap[paramId] = controller;
             synthParams->midiLearnActive = false;
             synthParams->midiLearnParameterId = -1;
 
-            // Also update legacy filterCutoffCC if it's the filter cutoff parameter
             if (paramId == 32) {
                 synthParams->filterCutoffCC = controller;
             }
 
             if (ui) {
                 std::string paramName = ui->getParameterName(paramId);
-                ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for param ID " + std::to_string(paramId) + " (" + paramName + ")");
+                ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for param ID " +
+                                      std::to_string(paramId) + " (" + paramName + ")");
             }
-            return;  // Exit early after learning
+            return;
         }
     }
-    
-    // Legacy: Check if we're in CC learn mode (filter) - for backwards compatibility
+
     if (synthParams->ccLearnMode.load() && synthParams->ccLearnTarget.load() == 0) {
-        // Learn this CC for filter cutoff
         synthParams->filterCutoffCC = controller;
         synthParams->ccLearnMode = false;
         synthParams->ccLearnTarget = -1;
@@ -612,8 +167,7 @@ void onControlChange(int controller, int value) {
             ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Filter Cutoff");
         }
     }
-    
-    // Check if we're in looper MIDI learn mode
+
     if (synthParams->loopMidiLearnMode.load()) {
         int target = synthParams->loopMidiLearnTarget.load();
         if (target == 0) {
@@ -632,55 +186,50 @@ void onControlChange(int controller, int value) {
         synthParams->loopMidiLearnMode = false;
         synthParams->loopMidiLearnTarget = -1;
     }
-    
-    // Process CC messages - check if any parameter is mapped to this controller
-    // TODO: Add parameter smoothing at control rate (100Hz) to prevent zipper noise
-    // Current implementation: Atomic writes provide thread-safe direct updates
+
     for (int paramId = 0; paramId < SynthParameters::kMaxParamMap; ++paramId) {
         int mappedCC = synthParams->parameterCCMap[paramId].load();
         if (mappedCC >= 0 && mappedCC == controller) {
             if (ui) {
-                ui->addConsoleMessage("Applying CC#" + std::to_string(controller) + " value=" + std::to_string(value) + " to param ID " + std::to_string(paramId));
+                ui->addConsoleMessage("Applying CC#" + std::to_string(controller) + " value=" +
+                                      std::to_string(value) + " to param ID " + std::to_string(paramId));
             }
             applyMIDICCToParameter(paramId, value);
         }
     }
 
-    // Legacy: Process CC messages if they're mapped to parameters
     int cutoffCC = synthParams->filterCutoffCC.load();
     if (cutoffCC >= 0 && controller == cutoffCC) {
-        // Map MIDI CC value (0-127) to frequency range (20-20000 Hz) logarithmically
-        // MIDI 0 = 20 Hz, MIDI 127 = 20000 Hz
-        float normalized = value / 127.0f;  // 0.0 to 1.0
-        // Logarithmic mapping: 20 Hz to 20 kHz
-        float frequency = 20.0f * std::pow(1000.0f, normalized);  // 20 * (1000^norm)
-        synthParams->filterCutoff = frequency;
+        applyMIDICCToParameter(32, value);
     }
-    
-    // Process looper CC mappings (toggle on high values > 64)
+
     if (loopManager) {
         int recPlayCC = synthParams->loopRecPlayCC.load();
         if (recPlayCC >= 0 && controller == recPlayCC && value > 64) {
-            Looper* loop = loopManager->getCurrentLoop();
-            if (loop) loop->pressRecPlay();
+            if (Looper* loop = loopManager->getCurrentLoop()) {
+                loop->pressRecPlay();
+            }
         }
-        
+
         int overdubCC = synthParams->loopOverdubCC.load();
         if (overdubCC >= 0 && controller == overdubCC && value > 64) {
-            Looper* loop = loopManager->getCurrentLoop();
-            if (loop) loop->pressOverdub();
+            if (Looper* loop = loopManager->getCurrentLoop()) {
+                loop->pressOverdub();
+            }
         }
-        
+
         int stopCC = synthParams->loopStopCC.load();
         if (stopCC >= 0 && controller == stopCC && value > 64) {
-            Looper* loop = loopManager->getCurrentLoop();
-            if (loop) loop->pressStop();
+            if (Looper* loop = loopManager->getCurrentLoop()) {
+                loop->pressStop();
+            }
         }
-        
+
         int clearCC = synthParams->loopClearCC.load();
         if (clearCC >= 0 && controller == clearCC && value > 64) {
-            Looper* loop = loopManager->getCurrentLoop();
-            if (loop) loop->pressClear();
+            if (Looper* loop = loopManager->getCurrentLoop()) {
+                loop->pressClear();
+            }
         }
     }
 }

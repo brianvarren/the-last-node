@@ -43,6 +43,11 @@ enum class ParamType {
 };
 
 // Inline parameter definition
+enum class ParamCurve {
+    Linear,
+    Logarithmic
+};
+
 struct InlineParameter {
     int id;
     ParamType type;
@@ -54,6 +59,72 @@ struct InlineParameter {
     bool supports_midi_learn;
     int page; // Which UIPage this parameter belongs to
     bool randomizable; // Can be affected by global randomize/mutate operations
+    ParamCurve curve = ParamCurve::Linear;
+
+    float denormalize(float normalized) const {
+        float norm = std::clamp(normalized, 0.0f, 1.0f);
+        switch (type) {
+            case ParamType::FLOAT: {
+                float clampedMin = min_val;
+                float clampedMax = max_val;
+                if (curve == ParamCurve::Logarithmic) {
+                    float safeMin = std::max(clampedMin, std::numeric_limits<float>::min());
+                    float safeMax = std::max(clampedMax, safeMin + std::numeric_limits<float>::epsilon());
+                    float logMin = std::log(safeMin);
+                    float logMax = std::log(safeMax);
+                    float value = std::exp(logMin + norm * (logMax - logMin));
+                    return std::clamp(value, clampedMin, clampedMax);
+                }
+                return clampedMin + norm * (clampedMax - clampedMin);
+            }
+            case ParamType::INT:
+            case ParamType::ENUM: {
+                int minInt = static_cast<int>(std::round(min_val));
+                int maxInt = static_cast<int>(std::round(max_val));
+                int span = std::max(0, maxInt - minInt);
+                int value = minInt + static_cast<int>(std::round(norm * span));
+                value = std::clamp(value, minInt, maxInt);
+                return static_cast<float>(value);
+            }
+            case ParamType::BOOL:
+                return norm >= 0.5f ? 1.0f : 0.0f;
+        }
+        return min_val;
+    }
+
+    float normalize(float value) const {
+        switch (type) {
+            case ParamType::FLOAT: {
+                float clampedValue = std::clamp(value, min_val, max_val);
+                if (curve == ParamCurve::Logarithmic) {
+                    float safeMin = std::max(min_val, std::numeric_limits<float>::min());
+                    float safeMax = std::max(max_val, safeMin + std::numeric_limits<float>::epsilon());
+                    float logMin = std::log(safeMin);
+                    float logMax = std::log(safeMax);
+                    if (logMax - logMin <= std::numeric_limits<float>::epsilon()) {
+                        return 0.0f;
+                    }
+                    float logValue = std::log(std::max(clampedValue, safeMin));
+                    return std::clamp((logValue - logMin) / (logMax - logMin), 0.0f, 1.0f);
+                }
+                if (max_val - min_val <= std::numeric_limits<float>::epsilon()) {
+                    return 0.0f;
+                }
+                return std::clamp((clampedValue - min_val) / (max_val - min_val), 0.0f, 1.0f);
+            }
+            case ParamType::INT:
+            case ParamType::ENUM: {
+                int minInt = static_cast<int>(std::round(min_val));
+                int maxInt = static_cast<int>(std::round(max_val));
+                int span = std::max(1, maxInt - minInt);
+                int clamped = std::clamp(static_cast<int>(std::round(value)), minInt, maxInt);
+                return std::clamp(static_cast<float>(clamped - minInt) / static_cast<float>(span), 0.0f, 1.0f);
+            }
+            case ParamType::BOOL:
+                return value > 0.5f ? 1.0f : 0.0f;
+        }
+        return 0.0f;
+    }
 };
 
 // Parameters that can be controlled via UI
@@ -775,6 +846,15 @@ struct SynthParameters {
         }
     }
 
+    void applyParameterValue(int id,
+                             float value,
+                             Synth* synth,
+                             int oscIndex,
+                             int lfoIndex,
+                             int envIndex,
+                             int samplerIndex,
+                             int chaosIndex);
+
     // Chaos getters/setters
     float getChaosParameter(int index) const {
         switch (index) {
@@ -890,6 +970,12 @@ struct SynthParameters {
         fmMatrix[target][source] = clamped;
     }
 };
+
+namespace ParameterRegistry {
+    void Clear();
+    void Register(const InlineParameter& param);
+    const InlineParameter* Lookup(int id);
+}
 
 enum class UIPage {
     MAIN,
