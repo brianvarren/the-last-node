@@ -20,18 +20,23 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
             mappedCC = params->parameterCCMap[paramId].load();
         }
 
-        // Highlight selected parameter
-        if (paramId == selectedParameterId) {
+        // Highlight selected parameter with cursor
+        bool isSelected = (paramId == selectedParameterId);
+        if (isSelected) {
             attron(COLOR_PAIR(5) | A_BOLD);
             mvprintw(row, col, ">");
+            attroff(COLOR_PAIR(5) | A_BOLD);
         } else {
             mvprintw(row, col, " ");
         }
 
-        // Color priority: Locked (yellow) > Modulated (green)
+        // Color priority: Locked (red) > Modulated (green), but selection highlight persists
         bool locked = !param->randomizable;
+        if (isSelected) {
+            attron(A_REVERSE);  // Use reverse video for selection
+        }
         if (locked) {
-            attron(COLOR_PAIR(3));  // Yellow for locked
+            attron(COLOR_PAIR(4));  // Red for locked
         } else if (isModulated) {
             attron(COLOR_PAIR(2));  // Green for modulated
         }
@@ -43,9 +48,9 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
         // Show lock and CC indicators
         int indicCol = col + 36;
         if (locked) {
-            attron(COLOR_PAIR(3));
+            attron(COLOR_PAIR(4));
             mvprintw(row, indicCol, "[LOCK]");
-            attroff(COLOR_PAIR(3));
+            attroff(COLOR_PAIR(4));
             indicCol += 7;
         }
         if (mappedCC >= 0) {
@@ -55,35 +60,18 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
         }
 
         if (locked) {
-            attroff(COLOR_PAIR(3));
+            attroff(COLOR_PAIR(4));
         } else if (isModulated) {
             attroff(COLOR_PAIR(2));
         }
-
-        if (paramId == selectedParameterId) {
-            attroff(COLOR_PAIR(5) | A_BOLD);
+        if (isSelected) {
+            attroff(A_REVERSE);
         }
 
         row++;
     }
 
-    // Show MIDI Learn status if active
-    if (params->midiLearnActive.load()) {
-        int learnParamId = params->midiLearnParameterId.load();
-        // Only show if learning for a parameter in this list
-        if (std::find(paramIds.begin(), paramIds.end(), learnParamId) != paramIds.end()) {
-            row += 1;  // Add spacing
-            attron(COLOR_PAIR(3) | A_BOLD);
-            mvprintw(row++, col, ">>> MIDI LEARN ACTIVE <<<");
-            attroff(COLOR_PAIR(3) | A_BOLD);
-
-            InlineParameter* learnParam = getParameter(learnParamId);
-            if (learnParam) {
-                mvprintw(row++, col, "Move a MIDI controller to assign");
-                mvprintw(row++, col, "it to: %s", learnParam->name.c_str());
-            }
-        }
-    }
+    // MIDI Learn status is now shown as a centered popup (see ui_drawing.cpp)
 }
 
 void UI::drawParametersPage(int startRow, int startCol) {

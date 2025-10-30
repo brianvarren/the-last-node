@@ -296,7 +296,7 @@ void UI::drawModPage() {
         bool locked = modSlotLocked[slot];
         for (int col = 0; col < columnCount; ++col) {
             bool selected = (slot == modMatrixCursorRow && col == modMatrixCursorCol);
-            if (locked) attron(COLOR_PAIR(3));
+            if (locked) attron(COLOR_PAIR(4));
             if (selected) {
                 attron(A_REVERSE);
             }
@@ -304,7 +304,7 @@ void UI::drawModPage() {
             if (selected) {
                 attroff(A_REVERSE);
             }
-            if (locked) attroff(COLOR_PAIR(3));
+            if (locked) attroff(COLOR_PAIR(4));
         }
         row++;
     }

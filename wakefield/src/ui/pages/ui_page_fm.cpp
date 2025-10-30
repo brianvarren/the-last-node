@@ -61,7 +61,7 @@ void UI::drawFMPage() {
             bool isLocked = fmMatrixLocked[target][source];
 
             if (isLocked) {
-                attron(COLOR_PAIR(3));
+                attron(COLOR_PAIR(4));
             } else if (isNonZero) {
                 attron(COLOR_PAIR(5));
             }
@@ -79,7 +79,7 @@ void UI::drawFMPage() {
                 attroff(A_REVERSE);
             }
             if (isLocked) {
-                attroff(COLOR_PAIR(3));
+                attroff(COLOR_PAIR(4));
             } else if (isNonZero) {
                 attroff(COLOR_PAIR(5));
             }
@@ -89,6 +89,6 @@ void UI::drawFMPage() {
 
     // Legend
     attron(COLOR_PAIR(3));
-    mvprintw(row + 1, 2, "Legend: yellow = locked (immune to G/M/R)  |  'l' toggles lock");
+    mvprintw(row + 1, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles lock");
     attroff(COLOR_PAIR(3));
 }

@@ -438,6 +438,54 @@ void UI::draw(int activeVoices) {
         attroff(COLOR_PAIR(3));
     }
 
+    // Draw MIDI Learn popup if active (drawn last so it overlays everything)
+    if (params->midiLearnActive.load()) {
+        int maxY = getmaxy(stdscr);
+        int maxX = getmaxx(stdscr);
+
+        // Popup dimensions
+        int popupWidth = 50;
+        int popupHeight = 7;
+        int startX = (maxX - popupWidth) / 2;
+        int startY = (maxY - popupHeight) / 2;
+
+        // Draw box border
+        attron(COLOR_PAIR(3) | A_BOLD);
+        for (int y = startY; y < startY + popupHeight; ++y) {
+            mvhline(y, startX, ' ', popupWidth);
+        }
+
+        // Draw border
+        mvaddch(startY, startX, ACS_ULCORNER);
+        mvhline(startY, startX + 1, ACS_HLINE, popupWidth - 2);
+        mvaddch(startY, startX + popupWidth - 1, ACS_URCORNER);
+
+        for (int y = startY + 1; y < startY + popupHeight - 1; ++y) {
+            mvaddch(y, startX, ACS_VLINE);
+            mvaddch(y, startX + popupWidth - 1, ACS_VLINE);
+        }
+
+        mvaddch(startY + popupHeight - 1, startX, ACS_LLCORNER);
+        mvhline(startY + popupHeight - 1, startX + 1, ACS_HLINE, popupWidth - 2);
+        mvaddch(startY + popupHeight - 1, startX + popupWidth - 1, ACS_LRCORNER);
+
+        // Draw content
+        std::string title = "MIDI LEARN ACTIVE";
+        int titleX = startX + (popupWidth - static_cast<int>(title.length())) / 2;
+        mvprintw(startY + 2, titleX, "%s", title.c_str());
+
+        int learnParamId = params->midiLearnParameterId.load();
+        InlineParameter* learnParam = getParameter(learnParamId);
+        if (learnParam) {
+            std::string paramName = learnParam->name;
+            std::string msg = "Move CC for: " + paramName;
+            int msgX = startX + (popupWidth - static_cast<int>(msg.length())) / 2;
+            mvprintw(startY + 4, msgX, "%s", msg.c_str());
+        }
+
+        attroff(COLOR_PAIR(3) | A_BOLD);
+    }
+
     refresh();
 }
 
