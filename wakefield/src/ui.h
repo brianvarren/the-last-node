@@ -271,9 +271,9 @@ struct SynthParameters {
 
     // Chaos parameters - 4 global chaos generators (Ikeda map)
     std::atomic<float> chaos1Parameter{0.918f};    // u parameter (0.6-0.99, 0.918 is typical)
-    std::atomic<float> chaos1ClockFreq{1.0f};      // Clock frequency in Hz (0.01-20000)
+    std::atomic<float> chaos1ClockFreq{1.0f};      // Clock frequency in Hz (0.0001-20000)
     std::atomic<int> chaos1InterpMode{0};          // 0=LINEAR, 1=CUBIC, 2=HOLD
-    std::atomic<bool> chaos1FastMode{false};       // Fast (audio rate) vs slow (low rate)
+    std::atomic<bool> chaos1FastMode{false};       // Fast (per-sample) vs slow (per-block)
     std::atomic<bool> chaos1Running{true};         // Run/stop state
     std::atomic<float> chaos1VisualX{0.0f};        // Current X for visualization
     std::atomic<float> chaos1VisualY{0.0f};        // Current Y for visualization
