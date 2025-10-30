@@ -219,7 +219,7 @@ void UI::handleInput(int ch) {
                 return;
             case KEY_DOWN:
                 if (mainPageFocusLeft) {
-                    if (mainPageActionIndex < 6) {
+                    if (mainPageActionIndex < 7) {
                         mainPageActionIndex++;
                     }
                 } else {

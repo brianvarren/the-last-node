@@ -523,7 +523,7 @@ void UI::drawMainPage() {
     row += 2;
 
     // Draw action buttons
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         bool selected = (i == mainPageActionIndex && mainPageFocusLeft);
 
         if (selected) {
@@ -550,13 +550,6 @@ void UI::drawMainPage() {
 
         row++;
     }
-
-    row += 2;
-    attron(COLOR_PAIR(8));
-    mvprintw(row++, col, "Left/Right: Switch columns");
-    mvprintw(row++, col, "Up/Down: Navigate items");
-    mvprintw(row++, col, "Enter: Execute | ?: Help");
-    attroff(COLOR_PAIR(8));
 
     // Mixer on right side
     int rightCol = leftWidth + 4;

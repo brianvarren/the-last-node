@@ -3,6 +3,8 @@
 
 #include <ncursesw/curses.h>
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <string>
 #include <atomic>
 #include <vector>
