@@ -11,7 +11,7 @@ void Voice::resetFMHistory() {
     }
 }
 
-float Voice::generateSample() {
+float Voice::generateSample(unsigned int frameIndex) {
     if (!active) {
         envelopeValue = 0.0f;
         return 0.0f;
@@ -59,13 +59,15 @@ float Voice::generateSample() {
                 }
             }
             // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
+            // NOW USING PER-SAMPLE VALUES from chaos buffers for true audio-rate modulation
             for (int source = 0; source < 8; ++source) {
                 float fmDepth = params->getFMDepth(target, 8 + source);
                 if (fmDepth != 0.0f) {
                     int chaosIndex = source / 2;  // 0,1->0, 2,3->1, 4,5->2, 6,7->3
                     bool isY = (source % 2) == 1;  // Odd indices are Y
-                    float chaosOutput = isY ? synth->getChaosOutputY(chaosIndex)
-                                            : synth->getChaosOutput(chaosIndex);
+                    // Get per-sample chaos output for audio-rate FM
+                    float chaosOutput = isY ? synth->getChaosOutputYAtFrame(chaosIndex, frameIndex)
+                                            : synth->getChaosOutputAtFrame(chaosIndex, frameIndex);
                     totalFM += chaosOutput * (fmDepth * 100.0f);
                 }
             }

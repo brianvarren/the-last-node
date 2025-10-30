@@ -69,6 +69,9 @@ public:
     // Get chaos outputs (for modulation matrix and FM)
     float getChaosOutput(int chaosIndex) const;
     float getChaosOutputY(int chaosIndex) const;
+    // Get per-sample chaos outputs from buffers (for audio-rate FM)
+    float getChaosOutputAtFrame(int chaosIndex, unsigned int frameIndex) const;
+    float getChaosOutputYAtFrame(int chaosIndex, unsigned int frameIndex) const;
 
     // Access modulation slot definitions (read-only)
     const ModulationSlot* getModulationSlot(int index) const;

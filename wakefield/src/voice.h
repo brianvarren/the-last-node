@@ -72,7 +72,8 @@ struct Voice {
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)
-    float generateSample();
+    // frameIndex: current sample index within buffer (for per-sample modulation sources)
+    float generateSample(unsigned int frameIndex = 0);
 
     // Clear cached oscillator outputs (used when voice retriggers)
     void resetFMHistory();

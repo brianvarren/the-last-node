@@ -512,8 +512,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
         // Generate samples for this voice
         for (unsigned int i = 0; i < nFrames; ++i) {
-            float sample = voices[v].generateSample();
-            
+            // Pass frame index for per-sample modulation sources (chaos generators)
+            float sample = voices[v].generateSample(i);
+
             // Write to UI oscilloscope buffer if this is the first active voice
             if (v == 0 && ui) {
                 ui->writeToWaveformBuffer(sample);
@@ -908,6 +909,24 @@ float Synth::getChaosOutput(int chaosIndex) const {
 
 float Synth::getChaosOutputY(int chaosIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    return chaos[chaosIndex].getY();
+}
+
+float Synth::getChaosOutputAtFrame(int chaosIndex, unsigned int frameIndex) const {
+    if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    // Use per-sample value from buffer if available, otherwise fall back to cached value
+    if (frameIndex < chaosBufferX[chaosIndex].size()) {
+        return chaosBufferX[chaosIndex][frameIndex];
+    }
+    return chaosOutputs[chaosIndex];
+}
+
+float Synth::getChaosOutputYAtFrame(int chaosIndex, unsigned int frameIndex) const {
+    if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    // Use per-sample value from buffer if available, otherwise fall back to cached value
+    if (frameIndex < chaosBufferY[chaosIndex].size()) {
+        return chaosBufferY[chaosIndex][frameIndex];
+    }
     return chaos[chaosIndex].getY();
 }
 
