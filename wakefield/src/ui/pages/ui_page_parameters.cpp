@@ -56,9 +56,9 @@ void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& p
         }
         if (mappedCC >= 0) {
             if (isSelected) attroff(COLOR_SELECTION | A_BOLD);
-            attron(COLOR_HEADER);
+            attron(COLOR_MIDI_MAPPED);
             mvprintw(row, indicCol, "[CC%d]", mappedCC);
-            attroff(COLOR_HEADER);
+            attroff(COLOR_MIDI_MAPPED);
             if (isSelected) attron(COLOR_SELECTION | A_BOLD);
         }
 

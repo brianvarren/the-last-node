@@ -245,9 +245,9 @@ void drawFilterResponsePreview(int topRow,
 
 void UI::drawFilterPage() {
     int row = 2;
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "FILTER");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
     row += 2;
 
     const int plotWidth = 42;

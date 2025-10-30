@@ -6,16 +6,16 @@ void UI::drawMixerPage() {
     int col = 2;
 
     // Page title
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row++, col, "MIXER");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     row++; // Blank line
 
     // Header
-    attron(COLOR_HEADER);
+    attron(COLOR_SECTION_HEADER);
     mvprintw(row++, col, "Source    M S  Level");
-    attroff(COLOR_HEADER);
+    attroff(COLOR_SECTION_HEADER);
 
     // Get parameter IDs for this page
     std::vector<int> pageParams = getParameterIdsForPage(UIPage::MIXER);

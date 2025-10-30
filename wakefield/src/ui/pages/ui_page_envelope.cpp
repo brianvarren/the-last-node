@@ -140,9 +140,9 @@ void UI::drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWi
 void UI::drawEnvelopePage() {
     // Draw envelope selector at top
     int row = 3;
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_SECTION_HEADER | A_BOLD);
     mvprintw(row, 2, "Select Envelope (1-4): ");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_SECTION_HEADER | A_BOLD);
 
     // Draw envelope buttons
     for (int i = 0; i < 4; ++i) {
@@ -158,9 +158,9 @@ void UI::drawEnvelopePage() {
     }
 
     row += 2;
-    attron(COLOR_CURSOR);
+    attron(COLOR_SECTION_HEADER);
     mvprintw(row, 2, "Envelope %d Parameters:", currentEnvelopeIndex + 1);
-    attroff(COLOR_CURSOR);
+    attroff(COLOR_SECTION_HEADER);
 
     // Draw parameters for the currently selected envelope only (6 params per envelope)
     int startParamId = 300 + (currentEnvelopeIndex * 6);
@@ -201,9 +201,9 @@ void UI::drawEnvelopePage() {
     int voiceMeterCol = 47; // Shift left to avoid wrapping
     int voiceMeterRow = row + 1;
 
-    attron(COLOR_HEADER);
+    attron(COLOR_SECTION_HEADER);
     mvprintw(voiceMeterRow++, voiceMeterCol, "VOICE ENVELOPES");
-    attroff(COLOR_HEADER);
+    attroff(COLOR_SECTION_HEADER);
     voiceMeterRow++;
 
     // Draw 8 voice meters (showing envelope level for each voice)
@@ -214,13 +214,13 @@ void UI::drawEnvelopePage() {
 
         // Voice label
         if (active) {
-            attron(COLOR_MODULATED | A_BOLD);
+            attron(COLOR_STATUS_ACTIVE | A_BOLD);
             mvprintw(voiceMeterRow, voiceMeterCol, "V%d[%3d]", v + 1, note);
-            attroff(COLOR_MODULATED | A_BOLD);
+            attroff(COLOR_STATUS_ACTIVE | A_BOLD);
         } else {
-            attron(COLOR_PAIR(8));
+            attron(COLOR_STATUS_INACTIVE);
             mvprintw(voiceMeterRow, voiceMeterCol, "V%d[ - ]", v + 1);
-            attroff(COLOR_PAIR(8));
+            attroff(COLOR_STATUS_INACTIVE);
         }
 
         // Draw bar (20 chars wide)
@@ -231,13 +231,13 @@ void UI::drawEnvelopePage() {
         mvprintw(voiceMeterRow, barStart, "[");
         for (int i = 0; i < barWidth; ++i) {
             if (i < filledWidth && active) {
-                attron(COLOR_MODULATED);
+                attron(COLOR_STATUS_ACTIVE);
                 mvaddch(voiceMeterRow, barStart + 1 + i, '=');
-                attroff(COLOR_MODULATED);
+                attroff(COLOR_STATUS_ACTIVE);
             } else {
-                attron(COLOR_PAIR(8));
+                attron(COLOR_STATUS_INACTIVE);
                 mvaddch(voiceMeterRow, barStart + 1 + i, '-');
-                attroff(COLOR_PAIR(8));
+                attroff(COLOR_STATUS_INACTIVE);
             }
         }
         mvprintw(voiceMeterRow, barStart + barWidth + 1, "]");

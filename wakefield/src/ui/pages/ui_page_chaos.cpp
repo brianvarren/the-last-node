@@ -157,9 +157,9 @@ void UI::drawChaosVisualization(int topRow, int leftCol, int plotHeight, int plo
 
 void UI::drawChaosPage() {
     int row = 2;
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "CHAOS");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     row += 2;
     // Draw tabs for chaos generators 1-4

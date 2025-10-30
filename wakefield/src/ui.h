@@ -46,6 +46,10 @@ struct SampleData;  // Forward declaration
 #define COLOR_GRID_LINE globalTheme->getColorPair(ThemeColor::GridLine)
 #define COLOR_POPUP_BORDER globalTheme->getColorPair(ThemeColor::PopupBorder)
 
+// Waveform
+#define COLOR_WAVEFORM_ACTIVE globalTheme->getColorPair(ThemeColor::WaveformActive)
+#define COLOR_WAVEFORM_INACTIVE globalTheme->getColorPair(ThemeColor::WaveformInactive)
+
 // Legacy aliases (kept for backwards compatibility during migration)
 #define COLOR_HEADER COLOR_SECTION_HEADER
 

@@ -144,9 +144,9 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
 
 void UI::drawOscillatorPage() {
     int row = 2;
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "OSCILLATORS");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     row += 2;
     for (int i = 0; i < 4; ++i) {

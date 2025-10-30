@@ -51,9 +51,9 @@ void drawSourcePicker(const std::vector<ModOption>& sources,
     mvaddch(bottom, right, '+');
 
     // Title
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_SECTION_HEADER | A_BOLD);
     mvprintw(top, left + 2, "Select Source");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_SECTION_HEADER | A_BOLD);
 
     // Two column layout
     int listTop = top + 2;
@@ -140,9 +140,9 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
     mvaddch(bottom, right, '+');
 
     // Title
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_SECTION_HEADER | A_BOLD);
     mvprintw(top, left + 2, "Select Destination");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_SECTION_HEADER | A_BOLD);
 
     // Column layout
     int moduleColWidth = std::min(28, std::max(20, width / 3));
@@ -202,9 +202,9 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
             paramScroll = std::clamp(selectedParam - visibleRows / 2, 0, totalParams - visibleRows);
         }
 
-        attron(COLOR_CURSOR);
+        attron(COLOR_SECTION_HEADER);
         mvprintw(listTop - 1, paramColX, "%s Parameters", modules[selectedModule].name);
-        attroff(COLOR_CURSOR);
+        attroff(COLOR_SECTION_HEADER);
 
         for (int row = 0; row < visibleRows && (row + paramScroll) < totalParams; ++row) {
             int paramIndex = paramScroll + row;
@@ -261,15 +261,15 @@ void UI::drawModPage() {
 
     int row = 3;
 
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "MODULATION MATRIX");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
     row += 2;
 
     for (int h = 0; h < 6; ++h) {
-        attron(COLOR_CURSOR);
+        attron(COLOR_SECTION_HEADER);
         mvprintw(row, headerCols[h], "%s", headers[h]);
-        attroff(COLOR_CURSOR);
+        attroff(COLOR_SECTION_HEADER);
     }
     row++;
     mvhline(row, 2, '-', 78);
@@ -347,11 +347,11 @@ void UI::drawModPage() {
                 int menuX = 25;
                 int menuY = 8;
 
-                attron(COLOR_CURSOR | A_BOLD);
+                attron(COLOR_POPUP_BORDER | A_BOLD);
                 mvprintw(menuY, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
                 mvprintw(menuY + 1, menuX, "| %-*s |", menuWidth - 4, title);
                 mvhline(menuY + 2, menuX + 1, '-', menuWidth - 2);
-                attroff(COLOR_CURSOR | A_BOLD);
+                attroff(COLOR_POPUP_BORDER | A_BOLD);
 
                 for (int i = 0; i < static_cast<int>(options->size()); ++i) {
                     int optRow = menuY + 3 + i;
@@ -364,9 +364,9 @@ void UI::drawModPage() {
                     }
                 }
 
-                attron(COLOR_CURSOR);
+                attron(COLOR_POPUP_BORDER);
                 mvprintw(menuY + menuHeight - 1, menuX, "+%s+", std::string(menuWidth - 2, '-').c_str());
-                attroff(COLOR_CURSOR);
+                attroff(COLOR_POPUP_BORDER);
             }
         }
     }

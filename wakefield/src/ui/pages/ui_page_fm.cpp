@@ -6,22 +6,22 @@ void UI::drawFMPage() {
     int row = 2;
 
     // Title
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "FM MATRIX - Audio-Rate Phase Modulation (16 sources × 8 targets)");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
     row += 2;
 
     // Column labels (targets) with clear abbreviations
     mvprintw(row, 2, "SOURCE");
-    attron(COLOR_CURSOR);
+    attron(COLOR_SECTION_HEADER);
     mvprintw(row, 12, "TARGETS:");
-    attroff(COLOR_CURSOR);
+    attroff(COLOR_SECTION_HEADER);
     row++;
     const int cellStartCol = 12;
     const int cellStride = 5;
-    attron(COLOR_CURSOR);
+    attron(COLOR_SECTION_HEADER);
     mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4");
-    attroff(COLOR_CURSOR);
+    attroff(COLOR_SECTION_HEADER);
     row += 2;
 
     // Draw matrix grid (16 sources × 8 targets)
@@ -36,9 +36,9 @@ void UI::drawFMPage() {
         // Row label
         if (source == 8) {
             // Visual separator before chaos sources
-            attron(COLOR_CURSOR);
+            attron(COLOR_GRID_LINE);
             mvhline(row, 0, '-', 80);
-            attroff(COLOR_CURSOR);
+            attroff(COLOR_GRID_LINE);
             row++;
         }
 
@@ -63,7 +63,7 @@ void UI::drawFMPage() {
             if (isLocked) {
                 attron(COLOR_LOCKED);
             } else if (isNonZero) {
-                attron(COLOR_SELECTION);
+                attron(COLOR_STATUS_ACTIVE);
             }
             if (isSelected) {
                 attron(A_REVERSE);
@@ -81,14 +81,14 @@ void UI::drawFMPage() {
             if (isLocked) {
                 attroff(COLOR_LOCKED);
             } else if (isNonZero) {
-                attroff(COLOR_SELECTION);
+                attroff(COLOR_STATUS_ACTIVE);
             }
         }
         row++;
     }
 
     // Legend
-    attron(COLOR_HEADER);
+    attron(COLOR_HINT);
     mvprintw(row + 1, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles lock");
-    attroff(COLOR_HEADER);
+    attroff(COLOR_HINT);
 }

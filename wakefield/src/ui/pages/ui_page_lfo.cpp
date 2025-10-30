@@ -187,9 +187,9 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
 
 void UI::drawLFOPage() {
     int row = 2;
-    attron(COLOR_CURSOR | A_BOLD);
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "LFOs");
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     row += 2;
     for (int i = 0; i < 4; ++i) {

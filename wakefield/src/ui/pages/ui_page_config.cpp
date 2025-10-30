@@ -9,9 +9,9 @@ void UI::drawConfigPage() {
     attroff(A_BOLD);
     row++;
 
-    attron(COLOR_HEADER);
+    attron(COLOR_PAGE_TITLE);
     mvprintw(row++, 2, "Audio and MIDI device configuration");
-    attroff(COLOR_HEADER);
+    attroff(COLOR_PAGE_TITLE);
     row++;
 
     // Audio device info

@@ -43,7 +43,7 @@ void drawSamplerWaveform(int topRow, int leftCol, int height, int width, const S
 
         // Determine color: bright green in loop region, dim green outside
         bool inLoop = (col >= loopStartCol && col < loopEndCol);
-        int colorAttr = inLoop ? (COLOR_MODULATED | A_BOLD) : (COLOR_MODULATED | A_DIM);
+        int colorAttr = inLoop ? (COLOR_WAVEFORM_ACTIVE | A_BOLD) : (COLOR_WAVEFORM_INACTIVE | A_DIM);
 
         // Draw above center
         for (int i = 0; i < columnHeight; ++i) {
@@ -83,9 +83,9 @@ void UI::drawSamplerPage() {
     const SampleData* sample = (sampleIndex >= 0) ? bank->getSample(sampleIndex) : nullptr;
 
     // Title with sampler index in bright cyan, sample name inline to the right
-    attron(COLOR_CURSOR | A_BOLD);  // Bright cyan like other page titles
+    attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, leftCol, "SAMPLER %d", currentSamplerIndex + 1);
-    attroff(COLOR_CURSOR | A_BOLD);
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     // Sample name as selectable parameter (ID 69) - inline with title
     const int sampleCol = leftCol + 15;
@@ -137,9 +137,9 @@ void UI::drawSamplerPage() {
     } else {
         // Draw empty waveform with just centerline
         int centerRow = row + waveformHeight / 2;
-        attron(COLOR_MODULATED);
+        attron(COLOR_GRID_LINE);
         mvhline(centerRow, leftCol, '*', waveformWidth);
-        attroff(COLOR_MODULATED);
+        attroff(COLOR_GRID_LINE);
     }
     row += waveformHeight;
 
@@ -148,9 +148,9 @@ void UI::drawSamplerPage() {
     row += 2; // Skip past border and add blank line
 
     // Parameters in two columns
-    attron(COLOR_SELECTION | A_BOLD);
+    attron(COLOR_SECTION_HEADER | A_BOLD);
     mvprintw(row++, leftCol, "PARAMETERS");
-    attroff(COLOR_SELECTION | A_BOLD);
+    attroff(COLOR_SECTION_HEADER | A_BOLD);
 
     // Get parameters from synth
     bool keyMode = synth->getSamplerKeyMode(currentSamplerIndex);
