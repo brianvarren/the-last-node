@@ -636,7 +636,7 @@ void onControlChange(int controller, int value) {
     // Process CC messages - check if any parameter is mapped to this controller
     // TODO: Add parameter smoothing at control rate (100Hz) to prevent zipper noise
     // Current implementation: Atomic writes provide thread-safe direct updates
-    for (int paramId = 0; paramId < 500; ++paramId) {
+    for (int paramId = 0; paramId < SynthParameters::kMaxParamMap; ++paramId) {
         int mappedCC = synthParams->parameterCCMap[paramId].load();
         if (mappedCC >= 0 && mappedCC == controller) {
             applyMIDICCToParameter(paramId, value);
