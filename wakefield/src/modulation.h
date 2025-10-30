@@ -4,13 +4,13 @@
 #include <cstdint>
 
 constexpr int kModulationSlotCount = 16;
-constexpr int kClockModSourceIndex = 12;
+constexpr int kClockModSourceIndex = 13;  // Clock source (was 12 before MIDI Note was added)
 constexpr int kClockTargetSequencerBase = 69;
 constexpr int kClockTargetSamplerBase = 73;
 
 // Modulation slot for the modulation matrix
 struct ModulationSlot {
-    int8_t source;       // -1 = empty, 0-12 = source index
+    int8_t source;       // -1 = empty, 0-21 = source index
     int8_t curve;        // -1 = empty, 0-3 = curve type
     int8_t amount;       // -99 to +99
     int8_t destination;  // -1 = empty, 0-76 = destination index

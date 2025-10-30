@@ -967,8 +967,9 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     // Source indices from ui_mod_data.cpp:
     // 0-3: LFO 1-4
     // 4-7: ENV 1-4
-    // 8: Velocity, 9: Aftertouch, 10: Mod Wheel, 11: Pitch Bend, 12: Clock
-    // 13-20: Chaos 1-4 X/Y pairs (13=C1X, 14=C1Y, 15=C2X, 16=C2Y, etc.)
+    // 8: MIDI Note, 9: Velocity, 10: Aftertouch, 11: Mod Wheel, 12: Pitch Bend
+    // 13: Clock
+    // 14-21: Chaos 1-4 X/Y pairs (14=C1X, 15=C1Y, 16=C2X, 17=C2Y, etc.)
 
     if (sourceIndex >= 0 && sourceIndex <= 3) {
         // LFO 1-4
@@ -996,27 +997,49 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
         // ENV 2-4 not yet implemented (would need synth-level envelope generators)
         return 0.0f;
     } else if (sourceIndex == 8) {
-        // Velocity - TODO: implement
+        // MIDI Note (0-127 mapped to -1 to +1, with 64 as center)
+        if (voiceContext && voiceContext->active) {
+            return (voiceContext->note - 64.0f) / 64.0f;
+        }
+        // If no voice context, use most recent active voice
+        for (int i = MAX_VOICES - 1; i >= 0; --i) {
+            if (voices[i].active) {
+                return (voices[i].note - 64.0f) / 64.0f;
+            }
+        }
         return 0.0f;
     } else if (sourceIndex == 9) {
-        // Aftertouch - TODO: implement
+        // Velocity (0-127 mapped to 0 to +1)
+        if (voiceContext && voiceContext->active) {
+            return voiceContext->velocity / 127.0f;
+        }
+        // If no voice context, use most recent active voice
+        for (int i = MAX_VOICES - 1; i >= 0; --i) {
+            if (voices[i].active) {
+                return voices[i].velocity / 127.0f;
+            }
+        }
         return 0.0f;
     } else if (sourceIndex == 10) {
-        // Mod Wheel - TODO: implement
+        // Aftertouch - TODO: implement
         return 0.0f;
     } else if (sourceIndex == 11) {
-        // Pitch Bend - TODO: implement
+        // Mod Wheel - TODO: implement
         return 0.0f;
     } else if (sourceIndex == 12) {
+        // Pitch Bend - TODO: implement
+        return 0.0f;
+    } else if (sourceIndex == 13) {
+        // Clock
         if (clock) {
             float phase = static_cast<float>(clock->getPhase(Subdivision::SIXTEENTH));
             return phase * 2.0f - 1.0f;
         }
         return -1.0f;
-    } else if (sourceIndex >= 13 && sourceIndex <= 20) {
+    } else if (sourceIndex >= 14 && sourceIndex <= 21) {
         // Chaos 1-4 X/Y pairs
-        int chaosIndex = (sourceIndex - 13) / 2;  // 13,14->0, 15,16->1, 17,18->2, 19,20->3
-        bool isY = ((sourceIndex - 13) % 2) == 1;  // Odd indices are Y
+        int chaosIndex = (sourceIndex - 14) / 2;  // 14,15->0, 16,17->1, 18,19->2, 20,21->3
+        bool isY = ((sourceIndex - 14) % 2) == 1;  // Odd indices are Y
         if (isY) {
             return getChaosOutputY(chaosIndex);
         } else {
