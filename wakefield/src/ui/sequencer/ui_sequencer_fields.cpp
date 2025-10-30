@@ -103,7 +103,7 @@ void UI::handleSequencerScaleMenuInput(int ch) {
     }
 }
 
-void UI::adjustSequencerTrackerField(int row, int column, int direction) {
+void UI::adjustSequencerTrackerField(int row, int column, int direction, bool fine) {
     if (!sequencer) return;
     Pattern& pattern = sequencer->getPattern();
     if (row < 0 || row >= pattern.getLength()) return;
@@ -126,20 +126,23 @@ void UI::adjustSequencerTrackerField(int row, int column, int direction) {
         }
         case SequencerTrackerColumn::VELOCITY: {
             step.active = true;
-            int velocity = std::clamp(step.velocity + direction * 5, 1, 127);
+            int velocityStep = fine ? 1 : 5;
+            int velocity = std::clamp(step.velocity + direction * velocityStep, 1, 127);
             step.velocity = velocity;
             break;
         }
         case SequencerTrackerColumn::GATE: {
             step.active = true;
-            float gate = step.gateLength + static_cast<float>(direction) * 0.05f;
+            float gateStep = fine ? 0.01f : 0.05f;
+            float gate = step.gateLength + static_cast<float>(direction) * gateStep;
             gate = std::max(0.05f, std::min(2.0f, gate));
             step.gateLength = gate;
             break;
         }
         case SequencerTrackerColumn::PROBABILITY: {
             step.active = true;
-            float prob = step.probability + static_cast<float>(direction) * 0.05f;
+            float probStep = fine ? 0.01f : 0.05f;
+            float prob = step.probability + static_cast<float>(direction) * probStep;
             prob = std::max(0.0f, std::min(1.0f, prob));
             step.probability = prob;
             break;
@@ -149,7 +152,7 @@ void UI::adjustSequencerTrackerField(int row, int column, int direction) {
     ensureSequencerSelectionInRange();
 }
 
-void UI::adjustSequencerInfoField(int infoIndex, int direction) {
+void UI::adjustSequencerInfoField(int infoIndex, int direction, bool fine) {
     if (!sequencer) return;
     if (infoIndex < 0 || infoIndex >= static_cast<int>(kSequencerInfoEntries.size())) return;
     const auto& entry = kSequencerInfoEntries[infoIndex];
@@ -165,7 +168,8 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
     switch (entry.field) {
         case SequencerInfoField::TEMPO: {
             double tempo = sequencer->getTempo();
-            tempo = std::clamp(tempo + direction * 1.0, 0.1, 999.0);
+            double tempoStep = fine ? 0.1 : 1.0;
+            tempo = std::clamp(tempo + direction * tempoStep, 0.1, 999.0);
             sequencer->setTempo(tempo);
             break;
         }
@@ -213,7 +217,8 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction) {
             break;
         }
         case SequencerInfoField::MUTATE_AMOUNT: {
-            sequencerMutateAmount = std::clamp(sequencerMutateAmount + direction * 5.0f, 0.0f, 100.0f);
+            float mutateStep = fine ? 1.0f : 5.0f;
+            sequencerMutateAmount = std::clamp(sequencerMutateAmount + direction * mutateStep, 0.0f, 100.0f);
             break;
         }
         case SequencerInfoField::MUTED: {

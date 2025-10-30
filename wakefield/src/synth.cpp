@@ -299,6 +299,8 @@ void Synth::noteOff(int midiNote) {
             voices[i].envelope.noteOff();  // Trigger release
         }
     }
+
+    fmSourceBufferPrev = fmSourceBuffer;
 }
 
 void Synth::spawnFreeRunningVoice() {
@@ -420,6 +422,13 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         output[i] = 0.0f;
     }
 
+    const size_t frameSourceCount = static_cast<size_t>(nFrames) * kFMSourceCount;
+    if (fmSourceBuffer.size() != frameSourceCount) {
+        fmSourceBuffer.assign(frameSourceCount, 0.0f);
+    } else {
+        std::fill(fmSourceBuffer.begin(), fmSourceBuffer.end(), 0.0f);
+    }
+
     // Process modulation matrix once per buffer for global (voice-agnostic) targets
     ModulationOutputs globalModOutputs = processModulationMatrix();
     lastGlobalModOutputs = globalModOutputs;
@@ -495,6 +504,12 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         // FM global depth modulation
         voice.fmGlobalDepthMod = modOutputs.fmGlobalDepth;
 
+        for (int target = 0; target < kFMTargetCount; ++target) {
+            for (int source = 0; source < kFMSourceCount; ++source) {
+                voice.fmDepthMod[target][source] = modOutputs.fmDepth[target][source];
+            }
+        }
+
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             if (samplerPhaseSource[i] != kClockModSourceIndex) {
                 voice.samplerPhaseDriver[i] = normalizePhaseForDriver(modOutputs.samplerPhase[i], samplerPhaseType[i]);
@@ -514,6 +529,16 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         for (unsigned int i = 0; i < nFrames; ++i) {
             // Pass frame index for per-sample modulation sources (chaos generators)
             float sample = voices[v].generateSample(i);
+
+            float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(i) * kFMSourceCount;
+            const float* oscOutputs = voices[v].getLastOscOutputs();
+            for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
+                frameSources[o] += oscOutputs[o];
+            }
+            const float* samplerOutputs = voices[v].getLastSamplerOutputs();
+            for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+                frameSources[kFMOscillatorTargetCount + s] += samplerOutputs[s];
+            }
 
             // Write to UI oscilloscope buffer if this is the first active voice
             if (v == 0 && ui) {
@@ -587,6 +612,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     60                                // Reference MIDI note (ignored in FREE mode)
                 );
                 freeMix += samplerOut;
+                float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(i) * kFMSourceCount;
+                frameSources[kFMOscillatorTargetCount + s] += samplerOut;
             }
 
             if (freeMix != 0.0f) {
@@ -607,6 +634,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         for (unsigned int i = 0; i < nFrames; ++i) {
             float chaosL = 0.0f;
             float chaosR = 0.0f;
+            float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(i) * kFMSourceCount;
             for (int c = 0; c < 4; ++c) {
                 bool muted = params->chaosMuted[c].load();
                 bool solo = params->chaosSolo[c].load();
@@ -627,6 +655,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     x -= prevX;
                     y -= prevY;
                 }
+                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + c * 2] = x;
+                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + c * 2 + 1] = y;
                 chaosL += x * modulatedLevel;
                 chaosR += y * modulatedLevel;
             }
@@ -841,25 +871,28 @@ void Synth::processLFOs(float sampleRate, unsigned int nFrames) {
 
 void Synth::processChaos(unsigned int nFrames) {
     // Apply modulation to chaos parameters before processing
+    float baseClockFreqs[4];
     if (params) {
         for (int i = 0; i < 4; ++i) {
-            // Get base parameter values
             float baseClockFreq = params->getChaosClockFreq(i);
             float baseParameter = params->getChaosParameter(i);
 
-            // Apply modulation (chaos clock is typically 0.00001-20000 Hz, modulate in octaves)
-            // For clock freq: multiplicative modulation in octaves (±4 octaves max)
             float clockOctaves = lastGlobalModOutputs.chaosClockFreq[i] * 4.0f;
             float modulatedClock = std::clamp(baseClockFreq * std::pow(2.0f, clockOctaves), 0.00001f, 20000.0f);
             chaos[i].setClockFrequency(modulatedClock);
+            baseClockFreqs[i] = modulatedClock;
 
-            // For U parameter: additive modulation (0.6-0.99 range, scale mod to ±0.2)
             float modulatedParam = std::clamp(baseParameter + lastGlobalModOutputs.chaosParameter[i] * 0.2f, 0.6f, 0.99f);
             chaos[i].setChaosParameter(modulatedParam);
+        }
+    } else {
+        for (int i = 0; i < 4; ++i) {
+            baseClockFreqs[i] = chaos[i].getClockFrequency();
         }
     }
 
     // Process all 4 chaos generators per sample and populate buffers
+    size_t prevFrameCount = fmSourceBufferPrev.size() / kFMSourceCount;
     for (int i = 0; i < 4; ++i) {
         bool running = params ? params->getChaosRunning(i) : true;
         if (running) {
@@ -871,6 +904,22 @@ void Synth::processChaos(unsigned int nFrames) {
 
             // Generate per-sample chaos values
             for (unsigned int frame = 0; frame < nFrames; ++frame) {
+                float sampleClock = baseClockFreqs[i];
+                if (frame < prevFrameCount && params) {
+                    const float* frameSources = fmSourceBufferPrev.data() + static_cast<size_t>(frame) * kFMSourceCount;
+                    float totalFM = 0.0f;
+                    for (int source = 0; source < kFMSourceCount; ++source) {
+                        float depth = params->getFMDepth(kFMChaosTargetOffset + i, source) +
+                                      lastGlobalModOutputs.fmDepth[kFMChaosTargetOffset + i][source];
+                        depth = std::clamp(depth, -0.99f, 0.99f);
+                        if (depth != 0.0f) {
+                            totalFM += frameSources[source] * (depth * 100.0f);
+                        }
+                    }
+                    float fmOctaves = std::clamp(totalFM * 0.01f, -4.0f, 4.0f);
+                    sampleClock = std::clamp(baseClockFreqs[i] * std::pow(2.0f, fmOctaves), 0.00001f, 20000.0f);
+                }
+                chaos[i].setClockFrequency(sampleClock);
                 chaosBufferX[i].push_back(chaos[i].process());
                 chaosBufferY[i].push_back(chaos[i].getY());
             }
@@ -881,7 +930,13 @@ void Synth::processChaos(unsigned int nFrames) {
             // If not running, clear buffers so fallback to chaosOutputs is used
             chaosBufferX[i].clear();
             chaosBufferY[i].clear();
+            for (unsigned int frame = 0; frame < nFrames; ++frame) {
+                float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(frame) * kFMSourceCount;
+                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + i * 2] = 0.0f;
+                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + i * 2 + 1] = 0.0f;
+            }
         }
+        chaos[i].setClockFrequency(baseClockFreqs[i]);
     }
 
     // Update visual state for UI (once per buffer, using last frame's values)
@@ -1111,6 +1166,8 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             modValue = shapedValue * amount;
         }
 
+        int destination = slot.destination;
+
         // Apply to destination
         // Destination indices from ui_mod_data:
         // 0-5: OSC 1 Pitch/Morph/Duty/Ratio/Offset/Amp
@@ -1130,8 +1187,41 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         // 74-77: Sequencer Track 1-4 Phase Drivers
         // 78-81: Sampler 1-4 Phase Drivers
         // 82: FM Global Depth
+        // 83- (83 + kFMTargetCount*kFMSourceCount - 1): Individual FM depths
+        // Remaining: Chaos parameters (Clock/U/Level)
 
-        switch (slot.destination) {
+        const int fmGlobalIndex = 82;
+        const int fmCellStart = fmGlobalIndex + 1;
+        const int fmCellEnd = fmCellStart + kFMTargetCount * kFMSourceCount;
+        const int chaosBase = fmCellEnd;
+
+        if (destination == fmGlobalIndex) {
+            outputs.fmGlobalDepth += modValue;
+            continue;
+        }
+
+        if (destination >= fmCellStart && destination < fmCellEnd) {
+            int cellIndex = destination - fmCellStart;
+            int target = cellIndex / kFMSourceCount;
+            int source = cellIndex % kFMSourceCount;
+            outputs.fmDepth[target][source] += modValue;
+            continue;
+        }
+
+        if (destination >= chaosBase) {
+            int chaosIndex = (destination - chaosBase) / 3;
+            int chaosParam = (destination - chaosBase) % 3;
+            if (chaosIndex >= 0 && chaosIndex < kFMChaosTargetCount) {
+                switch (chaosParam) {
+                    case 0: outputs.chaosClockFreq[chaosIndex] += modValue; break;
+                    case 1: outputs.chaosParameter[chaosIndex] += modValue; break;
+                    case 2: outputs.chaosLevel[chaosIndex] += modValue; break;
+                }
+                continue;
+            }
+        }
+
+        switch (destination) {
             // OSC 1
             case 0: outputs.osc1Pitch += modValue; break;
             case 1: outputs.osc1Morph += modValue; break;
@@ -1231,24 +1321,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 79: outputs.samplerPhase[1] += modValue; break;
             case 80: outputs.samplerPhase[2] += modValue; break;
             case 81: outputs.samplerPhase[3] += modValue; break;
-            // FM
-            case 82: outputs.fmGlobalDepth += modValue; break;
-            // Chaos 1
-            case 83: outputs.chaosClockFreq[0] += modValue; break;
-            case 84: outputs.chaosParameter[0] += modValue; break;
-            case 85: outputs.chaosLevel[0] += modValue; break;
-            // Chaos 2
-            case 86: outputs.chaosClockFreq[1] += modValue; break;
-            case 87: outputs.chaosParameter[1] += modValue; break;
-            case 88: outputs.chaosLevel[1] += modValue; break;
-            // Chaos 3
-            case 89: outputs.chaosClockFreq[2] += modValue; break;
-            case 90: outputs.chaosParameter[2] += modValue; break;
-            case 91: outputs.chaosLevel[2] += modValue; break;
-            // Chaos 4
-            case 92: outputs.chaosClockFreq[3] += modValue; break;
-            case 93: outputs.chaosParameter[3] += modValue; break;
-            case 94: outputs.chaosLevel[3] += modValue; break;
         }
     }
 
@@ -1582,6 +1654,14 @@ float Synth::getMixerOscLevelMod(int index) const {
         return 0.0f;
     }
     return lastGlobalModOutputs.mixerOscLevel[index];
+}
+
+float Synth::getFMDepthMod(int target, int source) const {
+    if (target < 0 || target >= kFMTargetCount ||
+        source < 0 || source >= kFMSourceCount) {
+        return 0.0f;
+    }
+    return lastGlobalModOutputs.fmDepth[target][source];
 }
 
 // Chaos generator control methods

@@ -9,6 +9,7 @@
 #include <atomic>
 #include <vector>
 #include <functional>
+#include "fm_constants.h"
 #include "oscillator.h"
 #include "cpu_monitor.h"
 #include "modulation.h"
@@ -379,11 +380,11 @@ struct SynthParameters {
     std::atomic<bool> chaosDiff{false};
 
     // FM Matrix - audio-rate frequency modulation routing
-    // fmMatrix[target][source] = depth (0.0 to 1.0)
+    // fmMatrix[target][source] = depth (-0.99 to +0.99)
     // Example: fmMatrix[2][0] = 0.5 means OSC1 modulates OSC3 at 50% depth
-    // Targets: OSC1-4 (0-3) + SAMP1-4 (4-7) = 8 total
-    // Sources: OSC1-4 (0-3) + SAMP1-4 (4-7) + Chaos1X-4Y (8-15) = 16 total
-    std::atomic<float> fmMatrix[8][16];  // 8 targets × 16 sources
+    // Targets: OSC1-4 (0-3), SAMP1-4 (4-7), CHAOS CLK1-4 (8-11) = 12 total
+    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7), Chaos1X-4Y (8-15) = 16 total
+    std::atomic<float> fmMatrix[kFMTargetCount][kFMSourceCount];
     std::atomic<float> fmGlobalDepth{1.0f};  // Global FM depth scalar (0.0-1.0)
 
     // Constructor to initialize CC map and FM matrix
@@ -397,8 +398,8 @@ struct SynthParameters {
             parameterContextChaos[i] = -1;
         }
         // Initialize FM matrix to zero (no FM routing by default)
-        for (int target = 0; target < 8; ++target) {
-            for (int source = 0; source < 16; ++source) {
+        for (int target = 0; target < kFMTargetCount; ++target) {
+            for (int source = 0; source < kFMSourceCount; ++source) {
                 fmMatrix[target][source] = 0.0f;
             }
         }
@@ -957,15 +958,21 @@ struct SynthParameters {
     }
 
     // FM Matrix accessors
-    // Targets: OSC1-4 (0-3), SAMP1-4 (4-7) = 8 total
-    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7), Chaos1X-4Y (8-15) = 16 total
+    // Targets: OSC1-4, SAMP1-4, CHAOS CLK1-4
+    // Sources: OSC1-4, SAMP1-4, Chaos1X-4Y
     float getFMDepth(int target, int source) const {
-        if (target < 0 || target >= 8 || source < 0 || source >= 16) return 0.0f;
+        if (target < 0 || target >= kFMTargetCount ||
+            source < 0 || source >= kFMSourceCount) {
+            return 0.0f;
+        }
         return fmMatrix[target][source].load();
     }
 
     void setFMDepth(int target, int source, float depth) {
-        if (target < 0 || target >= 8 || source < 0 || source >= 16) return;
+        if (target < 0 || target >= kFMTargetCount ||
+            source < 0 || source >= kFMSourceCount) {
+            return;
+        }
         const float clamped = std::max(-0.99f, std::min(0.99f, depth));
         fmMatrix[target][source] = clamped;
     }
@@ -1163,8 +1170,8 @@ private:
 
     // Sequencer helpers
     bool handleSequencerInput(int ch);
-    void adjustSequencerTrackerField(int row, int column, int direction);
-    void adjustSequencerInfoField(int infoIndex, int direction);
+    void adjustSequencerTrackerField(int row, int column, int direction, bool fine);
+    void adjustSequencerInfoField(int infoIndex, int direction, bool fine);
     void executeSequencerAction(int actionRow, int actionColumn);
     void startSequencerNumericInput(int row, int column);
     void startSequencerInfoNumericInput(int infoIndex);
@@ -1211,6 +1218,14 @@ private:
     void randomizePageParameters(UIPage page, float amount01);
     void mutatePageParameters(UIPage page, float amount01);
     void resetPageParameters(UIPage page);
+    void randomizeSingleParameter(int id, float amount01);
+    void mutateSingleParameter(int id, float amount01);
+    void randomizeCurrentEntity(UIPage page, float amount01);
+    void mutateCurrentEntity(UIPage page, float amount01);
+    void randomizeModSlot(int slotIndex, float amount01);
+    void mutateModSlot(int slotIndex, float amount01);
+    void randomizeAllModSlots(float amount01);
+    void mutateAllModSlots(float amount01);
 
     // Oscillator/LFO/Envelope UI state
     int currentOscillatorIndex;  // 0-3: which oscillator is selected on OSCILLATOR page
@@ -1220,9 +1235,9 @@ private:
     int currentChaosIndex;        // 0-3: which chaos generator is selected on CHAOS page
 
     // FM Matrix UI state
-    int fmMatrixCursorRow;        // 0-3: source oscillator (row)
-    int fmMatrixCursorCol;        // 0-3: target oscillator (column)
-    bool fmMatrixLocked[8][16] = {{false}}; // target x source lock flags
+    int fmMatrixCursorRow;        // 0-15 sources
+    int fmMatrixCursorCol;        // 0-(kFMTargetCount-1): targets
+    bool fmMatrixLocked[kFMTargetCount][kFMSourceCount] = {{false}}; // target x source lock flags
 
     // MOD Matrix UI state
     int modMatrixCursorRow;       // 0-15: modulation slot

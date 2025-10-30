@@ -141,11 +141,11 @@ void UI::drawHotkeyLine() {
         mvprintw(row, 1, "Move MIDI controller to assign  |  Esc Cancel  |  Q Quit");
     } else {
         if (currentPage == UIPage::FM) {
-            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  Left/Right Adjust  |  Enter Type  |  l Lock  |  G/M/R Ops  |  Q Quit");
+            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  -/= Adjust  |  _/+ Fine  |  g/G Rand  |  m/M Mut  |  Enter Type  |  l Lock  |  R Reset  |  Q Quit");
         } else if (currentPage == UIPage::MOD) {
-            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  Enter Edit  |  l Lock Slot  |  Q Quit");
+            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  Enter Edit  |  g/G Rand  |  m/M Mut  |  l Lock Slot  |  Q Quit");
         } else {
-            mvprintw(row, 1, "Tab Page  |  Up/Dn Param  |  Left/Right Adjust  |  Enter Type  |  l Lock  |  L Learn  |  G/M/R Page Ops  |  Q Quit");
+            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  -/= Adjust  |  _/+ Fine  |  g/G Rand  |  m/M Mut  |  Enter Type  |  l Lock  |  L Learn  |  R Reset  |  Q Quit");
         }
     }
 }
@@ -697,7 +697,7 @@ void UI::drawMainPage() {
     attron(COLOR_PAIR(8));
     mvprintw(mixerRow++, rightCol, "1-4: Select OSC | 5-8: Select SAMP");
     mvprintw(mixerRow++, rightCol, "Shift+1-4: Select CHAOS");
-    mvprintw(mixerRow++, rightCol, "M: Mute | S: Solo | [/]: Level");
+    mvprintw(mixerRow++, rightCol, "M: Mute | S: Solo | -/= lvl | _/+ fine");
     attroff(COLOR_PAIR(8));
 
     // Draw preset browser if active

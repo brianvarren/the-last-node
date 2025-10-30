@@ -199,6 +199,23 @@ void UI::handleInput(int ch) {
 
     // Main page action button and mixer handling
     if (currentPage == UIPage::MAIN && !textInputActive && !numericInputActive) {
+        auto adjustMainMixerLevel = [&](float delta) {
+            if (mainPageFocusLeft) {
+                return;
+            }
+            if (mainPageMixerChannel < 4) {
+                float newLevel = std::clamp(params->getOscLevel(mainPageMixerChannel) + delta, 0.0f, 1.0f);
+                params->setOscLevel(mainPageMixerChannel, newLevel);
+            } else if (mainPageMixerChannel < 8) {
+                int idx = mainPageMixerChannel - 4;
+                float newLevel = std::clamp(synth->getSamplerLevel(idx) + delta, 0.0f, 1.0f);
+                synth->setSamplerLevel(idx, newLevel);
+            } else {
+                int idx = mainPageMixerChannel - 8;
+                float newLevel = std::clamp(params->getChaosLevel(idx) + delta, 0.0f, 1.0f);
+                params->setChaosLevel(idx, newLevel);
+            }
+        };
         switch (ch) {
             case KEY_LEFT:
                 mainPageFocusLeft = true;
@@ -229,31 +246,41 @@ void UI::handleInput(int ch) {
                 }
                 return;
             case '+':
-            case '=':
+            case '=': {
                 if (mainPageFocusLeft) {
+                    float delta = (ch == '+') ? 1.0f : 5.0f;
                     if (mainPageActionIndex == 4) {  // Random Amount
-                        globalRandomizePercentage = std::min(100.0f, globalRandomizePercentage + 5.0f);
+                        globalRandomizePercentage = std::min(100.0f, globalRandomizePercentage + delta);
                         return;
                     }
                     if (mainPageActionIndex == 5) {  // Mutate Amount
-                        globalMutatePercentage = std::min(100.0f, globalMutatePercentage + 5.0f);
+                        globalMutatePercentage = std::min(100.0f, globalMutatePercentage + delta);
                         return;
                     }
+                } else {
+                    float delta = (ch == '+') ? 0.01f : 0.05f;
+                    adjustMainMixerLevel(delta);
                 }
                 return;
+            }
             case '-':
-            case '_':
+            case '_': {
                 if (mainPageFocusLeft) {
+                    float delta = (ch == '_') ? 1.0f : 5.0f;
                     if (mainPageActionIndex == 4) {  // Random Amount
-                        globalRandomizePercentage = std::max(0.0f, globalRandomizePercentage - 5.0f);
+                        globalRandomizePercentage = std::max(0.0f, globalRandomizePercentage - delta);
                         return;
                     }
                     if (mainPageActionIndex == 5) {  // Mutate Amount
-                        globalMutatePercentage = std::max(0.0f, globalMutatePercentage - 5.0f);
+                        globalMutatePercentage = std::max(0.0f, globalMutatePercentage - delta);
                         return;
                     }
+                } else {
+                    float delta = (ch == '_') ? -0.01f : -0.05f;
+                    adjustMainMixerLevel(delta);
                 }
                 return;
+            }
             case '\n':
             case KEY_ENTER:
                 if (mainPageFocusLeft) {
@@ -315,24 +342,6 @@ void UI::handleInput(int ch) {
                 } else {
                     int idx = mainPageMixerChannel - 8;
                     params->chaosSolo[idx] = !params->chaosSolo[idx].load();
-                }
-                return;
-            }
-            case '[': case ']': {
-                if (mainPageFocusLeft) return;
-                // Adjust level for selected channel
-                float delta = (ch == ']') ? 0.05f : -0.05f;
-                if (mainPageMixerChannel < 4) {
-                    float newLevel = std::max(0.0f, std::min(1.0f, params->getOscLevel(mainPageMixerChannel) + delta));
-                    params->setOscLevel(mainPageMixerChannel, newLevel);
-                } else if (mainPageMixerChannel < 8) {
-                    int idx = mainPageMixerChannel - 4;
-                    float newLevel = std::max(0.0f, std::min(1.0f, synth->getSamplerLevel(idx) + delta));
-                    synth->setSamplerLevel(idx, newLevel);
-                } else {
-                    int idx = mainPageMixerChannel - 8;
-                    float newLevel = std::max(0.0f, std::min(1.0f, params->getChaosLevel(idx) + delta));
-                    params->setChaosLevel(idx, newLevel);
                 }
                 return;
             }
@@ -487,6 +496,22 @@ void UI::handleInput(int ch) {
                 modulationSlots[modMatrixCursorRow] = ModulationSlot();
                 addConsoleMessage("Cleared modulation slot " + std::to_string(modMatrixCursorRow + 1));
                 return;
+            case 'g':
+                randomizeModSlot(modMatrixCursorRow, std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
+                addConsoleMessage("Randomized mod slot " + std::to_string(modMatrixCursorRow + 1));
+                return;
+            case 'G':
+                randomizeAllModSlots(std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
+                addConsoleMessage("Randomized all modulation slots");
+                return;
+            case 'm':
+                mutateModSlot(modMatrixCursorRow, std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
+                addConsoleMessage("Mutated mod slot " + std::to_string(modMatrixCursorRow + 1));
+                return;
+            case 'M':
+                mutateAllModSlots(std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
+                addConsoleMessage("Mutated all modulation slots");
+                return;
         }
     }
 
@@ -518,69 +543,33 @@ void UI::handleInput(int ch) {
         }
     };
 
-    // Arrow key behavior for parameter pages
-    // SAMPLER and FILTER pages: Up/Down navigate, Left/Right adjust (two-column/special layout)
-    // Other parameter pages: Up/Down navigate, Left/Right adjust current parameter (global behavior)
-    if (currentPage == UIPage::SAMPLER || currentPage == UIPage::FILTER) {
-        if (ch == KEY_UP) {
-            selectPrevParameter();
-            return;
-        } else if (ch == KEY_DOWN) {
-            selectNextParameter();
-            return;
-        } else if (ch == KEY_LEFT || ch == KEY_SLEFT) {
-            if (!pageParams.empty() && !numericInputActive) {
-                if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
-                    selectedParameterId = pageParams.front();
-                }
-                // Skip adjustment for sample name (ID 69) - it's select-only
-                if (selectedParameterId != 69) {
-                    bool fine = (ch == KEY_SLEFT);  // Shift+Left for fine adjustment
-                    adjustParameter(selectedParameterId, false, fine);  // decrease
-                }
-            }
-            return;
-        } else if (ch == KEY_RIGHT || ch == KEY_SRIGHT) {
-            if (!pageParams.empty() && !numericInputActive) {
-                if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
-                    selectedParameterId = pageParams.front();
-                }
-                // Skip adjustment for sample name (ID 69) - it's select-only
-                if (selectedParameterId != 69) {
-                    bool fine = (ch == KEY_SRIGHT);  // Shift+Right for fine adjustment
-                    adjustParameter(selectedParameterId, true, fine);  // increase
-                }
+    // Arrow keys are navigation-only across parameter pages
+    auto ensureSelectionValid = [&]() -> bool {
+        if (pageParams.empty()) {
+            return false;
+        }
+        if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
+            selectedParameterId = pageParams.front();
+        }
+        return true;
+    };
+
+    if (parameterPage) {
+        if (ch == KEY_UP || ch == KEY_LEFT || ch == KEY_SLEFT || ch == KEY_SR) {
+            if (ensureSelectionValid()) {
+                selectPrevParameter();
             }
             return;
         }
-    } else if (parameterPage) {
-        if (ch == KEY_UP) {
-            selectPrevParameter();
-            return;
-        }
-        if (ch == KEY_DOWN) {
-            selectNextParameter();
-            return;
-        }
-        if ((ch == KEY_LEFT || ch == KEY_SLEFT) && !numericInputActive) {
-            if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
-                selectedParameterId = pageParams.front();
+        if (ch == KEY_DOWN || ch == KEY_RIGHT || ch == KEY_SRIGHT || ch == KEY_SF) {
+            if (ensureSelectionValid()) {
+                selectNextParameter();
             }
-            bool fine = (ch == KEY_SLEFT);
-            adjustParameter(selectedParameterId, false, fine);
-            return;
-        }
-        if ((ch == KEY_RIGHT || ch == KEY_SRIGHT) && !numericInputActive) {
-            if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
-                selectedParameterId = pageParams.front();
-            }
-            bool fine = (ch == KEY_SRIGHT);
-            adjustParameter(selectedParameterId, true, fine);
             return;
         }
     }
 
-    // +/- keys adjust the currently selected parameter (Shift for fine control)
+    // -/= adjust coarsely, _/+ adjust finely for the selected parameter
     if (parameterPage && !numericInputActive && !pageParams.empty()) {
         if (ch == '-' || ch == '_' || ch == '=' || ch == '+') {
             if (std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
@@ -606,6 +595,10 @@ void UI::handleInput(int ch) {
         }
         return;
     } else if (currentPage != UIPage::SEQUENCER && (ch == '\n' || ch == KEY_ENTER)) {
+        if (!pageParams.empty() &&
+            std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
+            selectedParameterId = pageParams.front();
+        }
         startNumericInput(selectedParameterId);
         return;
     }
@@ -659,10 +652,32 @@ void UI::handleInput(int ch) {
     }
 
     // Per-page actions on parameter pages
-    if (parameterPage) {
-        if (ch == 'G') { randomizePageParameters(currentPage, std::clamp(globalRandomizePercentage/100.0f, 0.0f, 1.0f)); addConsoleMessage("Page randomize applied"); return; }
-        if (ch == 'M') { mutatePageParameters(currentPage, std::clamp(globalMutatePercentage/100.0f, 0.0f, 1.0f)); addConsoleMessage("Page mutate applied"); return; }
-        if (ch == 'R') { resetPageParameters(currentPage); addConsoleMessage("Page parameters reset"); return; }
+    if (parameterPage && !numericInputActive) {
+        if (ch == 'g') {
+            randomizeCurrentEntity(currentPage, std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
+            addConsoleMessage("Randomized current selection");
+            return;
+        }
+        if (ch == 'G') {
+            randomizePageParameters(currentPage, std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
+            addConsoleMessage("Page randomize applied");
+            return;
+        }
+        if (ch == 'm') {
+            mutateCurrentEntity(currentPage, std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
+            addConsoleMessage("Mutated current selection");
+            return;
+        }
+        if (ch == 'M') {
+            mutatePageParameters(currentPage, std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
+            addConsoleMessage("Page mutate applied");
+            return;
+        }
+        if (ch == 'R') {
+            resetPageParameters(currentPage);
+            addConsoleMessage("Page parameters reset");
+            return;
+        }
     }
 
     // Transport and looping hotkeys (keep these)
@@ -755,21 +770,27 @@ void UI::handleInput(int ch) {
                 return;
 
             case KEY_LEFT:
-                fmMatrixCursorCol = (fmMatrixCursorCol - 1 + 8) % 8;
+                fmMatrixCursorCol = (fmMatrixCursorCol - 1 + kFMTargetCount) % kFMTargetCount;
                 return;
 
             case KEY_RIGHT:
-                fmMatrixCursorCol = (fmMatrixCursorCol + 1) % 8;
+                fmMatrixCursorCol = (fmMatrixCursorCol + 1) % kFMTargetCount;
                 return;
 
-            case '+':
             case '=':
                 adjustFMDepth(0.05f);
                 return;
 
+            case '+':
+                adjustFMDepth(0.01f);
+                return;
+
             case '-':
-            case '_':
                 adjustFMDepth(-0.05f);
+                return;
+
+            case '_':
+                adjustFMDepth(-0.01f);
                 return;
 
             case ' ':  // Space bar: cycle 0 -> +99 -> -99 -> 0
@@ -789,8 +810,8 @@ void UI::handleInput(int ch) {
             case 'G':  // Generate/Randomize FM matrix (skip locked), scale by random amount
                 {
                     float randAmt = std::clamp(globalRandomizePercentage/100.0f, 0.0f, 1.0f);
-                    for (int target = 0; target < 8; ++target) {
-                        for (int source = 0; source < 16; ++source) {
+                    for (int target = 0; target < kFMTargetCount; ++target) {
+                        for (int source = 0; source < kFMSourceCount; ++source) {
                             if (fmMatrixLocked[target][source]) continue;
                             float randomDepth = (static_cast<float>(rand()) / RAND_MAX) * 1.98f - 0.99f;  // -0.99 to +0.99
                             params->setFMDepth(target, source, randomDepth * 0.3f * randAmt);  // Scale to amount
@@ -803,8 +824,8 @@ void UI::handleInput(int ch) {
             case 'r':
             case 'R':  // Reset FM matrix to zero (skip locked)
                 {
-                    for (int target = 0; target < 8; ++target) {
-                        for (int source = 0; source < 16; ++source) {
+                    for (int target = 0; target < kFMTargetCount; ++target) {
+                        for (int source = 0; source < kFMSourceCount; ++source) {
                             if (!fmMatrixLocked[target][source]) {
                                 params->setFMDepth(target, source, 0.0f);
                             }
@@ -818,8 +839,8 @@ void UI::handleInput(int ch) {
             case 'M':  // Mutate FM matrix (scaled variation, skip locked)
                 {
                     float mutateAmt = std::clamp(globalMutatePercentage/100.0f, 0.0f, 1.0f);
-                    for (int target = 0; target < 8; ++target) {
-                        for (int source = 0; source < 16; ++source) {
+                    for (int target = 0; target < kFMTargetCount; ++target) {
+                        for (int source = 0; source < kFMSourceCount; ++source) {
                             float currentDepth = params->getFMDepth(target, source);
                             if (currentDepth != 0.0f && !fmMatrixLocked[target][source]) {  // Only mutate non-zero values
                                 float variation = (static_cast<float>(rand()) / RAND_MAX) * 0.4f - 0.2f;  // ±20%

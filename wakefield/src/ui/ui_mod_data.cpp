@@ -1,6 +1,9 @@
 #include "ui_mod_data.h"
 
 #include <algorithm>
+#include <string>
+
+#include "../fm_constants.h"
 
 namespace {
 
@@ -35,6 +38,53 @@ const std::vector<ModOption>& buildTypes() {
         {"Unidirectional", "-->"}, {"Bidirectional", "<->"}
     };
     return types;
+}
+
+const std::vector<ModOption>& buildFMOptions() {
+    static std::vector<ModOption> options;
+    static std::vector<std::string> displayStrings;
+    static std::vector<std::string> symbolStrings;
+
+    if (!options.empty()) {
+        return options;
+    }
+
+    constexpr const char* targetNames[kFMTargetCount] = {
+        "OSC1", "OSC2", "OSC3", "OSC4",
+        "SMP1", "SMP2", "SMP3", "SMP4",
+        "CLK1", "CLK2", "CLK3", "CLK4"
+    };
+
+    constexpr const char* sourceNames[kFMSourceCount] = {
+        "OSC1", "OSC2", "OSC3", "OSC4",
+        "SMP1", "SMP2", "SMP3", "SMP4",
+        "C1X",  "C1Y",  "C2X",  "C2Y",
+        "C3X",  "C3Y",  "C4X",  "C4Y"
+    };
+
+    const size_t cellCount = static_cast<size_t>(kFMTargetCount) * kFMSourceCount;
+    options.reserve(cellCount + 1);
+    displayStrings.reserve(cellCount);
+    symbolStrings.reserve(cellCount);
+
+    options.push_back({"Global Depth", "FM:Gbl"});
+
+    for (int target = 0; target < kFMTargetCount; ++target) {
+        for (int source = 0; source < kFMSourceCount; ++source) {
+            displayStrings.emplace_back(sourceNames[source]);
+            displayStrings.back().append(" -> ");
+            displayStrings.back().append(targetNames[target]);
+
+            symbolStrings.emplace_back("FM:T");
+            symbolStrings.back().append(std::to_string(target));
+            symbolStrings.back().append("S");
+            symbolStrings.back().append(std::to_string(source));
+
+            options.push_back({displayStrings.back().c_str(), symbolStrings.back().c_str()});
+        }
+    }
+
+    return options;
 }
 
 const std::vector<ModuleData>& buildDestinationModules() {
@@ -104,9 +154,7 @@ const std::vector<ModuleData>& buildDestinationModules() {
             {"Sampler 1 Phase", "Clk:S1"}, {"Sampler 2 Phase", "Clk:S2"},
             {"Sampler 3 Phase", "Clk:S3"}, {"Sampler 4 Phase", "Clk:S4"}
         }},
-        {"FM", {
-            {"Global Depth", "FM:Gbl"}
-        }},
+        {"FM", buildFMOptions()},
         {"Chaos 1", {
             {"Clock Freq", "C1:Clk"}, {"U Parameter", "C1:U"}, {"Level", "C1:Lvl"}
         }},

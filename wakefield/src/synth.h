@@ -11,6 +11,7 @@
 #include "filters.hpp"
 #include "sample_bank.h"
 #include "modulation.h"
+#include "fm_constants.h"
 
 class UI; // Forward declaration
 struct SynthParameters;  // Forward declaration
@@ -148,6 +149,7 @@ public:
         float samplerPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         // FM modulation
         float fmGlobalDepth = 0.0f;
+        float fmDepth[kFMTargetCount][kFMSourceCount] = {{0.0f}};
         // Chaos modulation
         float chaosClockFreq[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float chaosParameter[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -218,6 +220,7 @@ public:
     float getModulatedOscLevel(int index) const;
     float getMixerSamplerLevelMod(int index) const;
     float getMixerOscLevelMod(int index) const;
+    float getFMDepthMod(int target, int source) const;
 
     // Chaos generator control
     void setChaosParameter(int chaosIndex, float value);
@@ -265,6 +268,8 @@ public:
         kClockModSourceIndex, kClockModSourceIndex
     };
     int samplerPhaseType[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};
+    std::vector<float> fmSourceBuffer;
+    std::vector<float> fmSourceBufferPrev;
 
     // Stereo filters (left and right channel)
     OnePoleTPT filterL;

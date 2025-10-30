@@ -94,12 +94,15 @@ GLOBAL RANDOMIZE vs MUTATE:
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select parameter
-  Left/Right     - Adjust parameter value
+  Arrows         - Navigate parameters
+  -/=            - Adjust parameter (coarse)
+  _/+            - Adjust parameter (fine)
+  g/G            - Randomize current oscillator / entire page
+  m/M            - Mutate current oscillator / entire page
   Enter          - Type exact value
   l              - Toggle parameter lock (immune to randomize/mutate)
   L              - MIDI Learn (assign MIDI CC)
-  G/M/R          - Randomize/Mutate/Reset this page (respects locks)
+  G/M/R          - Full-page Randomize/Mutate/Reset (respects locks)
 
 PARAMETERS:
   Mode       - FREE (manual freq) or KEY (MIDI tracking)
@@ -126,12 +129,15 @@ tanh-shaped synthesis. Duty controls pulse width for PWM-like effects.
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select parameter
-  Left/Right     - Adjust parameter value
+  Arrows         - Navigate parameters
+  -/=            - Adjust parameter (coarse)
+  _/+            - Adjust parameter (fine)
+  g/G            - Randomize current LFO / entire page
+  m/M            - Mutate current LFO / entire page
   Enter          - Type exact value
   l              - Toggle parameter lock (immune to randomize/mutate)
   L              - MIDI Learn (assign MIDI CC)
-  G/M/R          - Randomize/Mutate/Reset this page (respects locks)
+  G/M/R          - Full-page Randomize/Mutate/Reset (respects locks)
 
 PARAMETERS:
   Period     - LFO cycle time (0.1s - 30min) with semantic input
@@ -154,11 +160,15 @@ Use semantic time input like "3m39s" for precise period control.
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select parameter
-  Left/Right     - Adjust parameter value
+  Arrows         - Navigate parameters
+  -/=            - Adjust parameter (coarse)
+  _/+            - Adjust parameter (fine)
+  g/G            - Randomize current envelope / entire page
+  m/M            - Mutate current envelope / entire page
   Enter          - Type exact value
   L              - MIDI Learn (assign MIDI CC)
-  1-4        - Select envelope (4 independent envelopes)
+  1-4            - Select envelope (4 independent envelopes)
+  G/M/R          - Full-page Randomize/Mutate/Reset (respects locks)
 
 PARAMETERS:
   Attack     - Attack time (0.001-30s) with exponential scaling
@@ -201,6 +211,8 @@ CONTROLS:
   Left/Right     - Navigate columns (Source/Curve/Amount/Dest/Type)
   Enter          - Open selection menu for current column
   X or C         - Clear current modulation slot
+  g/G            - Randomize current slot / all slots
+  m/M            - Mutate current slot / all slots
   Esc            - Cancel menu/input
 
 MODULATION ROUTING:
@@ -228,6 +240,7 @@ DESTINATIONS:
   LFOs        - Rate, Morph, Duty
   Mixer       - Master Volume, OSC Levels, Sampler Levels
   Clock       - Sequencer Track Phase, Sampler Phase
+  Chaos Clks  - Chaos clock frequency (CLK1-4)
 
 WORKFLOW:
 1. Navigate to an empty slot with Up/Down
@@ -254,8 +267,9 @@ from the source. Unidirectional routing only allows positive modulation.
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select parameter
-  Left/Right     - Adjust parameter value
+  Arrows         - Navigate parameters
+  -/=            - Adjust parameter (coarse)
+  _/+            - Adjust parameter (fine)
   Enter          - Type exact value
   L              - MIDI Learn (assign MIDI CC)
 
@@ -288,8 +302,9 @@ reverb tail, creating shimmering, ethereal textures that never sound static.
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select parameter
-  Left/Right     - Adjust parameter value
+  Arrows         - Navigate parameters
+  -/=            - Adjust parameter (coarse)
+  _/+            - Adjust parameter (fine)
   Enter          - Type exact value
   L              - MIDI Learn (assign MIDI CC)
 
@@ -427,8 +442,11 @@ This allows complex polyrhythmic textures:
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select mixer channel
-  Left/Right     - Adjust channel level
+  Arrows         - Select mixer channel
+  -/=            - Adjust channel level (coarse)
+  _/+            - Adjust channel level (fine)
+  g/G            - Randomize selected channel / all mixer levels
+  m/M            - Mutate selected channel / all mixer levels
   Enter          - Type exact value
   M              - Toggle mute for selected channel
   S              - Toggle solo for selected channel
@@ -437,6 +455,7 @@ CONTROLS:
 CHANNELS:
   OSC 1-4    - Oscillator mix levels (0.0-1.0)
   SAMP 1-4   - Sampler mix levels (0.0-1.0)
+  CHAOS 1-4  - Chaos generator mix levels (0.0-1.0)
 
 ABOUT:
 The Mixer page provides level control and mute/solo functionality for all
@@ -454,8 +473,8 @@ MUTE/SOLO:
   - Visual indicators: M (muted in red), S (solo in green)
 
 WORKFLOW:
-1. Use Up/Down to select a channel
-2. Adjust level with Left/Right (coarse) or Shift+Left/Right (fine)
+1. Use the arrow keys to select a channel
+2. Adjust level with -/= (coarse) or _/+ (fine)
 3. Press M to mute/unmute or S to solo/unsolo
 4. Press L to assign MIDI CC control for real-time mixing
 )";
@@ -467,10 +486,12 @@ WORKFLOW:
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select parameter
-  Left/Right     - Adjust selected parameter (toggles wrap around)
+  Arrows         - Navigate parameters
+  -/=            - Adjust parameter (coarse)
+  _/+            - Adjust parameter (fine)
+  g/G            - Randomize current sampler / entire page
+  m/M            - Mutate current sampler / entire page
   Enter          - Type exact value or load sample
-  -/= keys       - Coarse adjust, Shift for fine
   l              - Toggle parameter lock (immune to randomize/mutate)
   L              - MIDI Learn (assign MIDI CC)
   G/M/R          - Randomize/Mutate/Reset this page (respects locks)
@@ -527,9 +548,9 @@ loop region.
 
 CONTROLS:
   Arrow Keys  - Navigate FM matrix cells (source/target pairs)
-  Left/Right  - Adjust FM depth (-99% to +99%)
+  -/=         - Adjust FM depth (coarse)
+  _/+         - Adjust FM depth (fine)
   Enter       - Type exact value
-  Shift+Arrow - Jump by 4 cells
   G           - Randomize entire FM matrix (30% scaled random values)
   R           - Reset entire FM matrix to zero
   M           - Mutate FM matrix (±20% variation on non-zero values)
@@ -598,6 +619,11 @@ GLOBAL DEPTH CONTROL:
   - Can be modulated via MOD matrix (FM:Gbl destination)
   - Example: Route ENV1 → FM Global Depth for evolving FM intensity
 
+PER-CELL MODULATION:
+  - Each matrix cell (Src → Tgt) is exposed in the MOD matrix FM module
+  - Allows dynamic modulation of individual FM depths (e.g., ENV2 → OSC1 → OSC4)
+
+
 CHAOS AS FM SOURCE:
   - Each chaos generator provides X and Y outputs (8 total sources)
   - Chaos runs at audio rate (up to 1000 Hz clock)
@@ -638,8 +664,11 @@ WORKFLOW EXAMPLE:
 
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
-  Up/Down        - Select parameter
-  Left/Right     - Adjust parameter value
+  Arrows         - Navigate parameters
+  -/=            - Adjust parameter (coarse)
+  _/+            - Adjust parameter (fine)
+  g/G            - Randomize current chaos generator / all generators
+  m/M            - Mutate current chaos generator / all generators
   Enter          - Type exact value
   1-4            - Select chaos generator (4 independent generators)
 

@@ -1,5 +1,6 @@
 #include "../ui.h"
 #include "../synth.h"
+#include "ui_mod_data.h"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
@@ -578,6 +579,313 @@ void UI::randomizeAllParameters(float amount01) {
                 break;
             }
         }
+    }
+}
+
+void UI::randomizeSingleParameter(int id, float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    InlineParameter* p = getParameter(id);
+    if (!p || !p->randomizable) return;
+
+    switch (p->type) {
+        case ParamType::FLOAT: {
+            float cur = getParameterValue(id);
+            float rnd = frand(p->min_val, p->max_val);
+            float v = cur + (rnd - cur) * amount01;
+            setParameterValue(id, std::clamp(v, p->min_val, p->max_val));
+            break;
+        }
+        case ParamType::INT:
+        case ParamType::ENUM: {
+            if (frand(0.0f, 1.0f) < amount01) {
+                int minI = static_cast<int>(p->min_val);
+                int maxI = static_cast<int>(p->max_val);
+                int span = std::max(0, maxI - minI);
+                int value = span == 0 ? minI : (minI + (rand() % (span + 1)));
+                setParameterValue(id, static_cast<float>(value));
+            }
+            break;
+        }
+        case ParamType::BOOL: {
+            if (frand(0.0f, 1.0f) < amount01 * 0.5f) {
+                bool cur = getParameterValue(id) > 0.5f;
+                setParameterValue(id, cur ? 0.0f : 1.0f);
+            }
+            break;
+        }
+    }
+}
+
+void UI::mutateSingleParameter(int id, float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    InlineParameter* p = getParameter(id);
+    if (!p || !p->randomizable) return;
+
+    switch (p->type) {
+        case ParamType::FLOAT: {
+            float cur = getParameterValue(id);
+            float range = (p->max_val - p->min_val);
+            float maxDelta = range * (0.3f * amount01);
+            float v = std::clamp(cur + frand(-maxDelta, maxDelta), p->min_val, p->max_val);
+            setParameterValue(id, v);
+            break;
+        }
+        case ParamType::INT:
+        case ParamType::ENUM: {
+            if (frand(0.0f, 1.0f) < amount01) {
+                int cur = static_cast<int>(std::round(getParameterValue(id)));
+                int dir = (rand() % 3) - 1;
+                int minI = static_cast<int>(p->min_val);
+                int maxI = static_cast<int>(p->max_val);
+                cur = std::clamp(cur + dir, minI, maxI);
+                setParameterValue(id, static_cast<float>(cur));
+            }
+            break;
+        }
+        case ParamType::BOOL: {
+            if (frand(0.0f, 1.0f) < amount01 * 0.25f) {
+                bool cur = getParameterValue(id) > 0.5f;
+                setParameterValue(id, cur ? 0.0f : 1.0f);
+            }
+            break;
+        }
+    }
+}
+
+void UI::randomizeModSlot(int slotIndex, float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    if (slotIndex < 0 || slotIndex >= kModulationSlotCount) return;
+    if (modSlotLocked[slotIndex]) return;
+
+    ModulationSlot& slot = modulationSlots[slotIndex];
+    const auto& sources = getModSourceOptions();
+    const auto& curves = getModCurveOptions();
+    const auto& types = getModTypeOptions();
+    const auto& destinations = getModDestinationOptions();
+
+    auto pick = [](int count) -> int {
+        return count > 0 ? rand() % count : -1;
+    };
+
+    slot.source = pick(static_cast<int>(sources.size()));
+    slot.curve = pick(static_cast<int>(curves.size()));
+    slot.type = pick(static_cast<int>(types.size()));
+    slot.destination = pick(static_cast<int>(destinations.size()));
+
+    float range = std::max(5.0f, 99.0f * amount01);
+    int newAmount = static_cast<int>(std::round(frand(-range, range)));
+    if (newAmount == 0) {
+        newAmount = (rand() & 1) ? 50 : -50;
+    }
+    slot.amount = static_cast<int8_t>(std::clamp(newAmount, -99, 99));
+}
+
+void UI::mutateModSlot(int slotIndex, float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    if (slotIndex < 0 || slotIndex >= kModulationSlotCount) return;
+    if (modSlotLocked[slotIndex]) return;
+
+    ModulationSlot& slot = modulationSlots[slotIndex];
+    if (!slot.isComplete()) {
+        randomizeModSlot(slotIndex, amount01);
+        return;
+    }
+
+    const auto& sources = getModSourceOptions();
+    const auto& curves = getModCurveOptions();
+    const auto& types = getModTypeOptions();
+    const auto& destinations = getModDestinationOptions();
+
+    auto maybeReassign = [&](auto& field, int count) {
+        if (count <= 0) return;
+        if (frand(0.0f, 1.0f) < amount01 * 0.35f) {
+            field = rand() % count;
+        }
+    };
+
+    maybeReassign(slot.source, static_cast<int>(sources.size()));
+    maybeReassign(slot.curve, static_cast<int>(curves.size()));
+    maybeReassign(slot.type, static_cast<int>(types.size()));
+    maybeReassign(slot.destination, static_cast<int>(destinations.size()));
+
+    float delta = std::max(5.0f, 30.0f * amount01);
+    int mutated = static_cast<int>(std::round(slot.amount + frand(-delta, delta)));
+    slot.amount = static_cast<int8_t>(std::clamp(mutated, -99, 99));
+}
+
+void UI::randomizeAllModSlots(float amount01) {
+    for (int i = 0; i < kModulationSlotCount; ++i) {
+        randomizeModSlot(i, amount01);
+    }
+}
+
+void UI::mutateAllModSlots(float amount01) {
+    for (int i = 0; i < kModulationSlotCount; ++i) {
+        mutateModSlot(i, amount01);
+    }
+}
+
+void UI::randomizeCurrentEntity(UIPage page, float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    auto applyList = [&](const std::vector<int>& ids) {
+        for (int id : ids) {
+            randomizeSingleParameter(id, amount01);
+        }
+    };
+
+    switch (page) {
+        case UIPage::MAIN: {
+            if (!mainPageFocusLeft) {
+                int pid = -1;
+                if (mainPageMixerChannel >= 0 && mainPageMixerChannel < 4) {
+                    pid = 50 + mainPageMixerChannel;
+                } else if (mainPageMixerChannel >= 4 && mainPageMixerChannel < 8) {
+                    pid = 54 + (mainPageMixerChannel - 4);
+                } else if (mainPageMixerChannel >= 8 && mainPageMixerChannel < 12) {
+                    pid = 410 + (mainPageMixerChannel - 8);
+                }
+                if (pid >= 0) {
+                    randomizeSingleParameter(pid, amount01);
+                    break;
+                }
+            }
+            randomizeSingleParameter(selectedParameterId, amount01);
+            break;
+        }
+        case UIPage::OSCILLATOR: {
+            auto ids = getParameterIdsForPage(UIPage::OSCILLATOR);
+            if (ids.empty()) return;
+            int saved = currentOscillatorIndex;
+            currentOscillatorIndex = std::clamp(currentOscillatorIndex, 0, 3);
+            applyList(ids);
+            currentOscillatorIndex = saved;
+            break;
+        }
+        case UIPage::SAMPLER: {
+            auto ids = getParameterIdsForPage(UIPage::SAMPLER);
+            if (ids.empty()) return;
+            int saved = currentSamplerIndex;
+            currentSamplerIndex = std::clamp(currentSamplerIndex, 0, 3);
+            applyList(ids);
+            currentSamplerIndex = saved;
+            break;
+        }
+        case UIPage::LFO: {
+            auto ids = getParameterIdsForPage(UIPage::LFO);
+            if (ids.empty()) return;
+            int saved = currentLFOIndex;
+            currentLFOIndex = std::clamp(currentLFOIndex, 0, 3);
+            applyList(ids);
+            currentLFOIndex = saved;
+            break;
+        }
+        case UIPage::CHAOS: {
+            auto ids = getParameterIdsForPage(UIPage::CHAOS);
+            if (ids.empty()) return;
+            int saved = currentChaosIndex;
+            currentChaosIndex = std::clamp(currentChaosIndex, 0, 3);
+            applyList(ids);
+            currentChaosIndex = saved;
+            break;
+        }
+        case UIPage::ENV: {
+            auto ids = getParameterIdsForPage(UIPage::ENV);
+            if (ids.empty()) return;
+            int saved = currentEnvelopeIndex;
+            currentEnvelopeIndex = std::clamp(currentEnvelopeIndex, 0, 3);
+            applyList(ids);
+            currentEnvelopeIndex = saved;
+            break;
+        }
+        case UIPage::MOD:
+            randomizeModSlot(modMatrixCursorRow, amount01);
+            break;
+        default:
+            randomizeSingleParameter(selectedParameterId, amount01);
+            break;
+    }
+}
+
+void UI::mutateCurrentEntity(UIPage page, float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    auto applyList = [&](const std::vector<int>& ids) {
+        for (int id : ids) {
+            mutateSingleParameter(id, amount01);
+        }
+    };
+
+    switch (page) {
+        case UIPage::MAIN: {
+            if (!mainPageFocusLeft) {
+                int pid = -1;
+                if (mainPageMixerChannel >= 0 && mainPageMixerChannel < 4) {
+                    pid = 50 + mainPageMixerChannel;
+                } else if (mainPageMixerChannel >= 4 && mainPageMixerChannel < 8) {
+                    pid = 54 + (mainPageMixerChannel - 4);
+                } else if (mainPageMixerChannel >= 8 && mainPageMixerChannel < 12) {
+                    pid = 410 + (mainPageMixerChannel - 8);
+                }
+                if (pid >= 0) {
+                    mutateSingleParameter(pid, amount01);
+                    break;
+                }
+            }
+            mutateSingleParameter(selectedParameterId, amount01);
+            break;
+        }
+        case UIPage::OSCILLATOR: {
+            auto ids = getParameterIdsForPage(UIPage::OSCILLATOR);
+            if (ids.empty()) return;
+            int saved = currentOscillatorIndex;
+            currentOscillatorIndex = std::clamp(currentOscillatorIndex, 0, 3);
+            applyList(ids);
+            currentOscillatorIndex = saved;
+            break;
+        }
+        case UIPage::SAMPLER: {
+            auto ids = getParameterIdsForPage(UIPage::SAMPLER);
+            if (ids.empty()) return;
+            int saved = currentSamplerIndex;
+            currentSamplerIndex = std::clamp(currentSamplerIndex, 0, 3);
+            applyList(ids);
+            currentSamplerIndex = saved;
+            break;
+        }
+        case UIPage::LFO: {
+            auto ids = getParameterIdsForPage(UIPage::LFO);
+            if (ids.empty()) return;
+            int saved = currentLFOIndex;
+            currentLFOIndex = std::clamp(currentLFOIndex, 0, 3);
+            applyList(ids);
+            currentLFOIndex = saved;
+            break;
+        }
+        case UIPage::CHAOS: {
+            auto ids = getParameterIdsForPage(UIPage::CHAOS);
+            if (ids.empty()) return;
+            int saved = currentChaosIndex;
+            currentChaosIndex = std::clamp(currentChaosIndex, 0, 3);
+            applyList(ids);
+            currentChaosIndex = saved;
+            break;
+        }
+        case UIPage::ENV: {
+            auto ids = getParameterIdsForPage(UIPage::ENV);
+            if (ids.empty()) return;
+            int saved = currentEnvelopeIndex;
+            currentEnvelopeIndex = std::clamp(currentEnvelopeIndex, 0, 3);
+            applyList(ids);
+            currentEnvelopeIndex = saved;
+            break;
+        }
+        case UIPage::MOD:
+            mutateModSlot(modMatrixCursorRow, amount01);
+            break;
+        default:
+            mutateSingleParameter(selectedParameterId, amount01);
+            break;
     }
 }
 

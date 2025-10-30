@@ -58,6 +58,7 @@ bool UI::handleSequencerInput(int ch) {
     };
 
     switch (ch) {
+        case KEY_SR:
         case KEY_UP:
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow > 0) {
@@ -78,6 +79,7 @@ bool UI::handleSequencerInput(int ch) {
             }
             return true;
 
+        case KEY_SF:
         case KEY_DOWN:
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow < 4) {
@@ -99,6 +101,7 @@ bool UI::handleSequencerInput(int ch) {
             }
             return true;
 
+        case KEY_SLEFT:
         case KEY_LEFT:
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow >= 2 && sequencerActionsColumn > 0) {
@@ -114,6 +117,7 @@ bool UI::handleSequencerInput(int ch) {
             }
             return true;
 
+        case KEY_SRIGHT:
         case KEY_RIGHT:
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow >= 2 && sequencerActionsColumn < 4) {
@@ -134,30 +138,26 @@ bool UI::handleSequencerInput(int ch) {
             }
             return true;
 
-        case KEY_SR:    // Shift + Up (increase)
         case '+':
         case '=': {
-            int direction = 1;
             if (sequencerFocusActionsPane) {
                 // No adjustment in actions pane
             } else if (sequencerFocusRightPane) {
-                adjustSequencerInfoField(sequencerRightSelection, direction);
+                adjustSequencerInfoField(sequencerRightSelection, 1, ch == '+');
             } else {
-                adjustSequencerTrackerField(sequencerSelectedRow, sequencerSelectedColumn, direction);
+                adjustSequencerTrackerField(sequencerSelectedRow, sequencerSelectedColumn, 1, ch == '+');
             }
             return true;
         }
 
-        case KEY_SF:    // Shift + Down (decrease)
         case '-':
         case '_': {
-            int direction = -1;
             if (sequencerFocusActionsPane) {
                 // No adjustment in actions pane
             } else if (sequencerFocusRightPane) {
-                adjustSequencerInfoField(sequencerRightSelection, direction);
+                adjustSequencerInfoField(sequencerRightSelection, -1, ch == '_');
             } else {
-                adjustSequencerTrackerField(sequencerSelectedRow, sequencerSelectedColumn, direction);
+                adjustSequencerTrackerField(sequencerSelectedRow, sequencerSelectedColumn, -1, ch == '_');
             }
             return true;
         }

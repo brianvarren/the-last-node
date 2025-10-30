@@ -13,7 +13,7 @@ struct ModulationSlot {
     int8_t source;       // -1 = empty, 0-21 = source index
     int8_t curve;        // -1 = empty, 0-3 = curve type
     int8_t amount;       // -99 to +99
-    int8_t destination;  // -1 = empty, 0-76 = destination index
+    int16_t destination; // -1 = empty, extended range for new destinations
     int8_t type;         // -1 = empty, 0 = unidirectional, 1 = bidirectional
 
     ModulationSlot()

@@ -35,8 +35,20 @@ float Voice::generateSample(unsigned int frameIndex) {
     }
 
     // Determine FM input for each oscillator using previous outputs (1-sample delay)
-    // FM matrix is 8x16: Targets = OSC1-4 (0-3) + SAMP1-4 (4-7)
-    //                     Sources = OSC1-4 (0-3) + SAMP1-4 (4-7) + Chaos1X-4Y (8-15)
+    // FM matrix Targets: OSC1-4 (0-3), SAMP1-4 (4-7), CHAOS CLK1-4 (8-11)
+    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7), Chaos1X-4Y (8-15)
+    auto getModulatedDepth = [&](int targetIndex, int sourceIndex) -> float {
+        if (!params) {
+            return 0.0f;
+        }
+        float depth = params->getFMDepth(targetIndex, sourceIndex);
+        if (synth) {
+            depth += synth->getFMDepthMod(targetIndex, sourceIndex);
+        }
+        depth += fmDepthMod[targetIndex][sourceIndex];
+        return std::clamp(depth, -0.99f, 0.99f);
+    };
+
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
     if (params && synth) {
         // Get global FM depth (base + modulation)
@@ -46,29 +58,28 @@ float Voice::generateSample(unsigned int frameIndex) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
             for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-                float fmDepth = params->getFMDepth(target, source);
-                if (fmDepth != 0.0f) {
-                    totalFM += lastOscOutputs[source] * (fmDepth * 100.0f);
+                float depth = getModulatedDepth(target, source);
+                if (depth != 0.0f) {
+                    totalFM += lastOscOutputs[source] * (depth * 100.0f);
                 }
             }
             // Sampler sources (4-7)
             for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
-                float fmDepth = params->getFMDepth(target, 4 + source);
-                if (fmDepth != 0.0f) {
-                    totalFM += lastSamplerOutputs[source] * (fmDepth * 100.0f);
+                float depth = getModulatedDepth(target, kFMOscillatorTargetCount + source);
+                if (depth != 0.0f) {
+                    totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
                 }
             }
             // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
-            // NOW USING PER-SAMPLE VALUES from chaos buffers for true audio-rate modulation
-            for (int source = 0; source < 8; ++source) {
-                float fmDepth = params->getFMDepth(target, 8 + source);
-                if (fmDepth != 0.0f) {
+            for (int source = 0; source < kFMChaosSourceCount; ++source) {
+                int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
+                float depth = getModulatedDepth(target, sourceIndex);
+                if (depth != 0.0f) {
                     int chaosIndex = source / 2;  // 0,1->0, 2,3->1, 4,5->2, 6,7->3
                     bool isY = (source % 2) == 1;  // Odd indices are Y
-                    // Get per-sample chaos output for audio-rate FM
                     float chaosOutput = isY ? synth->getChaosOutputYAtFrame(chaosIndex, frameIndex)
                                             : synth->getChaosOutputAtFrame(chaosIndex, frameIndex);
-                    totalFM += chaosOutput * (fmDepth * 100.0f);
+                    totalFM += chaosOutput * (depth * 100.0f);
                 }
             }
             fmInputs[target] = totalFM * globalDepth;
@@ -142,30 +153,32 @@ float Voice::generateSample(unsigned int frameIndex) {
         float globalDepth = std::clamp(params->fmGlobalDepth.load() + fmGlobalDepthMod, 0.0f, 1.0f);
 
         for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
+            int targetIndex = kFMOscillatorTargetCount + target;
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
             for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-                float fmDepth = params->getFMDepth(4 + target, source);
-                if (fmDepth != 0.0f) {
-                    totalFM += lastOscOutputs[source] * (fmDepth * 100.0f);
+                float depth = getModulatedDepth(targetIndex, source);
+                if (depth != 0.0f) {
+                    totalFM += lastOscOutputs[source] * (depth * 100.0f);
                 }
             }
             // Sampler sources (4-7)
             for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
-                float fmDepth = params->getFMDepth(4 + target, 4 + source);
-                if (fmDepth != 0.0f) {
-                    totalFM += lastSamplerOutputs[source] * (fmDepth * 100.0f);
+                float depth = getModulatedDepth(targetIndex, kFMOscillatorTargetCount + source);
+                if (depth != 0.0f) {
+                    totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
                 }
             }
-            // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
-            for (int source = 0; source < 8; ++source) {
-                float fmDepth = params->getFMDepth(4 + target, 8 + source);
-                if (fmDepth != 0.0f) {
-                    int chaosIndex = source / 2;  // 0,1->0, 2,3->1, 4,5->2, 6,7->3
-                    bool isY = (source % 2) == 1;  // Odd indices are Y
+            // Chaos sources (8-15)
+            for (int source = 0; source < kFMChaosSourceCount; ++source) {
+                int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
+                float depth = getModulatedDepth(targetIndex, sourceIndex);
+                if (depth != 0.0f) {
+                    int chaosIndex = source / 2;
+                    bool isY = (source % 2) == 1;
                     float chaosOutput = isY ? synth->getChaosOutputY(chaosIndex)
                                             : synth->getChaosOutput(chaosIndex);
-                    totalFM += chaosOutput * (fmDepth * 100.0f);
+                    totalFM += chaosOutput * (depth * 100.0f);
                 }
             }
             samplerFMInputs[target] = totalFM * globalDepth;

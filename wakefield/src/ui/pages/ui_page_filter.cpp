@@ -23,19 +23,44 @@ float simulateResponse(int type,
         return 0.0f;
     }
 
-    // Use cycle-aware simulation lengths so low frequencies get enough time
-    // to settle and measure. This avoids underestimating response <200 Hz.
-    const int settleCycles = 4;   // number of cycles to discard
-    const int measureCycles = 8;  // number of cycles to measure RMS
-    const int minTotal = 1024;    // minimum absolute number of samples
-    const int minSettle = 256;
+    // Cap the work so the plot stays responsive while still scaling with type.
+    const bool ladderMode = (type == 4 || type == 5 || type == 6 || type == 9);
+    const int settleCycles = ladderMode ? 2 : 1;
+    const int measureCycles = ladderMode ? 3 : 2;
+    const int minSettle = ladderMode ? 48 : 24;
+    const int minMeasure = ladderMode ? 128 : 64;
+    const int maxTotal = ladderMode ? 1024 : 768;
+
     const double samplesPerCycle = sampleRate / std::max(freq, 1.0f);
-    const int settleSamples = std::max(minSettle, static_cast<int>(std::ceil(settleCycles * samplesPerCycle)));
-    const int measureSamples = std::max(minSettle, static_cast<int>(std::ceil(measureCycles * samplesPerCycle)));
-    const int totalSamples = std::max(minTotal, settleSamples + measureSamples);
+    int settleSamples = std::max(minSettle, static_cast<int>(std::ceil(settleCycles * samplesPerCycle)));
+    int measureSamples = std::max(minMeasure, static_cast<int>(std::ceil(measureCycles * samplesPerCycle)));
+
+    if (settleSamples + measureSamples > maxTotal) {
+        settleSamples = std::clamp(settleSamples, minSettle, maxTotal / 4);
+        measureSamples = std::max(minMeasure, maxTotal - settleSamples);
+    }
+    const int totalSamples = settleSamples + measureSamples;
     const float omega = 2.0f * static_cast<float>(M_PI) * freq / sampleRate;
-    auto sineSample = [&](int n) {
-        return std::sin(omega * static_cast<float>(n));
+    const float sinInc = std::sin(omega);
+    const float cosInc = std::cos(omega);
+    float sinVal = 0.0f;
+    float cosVal = 1.0f;
+    int renormCounter = 0;
+    auto nextSine = [&]() {
+        float sample = sinVal;
+        float nextSin = sinVal * cosInc + cosVal * sinInc;
+        float nextCos = cosVal * cosInc - sinVal * sinInc;
+        sinVal = nextSin;
+        cosVal = nextCos;
+        if (++renormCounter >= 256) {
+            renormCounter = 0;
+            float mag = std::sqrt((sinVal * sinVal) + (cosVal * cosVal));
+            if (mag > 0.0f) {
+                sinVal /= mag;
+                cosVal /= mag;
+            }
+        }
+        return sample;
     };
 
     float sumSquares = 0.0f;
@@ -45,7 +70,7 @@ float simulateResponse(int type,
         OnePoleTPT filt(sampleRate);
         filt.setCutoff(cutoff);
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n);
+            float x = nextSine();
             auto [lp, hp] = filt.process(x);
             float y = (type == 0) ? lp : hp;
             if (n >= settleSamples) {
@@ -59,7 +84,7 @@ float simulateResponse(int type,
         filt.setCutoff(cutoff);
         filt.setGainDb(gainDb);
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n);
+            float x = nextSine();
             float y = filt.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
@@ -72,7 +97,7 @@ float simulateResponse(int type,
         filt.setCutoff(cutoff);
         filt.setGainDb(gainDb);
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n);
+            float x = nextSine();
             float y = filt.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
@@ -88,7 +113,7 @@ float simulateResponse(int type,
         // Keep input small to avoid non-linear saturation skewing response
         const float inputLevel = 0.1f;
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n) * inputLevel;
+            float x = nextSine() * inputLevel;
             float y = ladder.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
@@ -103,7 +128,7 @@ float simulateResponse(int type,
         ladder.setFeedbackHighpass(feedbackHP);
         const float inputLevel = 0.1f;
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n) * inputLevel;
+            float x = nextSine() * inputLevel;
             float y = ladder.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
@@ -119,7 +144,7 @@ float simulateResponse(int type,
         ladder.setWidth(width);
         const float inputLevel = 0.1f;
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n) * inputLevel;
+            float x = nextSine() * inputLevel;
             float y = ladder.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
@@ -134,7 +159,7 @@ float simulateResponse(int type,
         notch.setDrive(drive);
         notch.setNotchFeedback(notchFeedback);
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n);
+            float x = nextSine();
             float y = notch.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
@@ -149,7 +174,7 @@ float simulateResponse(int type,
         bp.setWidth(width);
         const float inputLevel = 0.25f;
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n) * inputLevel;
+            float x = nextSine() * inputLevel;
             float y = bp.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;
@@ -164,7 +189,7 @@ float simulateResponse(int type,
         ladder.setWidth(width);
         const float inputLevel = 0.25f;
         for (int n = 0; n < totalSamples; ++n) {
-            float x = sineSample(n) * inputLevel;
+            float x = nextSine() * inputLevel;
             float y = ladder.process(x);
             if (n >= settleSamples) {
                 sumSquares += y * y;

@@ -20,11 +20,11 @@ void UI::drawFMPage() {
     const int cellStartCol = 12;
     const int cellStride = 5;
     attron(COLOR_SECTION_HEADER);
-    mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4");
+    mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4  CK1 CK2 CK3 CK4");
     attroff(COLOR_SECTION_HEADER);
     row += 2;
 
-    // Draw matrix grid (16 sources × 8 targets)
+    // Draw matrix grid (16 sources × 12 targets)
     const char* sourceLabels[] = {
         "OSC1", "OSC2", "OSC3", "OSC4",
         "SMP1", "SMP2", "SMP3", "SMP4",
@@ -34,18 +34,10 @@ void UI::drawFMPage() {
 
     for (int source = 0; source < 16; ++source) {
         // Row label
-        if (source == 8) {
-            // Visual separator before chaos sources
-            attron(COLOR_GRID_LINE);
-            mvhline(row, 0, '-', 80);
-            attroff(COLOR_GRID_LINE);
-            row++;
-        }
-
         mvprintw(row, 6, "%s", sourceLabels[source]);
 
         // Draw cells for each target
-        for (int target = 0; target < 8; ++target) {
+        for (int target = 0; target < kFMTargetCount; ++target) {
             int cellCol = cellStartCol + (target * cellStride);
 
             // Get FM depth value

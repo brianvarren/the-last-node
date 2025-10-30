@@ -1,6 +1,7 @@
 #ifndef VOICE_H
 #define VOICE_H
 
+#include "fm_constants.h"
 #include "envelope.h"
 #include "brainwave_osc.h"
 #include "sampler.h"
@@ -40,6 +41,7 @@ struct Voice {
 
     // FM global depth modulation
     float fmGlobalDepthMod;
+    float fmDepthMod[kFMTargetCount][kFMSourceCount];
 
     Voice(float sampleRate)
         : active(false)
@@ -69,6 +71,11 @@ struct Voice {
             samplerPhaseDriver[i] = -1.0f;
         }
         fmGlobalDepthMod = 0.0f;
+        for (int t = 0; t < kFMTargetCount; ++t) {
+            for (int s = 0; s < kFMSourceCount; ++s) {
+                fmDepthMod[t][s] = 0.0f;
+            }
+        }
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)
@@ -82,6 +89,9 @@ struct Voice {
     float getEnvelopeValue() const {
         return envelopeValue;
     }
+
+    const float* getLastOscOutputs() const { return lastOscOutputs; }
+    const float* getLastSamplerOutputs() const { return lastSamplerOutputs; }
 
 private:
     float sampleRate;
