@@ -2,7 +2,6 @@
 #include "clock.h"
 #include "ui.h"
 #include <algorithm>
-#include <cmath>
 #include <iostream>
 
 Synth::Synth(float sampleRate)
@@ -511,12 +510,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             continue;
         }
 
-        // Pan voices across stereo field based on voice index
-        // Voice 0: center, Voice 1: 25% right, Voice 2: 50% right, Voice 3: 75% right, etc.
-        float pan = static_cast<float>(v) / static_cast<float>(MAX_VOICES);  // 0.0 to 1.0
-        float leftGain = std::cos(pan * M_PI * 0.5f);   // Constant power panning
-        float rightGain = std::sin(pan * M_PI * 0.5f);
-
         // Generate samples for this voice
         for (unsigned int i = 0; i < nFrames; ++i) {
             // Pass frame index for per-sample modulation sources (chaos generators)
@@ -527,16 +520,10 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                 ui->writeToWaveformBuffer(sample);
             }
 
-            // Mix into stereo channels with panning and master volume
+            // Mix into all channels with master volume
             // Scale by 0.5 to prevent clipping when multiple voices play
-            if (nChannels == 2) {
-                output[i * 2] += sample * leftGain * 0.5f * masterGain;      // Left
-                output[i * 2 + 1] += sample * rightGain * 0.5f * masterGain;  // Right
-            } else {
-                // Mono output - just mix center
-                for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                    output[i * nChannels + ch] += sample * 0.5f * masterGain;
-                }
+            for (unsigned int ch = 0; ch < nChannels; ++ch) {
+                output[i * nChannels + ch] += sample * 0.5f * masterGain;
             }
         }
     }

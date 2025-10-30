@@ -764,183 +764,120 @@ float UI::getParameterValue(int id) {
     }
 }
 
-void SynthParameters::applyParameterValue(int id,
-                                          float value,
-                                          Synth* synth,
-                                          int oscIndex,
-                                          int lfoIndex,
-                                          int envIndex,
-                                          int samplerIndex,
-                                          int chaosIndex) {
-    auto clampIndex = [](int index, int maxCount) {
-        if (maxCount <= 0) return 0;
-        if (index < 0) return 0;
-        if (index >= maxCount) return maxCount - 1;
-        return index;
-    };
-
-    constexpr int kOscCount = 4;
-    constexpr int kLfoCount = 4;
-    constexpr int kEnvCount = 4;
-    constexpr int kSamplerCount = 4;
-    constexpr int kChaosCount = 4;
-
-    const int osc = clampIndex(oscIndex, kOscCount);
-    const int lfo = clampIndex(lfoIndex, kLfoCount);
-    const int env = clampIndex(envIndex, kEnvCount);
-    const int sampler = clampIndex(samplerIndex, kSamplerCount);
-    const int chaos = clampIndex(chaosIndex, kChaosCount);
+void UI::setParameterValue(int id, float value) {
+    const int oscIndex = currentOscillatorIndex;
+    const int lfoIndex = currentLFOIndex;
+    const int envIndex = currentEnvelopeIndex;
+    const int samplerIndex = currentSamplerIndex;
+    const int chaosIndex = currentChaosIndex;
 
     switch (id) {
-        case 1:
-            waveform = static_cast<int>(std::round(value));
-            break;
-        case 2:
-            attack = value;
-            setEnvAttack(0, value);
-            break;
-        case 3:
-            decay = value;
-            setEnvDecay(0, value);
-            break;
-        case 4:
-            sustain = value;
-            setEnvSustain(0, value);
-            break;
-        case 5:
-            release = value;
-            setEnvRelease(0, value);
-            break;
-        case 6: masterVolume = value; break;
-        case 10: setOscMode(osc, static_cast<int>(value)); break;
-        case 19: setOscShape(osc, static_cast<int>(value)); break;
-        case 11: setOscFrequency(osc, value); break;
-        case 12: setOscMorph(osc, value); break;
-        case 13: setOscDuty(osc, value); break;
-        case 14: setOscRatio(osc, value); break;
-        case 15: setOscOffset(osc, value); break;
-        case 18: setOscAmp(osc, value); break;
-        case 50: setOscLevel(0, value); break;
-        case 51: setOscLevel(1, value); break;
-        case 52: setOscLevel(2, value); break;
-        case 53: setOscLevel(3, value); break;
-        case 54: if (synth) synth->setSamplerLevel(0, value); break;
-        case 55: if (synth) synth->setSamplerLevel(1, value); break;
-        case 56: if (synth) synth->setSamplerLevel(2, value); break;
-        case 57: if (synth) synth->setSamplerLevel(3, value); break;
-        case 410: setChaosLevel(0, value); break;
-        case 411: setChaosLevel(1, value); break;
-        case 412: setChaosLevel(2, value); break;
-        case 413: setChaosLevel(3, value); break;
-        case 69: break;
-        case 60: if (synth) synth->setSamplerKeyMode(sampler, value < 0.5f); break;
-        case 68: if (synth) synth->setSamplerPlaybackMode(sampler, static_cast<PlaybackMode>(static_cast<int>(value))); break;
-        case 61: if (synth) synth->setSamplerLoopStart(sampler, value / 100.0f); break;
-        case 62: if (synth) synth->setSamplerLoopLength(sampler, value / 100.0f); break;
-        case 63: if (synth) synth->setSamplerCrossfadeLength(sampler, value / 100.0f); break;
-        case 64: if (synth) synth->setSamplerOctave(sampler, static_cast<int>(value)); break;
-        case 65: if (synth) synth->setSamplerTune(sampler, value); break;
-        case 66: if (synth) synth->setSamplerSyncMode(sampler, static_cast<int>(value)); break;
-        case 67: if (synth) synth->setSamplerNoteReset(sampler, value > 0.5f); break;
-        case 200: setLfoPeriod(lfo, value); break;
-        case 201: setLfoSyncMode(lfo, static_cast<int>(value)); break;
-        case 202: setLfoMorph(lfo, value); break;
-        case 203: setLfoDuty(lfo, value); break;
-        case 204: setLfoFlip(lfo, value > 0.5f); break;
-        case 205: setLfoResetOnNote(lfo, value > 0.5f); break;
-        case 206: setLfoShape(lfo, static_cast<int>(value)); break;
-        case 20: reverbType = static_cast<int>(value); break;
-        case 21: reverbEnabled = (value > 0.5f); break;
-        case 22: reverbDelayTime = value; break;
-        case 23: reverbSize = value; break;
-        case 24: reverbDamping = value; break;
-        case 25: reverbMix = value; break;
-        case 26: reverbDecay = value; break;
-        case 27: reverbDiffusion = value; break;
-        case 28: reverbModDepth = value; break;
-        case 29: reverbModFreq = value; break;
-        case 30: filterType = static_cast<int>(value); break;
-        case 31: filterEnabled = (value > 0.5f); break;
-        case 32: filterCutoff = value; break;
-        case 33: filterGain = value; break;
-        case 34: filterResonance = value; break;
-        case 35: filterDrive = value; break;
-        case 36: filterFeedbackHP = value; break;
-        case 37: filterSpread = value; break;
-        case 38: filterNotchFeedback = value; break;
-        case 39: filterBandWidth = value; break;
-        case 42: filterDryWet = value; break;
-        case 40: currentLoop = static_cast<int>(value); break;
-        case 41: overdubMix = value; break;
-        case 300: setEnvAttack(0, value); attack = value; break;
-        case 301: setEnvDecay(0, value); decay = value; break;
-        case 302: setEnvSustain(0, value); sustain = value; break;
-        case 303: setEnvRelease(0, value); release = value; break;
-        case 304: setEnvAttackBend(0, value); break;
-        case 305: setEnvReleaseBend(0, value); break;
-        case 306: setEnvAttack(1, value); break;
-        case 307: setEnvDecay(1, value); break;
-        case 308: setEnvSustain(1, value); break;
-        case 309: setEnvRelease(1, value); break;
-        case 310: setEnvAttackBend(1, value); break;
-        case 311: setEnvReleaseBend(1, value); break;
-        case 312: setEnvAttack(2, value); break;
-        case 313: setEnvDecay(2, value); break;
-        case 314: setEnvSustain(2, value); break;
-        case 315: setEnvRelease(2, value); break;
-        case 316: setEnvAttackBend(2, value); break;
-        case 317: setEnvReleaseBend(2, value); break;
-        case 318: setEnvAttack(3, value); break;
-        case 319: setEnvDecay(3, value); break;
-        case 320: setEnvSustain(3, value); break;
-        case 321: setEnvRelease(3, value); break;
-        case 322: setEnvAttackBend(3, value); break;
-        case 323: setEnvReleaseBend(3, value); break;
-        case 350:
-            setChaosParameter(chaos, value);
-            if (synth) synth->setChaosParameter(chaos, value);
-            break;
+        case 6: params->masterVolume = value; break;
+        case 10: params->setOscMode(oscIndex, static_cast<int>(value)); break;
+        case 19: params->setOscShape(oscIndex, static_cast<int>(value)); break;
+        case 11: params->setOscFrequency(oscIndex, value); break;
+        case 12: params->setOscMorph(oscIndex, value); break;
+        case 13: params->setOscDuty(oscIndex, value); break;
+        case 14: params->setOscRatio(oscIndex, value); break;
+        case 15: params->setOscOffset(oscIndex, value); break;
+        case 18: params->setOscAmp(oscIndex, value); break;  // Changed from Level to Amp
+        case 50: params->setOscLevel(0, value); break;  // OSC 1 Level (mixer)
+        case 51: params->setOscLevel(1, value); break;  // OSC 2 Level (mixer)
+        case 52: params->setOscLevel(2, value); break;  // OSC 3 Level (mixer)
+        case 53: params->setOscLevel(3, value); break;  // OSC 4 Level (mixer)
+        case 54: synth->setSamplerLevel(0, value); break;  // SAMP 1 Level (mixer)
+        case 55: synth->setSamplerLevel(1, value); break;  // SAMP 2 Level (mixer)
+        case 56: synth->setSamplerLevel(2, value); break;  // SAMP 3 Level (mixer)
+        case 57: synth->setSamplerLevel(3, value); break;  // SAMP 4 Level (mixer)
+        case 410: params->setChaosLevel(0, value); break;   // CHAOS 1 Level (mixer)
+        case 411: params->setChaosLevel(1, value); break;   // CHAOS 2 Level (mixer)
+        case 412: params->setChaosLevel(2, value); break;   // CHAOS 3 Level (mixer)
+        case 413: params->setChaosLevel(3, value); break;   // CHAOS 4 Level (mixer)
+        // SAMPLER page parameters (60-69)
+        case 69: break;  // Sample name selector (special: no-op, handled by Enter key)
+        case 60: synth->setSamplerKeyMode(samplerIndex, value < 0.5f); break;
+        case 68: synth->setSamplerPlaybackMode(samplerIndex, static_cast<PlaybackMode>(static_cast<int>(value))); break;
+        case 61: synth->setSamplerLoopStart(samplerIndex, value / 100.0f); break;
+        case 62: synth->setSamplerLoopLength(samplerIndex, value / 100.0f); break;
+        case 63: synth->setSamplerCrossfadeLength(samplerIndex, value / 100.0f); break;
+        case 64: synth->setSamplerOctave(samplerIndex, static_cast<int>(value)); break;
+        case 65: synth->setSamplerTune(samplerIndex, value); break;
+        case 66: synth->setSamplerSyncMode(samplerIndex, static_cast<int>(value)); break;
+        case 67: synth->setSamplerNoteReset(samplerIndex, value > 0.5f); break;
+        case 200: params->setLfoPeriod(lfoIndex, value); break;
+        case 201: params->setLfoSyncMode(lfoIndex, static_cast<int>(value)); break;
+        case 202: params->setLfoMorph(lfoIndex, value); break;
+        case 203: params->setLfoDuty(lfoIndex, value); break;
+        case 204: params->setLfoFlip(lfoIndex, value > 0.5f); break;
+        case 205: params->setLfoResetOnNote(lfoIndex, value > 0.5f); break;
+        case 206: params->setLfoShape(lfoIndex, static_cast<int>(value)); break;
+        case 20: params->reverbType = static_cast<int>(value); break;
+        case 21: params->reverbEnabled = (value > 0.5f); break;
+        case 22: params->reverbDelayTime = value; break;
+        case 23: params->reverbSize = value; break;
+        case 24: params->reverbDamping = value; break;
+        case 25: params->reverbMix = value; break;
+        case 26: params->reverbDecay = value; break;
+        case 27: params->reverbDiffusion = value; break;
+        case 28: params->reverbModDepth = value; break;
+        case 29: params->reverbModFreq = value; break;
+        case 30: params->filterType = static_cast<int>(value); break;
+        case 31: params->filterEnabled = (value > 0.5f); break;
+        case 32: params->filterCutoff = value; break;
+        case 33: params->filterGain = value; break;
+        case 34: params->filterResonance = value; break;
+        case 35: params->filterDrive = value; break;
+        case 36: params->filterFeedbackHP = value; break;
+        case 37: params->filterSpread = value; break;
+        case 38: params->filterNotchFeedback = value; break;
+        case 39: params->filterBandWidth = value; break;
+        case 42: params->filterDryWet = value; break;
+        case 40: params->currentLoop = static_cast<int>(value); break;
+        case 41: params->overdubMix = value; break;
+        // CONFIG page parameters
+        case 400: cpuMonitor.setEnabled(value > 0.5f); break;
+        // ENV page parameters (300-323)
+        case 300: params->setEnvAttack(0, value); params->attack = value; break;
+        case 301: params->setEnvDecay(0, value); params->decay = value; break;
+        case 302: params->setEnvSustain(0, value); params->sustain = value; break;
+        case 303: params->setEnvRelease(0, value); params->release = value; break;
+        case 304: params->setEnvAttackBend(0, value); break;
+        case 305: params->setEnvReleaseBend(0, value); break;
+        case 306: params->setEnvAttack(1, value); break;
+        case 307: params->setEnvDecay(1, value); break;
+        case 308: params->setEnvSustain(1, value); break;
+        case 309: params->setEnvRelease(1, value); break;
+        case 310: params->setEnvAttackBend(1, value); break;
+        case 311: params->setEnvReleaseBend(1, value); break;
+        case 312: params->setEnvAttack(2, value); break;
+        case 313: params->setEnvDecay(2, value); break;
+        case 314: params->setEnvSustain(2, value); break;
+        case 315: params->setEnvRelease(2, value); break;
+        case 316: params->setEnvAttackBend(2, value); break;
+        case 317: params->setEnvReleaseBend(2, value); break;
+        case 318: params->setEnvAttack(3, value); break;
+        case 319: params->setEnvDecay(3, value); break;
+        case 320: params->setEnvSustain(3, value); break;
+        case 321: params->setEnvRelease(3, value); break;
+        case 322: params->setEnvAttackBend(3, value); break;
+        case 323: params->setEnvReleaseBend(3, value); break;
+        // CHAOS page parameters (350-353) - use currentChaosIndex
+        case 350: params->setChaosParameter(chaosIndex, value); synth->setChaosParameter(chaosIndex, value); break;
         case 351: {
+            // Full range from 0.0001Hz to 20kHz regardless of fast/slow mode
+            // Fast mode: per-sample iteration, Slow mode: per-block iteration
             float clamped = std::clamp(value, 0.0001f, 20000.0f);
-            setChaosClockFreq(chaos, clamped);
-            if (synth) synth->setChaosClockFreq(chaos, clamped);
+            params->setChaosClockFreq(chaosIndex, clamped);
+            synth->setChaosClockFreq(chaosIndex, clamped);
             break;
         }
-        case 352:
-            setChaosInterpMode(chaos, static_cast<int>(value));
-            if (synth) synth->setChaosInterpMode(chaos, static_cast<int>(value));
-            break;
-        case 353: setChaosRunning(chaos, value > 0.5f); break;
-        case 354:
-            setChaosFastMode(chaos, value > 0.5f);
-            if (synth) synth->setChaosFastMode(chaos, value > 0.5f);
-            break;
-        case 355:
-            chaosDiff = (value > 0.5f);
-            if (synth) synth->setChaosDiffMode(value > 0.5f);
-            break;
-        case 360: fmGlobalDepth.store(std::clamp(value, 0.0f, 1.0f)); break;
-        default:
-            break;
+        case 352: params->setChaosInterpMode(chaosIndex, static_cast<int>(value)); synth->setChaosInterpMode(chaosIndex, static_cast<int>(value)); break;
+        case 353: params->setChaosRunning(chaosIndex, value > 0.5f); break;
+        case 354: params->setChaosFastMode(chaosIndex, value > 0.5f); synth->setChaosFastMode(chaosIndex, value > 0.5f); break;
+        case 355: params->chaosDiff = (value > 0.5f); if (synth) synth->setChaosDiffMode(value > 0.5f); break;
+        // FM page parameters (360-360)
+        case 360: params->fmGlobalDepth.store(std::clamp(value, 0.0f, 1.0f)); break;
     }
-}
-
-void UI::setParameterValue(int id, float value) {
-    if (!params) return;
-
-    if (id == 400) {
-        cpuMonitor.setEnabled(value > 0.5f);
-        return;
-    }
-
-    params->applyParameterValue(id,
-                                value,
-                                synth,
-                                currentOscillatorIndex,
-                                currentLFOIndex,
-                                currentEnvelopeIndex,
-                                currentSamplerIndex,
-                                currentChaosIndex);
 }
 
 void UI::adjustParameter(int id, bool increase, bool fine) {
