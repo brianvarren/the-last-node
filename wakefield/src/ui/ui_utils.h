@@ -10,16 +10,38 @@
 
 // Theme color helper macros (for easier migration)
 #ifndef COLOR_SELECTION
-#define COLOR_SELECTION globalTheme->getColorPair(ThemeColor::TabActiveFg)
-#define COLOR_CURSOR globalTheme->getColorPair(ThemeColor::Cursor)
-#define COLOR_MODULATED globalTheme->getColorPair(ThemeColor::ParamModulated)
-#define COLOR_LOCKED globalTheme->getColorPair(ThemeColor::ParamLocked)
-#define COLOR_HEADER globalTheme->getColorPair(ThemeColor::Header)
-#define COLOR_BORDER globalTheme->getColorPair(ThemeColor::Border)
+// Typography
+#define COLOR_PAGE_TITLE globalTheme->getColorPair(ThemeColor::PageTitle)
+#define COLOR_SECTION_HEADER globalTheme->getColorPair(ThemeColor::SectionHeader)
+#define COLOR_LABEL globalTheme->getColorPair(ThemeColor::Label)
+#define COLOR_VALUE globalTheme->getColorPair(ThemeColor::Value)
 #define COLOR_HINT globalTheme->getColorPair(ThemeColor::HintText)
+
+// Selection & Navigation
+#define COLOR_SELECTION globalTheme->getColorPair(ThemeColor::SelectionFg)
+#define COLOR_CURSOR globalTheme->getColorPair(ThemeColor::Cursor)
 #define COLOR_TAB_ACTIVE globalTheme->getColorPair(ThemeColor::TabActiveFg)
 #define COLOR_TAB_INACTIVE globalTheme->getColorPair(ThemeColor::TabInactiveFg)
+
+// Parameters
+#define COLOR_PARAM_NORMAL globalTheme->getColorPair(ThemeColor::ParamNormal)
+#define COLOR_LOCKED globalTheme->getColorPair(ThemeColor::ParamLocked)
+#define COLOR_MODULATED globalTheme->getColorPair(ThemeColor::ParamModulated)
 #define COLOR_MIDI_MAPPED globalTheme->getColorPair(ThemeColor::ParamMidiMapped)
+
+// Status
+#define COLOR_STATUS_ACTIVE globalTheme->getColorPair(ThemeColor::StatusActive)
+#define COLOR_STATUS_INACTIVE globalTheme->getColorPair(ThemeColor::StatusInactive)
+#define COLOR_STATUS_MUTED globalTheme->getColorPair(ThemeColor::StatusMuted)
+#define COLOR_STATUS_SOLO globalTheme->getColorPair(ThemeColor::StatusSolo)
+
+// UI Chrome
+#define COLOR_BORDER globalTheme->getColorPair(ThemeColor::Border)
+#define COLOR_GRID_LINE globalTheme->getColorPair(ThemeColor::GridLine)
+#define COLOR_POPUP_BORDER globalTheme->getColorPair(ThemeColor::PopupBorder)
+
+// Legacy aliases
+#define COLOR_HEADER COLOR_SECTION_HEADER
 #endif
 
 namespace UIUtils {

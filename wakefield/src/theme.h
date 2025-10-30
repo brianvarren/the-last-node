@@ -6,45 +6,59 @@
 
 // Semantic color identifiers (used throughout the UI code)
 enum class ThemeColor {
-    // Text and backgrounds
-    TextNormal,
-    Background,
+    // Typography
+    PageTitle,          // Main page titles (e.g., "FM MATRIX", "SAMPLER 1")
+    SectionHeader,      // Section headings within a page
+    Label,              // Parameter labels, field names
+    Value,              // Parameter values, data display
+    HintText,           // Help text, instructions at bottom
 
     // Selection and focus
-    SelectionFg,
-    SelectionBg,
-    Cursor,
+    SelectionFg,        // Selected item foreground
+    SelectionBg,        // Selected item background
+    Cursor,             // Selection cursor ">" character
+
+    // Navigation
+    TabActiveFg,        // Active tab text color
+    TabActiveBg,        // Active tab background
+    TabInactiveFg,      // Inactive tab text
+    TabInactiveBg,      // Inactive tab background
 
     // Parameter states
-    ParamLocked,
-    ParamModulated,
-    ParamMidiMapped,
-
-    // UI chrome
-    TabActiveFg,
-    TabActiveBg,
-    TabInactiveFg,
-    TabInactiveBg,
-    Border,
-    Header,
-    HintText,
+    ParamNormal,        // Normal parameter display
+    ParamLocked,        // Locked parameter (immune to randomization)
+    ParamModulated,     // Parameter with active modulation
+    ParamMidiMapped,    // Parameter mapped to MIDI CC
 
     // Status indicators
-    StatusActive,
-    StatusInactive,
-    StatusError,
-    StatusWarning,
+    StatusActive,       // Active voice, playing note
+    StatusInactive,     // Inactive voice, no sound
+    StatusMuted,        // Muted channel
+    StatusSolo,         // Solo channel
+    StatusError,        // Error state
+    StatusWarning,      // Warning state
 
-    // Special elements
-    MidiLearnPopupFg,
-    MidiLearnPopupBg,
-    PopupBorder,
+    // UI Chrome
+    Border,             // Box borders, separators
+    GridLine,           // Grid lines in matrices/tables
+    Background,         // Default background
+    PopupBg,            // Popup dialog background
+    PopupBorder,        // Popup dialog border
+
+    // Waveform display
+    WaveformActive,     // Active waveform region (in loop)
+    WaveformInactive,   // Inactive waveform region (outside loop)
+
+    // Meter/bars
+    MeterLow,           // Meter/bar at low levels
+    MeterMid,           // Meter/bar at medium levels
+    MeterHigh,          // Meter/bar at high levels
 
     // Console messages
-    ConsoleNormal,
-    ConsoleError,
-    ConsoleWarning,
-    ConsoleSuccess
+    ConsoleNormal,      // Normal console message
+    ConsoleError,       // Error message
+    ConsoleWarning,     // Warning message
+    ConsoleSuccess      // Success message
 };
 
 class Theme {

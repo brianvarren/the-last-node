@@ -125,52 +125,69 @@ void Theme::initializeColors() {
 
     start_color();
 
-    // Assign color pairs based on semantic meaning
-    // Pair IDs 1-6 are reserved for legacy/core UI elements
-    assignColorPair(ThemeColor::Cursor, 1, COLOR_CYAN, COLOR_BLACK);
-    assignColorPair(ThemeColor::ParamModulated, 2, COLOR_GREEN, COLOR_BLACK);
-    assignColorPair(ThemeColor::Header, 3, COLOR_YELLOW, COLOR_BLACK);
-    assignColorPair(ThemeColor::ParamLocked, 4, COLOR_RED, COLOR_BLACK);
-    assignColorPair(ThemeColor::TabActiveFg, 5, COLOR_WHITE, COLOR_BLUE);
-    assignColorPair(ThemeColor::TabInactiveFg, 6, COLOR_BLACK, COLOR_CYAN);
+    // Typography colors (pair IDs 1-5)
+    assignColorPair(ThemeColor::PageTitle, 1, COLOR_CYAN, COLOR_BLACK);
+    assignColorPair(ThemeColor::SectionHeader, 2, COLOR_CYAN, COLOR_BLACK);
+    assignColorPair(ThemeColor::Label, 3, COLOR_WHITE, COLOR_BLACK);
+    assignColorPair(ThemeColor::Value, 4, COLOR_WHITE, COLOR_BLACK);
+    assignColorPair(ThemeColor::HintText, 5, COLOR_YELLOW, COLOR_BLACK);
 
-    // Additional semantic colors
-    assignColorPair(ThemeColor::TextNormal, 27, COLOR_WHITE, COLOR_BLACK);
-    assignColorPair(ThemeColor::ParamMidiMapped, 28, COLOR_YELLOW, COLOR_BLACK);
-    assignColorPair(ThemeColor::StatusActive, 29, COLOR_GREEN, COLOR_BLACK);
-    assignColorPair(ThemeColor::StatusInactive, 30, COLOR_WHITE, COLOR_BLACK);
-    assignColorPair(ThemeColor::StatusError, 31, COLOR_RED, COLOR_BLACK);
-    assignColorPair(ThemeColor::StatusWarning, 32, COLOR_YELLOW, COLOR_BLACK);
-    assignColorPair(ThemeColor::MidiLearnPopupFg, 33, COLOR_YELLOW, COLOR_BLACK);
-    assignColorPair(ThemeColor::PopupBorder, 34, COLOR_YELLOW, COLOR_BLACK);
-    assignColorPair(ThemeColor::ConsoleNormal, 35, COLOR_WHITE, COLOR_BLACK);
-    assignColorPair(ThemeColor::ConsoleError, 36, COLOR_RED, COLOR_BLACK);
-    assignColorPair(ThemeColor::ConsoleWarning, 37, COLOR_YELLOW, COLOR_BLACK);
-    assignColorPair(ThemeColor::ConsoleSuccess, 38, COLOR_GREEN, COLOR_BLACK);
-    assignColorPair(ThemeColor::Border, 39, COLOR_CYAN, COLOR_BLACK);
-    assignColorPair(ThemeColor::HintText, 40, COLOR_YELLOW, COLOR_BLACK);
+    // Selection and Navigation (6-11)
+    assignColorPair(ThemeColor::SelectionFg, 6, COLOR_WHITE, COLOR_BLUE);
+    assignColorPair(ThemeColor::SelectionBg, 6, COLOR_WHITE, COLOR_BLUE);  // Same as SelectionFg
+    assignColorPair(ThemeColor::Cursor, 7, COLOR_CYAN, COLOR_BLACK);
+    assignColorPair(ThemeColor::TabActiveFg, 8, COLOR_WHITE, COLOR_BLUE);
+    assignColorPair(ThemeColor::TabActiveBg, 8, COLOR_WHITE, COLOR_BLUE);  // Same as TabActiveFg
+    assignColorPair(ThemeColor::TabInactiveFg, 9, COLOR_BLACK, COLOR_CYAN);
+    assignColorPair(ThemeColor::TabInactiveBg, 9, COLOR_BLACK, COLOR_CYAN);  // Same as TabInactiveFg
 
-    // Initialize waveform gradient (pairs 7-26 for 20 levels)
+    // Parameter states (12-15)
+    assignColorPair(ThemeColor::ParamNormal, 10, COLOR_WHITE, COLOR_BLACK);
+    assignColorPair(ThemeColor::ParamLocked, 11, COLOR_RED, COLOR_BLACK);
+    assignColorPair(ThemeColor::ParamModulated, 12, COLOR_GREEN, COLOR_BLACK);
+    assignColorPair(ThemeColor::ParamMidiMapped, 13, COLOR_YELLOW, COLOR_BLACK);
+
+    // Status indicators (16-21)
+    assignColorPair(ThemeColor::StatusActive, 14, COLOR_GREEN, COLOR_BLACK);
+    assignColorPair(ThemeColor::StatusInactive, 15, COLOR_WHITE, COLOR_BLACK);
+    assignColorPair(ThemeColor::StatusMuted, 16, COLOR_RED, COLOR_BLACK);
+    assignColorPair(ThemeColor::StatusSolo, 17, COLOR_YELLOW, COLOR_BLACK);
+    assignColorPair(ThemeColor::StatusError, 18, COLOR_RED, COLOR_BLACK);
+    assignColorPair(ThemeColor::StatusWarning, 19, COLOR_YELLOW, COLOR_BLACK);
+
+    // UI Chrome (22-26)
+    assignColorPair(ThemeColor::Border, 20, COLOR_CYAN, COLOR_BLACK);
+    assignColorPair(ThemeColor::GridLine, 21, COLOR_CYAN, COLOR_BLACK);
+    assignColorPair(ThemeColor::Background, 22, COLOR_WHITE, COLOR_BLACK);
+    assignColorPair(ThemeColor::PopupBg, 23, COLOR_BLACK, COLOR_BLACK);
+    assignColorPair(ThemeColor::PopupBorder, 24, COLOR_YELLOW, COLOR_BLACK);
+
+    // Waveform (41-42, after gradient pairs 7-26)
+    assignColorPair(ThemeColor::WaveformActive, 41, COLOR_GREEN, COLOR_BLACK);
+    assignColorPair(ThemeColor::WaveformInactive, 42, COLOR_WHITE, COLOR_BLACK);
+
+    // Meters (43-45)
+    assignColorPair(ThemeColor::MeterLow, 43, COLOR_GREEN, COLOR_BLACK);
+    assignColorPair(ThemeColor::MeterMid, 44, COLOR_YELLOW, COLOR_BLACK);
+    assignColorPair(ThemeColor::MeterHigh, 45, COLOR_RED, COLOR_BLACK);
+
+    // Console (46-49)
+    assignColorPair(ThemeColor::ConsoleNormal, 46, COLOR_WHITE, COLOR_BLACK);
+    assignColorPair(ThemeColor::ConsoleError, 47, COLOR_RED, COLOR_BLACK);
+    assignColorPair(ThemeColor::ConsoleWarning, 48, COLOR_YELLOW, COLOR_BLACK);
+    assignColorPair(ThemeColor::ConsoleSuccess, 49, COLOR_GREEN, COLOR_BLACK);
+
+    // Initialize waveform gradient (pairs 50-69 for 20 levels, after all semantic colors)
     if (COLORS >= 256) {
         for (int i = 0; i < 20; ++i) {
             int grayColor = 232 + i * 23 / 19;
-            init_pair(7 + i, grayColor, COLOR_BLACK);
-            waveformGradient[i] = 7 + i;
+            init_pair(50 + i, grayColor, COLOR_BLACK);
+            waveformGradient[i] = 50 + i;
         }
     } else {
-        // Fallback for 8-color mode
-        init_pair(7, COLOR_BLACK, COLOR_BLACK);
-        init_pair(8, COLOR_BLACK, COLOR_BLACK);
-        init_pair(9, COLOR_WHITE, COLOR_BLACK);
-        init_pair(10, COLOR_WHITE, COLOR_BLACK);
-        init_pair(11, COLOR_WHITE, COLOR_BLACK);
-        init_pair(12, COLOR_CYAN, COLOR_BLACK);
-
-        for (int i = 0; i < 6; ++i) {
-            waveformGradient[i] = 7 + i;
-        }
-        for (int i = 6; i < 20; ++i) {
-            waveformGradient[i] = 12;  // Use brightest for remaining
+        // Fallback for 8-color mode - use semantic colors
+        for (int i = 0; i < 20; ++i) {
+            waveformGradient[i] = 7;  // Use Cursor color (cyan) for all levels
         }
     }
 }
