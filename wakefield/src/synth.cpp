@@ -41,14 +41,14 @@ Synth::Synth(float sampleRate)
         voices.emplace_back(sampleRate);
     }
 
-    // Initialize sampler levels to 0.8 across all voices and free samplers
+    // Phase 5: Initialize sampler levels to 0.6 (reduced from 0.8 for better headroom)
     for (auto& voice : voices) {
         for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
-            voice.samplers[s].setLevel(0.8f);
+            voice.samplers[s].setLevel(0.6f);
         }
     }
     for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
-        freeSamplers[s].setLevel(0.8f);
+        freeSamplers[s].setLevel(0.6f);
     }
 
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
@@ -435,6 +435,30 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     refreshSamplerPhaseDrivers();
     float masterGain = std::clamp(masterVolume + lastGlobalModOutputs.mixerMasterVolume, 0.0f, 1.0f);
 
+    // Phase 1: Dynamic voice normalization
+    // Count active voices for dynamic gain compensation
+    int activeVoiceCount = 0;
+    for (int v = 0; v < MAX_VOICES; ++v) {
+        if (voices[v].active) {
+            activeVoiceCount++;
+        }
+    }
+
+    // Calculate voice gain using sqrt normalization (maintains "fullness" better than linear)
+    // sqrt(N) normalization: gentle reduction as voices increase
+    // 1 voice: 1.0x, 2 voices: 0.707x, 4 voices: 0.5x, 8 voices: 0.354x
+    float targetVoiceGain = (activeVoiceCount > 0)
+        ? (1.0f / std::sqrt(static_cast<float>(activeVoiceCount)))
+        : 1.0f;
+
+    // Smooth gain changes to prevent volume jumps (20ms time constant at 48kHz)
+    // Coefficient = 1 - exp(-1 / (timeConstant * sampleRate))
+    // For 20ms at 48kHz: coefficient ≈ 0.001
+    float smoothingCoeff = 0.001f * static_cast<float>(nFrames);  // Scale by buffer size
+    smoothingCoeff = std::min(smoothingCoeff, 1.0f);  // Clamp to prevent overshoot
+    float voiceGain = previousVoiceGain + smoothingCoeff * (targetVoiceGain - previousVoiceGain);
+    previousVoiceGain = voiceGain;
+
     // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
     for (int v = 0; v < MAX_VOICES; ++v) {
         if (!voices[v].active) {
@@ -546,9 +570,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             }
 
             // Mix into all channels with master volume
-            // Scale by 0.5 to prevent clipping when multiple voices play
+            // Apply dynamic voice gain normalization to prevent clipping
             for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                output[i * nChannels + ch] += sample * 0.5f * masterGain;
+                output[i * nChannels + ch] += sample * voiceGain * masterGain;
             }
         }
     }
@@ -618,7 +642,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
             if (freeMix != 0.0f) {
                 for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                    output[i * nChannels + ch] += freeMix * 0.5f * masterGain;
+                    output[i * nChannels + ch] += freeMix * voiceGain * masterGain;
                 }
             }
         }
@@ -661,9 +685,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                 chaosR += y * modulatedLevel;
             }
             if (chaosL != 0.0f || chaosR != 0.0f) {
-                output[i * nChannels + 0] += chaosL * 0.5f * masterGain;
+                output[i * nChannels + 0] += chaosL * voiceGain * masterGain;
                 if (nChannels > 1) {
-                    output[i * nChannels + 1] += chaosR * 0.5f * masterGain;
+                    output[i * nChannels + 1] += chaosR * voiceGain * masterGain;
                 }
             }
         }
@@ -674,6 +698,12 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                 if (!chaosBufferY[c].empty()) chaosLastY[c] = chaosBufferY[c].back();
             }
         }
+    }
+
+    // Phase 3: Apply soft clipping to prevent hard digital clipping
+    // Process after all mixing (voices + samplers + chaos) but before filter/reverb
+    for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
+        output[i] = softClip(output[i], 0.9f);
     }
 
     // Apply filter if enabled (stereo processing)

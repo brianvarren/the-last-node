@@ -112,9 +112,13 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    // Mix all oscillators with (amp + ampMod) × level × mute/solo
+    // Phase 2: Mix all oscillators with per-source normalization
     // Amp is the modulation target, Level is the static mixer
     float mixedSample = 0.0f;
+
+    // First pass: calculate final gains and count active oscillators
+    float oscFinalGains[OSCILLATORS_PER_VOICE];
+    int activeOscCount = 0;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Get base amp and level from synth (control-rate)
         float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
@@ -142,8 +146,18 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
 
-        // Mix with final gain
-        mixedSample += currentOutputs[i] * finalGain;
+        oscFinalGains[i] = finalGain;
+        if (finalGain > 0.0f) {
+            activeOscCount++;
+        }
+    }
+
+    // Calculate oscillator normalization factor
+    float oscNormalization = (activeOscCount > 0) ? (1.0f / activeOscCount) : 1.0f;
+
+    // Second pass: mix with normalization
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        mixedSample += currentOutputs[i] * oscFinalGains[i] * oscNormalization;
     }
 
     // Determine FM input for each sampler using previous outputs (1-sample delay)
@@ -185,11 +199,15 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    // Process all samplers and mix
+    // Phase 2: Process all samplers and mix with per-source normalization
     float currentSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f};
+    float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
+    int activeSamplerCount = 0;
+
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         if (!samplers[i].isKeyMode()) {
             currentSamplerOutputs[i] = 0.0f;
+            samplerFinalOutputs[i] = 0.0f;
             continue;
         }
 
@@ -222,7 +240,18 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
 
-        mixedSample += samplerOut;
+        samplerFinalOutputs[i] = samplerOut;
+        if (samplerOut != 0.0f) {
+            activeSamplerCount++;
+        }
+    }
+
+    // Calculate sampler normalization factor
+    float samplerNormalization = (activeSamplerCount > 0) ? (1.0f / activeSamplerCount) : 1.0f;
+
+    // Mix samplers with normalization
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        mixedSample += samplerFinalOutputs[i] * samplerNormalization;
     }
 
     // Cache outputs for next sample's FM routing

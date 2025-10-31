@@ -297,7 +297,8 @@ public:
 
     // Per-oscillator mix levels (control-rate, static mixer)
     // These are multiplied with (amp + ampMod) in voice mixing
-    float oscillatorBaseLevels[OSCILLATORS_PER_VOICE] = {0.8f, 0.8f, 0.8f, 0.8f};
+    // Phase 5: Reduced from 0.8 to 0.6 for better headroom with normalization
+    float oscillatorBaseLevels[OSCILLATORS_PER_VOICE] = {0.6f, 0.6f, 0.6f, 0.6f};
 
     // Sample bank for all voices
     SampleBank sampleBank;
@@ -328,8 +329,23 @@ public:
     void killFreeRunningVoice();
     bool hasFreeRunningVoice() const { return freeRunningVoiceActive; }
 
+    // Soft clipping utility (Phase 3)
+    inline float softClip(float x, float threshold = 0.9f) const {
+        if (x > threshold) {
+            float excess = x - threshold;
+            return threshold + (1.0f - threshold) * std::tanh(excess / (1.0f - threshold));
+        } else if (x < -threshold) {
+            float excess = x + threshold;
+            return -threshold + (1.0f - threshold) * std::tanh(excess / (1.0f - threshold));
+        }
+        return x;
+    }
+
     bool freeRunningVoiceActive = false;
     int freeRunningVoiceIndex = -1;
+
+    // Voice gain normalization state (Phase 1)
+    float previousVoiceGain = 1.0f;
 };
 
 #endif // SYNTH_H
