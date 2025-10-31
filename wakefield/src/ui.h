@@ -9,6 +9,7 @@
 #include <atomic>
 #include <vector>
 #include <functional>
+#include <chrono>
 #include <termios.h>
 #include <unistd.h>
 #include "fm_constants.h"
@@ -1042,7 +1043,7 @@ public:
     void setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId);
     void setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort);
     
-    void addConsoleMessage(const std::string&) {}
+    void addConsoleMessage(const std::string& message);
 
     // Get parameter name by ID (public for MIDI handler)
     std::string getParameterName(int id);
@@ -1165,6 +1166,7 @@ private:
     void drawConfigPage();
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawHotkeyLine();
+    void drawStatusMessage();
     void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
     void drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth, int lfoIndex, float phase);
     void drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWidth);
@@ -1323,6 +1325,8 @@ private:
     int modMatrixDestinationFocusColumn;
     struct termios originalTermios{};
     bool hasOriginalTermios;
+    std::string statusMessage;
+    std::chrono::steady_clock::time_point statusMessageExpiry;
 
     // Sample browser state
     bool sampleBrowserActive;

@@ -70,7 +70,9 @@ UI::UI(Synth* synth, SynthParameters* params)
     , presetBrowserScrollOffset(0)
     , midiKeyboardMode(false)
     , midiKeyboardOctave(4)
-    , hasOriginalTermios(false) {
+    , hasOriginalTermios(false)
+    , statusMessage()
+    , statusMessageExpiry() {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {
@@ -227,6 +229,11 @@ void UI::setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>
 void UI::setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort) {
     availableMidiDevices = devices;
     currentMidiPortNum = currentPort;
+}
+
+void UI::addConsoleMessage(const std::string& message) {
+    statusMessage = message;
+    statusMessageExpiry = std::chrono::steady_clock::now() + std::chrono::seconds(3);
 }
 
 void UI::writeToWaveformBuffer(float sample) {

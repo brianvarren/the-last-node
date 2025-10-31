@@ -3,6 +3,7 @@
 #include "ui_utils.h"
 #include <algorithm>
 #include <string>
+#include <chrono>
 
 void UI::drawTabs() {
     int cols = getmaxx(stdscr);
@@ -122,6 +123,44 @@ void UI::drawCPUOverlay() {
     attroff(COLOR_PAIR(colorPair) | A_BOLD);
 }
 
+void UI::drawStatusMessage() {
+    if (statusMessage.empty()) {
+        return;
+    }
+
+    auto now = std::chrono::steady_clock::now();
+    if (statusMessageExpiry.time_since_epoch().count() == 0 || now > statusMessageExpiry) {
+        statusMessage.clear();
+        return;
+    }
+
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
+    int row = maxY - 2;
+    if (row < 0) {
+        return;
+    }
+
+    mvhline(row, 0, ' ', maxX);
+
+    std::string text = statusMessage;
+    if (static_cast<int>(text.size()) > maxX - 2) {
+        if (maxX > 4) {
+            text = text.substr(0, maxX - 5) + "...";
+        } else if (maxX > 0) {
+            text = text.substr(0, maxX);
+        } else {
+            text.clear();
+        }
+    }
+
+    if (!text.empty()) {
+        attron(COLOR_HINT | A_BOLD);
+        mvprintw(row, 1, "%s", text.c_str());
+        attroff(COLOR_HINT | A_BOLD);
+    }
+}
+
 void UI::drawHotkeyLine() {
     int maxY = getmaxy(stdscr);
     int maxX = getmaxx(stdscr);
@@ -217,6 +256,7 @@ void UI::draw(int activeVoices) {
             break;
     }
 
+    drawStatusMessage();
     drawHotkeyLine();  // Always draw hotkey line at bottom
 
     // Draw input overlays if active
