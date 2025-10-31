@@ -9,6 +9,12 @@
 #include <cmath>
 #include <sys/stat.h>
 #include <pwd.h>
+
+// SSE intrinsics for denormal prevention
+#ifdef __SSE__
+#include <xmmintrin.h>
+#include <pmmintrin.h>
+#endif
 #include "synth.h"
 #include "midi.h"
 #include "ui.h"
@@ -191,6 +197,13 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
                   RtAudioStreamStatus status,
                   void* /*userData*/) {
 
+    // Enable flush-to-zero and denormals-are-zero to prevent CPU slowdown
+    // Denormal numbers (very small floats) can cause 100x CPU slowdown!
+    #ifdef __SSE__
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+    #endif
+
     // Parameter smoothers (10ms smoothing time at 48kHz = ~100Hz update rate)
     static bool smoothersInitialized = false;
     static ParameterSmoother attackSmoother;
@@ -220,8 +233,14 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
 
     float* buffer = static_cast<float*>(outputBuffer);
 
+    // Detect buffer underruns (audio glitching/crackling)
     if (status) {
-        std::cout << "Stream underflow detected!" << std::endl;
+        static int underrunCount = 0;
+        underrunCount++;
+        if (underrunCount % 10 == 1) {  // Print every 10th underrun to avoid spam
+            std::cerr << "⚠️  BUFFER UNDERRUN #" << underrunCount
+                      << " - Audio thread can't keep up!" << std::endl;
+        }
     }
 
     // Process pending MIDI messages first
