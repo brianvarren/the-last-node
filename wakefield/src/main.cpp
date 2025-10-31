@@ -13,7 +13,6 @@
 #include "midi.h"
 #include "ui.h"
 #include "preset.h"
-#include "loop_manager.h"
 #include "parameter_smoother.h"
 #include "sequencer.h"
 #include "clock.h"
@@ -23,7 +22,6 @@ static Synth* synth = nullptr;
 static MidiHandler* midiHandler = nullptr;
 static SynthParameters* synthParams = nullptr;
 static UI* ui = nullptr;
-LoopManager* loopManager = nullptr;  // Non-static so UI can access it
 Sequencer* sequencer = nullptr;  // Non-static so UI can access it
 static Clock* transportClock = nullptr;
 static bool running = true;
@@ -168,25 +166,6 @@ void onControlChange(int controller, int value) {
         }
     }
 
-    if (synthParams->loopMidiLearnMode.load()) {
-        int target = synthParams->loopMidiLearnTarget.load();
-        if (target == 0) {
-            synthParams->loopRecPlayCC = controller;
-            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Rec/Play");
-        } else if (target == 1) {
-            synthParams->loopOverdubCC = controller;
-            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Overdub");
-        } else if (target == 2) {
-            synthParams->loopStopCC = controller;
-            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Stop");
-        } else if (target == 3) {
-            synthParams->loopClearCC = controller;
-            if (ui) ui->addConsoleMessage("Learned CC#" + std::to_string(controller) + " for Loop Clear");
-        }
-        synthParams->loopMidiLearnMode = false;
-        synthParams->loopMidiLearnTarget = -1;
-    }
-
     for (int paramId = 0; paramId < SynthParameters::kMaxParamMap; ++paramId) {
         int mappedCC = synthParams->parameterCCMap[paramId].load();
         if (mappedCC >= 0 && mappedCC == controller) {
@@ -203,35 +182,6 @@ void onControlChange(int controller, int value) {
         applyMIDICCToParameter(32, value);
     }
 
-    if (loopManager) {
-        int recPlayCC = synthParams->loopRecPlayCC.load();
-        if (recPlayCC >= 0 && controller == recPlayCC && value > 64) {
-            if (Looper* loop = loopManager->getCurrentLoop()) {
-                loop->pressRecPlay();
-            }
-        }
-
-        int overdubCC = synthParams->loopOverdubCC.load();
-        if (overdubCC >= 0 && controller == overdubCC && value > 64) {
-            if (Looper* loop = loopManager->getCurrentLoop()) {
-                loop->pressOverdub();
-            }
-        }
-
-        int stopCC = synthParams->loopStopCC.load();
-        if (stopCC >= 0 && controller == stopCC && value > 64) {
-            if (Looper* loop = loopManager->getCurrentLoop()) {
-                loop->pressStop();
-            }
-        }
-
-        int clearCC = synthParams->loopClearCC.load();
-        if (clearCC >= 0 && controller == clearCC && value > 64) {
-            if (Looper* loop = loopManager->getCurrentLoop()) {
-                loop->pressClear();
-            }
-        }
-    }
 }
 
 // Audio callback function
@@ -240,11 +190,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
                   double /*streamTime*/,
                   RtAudioStreamStatus status,
                   void* /*userData*/) {
-
-    // Temp buffers for synth output (before looper)
-    static std::vector<float> tempBuffer;
-    static std::vector<float> tempL;
-    static std::vector<float> tempR;
 
     // Parameter smoothers (10ms smoothing time at 48kHz = ~100Hz update rate)
     static bool smoothersInitialized = false;
@@ -272,7 +217,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     static ParameterSmoother filterSpreadSmoother;
     static ParameterSmoother filterNotchFeedbackSmoother;
     static ParameterSmoother filterWidthSmoother;
-    static ParameterSmoother overdubMixSmoother;
 
     float* buffer = static_cast<float*>(outputBuffer);
 
@@ -314,7 +258,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             filterSpreadSmoother.reset(synthParams->filterSpread.load());
             filterNotchFeedbackSmoother.reset(synthParams->filterNotchFeedback.load());
             filterWidthSmoother.reset(synthParams->filterBandWidth.load());
-            overdubMixSmoother.reset(synthParams->overdubMix.load());
             smoothersInitialized = true;
         }
 
@@ -345,7 +288,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         filterWidthSmoother.setTarget(synthParams->filterBandWidth.load());
         filterSpreadSmoother.setTarget(synthParams->filterSpread.load());
         filterNotchFeedbackSmoother.setTarget(synthParams->filterNotchFeedback.load());
-        overdubMixSmoother.setTarget(synthParams->overdubMix.load());
 
         // Process smoothers (one step per audio callback)
         float smoothedAttack = attackSmoother.process();
@@ -457,13 +399,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         }
     }
 
-    // Update looper parameters
-    if (loopManager && synthParams) {
-        loopManager->selectLoop(synthParams->currentLoop.load());
-        float smoothedOverdubMix = overdubMixSmoother.process();
-        loopManager->setOverdubMix(smoothedOverdubMix);
-    }
-
     // Process sequencer (triggers notes based on patterns)
     if (sequencer) {
         sequencer->process(nFrames);
@@ -476,38 +411,11 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         synth->processChaos(nFrames);
     }
 
-    // Generate audio from synth (with effects) into temp buffer
-    if (synth && loopManager) {
-        // Resize temp buffers if needed
-        size_t stereoFrames = nFrames * 2;
-        if (tempBuffer.size() < stereoFrames) {
-            tempBuffer.resize(stereoFrames);
-            tempL.resize(nFrames);
-            tempR.resize(nFrames);
-        }
-
-        // Process synth into temp buffer
-        synth->process(tempBuffer.data(), nFrames, 2);
-        
-        // Deinterleave for looper processing
-        for (unsigned int i = 0; i < nFrames; ++i) {
-            tempL[i] = tempBuffer[i * 2];
-            tempR[i] = tempBuffer[i * 2 + 1];
-        }
-        
-        // Process through loopers (post-effects)
-        std::vector<float> outL(nFrames);
-        std::vector<float> outR(nFrames);
-        loopManager->processBlock(tempL.data(), tempR.data(), outL.data(), outR.data(), nFrames);
-        
-        // Interleave output
-        for (unsigned int i = 0; i < nFrames; ++i) {
-            buffer[i * 2] = outL[i];
-            buffer[i * 2 + 1] = outR[i];
-        }
-    } else if (synth) {
-        // No looper, just process synth directly
+    // Generate audio from synth
+    if (synth) {
         synth->process(buffer, nFrames, 2);
+    } else {
+        std::fill(buffer, buffer + nFrames * 2, 0.0f);
     }
     
     return 0;
@@ -583,9 +491,6 @@ int main(int argc, char** argv) {
         std::cout << "Warning: No samples found in ../samples directory" << std::endl;
     }
 
-    // Create looper manager
-    loopManager = new LoopManager(static_cast<float>(sampleRate));
-
     // Create shared transport clock
     transportClock = new Clock(static_cast<float>(sampleRate));
 
@@ -601,7 +506,6 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to initialize UI\n";
         delete ui;
         delete synth;
-        delete loopManager;
         delete midiHandler;
         delete synthParams;
         return 1;
@@ -762,7 +666,6 @@ int main(int argc, char** argv) {
     delete ui;
     delete sequencer;
     delete synth;
-    delete loopManager;
     delete midiHandler;
     delete synthParams;
 

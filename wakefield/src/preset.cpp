@@ -184,13 +184,6 @@ bool PresetManager::parsePresetStream(std::istream& stream, SynthParameters* par
             else if (key == "diffusion") params->reverbDiffusion = std::stof(value);
             else if (key == "modDepth") params->reverbModDepth = std::stof(value);
             else if (key == "modFreq") params->reverbModFreq = std::stof(value);
-        } else if (currentSection == "looper") {
-            if (key == "current_loop") params->currentLoop = std::stoi(value);
-            else if (key == "overdub_mix") params->overdubMix = std::stof(value);
-            else if (key == "rec_play_cc") params->loopRecPlayCC = std::stoi(value);
-            else if (key == "overdub_cc") params->loopOverdubCC = std::stoi(value);
-            else if (key == "stop_cc") params->loopStopCC = std::stoi(value);
-            else if (key == "clear_cc") params->loopClearCC = std::stoi(value);
         }
     }
 
@@ -268,14 +261,6 @@ void PresetManager::writePresetStream(std::ostream& file, SynthParameters* param
     file << "modFreq=" << params->reverbModFreq.load() << "\n";
     file << "\n";
 
-    // Looper section
-    file << "[looper]\n";
-    file << "current_loop=" << params->currentLoop.load() << "\n";
-    file << "overdub_mix=" << params->overdubMix.load() << "\n";
-    file << "rec_play_cc=" << params->loopRecPlayCC.load() << "\n";
-    file << "overdub_cc=" << params->loopOverdubCC.load() << "\n";
-    file << "stop_cc=" << params->loopStopCC.load() << "\n";
-    file << "clear_cc=" << params->loopClearCC.load() << "\n";
 }
 
 std::string PresetManager::serializeToString(SynthParameters* params) {

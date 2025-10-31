@@ -23,7 +23,6 @@ add_executable(synth
     src/voice.cpp
     src/reverb.cpp
     src/preset.cpp
-    src/loop_manager.cpp
     src/clock.cpp
     src/constraint.cpp
     src/markov.cpp

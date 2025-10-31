@@ -325,39 +325,6 @@ support MIDI learn for real-time modulation.
 )";
             break;
 
-        case UIPage::LOOPER:
-            content = R"(
-=== LOOPER ===
-
-CONTROLS:
-  Space      - Record / Play / Stop
-  O          - Toggle Overdub mode
-  S          - Stop loop
-  C          - Clear loop
-  1-4        - Select loop (4 independent loops)
-  [/]        - Adjust overdub mix
-  H          - Show this help
-
-PARAMETERS:
-  Current Loop - Active loop (1-4)
-  Overdub Mix  - Wet amount for overdubbing (0-100%)
-
-ABOUT:
-Wakefield includes 4 independent guitar-pedal-style loopers. Each loop can
-record, playback, overdub, stop, and clear independently.
-
-WORKFLOW:
-1. Press Space to start recording
-2. Press Space again to start playback
-3. Press O to enter overdub mode (layers on top)
-4. Use [/] to control how much new audio mixes with existing loop
-5. Switch between loops with 1-4 keys to layer different parts
-
-The overdub mix control is crucial - keeping it around 60% prevents the loop
-from getting too loud when layering multiple passes.
-)";
-            break;
-
         case UIPage::SEQUENCER:
             content = R"(
 === GENERATIVE SEQUENCER ===

@@ -1,7 +1,6 @@
 #include "../../ui.h"
 #include "../ui_utils.h"
 #include "../../sequencer.h"
-#include "../../loop_manager.h"
 #include "pattern.h"
 #include "track.h"
 #include "constraint.h"
@@ -10,7 +9,6 @@
 #include <cstdio>
 
 // External references to global objects from main.cpp
-extern LoopManager* loopManager;
 extern Sequencer* sequencer;
 
 struct SequencerInfoEntryDef {

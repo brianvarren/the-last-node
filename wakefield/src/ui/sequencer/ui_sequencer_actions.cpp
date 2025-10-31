@@ -1,13 +1,11 @@
 #include "../../ui.h"
 #include "../../sequencer.h"
-#include "../../loop_manager.h"
 #include "pattern.h"
 #include <algorithm>
 #include <vector>
 #include <cstdlib>
 
 // External references to global objects from main.cpp
-extern LoopManager* loopManager;
 extern Sequencer* sequencer;
 
 void UI::executeSequencerAction(int actionRow, int actionColumn) {

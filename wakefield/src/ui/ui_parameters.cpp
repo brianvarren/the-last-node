@@ -49,7 +49,7 @@ const InlineParameter* Lookup(int id) {
  * - Mix levels (OSC/SAMP levels - prevents silencing active sources)
  * - Mute/Solo states (not in parameter list, but immune via separate handling)
  * - CPU Monitor toggle
- * - Special UI controls (sample selector, looper controls)
+ * - Special UI controls (sample selector)
  * - Filter/Reverb enabled states (prevents disabling core FX)
  * - Key modes (prevents changing between FREE/KEY unexpectedly)
  * - Chaos Running state (prevents stopping generators mid-performance)
@@ -140,12 +140,6 @@ void UI::initializeParameters() {
     parameters.push_back({38, ParamType::FLOAT, "Notch FB", "", 0.0f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER), true});
     parameters.push_back({39, ParamType::FLOAT, "Width", "", 0.05f, 0.95f, {}, true, static_cast<int>(UIPage::FILTER), true});
     parameters.push_back({42, ParamType::FLOAT, "Dry/Wet", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::FILTER), true});
-
-    // ============================================================================
-    // LOOPER PAGE - IMMUNE (special UI controls, performance-critical)
-    // ============================================================================
-    parameters.push_back({40, ParamType::INT, "Current Loop", "", 0, 3, {}, true, static_cast<int>(UIPage::LOOPER), false});  // IMMUNE
-    parameters.push_back({41, ParamType::FLOAT, "Overdub Mix", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::LOOPER), false});  // IMMUNE
 
     // ============================================================================
     // MIXER PAGE - ALL IMMUNE (prevents silencing sources)
@@ -345,8 +339,6 @@ void SynthParameters::applyParameterValue(int id,
         case 38: filterNotchFeedback = value; break;
         case 39: filterBandWidth = value; break;
         case 42: filterDryWet = value; break;
-        case 40: currentLoop = static_cast<int>(value); break;
-        case 41: overdubMix = value; break;
         case 300: setEnvAttack(0, value); attack = value; break;
         case 301: setEnvDecay(0, value); decay = value; break;
         case 302: setEnvSustain(0, value); sustain = value; break;
@@ -1592,8 +1584,6 @@ float UI::getParameterValue(int id) {
         case 38: return params->filterNotchFeedback.load();
         case 39: return params->filterBandWidth.load();
         case 42: return params->filterDryWet.load();
-        case 40: return static_cast<float>(params->currentLoop.load());
-        case 41: return params->overdubMix.load();
         // CONFIG page parameters
         case 400: return cpuMonitor.isEnabled() ? 1.0f : 0.0f;
         // ENV page parameters (300-323)
@@ -1702,8 +1692,6 @@ void UI::setParameterValue(int id, float value) {
         case 38: params->filterNotchFeedback = value; break;
         case 39: params->filterBandWidth = value; break;
         case 42: params->filterDryWet = value; break;
-        case 40: params->currentLoop = static_cast<int>(value); break;
-        case 41: params->overdubMix = value; break;
         // CONFIG page parameters
         case 400: cpuMonitor.setEnabled(value > 0.5f); break;
         // ENV page parameters (300-323)

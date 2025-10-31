@@ -189,18 +189,6 @@ struct SynthParameters {
     std::atomic<bool> ccLearnMode{false};
     std::atomic<int> ccLearnTarget{-1};  // Which parameter to learn (-1 = none)
     
-    // Looper parameters
-    std::atomic<int> currentLoop{0};       // 0-3
-    std::atomic<float> overdubMix{0.6f};   // global overdub wet amount
-    
-    // MIDI Learn for loop controls
-    std::atomic<int> loopRecPlayCC{-1};
-    std::atomic<int> loopOverdubCC{-1};
-    std::atomic<int> loopStopCC{-1};
-    std::atomic<int> loopClearCC{-1};
-    std::atomic<bool> loopMidiLearnMode{false};
-    std::atomic<int> loopMidiLearnTarget{-1};  // 0=rec, 1=overdub, 2=stop, 3=clear
-    
     // Oscillator parameters - 4 independent oscillators per voice
     // Oscillator 1 (index 0)
     std::atomic<int> osc1Mode{1};              // 0=FREE, 1=KEY
@@ -998,7 +986,6 @@ enum class UIPage {
     MOD,
     REVERB,
     FILTER,
-    LOOPER,
     SEQUENCER,
     CHAOS,
     CONFIG

@@ -1,11 +1,8 @@
 #include "../ui.h"
-#include "../looper.h"
-#include "../loop_manager.h"
 #include "../sequencer.h"
 #include <algorithm>
 
 // External references to global objects from main.cpp
-extern LoopManager* loopManager;
 extern Sequencer* sequencer;
 
 void UI::handleInput(int ch) {
@@ -733,7 +730,7 @@ void UI::handleInput(int ch) {
         }
     }
 
-    // Transport and looping hotkeys (keep these)
+    // Transport hotkeys
     if (ch == ' ') {
         // Spacebar behavior depends on current page
         if (currentPage == UIPage::SEQUENCER) {
