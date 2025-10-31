@@ -24,7 +24,7 @@ void UI::drawTabs() {
         {"CHAOS", UIPage::CHAOS},
         {"MOD", UIPage::MOD},
         {"FM", UIPage::FM},
-        {"SEQUENCER", UIPage::SEQUENCER},
+        {"SEQ", UIPage::SEQUENCER},
         {"CONFIG", UIPage::CONFIG}
     };
 
