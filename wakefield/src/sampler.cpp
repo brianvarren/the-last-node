@@ -65,8 +65,8 @@ Sampler::Sampler(const Sampler& other)
     , crossfadeSamplesRemaining(other.crossfadeSamplesRemaining)
     , pendingStart(other.pendingStart)
     , pendingEnd(other.pendingEnd)
-    , pendingLoopValid(other.pendingLoopValid)
-    , restartRequested(other.restartRequested)
+    , pendingLoopValid(other.pendingLoopValid.load(std::memory_order_relaxed))
+    , restartRequested(other.restartRequested.load(std::memory_order_relaxed))
     , wasInZoneLastSample(other.wasInZoneLastSample)
     , playingReverse(other.playingReverse)
     , modulatorSmoothed(other.modulatorSmoothed)
@@ -93,8 +93,8 @@ Sampler& Sampler::operator=(const Sampler& other) {
         crossfadeSamplesRemaining = other.crossfadeSamplesRemaining;
         pendingStart = other.pendingStart;
         pendingEnd = other.pendingEnd;
-        pendingLoopValid = other.pendingLoopValid;
-        restartRequested = other.restartRequested;
+        pendingLoopValid.store(other.pendingLoopValid.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        restartRequested.store(other.restartRequested.load(std::memory_order_relaxed), std::memory_order_relaxed);
         wasInZoneLastSample = other.wasInZoneLastSample;
         playingReverse = other.playingReverse;
         modulatorSmoothed = other.modulatorSmoothed;

@@ -112,8 +112,8 @@ private:
     // Pending loop parameters (calculated once per process call)
     uint32_t pendingStart;
     uint32_t pendingEnd;
-    bool pendingLoopValid;
-    bool restartRequested;
+    std::atomic<bool> pendingLoopValid;
+    std::atomic<bool> restartRequested;
 
     // Zone detection (prevents retriggering crossfade)
     bool wasInZoneLastSample;
