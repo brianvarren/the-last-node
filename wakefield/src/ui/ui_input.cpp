@@ -118,6 +118,15 @@ void UI::handleInput(int ch) {
         return;
     }
 
+    if (ch == 'z' || ch == 'Z') {
+        if (ch == 'Z') {
+            redoAction();
+        } else {
+            undoAction();
+        }
+        return;
+    }
+
     if (ch == 26
 #ifdef KEY_SUSP
         || ch == KEY_SUSP
