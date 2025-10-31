@@ -708,10 +708,14 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         }
     }
 
-    // Phase 3: Apply soft clipping to prevent hard digital clipping
+    // Phase 3: Apply soft clipping and NaN/Inf sanitization
     // Process after all mixing (voices + samplers + chaos) but before filter/reverb
     // Lowered threshold from 0.9 to 0.7 to catch peaks earlier
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
+        // Sanitize before soft clipping
+        if (!std::isfinite(output[i])) {
+            output[i] = 0.0f;
+        }
         output[i] = softClip(output[i], 0.7f);
     }
 

@@ -92,6 +92,10 @@ float Voice::generateSample(unsigned int frameIndex) {
         currentOutputs[i] = oscillators[i].process(sampleRate, fmInputs[i],
                                                     pitchMod[i], morphMod[i], dutyMod[i],
                                                     ratioMod[i], offsetMod[i]);
+        // Sanitize oscillator output
+        if (!std::isfinite(currentOutputs[i])) {
+            currentOutputs[i] = 0.0f;
+        }
     }
 
     // Check if any channels are solo'd (OSC, SAMP, or CHAOS)
@@ -209,6 +213,10 @@ float Voice::generateSample(unsigned int frameIndex) {
                                               samplerLevelOffset,
                                               samplerPhaseDriver[i],
                                               note);
+        // Sanitize sampler output
+        if (!std::isfinite(samplerOut)) {
+            samplerOut = 0.0f;
+        }
         currentSamplerOutputs[i] = samplerOut;
 
         // Apply mute/solo logic to samplers
@@ -231,13 +239,17 @@ float Voice::generateSample(unsigned int frameIndex) {
     }
 
     // Phase 2 FIX: Normalize ALL sources together (oscillators + samplers)
-    // Count total active sources with non-zero output
+    // Count total active sources with non-zero, finite output
     int totalActiveSources = 0;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        if (oscFinalGains[i] > 0.0f) totalActiveSources++;
+        if (oscFinalGains[i] > 0.0f && std::isfinite(currentOutputs[i])) {
+            totalActiveSources++;
+        }
     }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        if (samplerFinalOutputs[i] != 0.0f) totalActiveSources++;
+        if (samplerFinalOutputs[i] != 0.0f && std::isfinite(samplerFinalOutputs[i])) {
+            totalActiveSources++;
+        }
     }
 
     // Normalize by total source count to prevent voice from exceeding 1.0
@@ -251,6 +263,11 @@ float Voice::generateSample(unsigned int frameIndex) {
     // Mix samplers with combined normalization
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         mixedSample += samplerFinalOutputs[i] * sourceNormalization;
+    }
+
+    // Sanitize output to prevent NaN/Inf from propagating
+    if (!std::isfinite(mixedSample)) {
+        mixedSample = 0.0f;
     }
 
     // Cache outputs for next sample's FM routing

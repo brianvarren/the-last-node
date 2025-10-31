@@ -331,6 +331,14 @@ public:
 
     // Soft clipping utility (Phase 3)
     inline float softClip(float x, float threshold = 0.9f) const {
+        // Sanitize input - if NaN or Inf, return 0
+        if (!std::isfinite(x)) {
+            return 0.0f;
+        }
+
+        // Hard clamp to prevent tanh from receiving extreme values
+        x = std::clamp(x, -10.0f, 10.0f);
+
         if (x > threshold) {
             float excess = x - threshold;
             return threshold + (1.0f - threshold) * std::tanh(excess / (1.0f - threshold));
