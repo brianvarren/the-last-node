@@ -357,6 +357,8 @@ void UI::applySequencerNumericInput(const std::string& text) {
     std::string trimmed = trim(text);
     if (trimmed.empty()) return;
 
+    captureUndoSnapshot("sequencer_numeric");
+
     Track& track = sequencer->getCurrentTrack();
     Pattern& pattern = track.getPattern();
     MusicalConstraints& constraints = track.getConstraints();

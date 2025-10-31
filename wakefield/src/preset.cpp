@@ -92,34 +92,39 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
     if (!file.is_open()) {
         return false;
     }
-    
+    bool result = parsePresetStream(file, params);
+    file.close();
+    return result;
+}
+
+bool PresetManager::parsePresetStream(std::istream& stream, SynthParameters* params) {
+    if (!stream.good()) {
+        return false;
+    }
+
     std::string line;
     std::string currentSection;
-    
-    while (std::getline(file, line)) {
+
+    while (std::getline(stream, line)) {
         line = trim(line);
-        
-        // Skip empty lines and comments
+
         if (line.empty() || line[0] == '#' || line[0] == ';') {
             continue;
         }
-        
-        // Check for section header
-        if (line[0] == '[' && line[line.size()-1] == ']') {
+
+        if (line.front() == '[' && line.back() == ']') {
             currentSection = line.substr(1, line.size() - 2);
             continue;
         }
-        
-        // Parse key=value pairs
+
         size_t equalPos = line.find('=');
         if (equalPos == std::string::npos) {
             continue;
         }
-        
+
         std::string key = trim(line.substr(0, equalPos));
         std::string value = trim(line.substr(equalPos + 1));
-        
-        // Apply values based on section
+
         if (currentSection == "waveform") {
             if (key == "type") {
                 if (value == "SINE") params->waveform = static_cast<int>(Waveform::SINE);
@@ -132,18 +137,15 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
                 float mapped = std::stof(value);
                 params->attack = mapped;
                 params->setEnvAttack(0, mapped);
-            }
-            else if (key == "decay") {
+            } else if (key == "decay") {
                 float mapped = std::stof(value);
                 params->decay = mapped;
                 params->setEnvDecay(0, mapped);
-            }
-            else if (key == "sustain") {
+            } else if (key == "sustain") {
                 float mapped = std::stof(value);
                 params->sustain = mapped;
                 params->setEnvSustain(0, mapped);
-            }
-            else if (key == "release") {
+            } else if (key == "release") {
                 float mapped = std::stof(value);
                 params->release = mapped;
                 params->setEnvRelease(0, mapped);
@@ -162,14 +164,11 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
                 else if (value == "BANDPASS") params->filterType = 6;
                 else if (value == "NOTCH") params->filterType = 7;
                 else if (value == "BANDPASS2") params->filterType = 8;
-            }
-            else if (key == "cutoff") params->filterCutoff = std::stof(value);
+            } else if (key == "cutoff") params->filterCutoff = std::stof(value);
             else if (key == "gain") params->filterGain = std::stof(value);
             else if (key == "spread") params->filterSpread = std::stof(value);
             else if (key == "notch_feedback") params->filterNotchFeedback = std::stof(value);
             else if (key == "width") params->filterBandWidth = std::stof(value);
-            else if (key == "spread") params->filterSpread = std::stof(value);
-            else if (key == "notch_feedback") params->filterNotchFeedback = std::stof(value);
         } else if (currentSection == "reverb") {
             if (key == "enabled") params->reverbEnabled = parseBool(value);
             else if (key == "type") {
@@ -178,8 +177,7 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
                 else if (value == "ROOM") params->reverbType = static_cast<int>(ReverbType::ROOM);
                 else if (value == "HALL") params->reverbType = static_cast<int>(ReverbType::HALL);
                 else if (value == "SPRING") params->reverbType = static_cast<int>(ReverbType::SPRING);
-            }
-            else if (key == "size") params->reverbSize = std::stof(value);
+            } else if (key == "size") params->reverbSize = std::stof(value);
             else if (key == "damping") params->reverbDamping = std::stof(value);
             else if (key == "mix") params->reverbMix = std::stof(value);
             else if (key == "decay") params->reverbDecay = std::stof(value);
@@ -195,8 +193,7 @@ bool PresetManager::parsePresetFile(const std::string& filepath, SynthParameters
             else if (key == "clear_cc") params->loopClearCC = std::stoi(value);
         }
     }
-    
-    file.close();
+
     return true;
 }
 
@@ -205,7 +202,12 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     if (!file.is_open()) {
         return false;
     }
-    
+    writePresetStream(file, params);
+    file.close();
+    return true;
+}
+
+void PresetManager::writePresetStream(std::ostream& file, SynthParameters* params) {
     // Waveform section
     file << "[waveform]\n";
     int waveform = params->waveform.load();
@@ -214,7 +216,7 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     else if (waveform == static_cast<int>(Waveform::SAWTOOTH)) file << "type=SAWTOOTH\n";
     else if (waveform == static_cast<int>(Waveform::TRIANGLE)) file << "type=TRIANGLE\n";
     file << "\n";
-    
+
     // Envelope section
     file << "[envelope]\n";
     file << "attack=" << params->getEnvAttack(0) << "\n";
@@ -222,12 +224,12 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     file << "sustain=" << params->getEnvSustain(0) << "\n";
     file << "release=" << params->getEnvRelease(0) << "\n";
     file << "\n";
-    
+
     // Master section
     file << "[master]\n";
     file << "volume=" << params->masterVolume.load() << "\n";
     file << "\n";
-    
+
     // Filter section
     file << "[filter]\n";
     file << "enabled=" << (params->filterEnabled.load() ? "true" : "false") << "\n";
@@ -247,7 +249,7 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     file << "notch_feedback=" << params->filterNotchFeedback.load() << "\n";
     file << "width=" << params->filterBandWidth.load() << "\n";
     file << "\n";
-    
+
     // Reverb section
     file << "[reverb]\n";
     file << "enabled=" << (params->reverbEnabled.load() ? "true" : "false") << "\n";
@@ -265,7 +267,7 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     file << "modDepth=" << params->reverbModDepth.load() << "\n";
     file << "modFreq=" << params->reverbModFreq.load() << "\n";
     file << "\n";
-    
+
     // Looper section
     file << "[looper]\n";
     file << "current_loop=" << params->currentLoop.load() << "\n";
@@ -274,9 +276,17 @@ bool PresetManager::writePresetFile(const std::string& filepath, SynthParameters
     file << "overdub_cc=" << params->loopOverdubCC.load() << "\n";
     file << "stop_cc=" << params->loopStopCC.load() << "\n";
     file << "clear_cc=" << params->loopClearCC.load() << "\n";
-    
-    file.close();
-    return true;
+}
+
+std::string PresetManager::serializeToString(SynthParameters* params) {
+    std::ostringstream oss;
+    writePresetStream(oss, params);
+    return oss.str();
+}
+
+bool PresetManager::deserializeFromString(const std::string& data, SynthParameters* params) {
+    std::istringstream iss(data);
+    return parsePresetStream(iss, params);
 }
 
 bool PresetManager::savePreset(const std::string& name, SynthParameters* params) {

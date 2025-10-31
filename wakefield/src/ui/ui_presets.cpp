@@ -11,6 +11,7 @@ void UI::refreshPresetList() {
 void UI::loadPreset(const std::string& filename) {
     if (PresetManager::loadPreset(filename, params)) {
         currentPresetName = filename;
+        resetUndoHistory();
         // Also load sequencer patterns if available
         if (sequencer) {
             std::string baseDir = PresetManager::getPresetDirectory();

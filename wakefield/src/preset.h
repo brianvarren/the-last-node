@@ -3,6 +3,8 @@
 
 #include <string>
 #include <vector>
+#include <istream>
+#include <ostream>
 #include "ui.h"
 
 // Forward declaration
@@ -24,6 +26,12 @@ public:
     
     // Load preset file into parameters
     static bool loadPreset(const std::string& name, SynthParameters* params);
+
+    // Serialize parameters to an in-memory string
+    static std::string serializeToString(SynthParameters* params);
+
+    // Load parameters from an in-memory string
+    static bool deserializeFromString(const std::string& data, SynthParameters* params);
     
     // Get full path for a preset name
     static std::string getPresetPath(const std::string& name);
@@ -40,7 +48,9 @@ private:
     
     // Helper to parse boolean
     static bool parseBool(const std::string& str);
+
+    static bool parsePresetStream(std::istream& stream, SynthParameters* params);
+    static void writePresetStream(std::ostream& stream, SynthParameters* params);
 };
 
 #endif // PRESET_H
-

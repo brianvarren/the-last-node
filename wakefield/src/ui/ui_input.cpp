@@ -118,6 +118,21 @@ void UI::handleInput(int ch) {
         return;
     }
 
+    if (ch == 26) {  // Ctrl+Z
+        undoAction();
+        return;
+    }
+#ifdef KEY_REDO
+    if (ch == KEY_REDO) {
+        redoAction();
+        return;
+    }
+#endif
+    if (ch == 25) {  // Ctrl+Y (also accept for redo)
+        redoAction();
+        return;
+    }
+
     // Handle help mode
     if (helpActive) {
         if (ch == 'h' || ch == 'H' || ch == 27 || ch == 'q' || ch == 'Q') {  // H, Esc, or Q to close
@@ -200,20 +215,39 @@ void UI::handleInput(int ch) {
     // Main page action button and mixer handling
     if (currentPage == UIPage::MAIN && !textInputActive && !numericInputActive) {
         auto adjustMainMixerLevel = [&](float delta) {
-            if (mainPageFocusLeft) {
+            if (mainPageFocusLeft || std::abs(delta) <= 0.0f) {
                 return;
             }
+            bool changed = false;
             if (mainPageMixerChannel < 4) {
-                float newLevel = std::clamp(params->getOscLevel(mainPageMixerChannel) + delta, 0.0f, 1.0f);
-                params->setOscLevel(mainPageMixerChannel, newLevel);
+                float current = params->getOscLevel(mainPageMixerChannel);
+                float newLevel = std::clamp(current + delta, 0.0f, 1.0f);
+                if (std::abs(newLevel - current) > 1e-6f) {
+                    captureUndoSnapshot("mixer_level");
+                    params->setOscLevel(mainPageMixerChannel, newLevel);
+                    changed = true;
+                }
             } else if (mainPageMixerChannel < 8) {
                 int idx = mainPageMixerChannel - 4;
-                float newLevel = std::clamp(synth->getSamplerLevel(idx) + delta, 0.0f, 1.0f);
-                synth->setSamplerLevel(idx, newLevel);
+                float current = synth->getSamplerLevel(idx);
+                float newLevel = std::clamp(current + delta, 0.0f, 1.0f);
+                if (std::abs(newLevel - current) > 1e-6f) {
+                    captureUndoSnapshot("mixer_level");
+                    synth->setSamplerLevel(idx, newLevel);
+                    changed = true;
+                }
             } else {
                 int idx = mainPageMixerChannel - 8;
-                float newLevel = std::clamp(params->getChaosLevel(idx) + delta, 0.0f, 1.0f);
-                params->setChaosLevel(idx, newLevel);
+                float current = params->getChaosLevel(idx);
+                float newLevel = std::clamp(current + delta, 0.0f, 1.0f);
+                if (std::abs(newLevel - current) > 1e-6f) {
+                    captureUndoSnapshot("mixer_level");
+                    params->setChaosLevel(idx, newLevel);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                // no-op placeholder for possible future hooks
             }
         };
         switch (ch) {
@@ -319,6 +353,7 @@ void UI::handleInput(int ch) {
             // Mixer controls (only when focused on right column)
             case 'm': case 'M': {
                 if (mainPageFocusLeft) return;
+                captureUndoSnapshot("mixer_mute");
                 // Toggle mute for selected channel
                 if (mainPageMixerChannel < 4) {
                     params->oscMuted[mainPageMixerChannel] = !params->oscMuted[mainPageMixerChannel].load();
@@ -333,6 +368,7 @@ void UI::handleInput(int ch) {
             }
             case 's': case 'S': {
                 if (mainPageFocusLeft) return;
+                captureUndoSnapshot("mixer_solo");
                 // Toggle solo for selected channel
                 if (mainPageMixerChannel < 4) {
                     params->oscSolo[mainPageMixerChannel] = !params->oscSolo[mainPageMixerChannel].load();
@@ -493,6 +529,7 @@ void UI::handleInput(int ch) {
             case 'c':
             case 'C':
                 // Clear the current modulation slot
+                captureUndoSnapshot("clear_mod_slot");
                 modulationSlots[modMatrixCursorRow] = ModulationSlot();
                 addConsoleMessage("Cleared modulation slot " + std::to_string(modMatrixCursorRow + 1));
                 return;
@@ -634,17 +671,20 @@ void UI::handleInput(int ch) {
         if (currentPage == UIPage::FM) {
             int src = fmMatrixCursorRow;
             int tgt = fmMatrixCursorCol;
+            captureUndoSnapshot("toggle_fm_lock");
             fmMatrixLocked[tgt][src] = !fmMatrixLocked[tgt][src];
             addConsoleMessage(std::string("FM cell ") + std::to_string(src) + "," + std::to_string(tgt) + (fmMatrixLocked[tgt][src] ? " locked" : " unlocked"));
             return;
         }
         if (currentPage == UIPage::MOD) {
+            captureUndoSnapshot("toggle_mod_lock");
             modSlotLocked[modMatrixCursorRow] = !modSlotLocked[modMatrixCursorRow];
             addConsoleMessage(std::string("Mod slot ") + std::to_string(modMatrixCursorRow + 1) + (modSlotLocked[modMatrixCursorRow] ? " locked" : " unlocked"));
             return;
         }
         InlineParameter* p = getParameter(selectedParameterId);
         if (p) {
+            captureUndoSnapshot("toggle_param_lock");
             p->randomizable = !p->randomizable;
             addConsoleMessage(std::string("Parameter ") + p->name + (p->randomizable ? ": unlocked" : ": locked"));
         }
@@ -778,23 +818,28 @@ void UI::handleInput(int ch) {
                 return;
 
             case '=':
+                captureUndoSnapshot("fm_adjust");
                 adjustFMDepth(0.05f);
                 return;
 
             case '+':
+                captureUndoSnapshot("fm_adjust");
                 adjustFMDepth(0.01f);
                 return;
 
             case '-':
+                captureUndoSnapshot("fm_adjust");
                 adjustFMDepth(-0.05f);
                 return;
 
             case '_':
+                captureUndoSnapshot("fm_adjust");
                 adjustFMDepth(-0.01f);
                 return;
 
             case ' ':  // Space bar: cycle 0 -> +99 -> -99 -> 0
                 {
+                    captureUndoSnapshot("fm_cycle");
                     float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
                     if (depth > 0.05f) {
                         params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, -0.99f);
@@ -809,6 +854,7 @@ void UI::handleInput(int ch) {
             case 'g':
             case 'G':  // Generate/Randomize FM matrix (skip locked), scale by random amount
                 {
+                    captureUndoSnapshot("fm_randomize");
                     float randAmt = std::clamp(globalRandomizePercentage/100.0f, 0.0f, 1.0f);
                     for (int target = 0; target < kFMTargetCount; ++target) {
                         for (int source = 0; source < kFMSourceCount; ++source) {
@@ -824,6 +870,7 @@ void UI::handleInput(int ch) {
             case 'r':
             case 'R':  // Reset FM matrix to zero (skip locked)
                 {
+                    captureUndoSnapshot("fm_reset");
                     for (int target = 0; target < kFMTargetCount; ++target) {
                         for (int source = 0; source < kFMSourceCount; ++source) {
                             if (!fmMatrixLocked[target][source]) {
@@ -838,6 +885,7 @@ void UI::handleInput(int ch) {
             case 'm':
             case 'M':  // Mutate FM matrix (scaled variation, skip locked)
                 {
+                    captureUndoSnapshot("fm_mutate");
                     float mutateAmt = std::clamp(globalMutatePercentage/100.0f, 0.0f, 1.0f);
                     for (int target = 0; target < kFMTargetCount; ++target) {
                         for (int source = 0; source < kFMSourceCount; ++source) {

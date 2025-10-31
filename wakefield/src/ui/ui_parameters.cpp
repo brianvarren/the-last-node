@@ -1,14 +1,23 @@
 #include "../ui.h"
 #include "../synth.h"
 #include "ui_mod_data.h"
+#include "../fm_constants.h"
+#include <iomanip>
 #include <algorithm>
 #include <cmath>
 #include <chrono>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
 namespace {
     std::unordered_map<int, InlineParameter> gParameterRegistry;
+    std::string trimWhitespace(const std::string& str) {
+        size_t start = str.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) return "";
+        size_t end = str.find_last_not_of(" \t\r\n");
+        return str.substr(start, end - start + 1);
+    }
 }
 
 namespace ParameterRegistry {
@@ -487,6 +496,8 @@ static inline float frand(float a, float b) {
 
 void UI::randomizeAllParameters(float amount01) {
     amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("randomize_all");
     auto ids = getRandomizableParameterIds();
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -652,11 +663,12 @@ void UI::mutateSingleParameter(int id, float amount01) {
     }
 }
 
-void UI::randomizeModSlot(int slotIndex, float amount01) {
+void UI::randomizeModSlot(int slotIndex, float amount01, bool capture) {
     amount01 = std::clamp(amount01, 0.0f, 1.0f);
     if (amount01 <= 0.0f) return;
     if (slotIndex < 0 || slotIndex >= kModulationSlotCount) return;
     if (modSlotLocked[slotIndex]) return;
+    if (capture) captureUndoSnapshot("randomize_mod_slot");
 
     ModulationSlot& slot = modulationSlots[slotIndex];
     const auto& sources = getModSourceOptions();
@@ -681,15 +693,16 @@ void UI::randomizeModSlot(int slotIndex, float amount01) {
     slot.amount = static_cast<int8_t>(std::clamp(newAmount, -99, 99));
 }
 
-void UI::mutateModSlot(int slotIndex, float amount01) {
+void UI::mutateModSlot(int slotIndex, float amount01, bool capture) {
     amount01 = std::clamp(amount01, 0.0f, 1.0f);
     if (amount01 <= 0.0f) return;
     if (slotIndex < 0 || slotIndex >= kModulationSlotCount) return;
     if (modSlotLocked[slotIndex]) return;
+    if (capture) captureUndoSnapshot("mutate_mod_slot");
 
     ModulationSlot& slot = modulationSlots[slotIndex];
     if (!slot.isComplete()) {
-        randomizeModSlot(slotIndex, amount01);
+        randomizeModSlot(slotIndex, amount01, capture);
         return;
     }
 
@@ -716,19 +729,27 @@ void UI::mutateModSlot(int slotIndex, float amount01) {
 }
 
 void UI::randomizeAllModSlots(float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("randomize_all_mod_slots");
     for (int i = 0; i < kModulationSlotCount; ++i) {
-        randomizeModSlot(i, amount01);
+        randomizeModSlot(i, amount01, false);
     }
 }
 
 void UI::mutateAllModSlots(float amount01) {
+    amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("mutate_all_mod_slots");
     for (int i = 0; i < kModulationSlotCount; ++i) {
-        mutateModSlot(i, amount01);
+        mutateModSlot(i, amount01, false);
     }
 }
 
 void UI::randomizeCurrentEntity(UIPage page, float amount01) {
     amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("randomize_entity");
     auto applyList = [&](const std::vector<int>& ids) {
         for (int id : ids) {
             randomizeSingleParameter(id, amount01);
@@ -800,7 +821,7 @@ void UI::randomizeCurrentEntity(UIPage page, float amount01) {
             break;
         }
         case UIPage::MOD:
-            randomizeModSlot(modMatrixCursorRow, amount01);
+            randomizeModSlot(modMatrixCursorRow, amount01, false);
             break;
         default:
             randomizeSingleParameter(selectedParameterId, amount01);
@@ -810,6 +831,8 @@ void UI::randomizeCurrentEntity(UIPage page, float amount01) {
 
 void UI::mutateCurrentEntity(UIPage page, float amount01) {
     amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("mutate_entity");
     auto applyList = [&](const std::vector<int>& ids) {
         for (int id : ids) {
             mutateSingleParameter(id, amount01);
@@ -881,7 +904,7 @@ void UI::mutateCurrentEntity(UIPage page, float amount01) {
             break;
         }
         case UIPage::MOD:
-            mutateModSlot(modMatrixCursorRow, amount01);
+            mutateModSlot(modMatrixCursorRow, amount01, false);
             break;
         default:
             mutateSingleParameter(selectedParameterId, amount01);
@@ -889,8 +912,336 @@ void UI::mutateCurrentEntity(UIPage page, float amount01) {
     }
 }
 
+void UI::captureUndoSnapshot(const char* /*reason*/) {
+    if (undoCaptureSuppressed || !params) return;
+    std::string snapshot = serializeState();
+    if (!undoStack.empty() && snapshot == undoStack.back()) {
+        return;
+    }
+    if (undoStack.size() >= kMaxUndoHistory) {
+        undoStack.erase(undoStack.begin());
+    }
+    undoStack.push_back(std::move(snapshot));
+    redoStack.clear();
+}
+
+void UI::resetUndoHistory() {
+    undoStack.clear();
+    redoStack.clear();
+    if (params) {
+        undoStack.push_back(serializeState());
+    }
+}
+
+std::string UI::serializeState() {
+    if (!params) return {};
+
+    std::ostringstream out;
+    out.setf(std::ios::fixed);
+    out << std::setprecision(9);
+
+    int savedOsc = currentOscillatorIndex;
+    int savedSampler = currentSamplerIndex;
+    int savedLFO = currentLFOIndex;
+    int savedEnv = currentEnvelopeIndex;
+    int savedChaos = currentChaosIndex;
+
+    out << "#PARAM_BEGIN\n";
+    for (const auto& paramDef : parameters) {
+        int id = paramDef.id;
+        InlineParameter* param = getParameter(id);
+        if (!param) continue;
+
+        auto emitValue = [&](const char* tag, int idx) {
+            float value = getParameterValue(id);
+            out << "P " << id << ' ' << tag << ' ' << idx << ' ' << value << '\n';
+        };
+
+        if (paramUsesOscIndex(id)) {
+            for (int i = 0; i < 4; ++i) {
+                currentOscillatorIndex = i;
+                emitValue("osc", i);
+            }
+        } else if (paramUsesSamplerIndex(id)) {
+            for (int i = 0; i < 4; ++i) {
+                currentSamplerIndex = i;
+                emitValue("samp", i);
+            }
+        } else if (paramUsesLfoIndex(id)) {
+            for (int i = 0; i < 4; ++i) {
+                currentLFOIndex = i;
+                emitValue("lfo", i);
+            }
+        } else if (paramUsesEnvIndex(id)) {
+            for (int i = 0; i < 4; ++i) {
+                currentEnvelopeIndex = i;
+                emitValue("env", i);
+            }
+        } else if (paramUsesChaosIndex(id)) {
+            for (int i = 0; i < 4; ++i) {
+                currentChaosIndex = i;
+                emitValue("chaos", i);
+            }
+        } else {
+            emitValue("global", -1);
+        }
+    }
+    out << "#PARAM_END\n";
+
+    currentOscillatorIndex = savedOsc;
+    currentSamplerIndex = savedSampler;
+    currentLFOIndex = savedLFO;
+    currentEnvelopeIndex = savedEnv;
+    currentChaosIndex = savedChaos;
+
+    out << "#FM_BEGIN\n";
+    for (int target = 0; target < kFMTargetCount; ++target) {
+        for (int source = 0; source < kFMSourceCount; ++source) {
+            out << "F " << target << ' ' << source << ' ' << params->getFMDepth(target, source) << '\n';
+        }
+    }
+    out << "#FM_END\n";
+
+    out << "#FM_LOCK_BEGIN\n";
+    for (int target = 0; target < kFMTargetCount; ++target) {
+        for (int source = 0; source < kFMSourceCount; ++source) {
+            out << "FL " << target << ' ' << source << ' ' << (fmMatrixLocked[target][source] ? 1 : 0) << '\n';
+        }
+    }
+    out << "#FM_LOCK_END\n";
+
+    out << "#MOD_BEGIN\n";
+    for (int i = 0; i < kModulationSlotCount; ++i) {
+        const ModulationSlot& slot = modulationSlots[i];
+        out << "M " << i << ' '
+            << static_cast<int>(slot.source) << ' '
+            << static_cast<int>(slot.curve) << ' '
+            << static_cast<int>(slot.amount) << ' '
+            << static_cast<int>(slot.destination) << ' '
+            << static_cast<int>(slot.type) << ' '
+            << (modSlotLocked[i] ? 1 : 0) << '\n';
+    }
+    out << "#MOD_END\n";
+
+    out << "#UI_BEGIN\n";
+    out << "selected " << selectedParameterId << '\n';
+    out << "currentOsc " << savedOsc << '\n';
+    out << "currentSampler " << savedSampler << '\n';
+    out << "currentLFO " << savedLFO << '\n';
+    out << "currentEnv " << savedEnv << '\n';
+    out << "currentChaos " << savedChaos << '\n';
+    out << "mainFocusLeft " << (mainPageFocusLeft ? 1 : 0) << '\n';
+    out << "mainMixerChannel " << mainPageMixerChannel << '\n';
+    out << "mainActionIndex " << mainPageActionIndex << '\n';
+    out << "globalRandom " << globalRandomizePercentage << '\n';
+    out << "globalMutate " << globalMutatePercentage << '\n';
+    out << "modCursorRow " << modMatrixCursorRow << '\n';
+    out << "modCursorCol " << modMatrixCursorCol << '\n';
+    out << "#UI_END\n";
+
+    return out.str();
+}
+
+void UI::applySerializedState(const std::string& data) {
+    if (!params) return;
+    bool previous = undoCaptureSuppressed;
+    undoCaptureSuppressed = true;
+
+    std::istringstream stream(data);
+    std::string line;
+    enum class Section { None, Param, FM, FMLock, Mod, UI };
+    Section section = Section::None;
+
+    int savedOsc = currentOscillatorIndex;
+    int savedSampler = currentSamplerIndex;
+    int savedLFO = currentLFOIndex;
+    int savedEnv = currentEnvelopeIndex;
+    int savedChaos = currentChaosIndex;
+
+    while (std::getline(stream, line)) {
+        line = trimWhitespace(line);
+        if (line.empty()) continue;
+        if (line[0] == '#') {
+            if (line == "#PARAM_BEGIN") section = Section::Param;
+            else if (line == "#PARAM_END") section = Section::None;
+            else if (line == "#FM_BEGIN") section = Section::FM;
+            else if (line == "#FM_END") section = Section::None;
+            else if (line == "#FM_LOCK_BEGIN") section = Section::FMLock;
+            else if (line == "#FM_LOCK_END") section = Section::None;
+            else if (line == "#MOD_BEGIN") section = Section::Mod;
+            else if (line == "#MOD_END") section = Section::None;
+            else if (line == "#UI_BEGIN") section = Section::UI;
+            else if (line == "#UI_END") section = Section::None;
+            continue;
+        }
+
+        std::istringstream ls(line);
+        switch (section) {
+            case Section::Param: {
+                char prefix;
+                ls >> prefix;
+                if (prefix != 'P') break;
+                int id;
+                std::string tag;
+                int idx;
+                float value;
+                if (!(ls >> id >> tag >> idx >> value)) break;
+
+                auto applyValue = [&](auto setIndex, int savedIndex) {
+                    setIndex(idx);
+                    setParameterValue(id, value);
+                    setIndex(savedIndex);
+                };
+
+                if (tag == "osc") {
+                    if (idx < 0 || idx >= 4) break;
+                    applyValue([&](int v){ currentOscillatorIndex = v; }, savedOsc);
+                } else if (tag == "samp") {
+                    if (idx < 0 || idx >= 4) break;
+                    applyValue([&](int v){ currentSamplerIndex = v; }, savedSampler);
+                } else if (tag == "lfo") {
+                    if (idx < 0 || idx >= 4) break;
+                    applyValue([&](int v){ currentLFOIndex = v; }, savedLFO);
+                } else if (tag == "env") {
+                    if (idx < 0 || idx >= 4) break;
+                    applyValue([&](int v){ currentEnvelopeIndex = v; }, savedEnv);
+                } else if (tag == "chaos") {
+                    if (idx < 0 || idx >= 4) break;
+                    applyValue([&](int v){ currentChaosIndex = v; }, savedChaos);
+                } else {
+                    setParameterValue(id, value);
+                }
+                break;
+            }
+            case Section::FM: {
+                char prefix;
+                int target, source;
+                float value;
+                if (!(ls >> prefix >> target >> source >> value)) break;
+                if (prefix != 'F') break;
+                if (target >= 0 && target < kFMTargetCount && source >= 0 && source < kFMSourceCount) {
+                    params->setFMDepth(target, source, value);
+                }
+                break;
+            }
+            case Section::FMLock: {
+                char prefix;
+                int target, source, locked;
+                if (!(ls >> prefix >> target >> source >> locked)) break;
+                if (prefix != 'F') break;
+                if (target >= 0 && target < kFMTargetCount && source >= 0 && source < kFMSourceCount) {
+                    fmMatrixLocked[target][source] = (locked != 0);
+                }
+                break;
+            }
+            case Section::Mod: {
+                char prefix;
+                int idx;
+                int source, curve, amount, destination, type, locked;
+                if (!(ls >> prefix >> idx >> source >> curve >> amount >> destination >> type >> locked)) break;
+                if (prefix != 'M') break;
+                if (idx < 0 || idx >= kModulationSlotCount) break;
+                modulationSlots[idx].source = static_cast<int8_t>(source);
+                modulationSlots[idx].curve = static_cast<int8_t>(curve);
+                modulationSlots[idx].amount = static_cast<int8_t>(std::clamp(amount, -99, 99));
+                modulationSlots[idx].destination = static_cast<int16_t>(destination);
+                modulationSlots[idx].type = static_cast<int8_t>(type);
+                modSlotLocked[idx] = (locked != 0);
+                break;
+            }
+            case Section::UI: {
+                std::string key;
+                ls >> key;
+                if (key == "selected") {
+                    ls >> selectedParameterId;
+                } else if (key == "currentOsc") {
+                    ls >> currentOscillatorIndex;
+                } else if (key == "currentSampler") {
+                    ls >> currentSamplerIndex;
+                } else if (key == "currentLFO") {
+                    ls >> currentLFOIndex;
+                } else if (key == "currentEnv") {
+                    ls >> currentEnvelopeIndex;
+                } else if (key == "currentChaos") {
+                    ls >> currentChaosIndex;
+                } else if (key == "mainFocusLeft") {
+                    int flag; ls >> flag; mainPageFocusLeft = (flag != 0);
+                } else if (key == "mainMixerChannel") {
+                    ls >> mainPageMixerChannel;
+                } else if (key == "mainActionIndex") {
+                    ls >> mainPageActionIndex;
+                } else if (key == "globalRandom") {
+                    ls >> globalRandomizePercentage;
+                } else if (key == "globalMutate") {
+                    ls >> globalMutatePercentage;
+                } else if (key == "modCursorRow") {
+                    ls >> modMatrixCursorRow;
+                } else if (key == "modCursorCol") {
+                    ls >> modMatrixCursorCol;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    currentOscillatorIndex = savedOsc;
+    currentSamplerIndex = savedSampler;
+    currentLFOIndex = savedLFO;
+    currentEnvelopeIndex = savedEnv;
+    currentChaosIndex = savedChaos;
+
+    currentOscillatorIndex = std::clamp(currentOscillatorIndex, 0, 3);
+    currentSamplerIndex = std::clamp(currentSamplerIndex, 0, 3);
+    currentLFOIndex = std::clamp(currentLFOIndex, 0, 3);
+    currentEnvelopeIndex = std::clamp(currentEnvelopeIndex, 0, 3);
+    currentChaosIndex = std::clamp(currentChaosIndex, 0, 3);
+    mainPageMixerChannel = std::clamp(mainPageMixerChannel, 0, 11);
+    mainPageActionIndex = std::clamp(mainPageActionIndex, 0, 7);
+    modMatrixCursorRow = std::clamp(modMatrixCursorRow, 0, kModulationSlotCount - 1);
+    modMatrixCursorCol = std::clamp(modMatrixCursorCol, 0, kFMTargetCount - 1);
+
+    if (synth) {
+        synth->refreshSamplerPhaseDrivers();
+    }
+
+    undoCaptureSuppressed = previous;
+}
+
+void UI::undoAction() {
+    if (undoStack.empty()) {
+        return;
+    }
+    if (!params) return;
+    if (redoStack.size() >= kMaxUndoHistory) {
+        redoStack.erase(redoStack.begin());
+    }
+    redoStack.push_back(serializeState());
+    std::string snapshot = undoStack.back();
+    undoStack.pop_back();
+    applySerializedState(snapshot);
+    addConsoleMessage("Undo");
+}
+
+void UI::redoAction() {
+    if (redoStack.empty() || !params) {
+        return;
+    }
+    if (undoStack.size() >= kMaxUndoHistory) {
+        undoStack.erase(undoStack.begin());
+    }
+    undoStack.push_back(serializeState());
+    std::string snapshot = redoStack.back();
+    redoStack.pop_back();
+    applySerializedState(snapshot);
+    addConsoleMessage("Redo");
+}
+
 void UI::mutateAllParameters(float amount01) {
     amount01 = std::max(0.0f, std::min(1.0f, amount01));
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("mutate_all");
     auto ids = getRandomizableParameterIds();
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -989,6 +1340,7 @@ void UI::mutateAllParameters(float amount01) {
 }
 
 void UI::resetAllParametersToNeutral() {
+    captureUndoSnapshot("reset_all");
     auto ids = getRandomizableParameterIds();
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -1051,6 +1403,8 @@ void UI::resetAllParametersToNeutral() {
 // Per-page helpers reuse the same logic as global ops, but filter to IDs on a page
 void UI::randomizePageParameters(UIPage page, float amount01) {
     amount01 = std::clamp(amount01, 0.0f, 1.0f);
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("randomize_page");
     auto ids = getParameterIdsForPage(page);
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -1110,6 +1464,8 @@ void UI::randomizePageParameters(UIPage page, float amount01) {
 
 void UI::mutatePageParameters(UIPage page, float amount01) {
     amount01 = std::max(0.0f, std::min(1.0f, amount01));
+    if (amount01 <= 0.0f) return;
+    captureUndoSnapshot("mutate_page");
     auto ids = getParameterIdsForPage(page);
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -1147,6 +1503,7 @@ void UI::mutatePageParameters(UIPage page, float amount01) {
 }
 
 void UI::resetPageParameters(UIPage page) {
+    captureUndoSnapshot("reset_page");
     auto ids = getParameterIdsForPage(page);
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
@@ -1396,6 +1753,7 @@ void UI::setParameterValue(int id, float value) {
 void UI::adjustParameter(int id, bool increase, bool fine) {
     InlineParameter* param = getParameter(id);
     if (!param) return;
+    captureUndoSnapshot("adjust_parameter");
 
     float currentValue = getParameterValue(id);
     float newValue = currentValue;
@@ -1565,6 +1923,7 @@ void UI::finishNumericInput() {
         try {
             float value = std::stof(numericInputBuffer);
             value = std::max(param->min_val, std::min(param->max_val, value));
+            captureUndoSnapshot("numeric_input");
             setParameterValue(selectedParameterId, value);
         } catch (...) {
             // Invalid input, ignore

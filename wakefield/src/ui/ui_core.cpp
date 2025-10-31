@@ -114,6 +114,8 @@ UI::UI(Synth* synth, SynthParameters* params)
         modulationSlots[4 + i].type = 1;         // Bidirectional (gives full 0-1 range)
     }
 
+    resetUndoHistory();
+
 }
 
 UI::~UI() {

@@ -1181,6 +1181,8 @@ private:
     void handleSequencerScaleMenuInput(int ch);
     void finishSequencerScaleMenu(bool applySelection);
     void ensureSequencerSelectionInRange();
+    void undoAction();
+    void redoAction();
 
     // MOD matrix menu helpers
     void startModMatrixMenu();
@@ -1208,6 +1210,15 @@ private:
     void startMidiLearn(int id);
     void finishMidiLearn();
     bool isParameterModulated(int id);  // Check if parameter has active modulation
+    void captureUndoSnapshot(const char* reason = nullptr);
+    void resetUndoHistory();
+    std::string serializeState();
+    void applySerializedState(const std::string& data);
+
+    std::vector<std::string> undoStack;
+    std::vector<std::string> redoStack;
+    bool undoCaptureSuppressed = false;
+    static constexpr size_t kMaxUndoHistory = 64;
 
     // Global parameter operations (respect randomizable whitelist)
     void randomizeAllParameters(float amount01);
@@ -1222,8 +1233,8 @@ private:
     void mutateSingleParameter(int id, float amount01);
     void randomizeCurrentEntity(UIPage page, float amount01);
     void mutateCurrentEntity(UIPage page, float amount01);
-    void randomizeModSlot(int slotIndex, float amount01);
-    void mutateModSlot(int slotIndex, float amount01);
+    void randomizeModSlot(int slotIndex, float amount01, bool capture = true);
+    void mutateModSlot(int slotIndex, float amount01, bool capture = true);
     void randomizeAllModSlots(float amount01);
     void mutateAllModSlots(float amount01);
 
