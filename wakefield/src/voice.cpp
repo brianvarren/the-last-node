@@ -112,13 +112,12 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    // Phase 2: Mix all oscillators with per-source normalization
+    // Phase 2: Mix all oscillators (calculate gains first, normalize with samplers later)
     // Amp is the modulation target, Level is the static mixer
     float mixedSample = 0.0f;
 
-    // First pass: calculate final gains and count active oscillators
+    // First pass: calculate oscillator final gains
     float oscFinalGains[OSCILLATORS_PER_VOICE];
-    int activeOscCount = 0;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Get base amp and level from synth (control-rate)
         float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
@@ -147,17 +146,6 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
 
         oscFinalGains[i] = finalGain;
-        if (finalGain > 0.0f) {
-            activeOscCount++;
-        }
-    }
-
-    // Calculate oscillator normalization factor
-    float oscNormalization = (activeOscCount > 0) ? (1.0f / activeOscCount) : 1.0f;
-
-    // Second pass: mix with normalization
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        mixedSample += currentOutputs[i] * oscFinalGains[i] * oscNormalization;
     }
 
     // Determine FM input for each sampler using previous outputs (1-sample delay)
@@ -199,10 +187,9 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    // Phase 2: Process all samplers and mix with per-source normalization
+    // Phase 2: Process all samplers (will normalize with oscillators combined)
     float currentSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f};
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
-    int activeSamplerCount = 0;
 
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         if (!samplers[i].isKeyMode()) {
@@ -241,17 +228,29 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
 
         samplerFinalOutputs[i] = samplerOut;
-        if (samplerOut != 0.0f) {
-            activeSamplerCount++;
-        }
     }
 
-    // Calculate sampler normalization factor
-    float samplerNormalization = (activeSamplerCount > 0) ? (1.0f / activeSamplerCount) : 1.0f;
-
-    // Mix samplers with normalization
+    // Phase 2 FIX: Normalize ALL sources together (oscillators + samplers)
+    // Count total active sources with non-zero output
+    int totalActiveSources = 0;
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (oscFinalGains[i] > 0.0f) totalActiveSources++;
+    }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        mixedSample += samplerFinalOutputs[i] * samplerNormalization;
+        if (samplerFinalOutputs[i] != 0.0f) totalActiveSources++;
+    }
+
+    // Normalize by total source count to prevent voice from exceeding 1.0
+    float sourceNormalization = (totalActiveSources > 0) ? (1.0f / totalActiveSources) : 1.0f;
+
+    // Mix oscillators with combined normalization
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        mixedSample += currentOutputs[i] * oscFinalGains[i] * sourceNormalization;
+    }
+
+    // Mix samplers with combined normalization
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        mixedSample += samplerFinalOutputs[i] * sourceNormalization;
     }
 
     // Cache outputs for next sample's FM routing

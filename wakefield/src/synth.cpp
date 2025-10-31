@@ -6,7 +6,7 @@
 
 Synth::Synth(float sampleRate)
     : sampleRate(sampleRate)
-    , masterVolume(0.5f)
+    , masterVolume(0.7f)  // Increased from 0.5 due to conservative normalization
     , reverbEnabled(false)
     , filterEnabled(false)
     , currentFilterType(0)
@@ -444,11 +444,12 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         }
     }
 
-    // Calculate voice gain using sqrt normalization (maintains "fullness" better than linear)
-    // sqrt(N) normalization: gentle reduction as voices increase
-    // 1 voice: 1.0x, 2 voices: 0.707x, 4 voices: 0.5x, 8 voices: 0.354x
+    // Calculate voice gain using linear normalization (most conservative, prevents clipping)
+    // Linear 1/N normalization: aggressive reduction ensures no clipping
+    // 1 voice: 1.0x, 2 voices: 0.5x, 4 voices: 0.25x, 8 voices: 0.125x
+    // Combined with per-source normalization in voices, this prevents summing clipping
     float targetVoiceGain = (activeVoiceCount > 0)
-        ? (1.0f / std::sqrt(static_cast<float>(activeVoiceCount)))
+        ? (1.0f / static_cast<float>(activeVoiceCount))
         : 1.0f;
 
     // Smooth gain changes to prevent volume jumps (20ms time constant at 48kHz)
