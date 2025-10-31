@@ -69,7 +69,8 @@ UI::UI(Synth* synth, SynthParameters* params)
     , presetBrowserSelectedIndex(0)
     , presetBrowserScrollOffset(0)
     , midiKeyboardMode(false)
-    , midiKeyboardOctave(4) {
+    , midiKeyboardOctave(4)
+    , hasOriginalTermios(false) {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {
@@ -122,15 +123,35 @@ UI::~UI() {
     if (initialized) {
         endwin();
     }
+    if (hasOriginalTermios) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios);
+    }
 }
 
 bool UI::initialize() {
+    if (!hasOriginalTermios) {
+        if (tcgetattr(STDIN_FILENO, &originalTermios) == 0) {
+            hasOriginalTermios = true;
+        } else {
+            originalTermios = {};
+        }
+    }
+
     initscr();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
     curs_set(0);
+
+    struct termios modifiedTermios;
+    if (tcgetattr(STDIN_FILENO, &modifiedTermios) == 0) {
+        modifiedTermios.c_cc[VSUSP] = _POSIX_VDISABLE;
+#ifdef VDSUSP
+        modifiedTermios.c_cc[VDSUSP] = _POSIX_VDISABLE;
+#endif
+        tcsetattr(STDIN_FILENO, TCSANOW, &modifiedTermios);
+    }
 
     // Initialize global theme system
     if (!globalTheme) {

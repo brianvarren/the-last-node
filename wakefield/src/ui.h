@@ -9,6 +9,8 @@
 #include <atomic>
 #include <vector>
 #include <functional>
+#include <termios.h>
+#include <unistd.h>
 #include "fm_constants.h"
 #include "oscillator.h"
 #include "cpu_monitor.h"
@@ -1319,6 +1321,8 @@ private:
     int modMatrixDestinationModuleIndex;
     int modMatrixDestinationParamIndex;
     int modMatrixDestinationFocusColumn;
+    struct termios originalTermios{};
+    bool hasOriginalTermios;
 
     // Sample browser state
     bool sampleBrowserActive;
