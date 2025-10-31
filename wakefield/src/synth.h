@@ -343,9 +343,6 @@ public:
 
     bool freeRunningVoiceActive = false;
     int freeRunningVoiceIndex = -1;
-
-    // Voice gain normalization state (Phase 1)
-    float previousVoiceGain = 1.0f;
 };
 
 #endif // SYNTH_H

@@ -452,13 +452,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         ? (1.0f / static_cast<float>(activeVoiceCount))
         : 1.0f;
 
-    // Smooth gain changes to prevent volume jumps (20ms time constant at 48kHz)
-    // Coefficient = 1 - exp(-1 / (timeConstant * sampleRate))
-    // For 20ms at 48kHz: coefficient ≈ 0.001
-    float smoothingCoeff = 0.001f * static_cast<float>(nFrames);  // Scale by buffer size
-    smoothingCoeff = std::min(smoothingCoeff, 1.0f);  // Clamp to prevent overshoot
-    float voiceGain = previousVoiceGain + smoothingCoeff * (targetVoiceGain - previousVoiceGain);
-    previousVoiceGain = voiceGain;
+    // Apply gain immediately without smoothing to prevent clipping during voice attacks
+    // Smoothing caused brief clipping when multiple voices triggered simultaneously
+    float voiceGain = targetVoiceGain;
 
     // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
     for (int v = 0; v < MAX_VOICES; ++v) {
@@ -566,8 +562,19 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             }
 
             // Write to UI oscilloscope buffer if this is the first active voice
+            // Show unity-gain oscillator output (first active oscillator, raw)
             if (v == 0 && ui) {
-                ui->writeToWaveformBuffer(sample);
+                // Get raw oscillator output at unity gain for display
+                const float* oscOutputs = voices[v].getLastOscOutputs();
+                // Find first non-zero oscillator for display
+                float displaySample = 0.0f;
+                for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
+                    if (oscOutputs[o] != 0.0f) {
+                        displaySample = oscOutputs[o];
+                        break;
+                    }
+                }
+                ui->writeToWaveformBuffer(displaySample);
             }
 
             // Mix into all channels with master volume
@@ -703,8 +710,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
     // Phase 3: Apply soft clipping to prevent hard digital clipping
     // Process after all mixing (voices + samplers + chaos) but before filter/reverb
+    // Lowered threshold from 0.9 to 0.7 to catch peaks earlier
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
-        output[i] = softClip(output[i], 0.9f);
+        output[i] = softClip(output[i], 0.7f);
     }
 
     // Apply filter if enabled (stereo processing)
