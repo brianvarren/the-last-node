@@ -121,6 +121,7 @@ UI::UI(Synth* synth, SynthParameters* params)
 
 UI::~UI() {
     if (initialized) {
+        noraw();
         endwin();
     }
     if (hasOriginalTermios) {
@@ -138,7 +139,7 @@ bool UI::initialize() {
     }
 
     initscr();
-    cbreak();
+    raw();
     noecho();
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
@@ -183,6 +184,9 @@ bool UI::update() {
 
     // Process only the most recent key if any were detected
     if (lastValidKey != ERR) {
+        if (lastValidKey == 3) {  // Ctrl+C exits cleanly in raw mode
+            return false;
+        }
         handleInput(lastValidKey);
 
         if (lastValidKey == 'q' || lastValidKey == 'Q') {
