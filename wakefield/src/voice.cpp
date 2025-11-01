@@ -71,6 +71,7 @@ float Voice::generateSample(unsigned int frameIndex) {
                 }
             }
             // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
+#if 0  // TEMP: disable chaos FM routing while investigating crackling (commit 495fdff)
             for (int source = 0; source < kFMChaosSourceCount; ++source) {
                 int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
                 float depth = getModulatedDepth(target, sourceIndex);
@@ -82,6 +83,7 @@ float Voice::generateSample(unsigned int frameIndex) {
                     totalFM += chaosOutput * (depth * 100.0f);
                 }
             }
+#endif
             fmInputs[target] = totalFM * globalDepth;
         }
     }
@@ -190,6 +192,7 @@ float Voice::generateSample(unsigned int frameIndex) {
                 }
             }
             // Chaos sources (8-15)
+#if 0  // TEMP: disable chaos FM routing while investigating crackling (commit 495fdff)
             for (int source = 0; source < kFMChaosSourceCount; ++source) {
                 int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
                 float depth = getModulatedDepth(targetIndex, sourceIndex);
@@ -201,6 +204,7 @@ float Voice::generateSample(unsigned int frameIndex) {
                     totalFM += chaosOutput * (depth * 100.0f);
                 }
             }
+#endif
             samplerFMInputs[target] = totalFM * globalDepth;
         }
     }
