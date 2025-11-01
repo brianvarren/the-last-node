@@ -435,26 +435,11 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     refreshSamplerPhaseDrivers();
     float masterGain = std::clamp(masterVolume + lastGlobalModOutputs.mixerMasterVolume, 0.0f, 1.0f);
 
-    // Phase 1: Dynamic voice normalization
-    // Count active voices for dynamic gain compensation
-    int activeVoiceCount = 0;
-    for (int v = 0; v < MAX_VOICES; ++v) {
-        if (voices[v].active) {
-            activeVoiceCount++;
-        }
-    }
-
-    // Calculate voice gain using linear normalization (most conservative, prevents clipping)
-    // Linear 1/N normalization: aggressive reduction ensures no clipping
-    // 1 voice: 1.0x, 2 voices: 0.5x, 4 voices: 0.25x, 8 voices: 0.125x
-    // Combined with per-source normalization in voices, this prevents summing clipping
-    float targetVoiceGain = (activeVoiceCount > 0)
-        ? (1.0f / static_cast<float>(activeVoiceCount))
-        : 1.0f;
-
-    // Apply gain immediately without smoothing to prevent clipping during voice attacks
-    // Smoothing caused brief clipping when multiple voices triggered simultaneously
-    float voiceGain = targetVoiceGain;
+    // Voice gain compensation
+    // Each voice is internally normalized, but we still need some scaling
+    // to prevent clipping when all 8 voices play simultaneously
+    // Using static 0.5x like original code since voices are now self-normalized
+    float voiceGain = 0.5f;
 
     // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
     for (int v = 0; v < MAX_VOICES; ++v) {
@@ -708,15 +693,15 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         }
     }
 
-    // Phase 3: Apply soft clipping and NaN/Inf sanitization
+    // Apply soft clipping and NaN/Inf sanitization as safety net
     // Process after all mixing (voices + samplers + chaos) but before filter/reverb
-    // Lowered threshold from 0.9 to 0.7 to catch peaks earlier
+    // Threshold at 0.95 - should rarely engage with proper normalization
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
         // Sanitize before soft clipping
         if (!std::isfinite(output[i])) {
             output[i] = 0.0f;
         }
-        output[i] = softClip(output[i], 0.7f);
+        output[i] = softClip(output[i], 0.95f);
     }
 
     // Apply filter if enabled (stereo processing)

@@ -116,12 +116,11 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    // Phase 2: Mix all oscillators (calculate gains first, normalize with samplers later)
+    // Mix all oscillators with normalization by active count
     // Amp is the modulation target, Level is the static mixer
     float mixedSample = 0.0f;
+    int activeOscCount = 0;
 
-    // First pass: calculate oscillator final gains
-    float oscFinalGains[OSCILLATORS_PER_VOICE];
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Get base amp and level from synth (control-rate)
         float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
@@ -149,7 +148,22 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
 
-        oscFinalGains[i] = finalGain;
+        // Sanitize oscillator output
+        if (!std::isfinite(currentOutputs[i])) {
+            currentOutputs[i] = 0.0f;
+        }
+
+        // Count active oscillators and sum
+        if (finalGain > 0.0f) {
+            activeOscCount++;
+            mixedSample += currentOutputs[i] * finalGain;
+        }
+    }
+
+    // Normalize oscillators by their count (not by weight)
+    // This preserves level control while preventing clipping
+    if (activeOscCount > 1) {
+        mixedSample /= activeOscCount;
     }
 
     // Determine FM input for each sampler using previous outputs (1-sample delay)
@@ -191,14 +205,14 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    // Phase 2: Process all samplers (will normalize with oscillators combined)
+    // Process all samplers with normalization by active count
     float currentSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f};
-    float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
+    float samplerMixedSample = 0.0f;
+    int activeSamplerCount = 0;
 
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         if (!samplers[i].isKeyMode()) {
             currentSamplerOutputs[i] = 0.0f;
-            samplerFinalOutputs[i] = 0.0f;
             continue;
         }
 
@@ -235,37 +249,22 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
 
-        samplerFinalOutputs[i] = samplerOut;
-    }
-
-    // Phase 2 FIX: Normalize ALL sources together (oscillators + samplers)
-    // Count total active sources with non-zero, finite output
-    int totalActiveSources = 0;
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        if (oscFinalGains[i] > 0.0f && std::isfinite(currentOutputs[i])) {
-            totalActiveSources++;
-        }
-    }
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        if (samplerFinalOutputs[i] != 0.0f && std::isfinite(samplerFinalOutputs[i])) {
-            totalActiveSources++;
+        // Count active samplers and sum
+        if (samplerOut != 0.0f) {
+            activeSamplerCount++;
+            samplerMixedSample += samplerOut;
         }
     }
 
-    // Normalize by total source count to prevent voice from exceeding 1.0
-    float sourceNormalization = (totalActiveSources > 0) ? (1.0f / totalActiveSources) : 1.0f;
-
-    // Mix oscillators with combined normalization
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        mixedSample += currentOutputs[i] * oscFinalGains[i] * sourceNormalization;
+    // Normalize samplers by their count (not by weight)
+    if (activeSamplerCount > 1) {
+        samplerMixedSample /= activeSamplerCount;
     }
 
-    // Mix samplers with combined normalization
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        mixedSample += samplerFinalOutputs[i] * sourceNormalization;
-    }
+    // Add samplers to oscillator mix
+    mixedSample += samplerMixedSample;
 
-    // Sanitize output to prevent NaN/Inf from propagating
+    // Sanitize final output to prevent NaN/Inf from propagating
     if (!std::isfinite(mixedSample)) {
         mixedSample = 0.0f;
     }
