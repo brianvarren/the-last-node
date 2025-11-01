@@ -54,6 +54,16 @@ float Voice::generateSample() {
                     totalFM += lastSamplerOutputs[source] * (fmDepth * 100.0f);
                 }
             }
+            for (int source = 0; source < 8; ++source) {
+                float fmDepth = params->getFMDepth(target, 8 + source);
+                if (fmDepth != 0.0f) {
+                    int chaosIndex = source / 2;
+                    bool isY = (source % 2) == 1;
+                    float chaosOutput = isY ? synth->getChaosOutputY(chaosIndex)
+                                            : synth->getChaosOutput(chaosIndex);
+                    totalFM += chaosOutput * (fmDepth * 100.0f);
+                }
+            }
             fmInputs[target] = totalFM;
         }
     }
