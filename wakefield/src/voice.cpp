@@ -176,6 +176,7 @@ float Voice::generateSample(unsigned int frameIndex) {
                 }
             }
             // Chaos sources (8-15)
+#if 0  // TEMP: disable sampler chaos FM routing while investigating multi-voice crackle (commit 495fdff)
             for (int source = 0; source < kFMChaosSourceCount; ++source) {
                 int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
                 float depth = getModulatedDepth(targetIndex, sourceIndex);
@@ -187,6 +188,7 @@ float Voice::generateSample(unsigned int frameIndex) {
                     totalFM += chaosOutput * (depth * 100.0f);
                 }
             }
+#endif
             samplerFMInputs[target] = totalFM * globalDepth;
         }
     }
