@@ -70,18 +70,16 @@ float Voice::generateSample(unsigned int frameIndex) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
                 }
             }
-            // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
-            for (int source = 0; source < kFMChaosSourceCount; ++source) {
-                int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
-                float depth = getModulatedDepth(target, sourceIndex);
-                if (depth != 0.0f) {
-                    int chaosIndex = source / 2;  // 0,1->0, 2,3->1, 4,5->2, 6,7->3
-                    bool isY = (source % 2) == 1;  // Odd indices are Y
-                    float chaosOutput = isY ? synth->getChaosOutputYAtFrame(chaosIndex, frameIndex)
-                                            : synth->getChaosOutputAtFrame(chaosIndex, frameIndex);
-                    totalFM += chaosOutput * (depth * 100.0f);
-                }
-            }
+    // Chaos sources (8-11): C1X, C2X, C3X, C4X
+    for (int source = 0; source < kFMChaosSourceCount; ++source) {
+        int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
+        float depth = getModulatedDepth(target, sourceIndex);
+        if (depth != 0.0f) {
+            int chaosIndex = source;
+            float chaosOutput = synth->getChaosOutputAtFrame(chaosIndex, frameIndex);
+            totalFM += chaosOutput * (depth * 100.0f);
+        }
+    }
             fmInputs[target] = totalFM * globalDepth;
         }
     }
@@ -181,10 +179,8 @@ float Voice::generateSample(unsigned int frameIndex) {
                 int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
                 float depth = getModulatedDepth(targetIndex, sourceIndex);
                 if (depth != 0.0f) {
-                    int chaosIndex = source / 2;
-                    bool isY = (source % 2) == 1;
-                    float chaosOutput = isY ? synth->getChaosOutputY(chaosIndex)
-                                            : synth->getChaosOutput(chaosIndex);
+                    int chaosIndex = source;
+                    float chaosOutput = synth->getChaosOutput(chaosIndex);
                     totalFM += chaosOutput * (depth * 100.0f);
                 }
             }

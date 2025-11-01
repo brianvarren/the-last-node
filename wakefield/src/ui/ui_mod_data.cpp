@@ -18,10 +18,10 @@ const std::vector<ModOption>& buildSources() {
         {"ENV 1", "ENV1"}, {"ENV 2", "ENV2"}, {"ENV 3", "ENV3"}, {"ENV 4", "ENV4"},
         {"MIDI Note", "Note"}, {"Velocity", "Vel"}, {"Aftertouch", "AT"}, {"Mod Wheel", "MW"}, {"Pitch Bend", "PB"},
         {"Clock", "Clk"},
-        {"Chaos 1 X", "C1X"}, {"Chaos 1 Y", "C1Y"},
-        {"Chaos 2 X", "C2X"}, {"Chaos 2 Y", "C2Y"},
-        {"Chaos 3 X", "C3X"}, {"Chaos 3 Y", "C3Y"},
-        {"Chaos 4 X", "C4X"}, {"Chaos 4 Y", "C4Y"}
+        {"Chaos 1 X", "C1X"},
+        {"Chaos 2 X", "C2X"},
+        {"Chaos 3 X", "C3X"},
+        {"Chaos 4 X", "C4X"}
     };
     return sources;
 }
@@ -58,8 +58,7 @@ const std::vector<ModOption>& buildFMOptions() {
     constexpr const char* sourceNames[kFMSourceCount] = {
         "OSC1", "OSC2", "OSC3", "OSC4",
         "SMP1", "SMP2", "SMP3", "SMP4",
-        "C1X",  "C1Y",  "C2X",  "C2Y",
-        "C3X",  "C3Y",  "C4X",  "C4Y"
+        "C1X",  "C2X",  "C3X",  "C4X"
     };
 
     const size_t cellCount = static_cast<size_t>(kFMTargetCount) * kFMSourceCount;

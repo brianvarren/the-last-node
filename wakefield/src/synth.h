@@ -17,6 +17,14 @@ class UI; // Forward declaration
 struct SynthParameters;  // Forward declaration
 class Clock; // Forward declaration
 
+struct ChaosFrame {
+    float x = 0.0f;
+    float y = 0.0f;
+    float xDiff = 0.0f;
+    float yDiff = 0.0f;
+    bool valid = false;
+};
+
 constexpr int MAX_VOICES = 8;
 // Note: OSCILLATORS_PER_VOICE and SAMPLERS_PER_VOICE are defined in voice.h
 
@@ -252,12 +260,10 @@ private:
     ChaosGenerator chaos[4];
     float chaosOutputs[4] = {0.0f, 0.0f, 0.0f, 0.0f};  // Cached chaos outputs
     // Per-buffer chaos output traces for audio mixing (filled by processChaos)
-    std::vector<float> chaosBufferX[4];
-    std::vector<float> chaosBufferY[4];
+    std::vector<ChaosFrame> chaosFrameBuffer[4];
     // Diff mode and last-sample state for whitening
     bool chaosDiffMode = false;
-    float chaosLastX[4] = {0.0f,0.0f,0.0f,0.0f};
-    float chaosLastY[4] = {0.0f,0.0f,0.0f,0.0f};
+    ChaosFrame chaosLastFrame[4];
 
 public:
     void setChaosDiffMode(bool enabled) { chaosDiffMode = enabled; }

@@ -678,32 +678,23 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                 float level = params->getChaosLevel(c);
                 // Apply modulation to level
                 float modulatedLevel = std::clamp(level + lastGlobalModOutputs.chaosLevel[c], 0.0f, 1.0f);
-                // Use per-frame chaos traces if available (populated by processChaos)
-                float x = (i < chaosBufferX[c].size()) ? chaosBufferX[c][i] : chaosOutputs[c];
-                float y = (i < chaosBufferY[c].size()) ? chaosBufferY[c][i] : chaos[c].getY();
-                if (chaosDiffMode) {
-                    float prevX = (i > 0 && i-1 < chaosBufferX[c].size()) ? chaosBufferX[c][i-1] : chaosLastX[c];
-                    float prevY = (i > 0 && i-1 < chaosBufferY[c].size()) ? chaosBufferY[c][i-1] : chaosLastY[c];
-                    x -= prevX;
-                    y -= prevY;
-                }
-                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + c * 2] = x;
-                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + c * 2 + 1] = y;
-                chaosL += x * modulatedLevel;
-                chaosR += y * modulatedLevel;
+
+                const auto& frames = chaosFrameBuffer[c];
+                const ChaosFrame* frame = (i < frames.size() && frames[i].valid) ? &frames[i] : nullptr;
+                float xSample = frame ? frame->x : chaosOutputs[c];
+                float ySample = frame ? frame->y : getChaosOutputY(c);
+                float xContribution = chaosDiffMode ? (frame ? frame->xDiff : 0.0f) : xSample;
+                float yContribution = chaosDiffMode ? (frame ? frame->yDiff : 0.0f) : ySample;
+
+                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + c] = xContribution;
+                chaosL += xContribution * modulatedLevel;
+                chaosR += yContribution * modulatedLevel;
             }
             if (chaosL != 0.0f || chaosR != 0.0f) {
                 output[i * nChannels + 0] += chaosL * voiceGain * masterGain;
                 if (nChannels > 1) {
                     output[i * nChannels + 1] += chaosR * voiceGain * masterGain;
                 }
-            }
-        }
-        // Update last-sample state for diff mode
-        if (chaosDiffMode) {
-            for (int c = 0; c < 4; ++c) {
-                if (!chaosBufferX[c].empty()) chaosLastX[c] = chaosBufferX[c].back();
-                if (!chaosBufferY[c].empty()) chaosLastY[c] = chaosBufferY[c].back();
             }
         }
     }
@@ -865,6 +856,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             output[i * 2 + 1] = rightChannel[i];
         }
     }
+
+    fmSourceBufferPrev = fmSourceBuffer;
 }
 
 void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, int shape, float morph,
@@ -937,15 +930,13 @@ void Synth::processChaos(unsigned int nFrames) {
     // Process all 4 chaos generators per sample and populate buffers
     size_t prevFrameCount = fmSourceBufferPrev.size() / kFMSourceCount;
     for (int i = 0; i < 4; ++i) {
-        bool running = params ? params->getChaosRunning(i) : true;
-        if (running) {
-            // Clear and reserve space for per-sample values
-            chaosBufferX[i].clear();
-            chaosBufferY[i].clear();
-            chaosBufferX[i].reserve(nFrames);
-            chaosBufferY[i].reserve(nFrames);
+        auto& frames = chaosFrameBuffer[i];
+        frames.resize(nFrames);
 
-            // Generate per-sample chaos values
+        bool running = params ? params->getChaosRunning(i) : true;
+        ChaosFrame prevFrame = chaosLastFrame[i];
+
+        if (running) {
             for (unsigned int frame = 0; frame < nFrames; ++frame) {
                 float sampleClock = baseClockFreqs[i];
                 if (frame < prevFrameCount && params) {
@@ -962,36 +953,55 @@ void Synth::processChaos(unsigned int nFrames) {
                     float fmOctaves = std::clamp(totalFM * 0.01f, -4.0f, 4.0f);
                     sampleClock = std::clamp(baseClockFreqs[i] * std::pow(2.0f, fmOctaves), 0.00001f, 20000.0f);
                 }
+
                 chaos[i].setClockFrequency(sampleClock);
-                chaosBufferX[i].push_back(chaos[i].process());
-                chaosBufferY[i].push_back(chaos[i].getY());
+                float x = chaos[i].process();
+                float y = chaos[i].getY();
+
+                float xDiff = prevFrame.valid ? (x - prevFrame.x) : 0.0f;
+                float yDiff = prevFrame.valid ? (y - prevFrame.y) : 0.0f;
+
+                ChaosFrame current;
+                current.x = x;
+                current.y = y;
+                current.xDiff = xDiff;
+                current.yDiff = yDiff;
+                current.valid = true;
+
+                frames[frame] = current;
+                prevFrame = current;
             }
 
-            // Update cached output (last sample)
-            chaosOutputs[i] = chaosBufferX[i].back();
+            if (!frames.empty()) {
+                chaosOutputs[i] = frames.back().x;
+                chaosLastFrame[i] = frames.back();
+            } else {
+                chaosLastFrame[i] = prevFrame;
+                chaosOutputs[i] = prevFrame.x;
+            }
         } else {
-            // If not running, clear buffers so fallback to chaosOutputs is used
-            chaosBufferX[i].clear();
-            chaosBufferY[i].clear();
+            frames.assign(nFrames, ChaosFrame{});
+            chaosOutputs[i] = 0.0f;
+            chaosLastFrame[i] = ChaosFrame{};
             for (unsigned int frame = 0; frame < nFrames; ++frame) {
                 float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(frame) * kFMSourceCount;
-                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + i * 2] = 0.0f;
-                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + i * 2 + 1] = 0.0f;
+                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + i] = 0.0f;
             }
         }
+
         chaos[i].setClockFrequency(baseClockFreqs[i]);
     }
 
     // Update visual state for UI (once per buffer, using last frame's values)
     if (params) {
         params->chaos1VisualX.store(chaosOutputs[0]);
-        params->chaos1VisualY.store(chaos[0].getY());
+        params->chaos1VisualY.store(chaosLastFrame[0].valid ? chaosLastFrame[0].y : chaos[0].getY());
         params->chaos2VisualX.store(chaosOutputs[1]);
-        params->chaos2VisualY.store(chaos[1].getY());
+        params->chaos2VisualY.store(chaosLastFrame[1].valid ? chaosLastFrame[1].y : chaos[1].getY());
         params->chaos3VisualX.store(chaosOutputs[2]);
-        params->chaos3VisualY.store(chaos[2].getY());
+        params->chaos3VisualY.store(chaosLastFrame[2].valid ? chaosLastFrame[2].y : chaos[2].getY());
         params->chaos4VisualX.store(chaosOutputs[3]);
-        params->chaos4VisualY.store(chaos[3].getY());
+        params->chaos4VisualY.store(chaosLastFrame[3].valid ? chaosLastFrame[3].y : chaos[3].getY());
     }
 }
 
@@ -1007,14 +1017,21 @@ float Synth::getChaosOutput(int chaosIndex) const {
 
 float Synth::getChaosOutputY(int chaosIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    const ChaosFrame& last = chaosLastFrame[chaosIndex];
+    if (last.valid) {
+        return last.y;
+    }
     return chaos[chaosIndex].getY();
 }
 
 float Synth::getChaosOutputAtFrame(int chaosIndex, unsigned int frameIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
     // Use per-sample value from buffer if available, otherwise fall back to cached value
-    if (frameIndex < chaosBufferX[chaosIndex].size()) {
-        return chaosBufferX[chaosIndex][frameIndex];
+    if (frameIndex < chaosFrameBuffer[chaosIndex].size()) {
+        const ChaosFrame& frame = chaosFrameBuffer[chaosIndex][frameIndex];
+        if (frame.valid) {
+            return frame.x;
+        }
     }
     return chaosOutputs[chaosIndex];
 }
@@ -1022,10 +1039,13 @@ float Synth::getChaosOutputAtFrame(int chaosIndex, unsigned int frameIndex) cons
 float Synth::getChaosOutputYAtFrame(int chaosIndex, unsigned int frameIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
     // Use per-sample value from buffer if available, otherwise fall back to cached value
-    if (frameIndex < chaosBufferY[chaosIndex].size()) {
-        return chaosBufferY[chaosIndex][frameIndex];
+    if (frameIndex < chaosFrameBuffer[chaosIndex].size()) {
+        const ChaosFrame& frame = chaosFrameBuffer[chaosIndex][frameIndex];
+        if (frame.valid) {
+            return frame.y;
+        }
     }
-    return chaos[chaosIndex].getY();
+    return getChaosOutputY(chaosIndex);
 }
 
 const ModulationSlot* Synth::getModulationSlot(int index) const {
@@ -1067,7 +1087,7 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     // 4-7: ENV 1-4
     // 8: MIDI Note, 9: Velocity, 10: Aftertouch, 11: Mod Wheel, 12: Pitch Bend
     // 13: Clock
-    // 14-21: Chaos 1-4 X/Y pairs (14=C1X, 15=C1Y, 16=C2X, 17=C2Y, etc.)
+    // 14-17: Chaos 1-4 X outputs (14=C1X, 15=C2X, etc.)
 
     if (sourceIndex >= 0 && sourceIndex <= 3) {
         // LFO 1-4
@@ -1134,15 +1154,10 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
             return phase * 2.0f - 1.0f;
         }
         return -1.0f;
-    } else if (sourceIndex >= 14 && sourceIndex <= 21) {
-        // Chaos 1-4 X/Y pairs
-        int chaosIndex = (sourceIndex - 14) / 2;  // 14,15->0, 16,17->1, 18,19->2, 20,21->3
-        bool isY = ((sourceIndex - 14) % 2) == 1;  // Odd indices are Y
-        if (isY) {
-            return getChaosOutputY(chaosIndex);
-        } else {
-            return getChaosOutput(chaosIndex);
-        }
+    } else if (sourceIndex >= 14 && sourceIndex < 14 + kFMChaosSourceCount) {
+        // Chaos 1-4 X outputs
+        int chaosIndex = sourceIndex - 14;
+        return getChaosOutput(chaosIndex);
     }
 
     return 0.0f;
