@@ -933,6 +933,7 @@ void Synth::processChaos(unsigned int nFrames) {
             // Generate per-sample chaos values
             for (unsigned int frame = 0; frame < nFrames; ++frame) {
                 float sampleClock = baseClockFreqs[i];
+                #if 0  // TEMP: disable chaos clock FM routing while investigating crackling (commit 495fdff)
                 if (frame < prevFrameCount && params) {
                     const float* frameSources = fmSourceBufferPrev.data() + static_cast<size_t>(frame) * kFMSourceCount;
                     float totalFM = 0.0f;
@@ -947,6 +948,7 @@ void Synth::processChaos(unsigned int nFrames) {
                     float fmOctaves = std::clamp(totalFM * 0.01f, -4.0f, 4.0f);
                     sampleClock = std::clamp(baseClockFreqs[i] * std::pow(2.0f, fmOctaves), 0.00001f, 20000.0f);
                 }
+                #endif
                 chaos[i].setClockFrequency(sampleClock);
                 chaosBufferX[i].push_back(chaos[i].process());
                 chaosBufferY[i].push_back(chaos[i].getY());
