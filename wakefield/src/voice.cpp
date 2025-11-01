@@ -37,7 +37,7 @@ float Voice::generateSample() {
     // Determine FM input for each oscillator using previous outputs (1-sample delay)
     // FM matrix is 8x8: OSC1-4 are indices 0-3, SAMP1-4 are indices 4-7
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
-    if (params) {
+    if (params && synth) {
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
@@ -121,7 +121,7 @@ float Voice::generateSample() {
 
     // Determine FM input for each sampler using previous outputs (1-sample delay)
     float samplerFMInputs[SAMPLERS_PER_VOICE] = {0.0f};
-    if (params) {
+    if (params && synth) {
         for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
