@@ -565,6 +565,7 @@ void UI::drawMainPage() {
         "Random Amount",
         "Mutate Amount",
         "Global Reset",
+        "Compressor",
         "CPU Monitor"
     };
 
@@ -572,7 +573,7 @@ void UI::drawMainPage() {
     row += 2;
 
     // Draw action buttons
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 9; ++i) {
         bool selected = (i == mainPageActionIndex && mainPageFocusLeft);
 
         if (selected) {
@@ -591,8 +592,14 @@ void UI::drawMainPage() {
             mvprintw(row, col + 20, "%.0f%%", globalMutatePercentage);
         }
 
+        // Show compressor state
+        if (i == 7) {  // Compressor
+            const char* state = params->compressorEnabled.load() ? "ON" : "OFF";
+            mvprintw(row, col + 20, "%s", state);
+        }
+
         // Show CPU monitor state
-        if (i == 7) {  // CPU Monitor
+        if (i == 8) {  // CPU Monitor
             const char* state = cpuMonitor.isEnabled() ? "ON" : "OFF";
             mvprintw(row, col + 20, "%s", state);
         }

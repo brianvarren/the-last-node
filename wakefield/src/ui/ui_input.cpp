@@ -280,7 +280,7 @@ void UI::handleInput(int ch) {
                 return;
             case KEY_DOWN:
                 if (mainPageFocusLeft) {
-                    if (mainPageActionIndex < 7) {
+                    if (mainPageActionIndex < 8) {
                         mainPageActionIndex++;
                     }
                 } else {
@@ -352,7 +352,12 @@ void UI::handleInput(int ch) {
                             resetAllParametersToNeutral();
                             addConsoleMessage("Global parameters reset to neutral");
                             return;
-                        case 7:  // CPU Monitor Toggle
+                        case 7:  // Compressor Toggle
+                            params->compressorEnabled = !params->compressorEnabled.load();
+                            if (synth) synth->setCompressorEnabled(params->compressorEnabled.load());
+                            addConsoleMessage(params->compressorEnabled.load() ? "Compressor: ON" : "Compressor: OFF");
+                            return;
+                        case 8:  // CPU Monitor Toggle
                             cpuMonitor.setEnabled(!cpuMonitor.isEnabled());
                             addConsoleMessage(cpuMonitor.isEnabled() ? "CPU Monitor: ON" : "CPU Monitor: OFF");
                             return;
