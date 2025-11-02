@@ -742,6 +742,58 @@ void UI::drawMainPage() {
         mixerRow++;
     }
 
+    // Compressor section
+    mixerRow += 2;
+    attron(COLOR_SECTION_HEADER | A_BOLD);
+    mvprintw(mixerRow++, rightCol, "COMPRESSOR");
+    attroff(COLOR_SECTION_HEADER | A_BOLD);
+    mixerRow++;
+
+    bool compEnabled = params->compressorEnabled.load();
+    float compThreshold = params->compressorThreshold.load();
+    float compRatio = params->compressorRatio.load();
+    float compMix = params->compressorMix.load();
+
+    // Enabled toggle
+    if (compEnabled) {
+        attron(COLOR_STATUS_ACTIVE | A_BOLD);
+        mvprintw(mixerRow, rightCol, "[ON]");
+        attroff(COLOR_STATUS_ACTIVE | A_BOLD);
+    } else {
+        attron(COLOR_LOCKED);
+        mvprintw(mixerRow, rightCol, "[OFF]");
+        attroff(COLOR_LOCKED);
+    }
+
+    // Gain reduction meter (only show if enabled)
+    if (compEnabled && synth) {
+        float gr = synth->getCompressorGainReduction();
+        if (gr < 0.0f) {
+            int barLen = static_cast<int>(std::abs(gr) / 24.0f * 15);
+            barLen = std::clamp(barLen, 0, 15);
+            mvprintw(mixerRow, rightCol + 6, "GR:");
+            attron(COLOR_VALUE | A_BOLD);
+            for (int i = 0; i < barLen; ++i) {
+                mvprintw(mixerRow, rightCol + 9 + i, "=");
+            }
+            attroff(COLOR_VALUE | A_BOLD);
+            mvprintw(mixerRow, rightCol + 25, "%.1fdB", gr);
+        } else {
+            mvprintw(mixerRow, rightCol + 6, "GR: 0.0dB");
+        }
+    }
+    mixerRow++;
+
+    // Threshold
+    mvprintw(mixerRow++, rightCol, "Thresh: %.1f dB", compThreshold);
+
+    // Ratio
+    const char* ratioLabel = compRatio >= 20.0f ? " (LIMIT)" : "";
+    mvprintw(mixerRow++, rightCol, "Ratio:  %.1f:1%s", compRatio, ratioLabel);
+
+    // Mix
+    mvprintw(mixerRow++, rightCol, "Mix:    %.0f%%", compMix * 100.0f);
+
     mixerRow += 2;
     attron(COLOR_PAIR(8));
     mvprintw(mixerRow++, rightCol, "1-4: Select OSC | 5-8: Select SAMP");
