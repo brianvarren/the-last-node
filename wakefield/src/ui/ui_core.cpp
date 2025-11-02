@@ -2,6 +2,7 @@
 #include "../synth.h"
 #include "../preset.h"
 #include "../theme.h"
+#include <algorithm>
 #include <chrono>
 
 UI::UI(Synth* synth, SynthParameters* params)
@@ -26,6 +27,9 @@ UI::UI(Synth* synth, SynthParameters* params)
     , deviceChangeRequested(false)
     , requestedAudioDeviceId(-1)
     , requestedMidiPortNum(-1)
+    , bufferSizeChangeRequested(false)
+    , requestedBufferSize(-1)
+    , bufferSizeOptions{64, 128, 256, 512, 1024}
     , helpActive(false)
     , helpScrollOffset(0)
     , currentOscillatorIndex(0)
@@ -229,6 +233,57 @@ void UI::setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>
 void UI::setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort) {
     availableMidiDevices = devices;
     currentMidiPortNum = currentPort;
+}
+
+void UI::requestAudioBufferSizeChange(int newSize) {
+    if (newSize <= 0) {
+        return;
+    }
+    requestedBufferSize = newSize;
+    bufferSizeChangeRequested = true;
+}
+
+void UI::cycleAudioBufferSize(int direction) {
+    if (direction == 0 || bufferSizeOptions.empty()) {
+        return;
+    }
+
+    auto ensureOption = [&](int size) {
+        if (size <= 0) {
+            return;
+        }
+        if (std::find(bufferSizeOptions.begin(), bufferSizeOptions.end(), size) == bufferSizeOptions.end()) {
+            bufferSizeOptions.push_back(size);
+            std::sort(bufferSizeOptions.begin(), bufferSizeOptions.end());
+            bufferSizeOptions.erase(std::unique(bufferSizeOptions.begin(), bufferSizeOptions.end()),
+                                    bufferSizeOptions.end());
+        }
+    };
+
+    if (audioBufferSize > 0) {
+        ensureOption(audioBufferSize);
+    }
+
+    auto it = std::find(bufferSizeOptions.begin(), bufferSizeOptions.end(), audioBufferSize);
+    int idx = 0;
+    if (it != bufferSizeOptions.end()) {
+        idx = static_cast<int>(std::distance(bufferSizeOptions.begin(), it));
+    }
+
+    int optionCount = static_cast<int>(bufferSizeOptions.size());
+    int newIdx = (idx + direction) % optionCount;
+    if (newIdx < 0) {
+        newIdx += optionCount;
+    }
+
+    int newSize = bufferSizeOptions[newIdx];
+    if (newSize == audioBufferSize) {
+        addConsoleMessage("Audio buffer already " + std::to_string(newSize) + " samples");
+        return;
+    }
+
+    requestAudioBufferSizeChange(newSize);
+    addConsoleMessage("Switching audio buffer to " + std::to_string(newSize) + " samples...");
 }
 
 void UI::addConsoleMessage(const std::string& message) {

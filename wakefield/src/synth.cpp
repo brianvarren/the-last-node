@@ -1726,3 +1726,21 @@ void Synth::resetChaosGenerator(int chaosIndex) {
     if (chaosIndex < 0 || chaosIndex >= 4) return;
     chaos[chaosIndex].reset();
 }
+
+void Synth::resetAudioState() {
+    for (auto& voice : voices) {
+        voice.forceSilence();
+    }
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        freeSamplers[i].stopPlayback();
+    }
+    std::fill(fmSourceBuffer.begin(), fmSourceBuffer.end(), 0.0f);
+    std::fill(fmSourceBufferPrev.begin(), fmSourceBufferPrev.end(), 0.0f);
+    for (int i = 0; i < 4; ++i) {
+        chaosBufferX[i].clear();
+        chaosBufferY[i].clear();
+        chaosOutputs[i] = 0.0f;
+    }
+    freeRunningVoiceActive = false;
+    freeRunningVoiceIndex = -1;
+}

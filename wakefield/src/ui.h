@@ -1052,6 +1052,14 @@ public:
     int getRequestedAudioDevice() const { return requestedAudioDeviceId; }
     int getRequestedMidiDevice() const { return requestedMidiPortNum; }
     void clearDeviceChangeRequest() { deviceChangeRequested = false; }
+    // Audio buffer size request
+    void requestAudioBufferSizeChange(int newSize);
+    bool isBufferSizeChangeRequested() const { return bufferSizeChangeRequested; }
+    int getRequestedBufferSize() const { return requestedBufferSize; }
+    void clearBufferSizeChangeRequest() { bufferSizeChangeRequested = false; requestedBufferSize = -1; }
+    int getCurrentAudioDeviceId() const { return currentAudioDeviceId; }
+    int getCurrentMidiPort() const { return currentMidiPortNum; }
+    int getCurrentAudioBufferSize() const { return audioBufferSize; }
 
     // MOD matrix data (16 modulation slots) - public for Synth access
     ModulationSlot modulationSlots[16];
@@ -1102,6 +1110,9 @@ private:
     bool deviceChangeRequested;
     int requestedAudioDeviceId;
     int requestedMidiPortNum;
+    bool bufferSizeChangeRequested;
+    int requestedBufferSize;
+    std::vector<int> bufferSizeOptions;
 
     // Help system
     bool helpActive;
@@ -1149,6 +1160,7 @@ private:
     void drawSequencerPage();
     void drawChaosPage();
     void drawConfigPage();
+    void cycleAudioBufferSize(int direction);
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawHotkeyLine();
     void drawStatusMessage();

@@ -26,6 +26,7 @@ public:
     // Trigger envelope stages
     void noteOn();
     void noteOff();
+    void reset();
     
     // Advance envelope by one sample and return current level
     float process();

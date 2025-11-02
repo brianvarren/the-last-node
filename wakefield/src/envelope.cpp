@@ -79,6 +79,13 @@ void Envelope::noteOff() {
     }
 }
 
+void Envelope::reset() {
+    stage = EnvelopeStage::OFF;
+    level = 0.0f;
+    stageProgress = 0.0f;
+    releaseStartLevel = 0.0f;
+}
+
 float Envelope::applyBend(float progress, float bend) const {
     // progress: 0 to 1 (linear time progress)
     // bend: 0 to 1, where 0.5 = linear, <0.5 = concave (slow start), >0.5 = convex (fast start)

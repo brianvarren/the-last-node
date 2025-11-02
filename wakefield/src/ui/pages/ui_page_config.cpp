@@ -21,6 +21,13 @@ void UI::drawConfigPage() {
     mvprintw(row++, 2, "Device: %s", audioDeviceName.c_str());
     mvprintw(row++, 2, "Sample Rate: %d Hz", audioSampleRate);
     mvprintw(row++, 2, "Buffer Size: %d samples", audioBufferSize);
+    mvprintw(row++, 2, "Press [ / ] to change buffer size");
+
+    if (bufferSizeChangeRequested && requestedBufferSize > 0) {
+        attron(COLOR_STATUS_ACTIVE);
+        mvprintw(row++, 4, "Pending: %d samples (applying)", requestedBufferSize);
+        attroff(COLOR_STATUS_ACTIVE);
+    }
 
     if (audioSampleRate > 0 && audioBufferSize > 0) {
         float latency = (audioBufferSize * 1000.0f) / audioSampleRate;

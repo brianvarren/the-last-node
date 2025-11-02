@@ -703,6 +703,7 @@ TIPS:
 CONTROLS:
   Up/Down    - Navigate options
   Enter      - Select audio/MIDI device
+  [ / ]      - Cycle audio buffer size (audio restarts)
   H          - Show this help
   Q          - Quit
   Ctrl+K     - Toggle MIDI Keyboard Mode (global)

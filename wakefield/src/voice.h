@@ -85,6 +85,9 @@ struct Voice {
     // Clear cached oscillator outputs (used when voice retriggers)
     void resetFMHistory();
 
+    // Forcefully silence voice and reset modulation history
+    void forceSilence();
+
     // Get current envelope value (for modulation routing)
     float getEnvelopeValue() const {
         return envelopeValue;

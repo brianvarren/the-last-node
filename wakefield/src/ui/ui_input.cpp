@@ -425,6 +425,17 @@ void UI::handleInput(int ch) {
         }
     };
 
+    if (currentPage == UIPage::CONFIG) {
+        if (ch == '[') {
+            cycleAudioBufferSize(-1);
+            return;
+        }
+        if (ch == ']') {
+            cycleAudioBufferSize(1);
+            return;
+        }
+    }
+
     // Tab key cycles forward through pages (matches F-key order)
     // F1=Main, F2=Osc, F3=Samp, F4=LFO, F5=Env, F6=Filter, F7=FX, F8=Chaos, F9=Mod, F10=FM, F11=Seq, F12=Config
     if (ch == '\t') {

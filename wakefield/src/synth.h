@@ -228,6 +228,7 @@ public:
     void setChaosFastMode(int chaosIndex, bool fast);
     void setChaosInterpMode(int chaosIndex, int mode);
     void resetChaosGenerator(int chaosIndex);
+    void resetAudioState();
 
     // Filter access for debugging
     const Bandpass2PoleZdf* getBandpass2FilterL() const { return &bandpass2FilterL; }

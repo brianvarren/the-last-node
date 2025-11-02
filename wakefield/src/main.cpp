@@ -47,7 +47,7 @@ std::string getConfigDirectory() {
 }
 
 // Read device config
-void readDeviceConfig(int& audioDeviceId, int& midiPort) {
+void readDeviceConfig(int& audioDeviceId, int& midiPort, unsigned int& bufferSize) {
     std::string configPath = getConfigDirectory() + "/device_config.txt";
     std::ifstream file(configPath);
     
@@ -58,6 +58,8 @@ void readDeviceConfig(int& audioDeviceId, int& midiPort) {
                 audioDeviceId = std::stoi(line.substr(13));
             } else if (line.find("midi_port=") == 0) {
                 midiPort = std::stoi(line.substr(10));
+            } else if (line.find("buffer_size=") == 0) {
+                bufferSize = static_cast<unsigned int>(std::stoi(line.substr(12)));
             }
         }
         file.close();
@@ -65,7 +67,7 @@ void readDeviceConfig(int& audioDeviceId, int& midiPort) {
 }
 
 // Write device config
-void writeDeviceConfig(int audioDeviceId, int midiPort) {
+void writeDeviceConfig(int audioDeviceId, int midiPort, unsigned int bufferSize) {
     std::string configDir = getConfigDirectory();
     mkdir(configDir.c_str(), 0755);
     
@@ -75,17 +77,19 @@ void writeDeviceConfig(int audioDeviceId, int midiPort) {
     if (file.is_open()) {
         file << "audio_device=" << audioDeviceId << "\n";
         file << "midi_port=" << midiPort << "\n";
+        file << "buffer_size=" << bufferSize << "\n";
         file.close();
     }
 }
 
 // Restart app with new devices
-void restartWithNewDevices(int audioDeviceId, int midiPort, SynthParameters* params, char** argv) {
+void restartWithNewDevices(int audioDeviceId, int midiPort, unsigned int bufferSize,
+                           SynthParameters* params, char** argv) {
     // Save current state as temp preset
     PresetManager::savePreset("__temp_restart__", params);
     
     // Write new device config
-    writeDeviceConfig(audioDeviceId, midiPort);
+    writeDeviceConfig(audioDeviceId, midiPort, bufferSize);
     
     // Restart the application
     execv(argv[0], argv);
@@ -451,7 +455,8 @@ int main(int argc, char** argv) {
     // Read device preferences
     int preferredAudioDevice = -1;
     int preferredMidiPort = -1;
-    readDeviceConfig(preferredAudioDevice, preferredMidiPort);
+    unsigned int preferredBufferSize = 256;
+    readDeviceConfig(preferredAudioDevice, preferredMidiPort, preferredBufferSize);
     
     // Initialize MIDI
     midiHandler = new MidiHandler();
@@ -493,7 +498,7 @@ int main(int argc, char** argv) {
     bool audioAvailable = false;
     
     unsigned int sampleRate = 48000;
-    unsigned int bufferFrames = 256;
+    unsigned int bufferFrames = preferredBufferSize > 0 ? preferredBufferSize : 256;
     
     // Create synth instance
     synth = new Synth(static_cast<float>(sampleRate));
@@ -567,20 +572,19 @@ int main(int argc, char** argv) {
     // Try to initialize audio
     std::string audioDeviceName = "No Audio Device";
     
-    if (deviceCount > 0) {
-        // Set up stream parameters
-        RtAudio::StreamParameters parameters;
-        parameters.deviceId = audioDeviceIdToUse;
-        parameters.nChannels = 2;  // Stereo
-        parameters.firstChannel = 0;
-        
+    RtAudio::StreamParameters parameters;
+    parameters.deviceId = audioDeviceIdToUse;
+    parameters.nChannels = 2;  // Stereo
+    parameters.firstChannel = 0;
+
+    if (deviceCount > 0 && parameters.deviceId >= 0) {
         try {
             audio.openStream(&parameters, nullptr, RTAUDIO_FLOAT32,
-                            sampleRate, &bufferFrames, &audioCallback);
-            
+                             sampleRate, &bufferFrames, &audioCallback);
+
             audio.startStream();
             audioAvailable = true;
-            
+
             // Get device name
             try {
                 RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
@@ -588,9 +592,9 @@ int main(int argc, char** argv) {
             } catch (...) {
                 audioDeviceName = "Default Audio Device";
             }
-            
+
             ui->addConsoleMessage("Audio initialized: " + audioDeviceName);
-            
+
         } catch (std::exception& e) {
             std::cerr << "Audio error: " << e.what() << '\n';
             ui->addConsoleMessage("WARNING: Audio failed - running without audio");
@@ -648,11 +652,99 @@ int main(int argc, char** argv) {
             }
             
             // Restart with new devices
-            restartWithNewDevices(newAudioDevice, newMidiPort, synthParams, argv);
+            restartWithNewDevices(newAudioDevice, newMidiPort, bufferFrames, synthParams, argv);
             
             // If restart failed, continue running
             ui->clearDeviceChangeRequest();
             ui->addConsoleMessage("Restart failed, continuing with current devices");
+        }
+
+        if (ui->isBufferSizeChangeRequested()) {
+            unsigned int requestedBuffer = static_cast<unsigned int>(ui->getRequestedBufferSize());
+
+            if (!(deviceCount > 0 && parameters.deviceId >= 0)) {
+                ui->addConsoleMessage("No audio device available to change buffer size");
+                ui->clearBufferSizeChangeRequest();
+            } else if (requestedBuffer == 0) {
+                ui->addConsoleMessage("Invalid audio buffer size request");
+                ui->clearBufferSizeChangeRequest();
+            } else {
+                unsigned int previousBuffer = bufferFrames;
+                std::string failureReason;
+                bool reopened = false;
+
+                try {
+                    if (audio.isStreamRunning()) {
+                        audio.stopStream();
+                    }
+                    if (audio.isStreamOpen()) {
+                        audio.closeStream();
+                    }
+                } catch (...) {
+                    // Ignore exceptions while shutting down stream
+                }
+
+                audioAvailable = false;
+                if (synth) {
+                    synth->resetAudioState();
+                }
+                if (transportClock) {
+                    transportClock->reset();
+                }
+
+                unsigned int openFrames = requestedBuffer;
+                try {
+                    audio.openStream(&parameters, nullptr, RTAUDIO_FLOAT32,
+                                     sampleRate, &openFrames, &audioCallback);
+                    audio.startStream();
+                    bufferFrames = openFrames;
+                    audioAvailable = true;
+                    reopened = true;
+                } catch (std::exception& e) {
+                    failureReason = e.what();
+                } catch (...) {
+                    failureReason = "unknown error";
+                }
+
+                if (!reopened) {
+                    // Attempt to restore previous buffer size
+                    try {
+                        unsigned int restoreFrames = previousBuffer;
+                        audio.openStream(&parameters, nullptr, RTAUDIO_FLOAT32,
+                                         sampleRate, &restoreFrames, &audioCallback);
+                        audio.startStream();
+                        bufferFrames = restoreFrames;
+                        audioAvailable = true;
+                    } catch (...) {
+                        audioAvailable = false;
+                    }
+                    if (failureReason.empty()) {
+                        failureReason = "unable to open stream";
+                    }
+                    ui->addConsoleMessage("Failed to set audio buffer size: " + failureReason);
+                    if (audioAvailable) {
+                        try {
+                            RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
+                            audioDeviceName = deviceInfo.name;
+                        } catch (...) {
+                            // Keep previous name if query fails
+                        }
+                        ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPortToUse);
+                    }
+                } else {
+                    try {
+                        RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
+                        audioDeviceName = deviceInfo.name;
+                    } catch (...) {
+                        // Keep previous name if query fails
+                    }
+                    ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPortToUse);
+                    writeDeviceConfig(ui->getCurrentAudioDeviceId(), ui->getCurrentMidiPort(), bufferFrames);
+                    ui->addConsoleMessage("Audio buffer size set to " + std::to_string(bufferFrames) + " samples");
+                }
+
+                ui->clearBufferSizeChangeRequest();
+            }
         }
         
         // Oscilloscopes removed for simplified UI

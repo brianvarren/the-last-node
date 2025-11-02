@@ -11,6 +11,30 @@ void Voice::resetFMHistory() {
     }
 }
 
+void Voice::forceSilence() {
+    active = false;
+    envelope.reset();
+    envelopeValue = 0.0f;
+    resetFMHistory();
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        pitchMod[i] = 0.0f;
+        morphMod[i] = 0.0f;
+        dutyMod[i] = 0.0f;
+        ratioMod[i] = 0.0f;
+        offsetMod[i] = 0.0f;
+        ampMod[i] = 0.0f;
+    }
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        samplerPitchMod[i] = 0.0f;
+        samplerLoopStartMod[i] = 0.0f;
+        samplerLoopLengthMod[i] = 0.0f;
+        samplerCrossfadeMod[i] = 0.0f;
+        samplerLevelMod[i] = 0.0f;
+        samplerPhaseDriver[i] = -1.0f;
+        samplers[i].stopPlayback();
+    }
+}
+
 float Voice::generateSample(unsigned int frameIndex) {
     if (!active) {
         envelopeValue = 0.0f;
