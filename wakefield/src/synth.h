@@ -8,6 +8,7 @@
 #include "lfo.h"
 #include "chaos.h"
 #include "reverb.h"
+#include "compressor.h"
 #include "filters.hpp"
 #include "sample_bank.h"
 #include "modulation.h"
@@ -53,6 +54,13 @@ public:
     void updateFilterParameters(int type, float cutoff, float gain,
                                 float resonance, float drive, float feedbackHP,
                                 float spread, float notchFeedback, float bandWidth);
+
+    // Compressor control
+    void setCompressorEnabled(bool enabled) { compressorEnabled = enabled; }
+    void updateCompressorParameters(float threshold, float ratio, float attack,
+                                    float release, float knee, float mix,
+                                    bool autoMakeup, bool rmsMode);
+    float getCompressorGainReduction() const;  // For metering (in dB)
 
     // LFO control
     void updateLFOParameters(int lfoIndex, float period, int syncMode, int shape, float morph,
@@ -238,6 +246,7 @@ private:
     float masterVolume;
     bool reverbEnabled;
     bool filterEnabled;
+    bool compressorEnabled;
     int currentFilterType;
     UI* ui;
     SynthParameters* params;  // Pointer to parameters (for FM matrix)
@@ -245,6 +254,7 @@ private:
 
     std::vector<Voice> voices;
     GreyholeReverb reverb;
+    Compressor compressor;
 
     // 4 global LFOs for modulation
     LFO lfos[4];

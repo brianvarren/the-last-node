@@ -9,11 +9,13 @@ Synth::Synth(float sampleRate)
     , masterVolume(0.7f)  // Increased from 0.5 due to conservative normalization
     , reverbEnabled(false)
     , filterEnabled(false)
+    , compressorEnabled(false)
     , currentFilterType(0)
     , ui(nullptr)
     , params(nullptr)
     , clock(nullptr)
     , reverb(sampleRate)
+    , compressor(sampleRate)
     , filterL(sampleRate)
     , filterR(sampleRate) {
     
@@ -157,6 +159,23 @@ void Synth::updateReverbParameters(float delayTime, float size, float damping, f
     reverb.setDiffusion(diffusion);
     reverb.setModDepth(modDepth);
     reverb.setModFreq(modFreq);
+}
+
+void Synth::updateCompressorParameters(float threshold, float ratio, float attack,
+                                       float release, float knee, float mix,
+                                       bool autoMakeup, bool rmsMode) {
+    compressor.setThreshold(threshold);
+    compressor.setRatio(ratio);
+    compressor.setAttack(attack);
+    compressor.setRelease(release);
+    compressor.setKnee(knee);
+    compressor.setMix(mix);
+    compressor.setAutoMakeup(autoMakeup);
+    compressor.setDetectionMode(rmsMode);
+}
+
+float Synth::getCompressorGainReduction() const {
+    return compressor.getGainReduction();
 }
 
 void Synth::updateFilterParameters(int type, float cutoff, float gain,
@@ -890,21 +909,29 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         // Create temporary buffers for left and right channels
         std::vector<float> leftChannel(nFrames);
         std::vector<float> rightChannel(nFrames);
-        
+
         // De-interleave
         for (unsigned int i = 0; i < nFrames; ++i) {
             leftChannel[i] = output[i * 2];
             rightChannel[i] = output[i * 2 + 1];
         }
-        
+
         // Process reverb
         reverb.process(leftChannel.data(), rightChannel.data(), nFrames);
-        
+
         // Re-interleave
         for (unsigned int i = 0; i < nFrames; ++i) {
             output[i * 2] = leftChannel[i];
             output[i * 2 + 1] = rightChannel[i];
         }
+    }
+
+    // Apply compressor if enabled (stereo processing, in-place)
+    // Compressor is the final stage: provides automatic gain control,
+    // soft limiting, and tasteful saturation to prevent clipping
+    if (compressorEnabled && nChannels == 2) {
+        // Process interleaved stereo buffer in-place
+        compressor.process(output, output, nFrames * nChannels);
     }
 }
 

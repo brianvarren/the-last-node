@@ -167,6 +167,17 @@ struct SynthParameters {
     std::atomic<float> filterBandWidth{0.5f};
     std::atomic<float> filterDryWet{1.0f};  // Dry/wet mix for notch filter
 
+    // Compressor/Limiter parameters
+    std::atomic<bool> compressorEnabled{false};
+    std::atomic<float> compressorThreshold{-20.0f};  // dB (-60 to 0)
+    std::atomic<float> compressorRatio{4.0f};         // ratio (1 to 20, or 100 for limiting)
+    std::atomic<float> compressorAttack{5.0f};        // ms (0.1 to 100)
+    std::atomic<float> compressorRelease{50.0f};      // ms (10 to 1000)
+    std::atomic<float> compressorKnee{6.0f};          // dB (0 to 20)
+    std::atomic<float> compressorMix{1.0f};           // Dry/wet (0 to 1)
+    std::atomic<bool> compressorAutoMakeup{true};     // Automatic makeup gain
+    std::atomic<bool> compressorRMS{false};           // Detection mode: false=Peak, true=RMS
+
     // Generic MIDI CC Learn for new parameter system
     std::atomic<bool> midiLearnActive{false};
     std::atomic<int> midiLearnParameterId{-1};  // Which parameter ID to learn (-1 = none)
@@ -984,6 +995,7 @@ enum class UIPage {
     MOD,
     REVERB,
     FILTER,
+    COMPRESSOR,
     SEQUENCER,
     CHAOS,
     CONFIG,
@@ -1172,6 +1184,7 @@ private:
     void drawModPage();
     void drawReverbPage();
     void drawFilterPage();
+    void drawCompressorPage();
     void drawMainPage();
     void drawSequencerPage();
     void drawChaosPage();
@@ -1218,6 +1231,7 @@ private:
     InlineParameter* getParameter(int id);
     std::vector<int> getParameterIdsForPage(UIPage page);
     std::vector<int> getFilterParameterIds() const;
+    std::vector<int> getCompressorParameterIds() const;
     std::vector<int> getRandomizableParameterIds();
     void adjustParameter(int id, bool increase, bool fine);
     void setParameterValue(int id, float value);

@@ -442,7 +442,8 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::OSCILLATOR) setPage(UIPage::SAMPLER);
         else if (currentPage == UIPage::SAMPLER) setPage(UIPage::LFO);
         else if (currentPage == UIPage::LFO) setPage(UIPage::ENV);
-        else if (currentPage == UIPage::ENV) setPage(UIPage::FILTER);
+        else if (currentPage == UIPage::ENV) setPage(UIPage::COMPRESSOR);
+        else if (currentPage == UIPage::COMPRESSOR) setPage(UIPage::FILTER);
         else if (currentPage == UIPage::FILTER) setPage(UIPage::REVERB);
         else if (currentPage == UIPage::REVERB) setPage(UIPage::CHAOS);
         else if (currentPage == UIPage::CHAOS) setPage(UIPage::MOD);
@@ -462,7 +463,8 @@ void UI::handleInput(int ch) {
         else if (currentPage == UIPage::SAMPLER) setPage(UIPage::OSCILLATOR);
         else if (currentPage == UIPage::LFO) setPage(UIPage::SAMPLER);
         else if (currentPage == UIPage::ENV) setPage(UIPage::LFO);
-        else if (currentPage == UIPage::FILTER) setPage(UIPage::ENV);
+        else if (currentPage == UIPage::COMPRESSOR) setPage(UIPage::ENV);
+        else if (currentPage == UIPage::FILTER) setPage(UIPage::COMPRESSOR);
         else if (currentPage == UIPage::REVERB) setPage(UIPage::FILTER);
         else if (currentPage == UIPage::CHAOS) setPage(UIPage::REVERB);
         else if (currentPage == UIPage::MOD) setPage(UIPage::CHAOS);

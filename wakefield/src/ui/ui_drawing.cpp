@@ -248,6 +248,9 @@ void UI::draw(int activeVoices) {
         case UIPage::FILTER:
             drawFilterPage();
             break;
+        case UIPage::COMPRESSOR:
+            drawCompressorPage();
+            break;
         case UIPage::SEQUENCER:
             drawSequencerPage();
             break;

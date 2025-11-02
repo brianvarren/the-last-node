@@ -339,6 +339,17 @@ void SynthParameters::applyParameterValue(int id,
         case 38: filterNotchFeedback = value; break;
         case 39: filterBandWidth = value; break;
         case 42: filterDryWet = value; break;
+
+        // Compressor parameters (70-78)
+        case 70: compressorEnabled = (value > 0.5f); break;
+        case 71: compressorThreshold = value; break;
+        case 72: compressorRatio = value; break;
+        case 73: compressorAttack = value; break;
+        case 74: compressorRelease = value; break;
+        case 75: compressorKnee = value; break;
+        case 76: compressorMix = value; break;
+        case 77: compressorAutoMakeup = (value > 0.5f); break;
+        case 78: compressorRMS = (value > 0.5f); break;
         case 300: setEnvAttack(0, value); attack = value; break;
         case 301: setEnvDecay(0, value); decay = value; break;
         case 302: setEnvSustain(0, value); sustain = value; break;
@@ -442,6 +453,20 @@ std::vector<int> UI::getFilterParameterIds() const {
     }
 
     return ids;
+}
+
+std::vector<int> UI::getCompressorParameterIds() const {
+    // IDs for compressor parameters:
+    // 70 = Enabled
+    // 71 = Threshold
+    // 72 = Ratio
+    // 73 = Attack
+    // 74 = Release
+    // 75 = Knee
+    // 76 = Mix
+    // 77 = Auto Makeup
+    // 78 = RMS Mode
+    return {70, 71, 72, 73, 74, 75, 76, 77, 78};
 }
 
 std::vector<int> UI::getRandomizableParameterIds() {
@@ -1584,6 +1609,17 @@ float UI::getParameterValue(int id) {
         case 38: return params->filterNotchFeedback.load();
         case 39: return params->filterBandWidth.load();
         case 42: return params->filterDryWet.load();
+
+        // Compressor parameters (70-78)
+        case 70: return params->compressorEnabled.load() ? 1.0f : 0.0f;
+        case 71: return params->compressorThreshold.load();
+        case 72: return params->compressorRatio.load();
+        case 73: return params->compressorAttack.load();
+        case 74: return params->compressorRelease.load();
+        case 75: return params->compressorKnee.load();
+        case 76: return params->compressorMix.load();
+        case 77: return params->compressorAutoMakeup.load() ? 1.0f : 0.0f;
+        case 78: return params->compressorRMS.load() ? 1.0f : 0.0f;
         // CONFIG page parameters
         case 400: return cpuMonitor.isEnabled() ? 1.0f : 0.0f;
         // ENV page parameters (300-323)
@@ -1692,6 +1728,76 @@ void UI::setParameterValue(int id, float value) {
         case 38: params->filterNotchFeedback = value; break;
         case 39: params->filterBandWidth = value; break;
         case 42: params->filterDryWet = value; break;
+
+        // Compressor parameters (70-78)
+        case 70:
+            params->compressorEnabled = (value > 0.5f);
+            if (synth) synth->setCompressorEnabled(value > 0.5f);
+            break;
+        case 71:
+            params->compressorThreshold = value;
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
+        case 72:
+            params->compressorRatio = value;
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
+        case 73:
+            params->compressorAttack = value;
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
+        case 74:
+            params->compressorRelease = value;
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
+        case 75:
+            params->compressorKnee = value;
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
+        case 76:
+            params->compressorMix = value;
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
+        case 77:
+            params->compressorAutoMakeup = (value > 0.5f);
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
+        case 78:
+            params->compressorRMS = (value > 0.5f);
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+            break;
         // CONFIG page parameters
         case 400: cpuMonitor.setEnabled(value > 0.5f); break;
         // ENV page parameters (300-323)

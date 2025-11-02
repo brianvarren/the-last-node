@@ -22,6 +22,7 @@ set(WAKEFIELD_CORE_SOURCES
     src/lfo.cpp
     src/voice.cpp
     src/reverb.cpp
+    src/compressor.cpp
     src/preset.cpp
     src/clock.cpp
     src/constraint.cpp
@@ -56,6 +57,7 @@ set(WAKEFIELD_CORE_SOURCES
     src/ui/pages/ui_page_mod.cpp
     src/ui/pages/ui_page_reverb.cpp
     src/ui/pages/ui_page_filter.cpp
+    src/ui/pages/ui_page_compressor.cpp
     src/ui/pages/ui_page_chaos.cpp
     src/ui/pages/ui_page_config.cpp
     src/ui/pages/ui_page_debug.cpp
