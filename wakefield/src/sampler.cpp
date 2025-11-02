@@ -607,12 +607,13 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     float output = static_cast<float>(mixedSample) / 32768.0f;
 
     // Apply amplitude modulation
-    // Samplers use simplified amplitude model compared to oscillators
-    // Oscillators have: (baseAmp + ampMod) × level, where baseAmp defaults to 0.0
-    // Samplers use: (0.0 + levelMod) × level
-    // This gives the same behavior: envelope modulation (0.5-1.0 from unidirectional)
-    // added to base amp of 0.0, then multiplied by static mix level
-    float modulatedAmp = std::clamp(0.0f + levelMod, 0.0f, 1.0f);
+    // Align amplitude model with oscillators so a sampler is audible
+    // without requiring explicit amp modulation:
+    // Oscillators: (baseAmp + ampMod) × level, baseAmp defaults to 1.0
+    // Samplers:    (1.0 + levelMod) × level, base amp defaults to 1.0
+    // This ensures the static sampler level controls volume even when
+    // no modulation is routed to the sampler amp.
+    float modulatedAmp = std::clamp(1.0f + levelMod, 0.0f, 1.0f);
     float modulatedLevel = std::clamp(level + levelOffset, 0.0f, 1.0f);
     float finalGain = modulatedAmp * modulatedLevel;
 
