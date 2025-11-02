@@ -93,6 +93,61 @@ void restartWithNewDevices(int audioDeviceId, int midiPort, unsigned int bufferS
                            SynthParameters* params, char** argv) {
     // Save current state as temp preset
     PresetManager::savePreset("__temp_restart__", params);
+    // Save full UI/Sequencer/Sampler state alongside temp preset if available
+    try {
+        std::string baseDir = PresetManager::getPresetDirectory();
+        std::string name = "__temp_restart__";
+        if (ui) {
+            // State sidecar
+            std::ofstream f(baseDir + "/" + name + ".state");
+            if (f.is_open()) { f << ui->serializeState(); }
+        }
+        if (sequencer) {
+            // Patterns
+            for (int t = 0; t < 4; ++t) {
+                std::string trackPath = baseDir + "/" + name + "_track" + std::to_string(t+1) + ".csv";
+                sequencer->getTrack(t).getPattern().saveToFile(trackPath);
+            }
+            // Sequencer meta
+            std::ofstream sm(baseDir + "/" + name + ".seq.txt");
+            if (sm.is_open()) {
+                sm << "tempo=" << sequencer->getTempo() << "\n";
+                for (int t = 0; t < 4; ++t) {
+                    const auto& track = sequencer->getTrack(t);
+                    const auto& constraints = track.getConstraints();
+                    const auto& euclid = track.getEuclideanPattern();
+                    sm << "t" << t << ".len=" << track.getPattern().getLength() << "\n";
+                    sm << "t" << t << ".subdiv=" << static_cast<int>(track.getPattern().getResolution()) << "\n";
+                    sm << "t" << t << ".muted=" << (track.isMuted() ? 1 : 0) << "\n";
+                    sm << "t" << t << ".solo=" << (track.isSolo() ? 1 : 0) << "\n";
+                    sm << "t" << t << ".eu_hits=" << euclid.getHits() << "\n";
+                    sm << "t" << t << ".eu_steps=" << euclid.getSteps() << "\n";
+                    sm << "t" << t << ".eu_rot=" << euclid.getRotation() << "\n";
+                    sm << "t" << t << ".scale=" << static_cast<int>(constraints.getScale()) << "\n";
+                    sm << "t" << t << ".root=" << constraints.getRootNote() << "\n";
+                    sm << "t" << t << ".oct_min=" << constraints.getOctaveMin() << "\n";
+                    sm << "t" << t << ".oct_max=" << constraints.getOctaveMax() << "\n";
+                    sm << "t" << t << ".density=" << constraints.getDensity() << "\n";
+                    sm << "t" << t << ".max_interval=" << constraints.getMaxInterval() << "\n";
+                    sm << "t" << t << ".contour=" << static_cast<int>(constraints.getContour()) << "\n";
+                    sm << "t" << t << ".gravity=" << constraints.getGravityNote() << "\n";
+                    sm << "t" << t << ".phase_driver=" << static_cast<int>(sequencer->getTrackPhaseDriver(t)) << "\n";
+                }
+            }
+        }
+        if (synth) {
+            // Sampler selections
+            std::ofstream sf(baseDir + "/" + name + ".samplers.txt");
+            if (sf.is_open()) {
+                for (int i = 0; i < 4; ++i) {
+                    int sidx = synth->getSamplerSampleIndex(i);
+                    const SampleBank* bank = synth->getSampleBank();
+                    const char* sname = (bank && sidx >= 0) ? bank->getSampleName(sidx) : nullptr;
+                    sf << "sampler" << i << '=' << (sname ? sname : "") << "\n";
+                }
+            }
+        }
+    } catch (...) {}
     
     // Write new device config
     writeDeviceConfig(audioDeviceId, midiPort, bufferSize);
@@ -678,10 +733,93 @@ int main(int argc, char** argv) {
     std::ifstream tempCheck(tempPresetPath);
     if (tempCheck.good()) {
         tempCheck.close();
-        PresetManager::loadPreset("__temp_restart__", synthParams);
+        const std::string name = "__temp_restart__";
+        const std::string baseDir = PresetManager::getPresetDirectory();
+        PresetManager::loadPreset(name, synthParams);
+        // Load sidecars if present
+        try {
+            // UI state
+            std::ifstream fs(baseDir + "/" + name + ".state");
+            if (fs.good()) { std::stringstream ss; ss << fs.rdbuf(); ui->applySerializedState(ss.str()); }
+        } catch (...) {}
+        try {
+            // Sequencer patterns
+            if (sequencer) {
+                for (int t = 0; t < 4; ++t) {
+                    std::string tp = baseDir + "/" + name + "_track" + std::to_string(t+1) + ".csv";
+                    sequencer->getTrack(t).getPattern().loadFromFile(tp);
+                }
+            }
+        } catch (...) {}
+        try {
+            // Sequencer meta
+            if (sequencer) {
+                std::ifstream fm(baseDir + "/" + name + ".seq.txt");
+                if (fm.good()) {
+                    std::string line;
+                    while (std::getline(fm, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        auto eq = line.find('='); if (eq == std::string::npos) continue;
+                        auto trim = [](std::string s){ size_t a=s.find_first_not_of(" \t\r\n"); size_t b=s.find_last_not_of(" \t\r\n"); if (a==std::string::npos) return std::string(); return s.substr(a,b-a+1); };
+                        std::string key = trim(line.substr(0,eq)); std::string val = trim(line.substr(eq+1));
+                        if (key == "tempo") { try { sequencer->setTempo(std::stod(val)); } catch (...) {} continue; }
+                        if (key.rfind("t",0)==0) {
+                            size_t dot = key.find('.'); if (dot==std::string::npos) continue;
+                            int tIdx = std::stoi(key.substr(1, dot-1)); if (tIdx<0||tIdx>=4) continue;
+                            std::string field = key.substr(dot+1);
+                            auto& track = sequencer->getTrack(tIdx);
+                            auto& cons = track.getConstraints();
+                            auto& eu = track.getEuclideanPattern();
+                            try {
+                                if (field=="len") track.getPattern().setLength(std::stoi(val));
+                                else if (field=="subdiv") track.setSubdivision(static_cast<Subdivision>(std::stoi(val)));
+                                else if (field=="muted") track.setMuted(val=="1"||val=="true");
+                                else if (field=="solo") track.setSolo(val=="1"||val=="true");
+                                else if (field=="eu_hits") eu.setHits(std::stoi(val));
+                                else if (field=="eu_steps") eu.setSteps(std::stoi(val));
+                                else if (field=="eu_rot") eu.setRotation(std::stoi(val));
+                                else if (field=="scale") cons.setScale(static_cast<Scale>(std::stoi(val)));
+                                else if (field=="root") cons.setRootNote(std::stoi(val));
+                                else if (field=="oct_min") cons.setOctaveRange(std::stoi(val), cons.getOctaveMax());
+                                else if (field=="oct_max") cons.setOctaveRange(cons.getOctaveMin(), std::stoi(val));
+                                else if (field=="density") cons.setDensity(std::stof(val));
+                                else if (field=="max_interval") cons.setMaxInterval(std::stoi(val));
+                                else if (field=="contour") cons.setContour(static_cast<Contour>(std::stoi(val)));
+                                else if (field=="gravity") cons.setGravityNote(std::stoi(val));
+                                else if (field=="phase_driver") sequencer->setTrackPhaseDriver(tIdx, static_cast<Sequencer::PhaseDriver>(std::stoi(val)));
+                            } catch (...) {}
+                        }
+                    }
+                }
+            }
+        } catch (...) {}
+        try {
+            // Sampler selections
+            if (synth) {
+                std::ifstream fsamp(baseDir + "/" + name + ".samplers.txt");
+                if (fsamp.good()) {
+                    auto* bank = synth->getSampleBank();
+                    std::string line;
+                    while (std::getline(fsamp, line)) {
+                        if (line.empty() || line[0]=='#') continue;
+                        auto eq = line.find('='); if (eq==std::string::npos) continue;
+                        std::string key = line.substr(0,eq); std::string val = line.substr(eq+1);
+                        if (key.rfind("sampler",0)==0) { int idx = std::stoi(key.substr(7)); if (idx>=0&&idx<4 && bank) { int sidx = bank->findSampleByName(val.c_str()); if (sidx>=0) synth->setSamplerSample(idx, sidx); } }
+                    }
+                }
+            }
+        } catch (...) {}
+
         ui->addConsoleMessage("Restored previous state");
-        // Delete temp preset after loading
+        // Delete temp preset after loading (sidecars too)
         unlink(tempPresetPath.c_str());
+        unlink((baseDir + "/" + name + ".state").c_str());
+        unlink((baseDir + "/" + name + ".seq.txt").c_str());
+        for (int t = 0; t < 4; ++t) {
+            std::string trackPath = baseDir + "/" + name + "_track" + std::to_string(t+1) + ".csv";
+            unlink(trackPath.c_str());
+        }
+        unlink((baseDir + "/" + name + ".samplers.txt").c_str());
     }
     
     // Main UI loop

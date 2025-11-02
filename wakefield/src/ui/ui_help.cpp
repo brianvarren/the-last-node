@@ -75,8 +75,8 @@ WORKFLOW:
 6. Adjust mutate percentage with +/- for subtle or drastic changes
 
 PRESET MANAGEMENT:
-- Presets store ALL synthesizer parameters
-- Presets are human-readable INI files
+    - Presets store ALL synthesizer parameters, FM/Mod matrix, sequencer settings + patterns, and sampler selections
+    - Presets are human-readable files stored as text sidecars
 - Located in ~/.config/wakefield/presets/
 - Can be edited manually or shared with others
 - Preset browser shows all available presets alphabetically
