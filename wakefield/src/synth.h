@@ -362,6 +362,9 @@ public:
 
     bool freeRunningVoiceActive = false;
     int freeRunningVoiceIndex = -1;
+
+    // Voice stealing: global counter for voice priority/age tracking
+    uint64_t voiceCounter = 0;
 };
 
 #endif // SYNTH_H

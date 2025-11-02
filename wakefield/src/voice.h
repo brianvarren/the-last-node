@@ -17,6 +17,7 @@ struct Voice {
     bool active;           // Is this voice currently playing?
     int note;             // MIDI note number
     int velocity;         // MIDI velocity (0-127)
+    uint64_t startTime;   // Voice start timestamp (for voice stealing priority)
     BrainwaveOscillator oscillators[OSCILLATORS_PER_VOICE]; // 4 oscillators per voice
     Sampler samplers[SAMPLERS_PER_VOICE]; // 4 samplers per voice
     Envelope envelope;     // Amplitude envelope
@@ -70,6 +71,7 @@ struct Voice {
         : active(false)
         , note(-1)
         , velocity(64)
+        , startTime(0)
         , envelope(sampleRate)
         , sampleRate(sampleRate)
         , params(nullptr)

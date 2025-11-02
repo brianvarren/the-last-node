@@ -70,15 +70,63 @@ float Synth::midiNoteToFrequency(int midiNote) {
 }
 
 int Synth::findFreeVoice() {
-    // Find first inactive voice
+    // Priority 1: Find truly inactive voice (OFF stage)
     for (int i = 0; i < MAX_VOICES; ++i) {
         if (!voices[i].active) {
             return i;
         }
     }
-    
-    // No free voice found
-    return -1;
+
+    // All voices are active - need to steal one
+    // Priority 2: Steal voice already in RELEASE stage (fading out)
+    int releaseVoiceIndex = -1;
+    uint64_t oldestReleaseTime = UINT64_MAX;
+
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        if (voices[i].envelope.getStage() == EnvelopeStage::RELEASE) {
+            // Prefer the oldest voice in release
+            if (voices[i].startTime < oldestReleaseTime) {
+                oldestReleaseTime = voices[i].startTime;
+                releaseVoiceIndex = i;
+            }
+        }
+    }
+
+    if (releaseVoiceIndex != -1) {
+        return releaseVoiceIndex;
+    }
+
+    // Priority 3: Steal oldest voice in SUSTAIN stage
+    int oldestVoiceIndex = -1;
+    uint64_t oldestTime = UINT64_MAX;
+
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        if (voices[i].envelope.getStage() == EnvelopeStage::SUSTAIN) {
+            if (voices[i].startTime < oldestTime) {
+                oldestTime = voices[i].startTime;
+                oldestVoiceIndex = i;
+            }
+        }
+    }
+
+    if (oldestVoiceIndex != -1) {
+        return oldestVoiceIndex;
+    }
+
+    // Priority 4: Steal voice with lowest envelope level (quietest)
+    // This handles ATTACK and DECAY stages
+    int quietestVoiceIndex = 0;
+    float lowestLevel = voices[0].getEnvelopeValue();
+
+    for (int i = 1; i < MAX_VOICES; ++i) {
+        float level = voices[i].getEnvelopeValue();
+        if (level < lowestLevel) {
+            lowestLevel = level;
+            quietestVoiceIndex = i;
+        }
+    }
+
+    return quietestVoiceIndex;
 }
 
 void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, float release) {
@@ -261,19 +309,19 @@ void Synth::updateFilterParameters(int type, float cutoff, float gain,
 }
 
 void Synth::noteOn(int midiNote, int velocity) {
-    // Find a free voice
+    // Find a free voice (or steal one if all are busy)
     int voiceIndex = findFreeVoice();
 
-    if (voiceIndex == -1) {
-        // No free voices - drop the note for now
-        return;
-    }
-
-    // Activate the voice
+    // Voice stealing now happens intelligently in findFreeVoice()
+    // Priority: OFF stage > RELEASE stage > oldest SUSTAIN > quietest ATTACK/DECAY
+    // This ensures smooth transitions by preferring voices already fading out
     Voice& voice = voices[voiceIndex];
+
+    // Activate the voice with new note
     voice.active = true;
     voice.note = midiNote;
     voice.velocity = velocity;
+    voice.startTime = voiceCounter++;  // Assign timestamp for voice stealing priority
 
     float frequency = midiNoteToFrequency(midiNote);
     // Update note frequency for oscillators in KEY mode and reset phase
@@ -771,13 +819,23 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
     // Phase 3: Apply soft clipping and NaN/Inf sanitization
     // Process after all mixing (voices + samplers + chaos) but before filter/reverb
-    // Lowered threshold from 0.9 to 0.7 to catch peaks earlier
-    for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
-        // Sanitize before soft clipping
-        if (!std::isfinite(output[i])) {
-            output[i] = 0.0f;
+    // If the compressor is enabled (final stage), avoid double-clipping here.
+    if (!compressorEnabled) {
+        // Lowered threshold from 0.9 to 0.7 to catch peaks earlier
+        for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
+            // Sanitize before soft clipping
+            if (!std::isfinite(output[i])) {
+                output[i] = 0.0f;
+            }
+            output[i] = softClip(output[i], 0.7f);
         }
-        output[i] = softClip(output[i], 0.7f);
+    } else {
+        // Still sanitize to avoid propagating NaNs/Infs
+        for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
+            if (!std::isfinite(output[i])) {
+                output[i] = 0.0f;
+            }
+        }
     }
 
     // Apply filter if enabled (stereo processing)
