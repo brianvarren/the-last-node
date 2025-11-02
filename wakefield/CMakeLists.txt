@@ -106,3 +106,10 @@ if (WAKEFIELD_BUILD_PROFILER)
         target_link_options(profile_runner PRIVATE -pg)
     endif()
 endif()
+
+# Unit tests: compressor
+add_executable(compressor_tests
+    src/tests/compressor_tests.cpp
+    src/compressor.cpp
+)
+target_include_directories(compressor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

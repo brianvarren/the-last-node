@@ -26,13 +26,18 @@ void UI::drawCompressorPage() {
         gainReduction = synth->getCompressorGainReduction();
     }
 
-    // Get output level (peak of last buffer)
-    // TODO: Add synth->getOutputPeak() method for proper metering
-    float outputLevel = 0.5f;  // Placeholder - will add proper metering later
+    // Get output level (placeholder until proper metering exposed)
+    float outputLevel = 0.5f;
 
-    const int meterWidth = 60;
+    int maxY = getmaxy(stdscr);
+    int maxX = getmaxx(stdscr);
+    const int leftMargin = 2;
+    const int meterLeft = leftMargin + 2;
+    // Allocate room for right parameter column (~40 cols) and spacing
+    int rightCol = std::max(40, maxX / 2);
+    int availableWidth = std::max(20, rightCol - meterLeft - 4);
+    int meterWidth = std::min(40, availableWidth);
     const int meterHeight = 3;
-    const int meterLeft = 4;
     int meterTop = row;
 
     // Output Level Meter
@@ -64,7 +69,7 @@ void UI::drawCompressorPage() {
         }
         attroff(color | A_BOLD);
 
-        mvprintw(meterTop + 2, meterLeft, "Level: %.1f dB", outputDB);
+        mvprintw(meterTop + 2, meterLeft, "Level: %6.1f dB", outputDB);
     } else {
         mvprintw(meterTop + 2, meterLeft, "Level: -inf dB");
     }
@@ -99,29 +104,27 @@ void UI::drawCompressorPage() {
         }
         attroff(color | A_BOLD);
 
-        // Show numeric value
-        mvprintw(meterTop + 2, meterLeft, "GR: %.1f dB", gainReduction);
-
-        // Show makeup gain if auto makeup is enabled
-        if (autoMakeup && synth) {
-            float makeupGain = synth->getCompressorGainReduction();  // This will need a getMakeupGain method
-            mvprintw(meterTop + 2, meterLeft + 20, "Auto Makeup: ON");
+        // Show numeric value (right-aligned field)
+        mvprintw(meterTop + 2, meterLeft, "GR: %6.1f dB", gainReduction);
+        if (autoMakeup) {
+            mvprintw(meterTop + 2, meterLeft + 18, "Auto Makeup: ON");
         }
     } else {
         attron(COLOR_LOCKED);
-        mvprintw(meterTop + 2, meterLeft, "GR: 0.0 dB (No Reduction)");
+        mvprintw(meterTop + 2, meterLeft, "GR:   0.0 dB");
         attroff(COLOR_LOCKED);
     }
 
     if (!enabled) {
         attron(COLOR_LOCKED | A_BOLD);
-        mvprintw(meterTop + 1, meterLeft + meterWidth/2 - 7, " COMPRESSOR OFF ");
+        int cx = meterLeft + std::max(0, meterWidth/2 - 7);
+        mvprintw(meterTop + 1, cx, " COMPRESSOR OFF ");
         attroff(COLOR_LOCKED | A_BOLD);
     }
 
-    // Draw parameter list on the right
-    int parameterCol = meterLeft + meterWidth + 8;
-    int parameterTop = meterTop;
+    // Draw parameter list on the right (fits grid within one page)
+    int parameterCol = rightCol;
+    int parameterTop = row;
 
     std::vector<int> compressorParams = getCompressorParameterIds();
     if (!compressorParams.empty()) {
@@ -132,40 +135,12 @@ void UI::drawCompressorPage() {
         drawParameterList(parameterTop, parameterCol, compressorParams);
     }
 
-    // Draw info box below meter
-    row = meterTop + meterHeight + 2;
-    attron(COLOR_LOCKED);
-    mvprintw(row++, meterLeft, "COMPRESSOR INFO:");
-    attroff(COLOR_LOCKED);
-
-    mvprintw(row++, meterLeft, "Threshold: %.1f dB | Ratio: %.1f:1 %s",
-             threshold, ratio, ratio >= 20.0f ? "(LIMITING)" : "");
-    mvprintw(row++, meterLeft, "Attack: %.1f ms | Release: %.1f ms",
-             attack, release);
-    mvprintw(row++, meterLeft, "Knee: %.1f dB | Mix: %.0f%%",
-             knee, mix * 100.0f);
-    mvprintw(row++, meterLeft, "Detection: %s | Auto Makeup: %s",
+    // Compact info line below meters (single page, grid-aligned)
+    int infoRow = meterTop + meterHeight + 2;
+    mvprintw(infoRow++, meterLeft, "Thresh:%6.1f dB  Ratio:%5.1f:1 %s",
+             threshold, ratio, ratio >= 20.0f ? "(LIMIT)" : "");
+    mvprintw(infoRow++, meterLeft, "Attack:%6.1f ms  Release:%6.1f ms  Knee:%5.1f dB  Mix:%3.0f%%",
+             attack, release, knee, mix * 100.0f);
+    mvprintw(infoRow++, meterLeft, "Detect:%s  AutoMakeup:%s",
              rmsMode ? "RMS" : "Peak", autoMakeup ? "ON" : "OFF");
-
-    row += 2;
-    attron(COLOR_LOCKED);
-    mvprintw(row++, meterLeft, "FEATURES:");
-    attroff(COLOR_LOCKED);
-    mvprintw(row++, meterLeft, "• Stereo-linked compression for cohesive imaging");
-    mvprintw(row++, meterLeft, "• Automatic makeup gain maintains perceived loudness");
-    mvprintw(row++, meterLeft, "• Soft-knee compression for musical transitions");
-    mvprintw(row++, meterLeft, "• Integrated soft clipping prevents digital clipping");
-    mvprintw(row++, meterLeft, "• Peak/RMS detection modes for different material");
-    mvprintw(row++, meterLeft, "• Dry/wet mix for parallel compression");
-
-    row += 2;
-    attron(COLOR_LOCKED);
-    mvprintw(row++, meterLeft, "TIPS:");
-    attroff(COLOR_LOCKED);
-    mvprintw(row++, meterLeft, "• Start with 4:1 ratio and adjust threshold to taste");
-    mvprintw(row++, meterLeft, "• Use fast attack (1-5ms) for transient control");
-    mvprintw(row++, meterLeft, "• Use slow attack (10-30ms) to preserve punch");
-    mvprintw(row++, meterLeft, "• Set ratio to 20:1 or higher for limiting");
-    mvprintw(row++, meterLeft, "• Use RMS mode for smooth, consistent compression");
-    mvprintw(row++, meterLeft, "• Use Peak mode for fast transient control");
 }

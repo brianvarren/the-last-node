@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <atomic>
 
 /**
  * Stereo Compressor/Limiter with Automatic Makeup Gain
@@ -27,7 +28,7 @@ class Compressor {
 public:
     Compressor(float sampleRate);
 
-    // Parameter setters (thread-safe, call from any thread)
+    // Parameter setters (lock-free; parameters stored atomically)
     void setThreshold(float dB);      // Threshold in dB (-60 to 0)
     void setRatio(float ratio);       // Compression ratio (1:1 to 20:1, inf for limiting)
     void setAttack(float ms);         // Attack time in milliseconds (0.1 to 100)
@@ -42,52 +43,57 @@ public:
     // output can be the same as input for in-place processing
     void process(const float* input, float* output, int numSamples);
 
-    // Get current gain reduction in dB (for metering)
+    // Get current gain reduction in dB (negative number)
     float getGainReduction() const { return currentGainReductionDB; }
 
     // Get calculated makeup gain in dB (for display)
-    float getMakeupGain() const { return makeupGainDB; }
+    float getMakeupGain() const { return makeupGainDB.load(); }
 
 private:
     float sampleRate;
 
-    // Parameters
-    float thresholdDB;
-    float ratio;
-    float attackCoeff;
-    float releaseCoeff;
-    float kneeDB;
-    float mix;
-    bool autoMakeup;
-    float manualMakeupDB;
-    bool rmsMode;
+    // Parameters (atomics for cross-thread updates)
+    std::atomic<float> thresholdDB;
+    std::atomic<float> ratio;
+    std::atomic<float> kneeDB;
+    std::atomic<float> mix;
+    std::atomic<bool> autoMakeup;
+    std::atomic<float> manualMakeupDB;
+    std::atomic<bool> rmsMode;
+
+    // Ballistics coefficients (computed from attack/release setters)
+    // Separate detector and gain-stage smoothing
+    std::atomic<float> detAttackCoeff;
+    std::atomic<float> detReleaseCoeff;
+    std::atomic<float> gainAttackCoeff;
+    std::atomic<float> gainReleaseCoeff;
 
     // State variables
+    // Peak detector envelopes
     float envelopeL;
     float envelopeR;
-    float gainSmoother;  // Smoothed gain reduction
+
+    // RMS detector (exponential window, ~20ms)
+    float rmsEnvL;
+    float rmsEnvR;
+    float rmsCoeff;
+
+    // Gain smoothing state
+    float gainSmoother;  // Smoothed gain (linear domain)
     float currentGainReductionDB;
-    float makeupGainDB;  // Auto-calculated or manual
+    std::atomic<float> makeupGainDB;  // Auto-calculated or manual (dB)
 
-    // RMS detection buffers (for efficient RMS calculation)
-    static constexpr int RMS_WINDOW_SIZE = 64;
-    float rmsBufferL[RMS_WINDOW_SIZE];
-    float rmsBufferR[RMS_WINDOW_SIZE];
-    int rmsIndex;
-    float rmsSumL;
-    float rmsSumR;
-
-    // Automatic makeup gain calculation
+    // Automatic makeup gain calculation (store recent GR dB)
     static constexpr int GR_HISTORY_SIZE = 1024;
     float grHistory[GR_HISTORY_SIZE];
     int grHistoryIndex;
     int grHistorySamples;
+    int makeupSampleCounter; // accumulate processed samples for periodic updates
 
     // Helper functions
-    float computeGainReduction(float inputDB);
+    float computeGainReduction(float inputDB, float threshold, float ratio, float knee);
     float softClip(float x);
     void updateMakeupGain();
-    void updateCoefficients();
 };
 
 #endif // COMPRESSOR_H
