@@ -16,6 +16,7 @@ Envelope::Envelope(float sampleRate)
     , attackRate(0.0f)
     , decayRate(0.0f)
     , releaseRate(0.0f)
+    , attackStartLevel(0.0f)
     , releaseStartLevel(0.0f) {
 
     calculateRates();
@@ -61,9 +62,16 @@ void Envelope::calculateRates() {
     releaseRate = timeToRate(releaseTime);
 }
 
-void Envelope::noteOn() {
+void Envelope::noteOn(bool fromCurrentLevel) {
     stage = EnvelopeStage::ATTACK;
-    level = 0.0f;
+    if (fromCurrentLevel) {
+        // Smooth retriggering: start attack from current level (for voice stealing)
+        attackStartLevel = level;
+    } else {
+        // Normal retrigger: start from zero
+        attackStartLevel = 0.0f;
+        level = 0.0f;
+    }
     stageProgress = 0.0f;
 }
 
@@ -83,6 +91,7 @@ void Envelope::reset() {
     stage = EnvelopeStage::OFF;
     level = 0.0f;
     stageProgress = 0.0f;
+    attackStartLevel = 0.0f;
     releaseStartLevel = 0.0f;
 }
 
@@ -117,7 +126,9 @@ float Envelope::process() {
                 stageProgress = 0.0f;
             } else {
                 float progress = std::clamp(stageProgress, 0.0f, 1.0f);
-                level = applyBend(progress, attackBend);
+                float bentProgress = applyBend(progress, attackBend);
+                // Interpolate from attackStartLevel to 1.0 (supports smooth retriggering)
+                level = attackStartLevel + (1.0f - attackStartLevel) * bentProgress;
             }
             break;
 

@@ -24,7 +24,7 @@ public:
     void setReleaseBend(float bend);  // Affects both decay and release curves
     
     // Trigger envelope stages
-    void noteOn();
+    void noteOn(bool fromCurrentLevel = false);  // If true, starts attack from current level (for smooth retriggering)
     void noteOff();
     void reset();
     
@@ -56,6 +56,7 @@ private:
     float attackRate;
     float decayRate;
     float releaseRate;
+    float attackStartLevel;   // Level to start attack from (for smooth retriggering)
     float releaseStartLevel;
 
     // Calculate rates from times

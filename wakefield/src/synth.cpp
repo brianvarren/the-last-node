@@ -317,6 +317,9 @@ void Synth::noteOn(int midiNote, int velocity) {
     // This ensures smooth transitions by preferring voices already fading out
     Voice& voice = voices[voiceIndex];
 
+    // Detect if we're stealing an active voice (for smooth envelope retriggering)
+    bool isStealingVoice = voice.active;
+
     // Activate the voice with new note
     voice.active = true;
     voice.note = midiNote;
@@ -357,7 +360,9 @@ void Synth::noteOn(int midiNote, int velocity) {
     }
     voice.resetFMHistory();
 
-    voice.envelope.noteOn();  // Trigger envelope attack
+    // Trigger envelope attack
+    // If stealing an active voice, start from current level to avoid discontinuity clicks
+    voice.envelope.noteOn(isStealingVoice);
 }
 
 void Synth::noteOff(int midiNote) {
