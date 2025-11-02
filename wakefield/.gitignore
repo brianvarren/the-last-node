@@ -13,6 +13,7 @@ Makefile
 
 # Executables
 synth
+compressor_tests
 *.exe
 
 # IDE files
@@ -30,3 +31,6 @@ synth
 *.backup
 
 profile_runner
+
+# Local build trees
+build/
