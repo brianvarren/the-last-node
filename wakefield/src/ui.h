@@ -1216,6 +1216,10 @@ private:
     void undoAction();
     void redoAction();
 
+public:
+    // Returns true if a MIDI note was consumed to fill the sequencer note/name popup
+    bool handleMidiNoteForSequencerNumeric(int midiNote);
+
     // MOD matrix menu helpers
     void startModMatrixMenu();
     void handleModMatrixMenuInput(int ch);

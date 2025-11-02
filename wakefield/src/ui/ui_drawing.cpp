@@ -371,7 +371,13 @@ void UI::draw(int activeVoices) {
         // Draw hint
         attron(COLOR_HINT);
         if (numericInputIsSequencer) {
-            mvprintw(startY + 5, startX + 2, "Enter value, Esc cancel");
+            if (sequencerNumericContext.field == SequencerNumericField::NOTE) {
+                mvprintw(startY + 5, startX + 2, "Type note or play MIDI key, Esc cancel");
+            } else if (sequencerNumericContext.field == SequencerNumericField::ROOT) {
+                mvprintw(startY + 5, startX + 2, "Type root or play MIDI key, Esc cancel");
+            } else {
+                mvprintw(startY + 5, startX + 2, "Enter value, Esc cancel");
+            }
         } else {
             mvprintw(startY + 5, startX + 2, "Press Enter to confirm, Esc to cancel");
         }

@@ -62,3 +62,24 @@ void UI::cancelSequencerNumericInput() {
     numericInputIsSequencer = false;
     sequencerNumericContext = SequencerNumericContext();
 }
+
+bool UI::handleMidiNoteForSequencerNumeric(int midiNote) {
+    // Only consume if we are in the sequencer numeric popup and editing a field
+    if (!numericInputActive || !numericInputIsSequencer) {
+        return false;
+    }
+
+    // Clamp to valid MIDI range
+    int clamped = std::max(0, std::min(127, midiNote));
+
+    switch (sequencerNumericContext.field) {
+        case SequencerNumericField::NOTE:
+        case SequencerNumericField::ROOT:
+            // Submit just like typed input using the MIDI note number
+            numericInputBuffer = std::to_string(clamped);
+            finishNumericInput();
+            return true;
+        default:
+            return false;
+    }
+}

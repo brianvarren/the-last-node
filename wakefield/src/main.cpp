@@ -138,6 +138,10 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
 }
 
 void onNoteOn(int note, int velocity) {
+    // If the UI is waiting for a sequencer note entry, consume this MIDI note as input
+    if (ui && ui->handleMidiNoteForSequencerNumeric(note)) {
+        return;
+    }
     if (synth) {
         synth->noteOn(note, velocity);
     }
