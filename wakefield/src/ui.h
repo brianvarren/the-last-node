@@ -198,7 +198,7 @@ struct SynthParameters {
     std::atomic<float> osc1Duty{0.5f};         // Pulse width (0.0-1.0)
     std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
     std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
-    std::atomic<float> osc1Amp{1.0f};          // Amplitude (modulation target, 0.0-1.0)
+    std::atomic<float> osc1Amp{0.0f};          // Amplitude (modulation target, 0.0-1.0)
     std::atomic<float> osc1Level{0.8f};        // Mix level (static, 0.0-1.0)
 
     // Oscillator 2 (index 1)
@@ -209,7 +209,7 @@ struct SynthParameters {
     std::atomic<float> osc2Duty{0.5f};
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
-    std::atomic<float> osc2Amp{1.0f};
+    std::atomic<float> osc2Amp{0.0f};
     std::atomic<float> osc2Level{0.8f};
 
     // Oscillator 3 (index 2)
@@ -220,7 +220,7 @@ struct SynthParameters {
     std::atomic<float> osc3Duty{0.5f};
     std::atomic<float> osc3Ratio{1.0f};
     std::atomic<float> osc3Offset{0.0f};
-    std::atomic<float> osc3Amp{1.0f};
+    std::atomic<float> osc3Amp{0.0f};
     std::atomic<float> osc3Level{0.8f};
 
     // Oscillator 4 (index 3)
@@ -231,7 +231,7 @@ struct SynthParameters {
     std::atomic<float> osc4Duty{0.5f};
     std::atomic<float> osc4Ratio{1.0f};
     std::atomic<float> osc4Offset{0.0f};
-    std::atomic<float> osc4Amp{1.0f};
+    std::atomic<float> osc4Amp{0.0f};
     std::atomic<float> osc4Level{0.8f};
 
     // Mixer mute/solo state (4 OSC + 4 SAMP + 4 CHAOS = 12 channels)

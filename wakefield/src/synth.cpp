@@ -1181,8 +1181,13 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         // Type 0 = Unidirectional (-->) maps source -1..+1 to 0..1, then scales by amount
         // Type 1 = Bidirectional (<->) scales -1..+1 directly by amount
         if (slot.type == 0) {
-            float mapped01 = (shapedValue + 1.0f) * 0.5f;  // 0..1
-            modValue = mapped01 * amount;
+            if (slot.source >= 4 && slot.source <= 7) {
+                float uniSource = std::clamp(shapedValue, 0.0f, 1.0f);
+                modValue = uniSource * amount;
+            } else {
+                float mapped01 = (shapedValue + 1.0f) * 0.5f;  // 0..1
+                modValue = mapped01 * amount;
+            }
         } else {
             modValue = shapedValue * amount;
         }
@@ -1242,6 +1247,13 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             }
         }
 
+        auto adjustAmpMod = [&](float value) -> float {
+            if (slot.type == 1 && slot.source >= 4 && slot.source <= 7 && amount > 0.0f) {
+                return value - amount;
+            }
+            return value;
+        };
+
         switch (destination) {
             // OSC 1
             case 0: outputs.osc1Pitch += modValue; break;
@@ -1249,28 +1261,28 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 2: outputs.osc1Duty += modValue; break;
             case 3: outputs.osc1Ratio += modValue; break;
             case 4: outputs.osc1Offset += modValue; break;
-            case 5: outputs.osc1Amp += modValue; break;  // Changed from Level to Amp
+            case 5: outputs.osc1Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
             // OSC 2
             case 6: outputs.osc2Pitch += modValue; break;
             case 7: outputs.osc2Morph += modValue; break;
             case 8: outputs.osc2Duty += modValue; break;
             case 9: outputs.osc2Ratio += modValue; break;
             case 10: outputs.osc2Offset += modValue; break;
-            case 11: outputs.osc2Amp += modValue; break;  // Changed from Level to Amp
+            case 11: outputs.osc2Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
             // OSC 3
             case 12: outputs.osc3Pitch += modValue; break;
             case 13: outputs.osc3Morph += modValue; break;
             case 14: outputs.osc3Duty += modValue; break;
             case 15: outputs.osc3Ratio += modValue; break;
             case 16: outputs.osc3Offset += modValue; break;
-            case 17: outputs.osc3Amp += modValue; break;  // Changed from Level to Amp
+            case 17: outputs.osc3Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
             // OSC 4
             case 18: outputs.osc4Pitch += modValue; break;
             case 19: outputs.osc4Morph += modValue; break;
             case 20: outputs.osc4Duty += modValue; break;
             case 21: outputs.osc4Ratio += modValue; break;
             case 22: outputs.osc4Offset += modValue; break;
-            case 23: outputs.osc4Amp += modValue; break;  // Changed from Level to Amp
+            case 23: outputs.osc4Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
             // Filter
             case 24: outputs.filterCutoff += modValue; break;
             case 25: outputs.filterResonance += modValue; break;
@@ -1287,25 +1299,25 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 34: outputs.samp1LoopStart += modValue; break;
             case 35: outputs.samp1LoopLength += modValue; break;
             case 36: outputs.samp1Crossfade += modValue; break;
-            case 37: outputs.samp1Amp += modValue; break;
+            case 37: outputs.samp1Amp += adjustAmpMod(modValue); break;
             // SAMP 2
             case 38: outputs.samp2Pitch += modValue; break;
             case 39: outputs.samp2LoopStart += modValue; break;
             case 40: outputs.samp2LoopLength += modValue; break;
             case 41: outputs.samp2Crossfade += modValue; break;
-            case 42: outputs.samp2Amp += modValue; break;
+            case 42: outputs.samp2Amp += adjustAmpMod(modValue); break;
             // SAMP 3
             case 43: outputs.samp3Pitch += modValue; break;
             case 44: outputs.samp3LoopStart += modValue; break;
             case 45: outputs.samp3LoopLength += modValue; break;
             case 46: outputs.samp3Crossfade += modValue; break;
-            case 47: outputs.samp3Amp += modValue; break;
+            case 47: outputs.samp3Amp += adjustAmpMod(modValue); break;
             // SAMP 4
             case 48: outputs.samp4Pitch += modValue; break;
             case 49: outputs.samp4LoopStart += modValue; break;
             case 50: outputs.samp4LoopLength += modValue; break;
             case 51: outputs.samp4Crossfade += modValue; break;
-            case 52: outputs.samp4Amp += modValue; break;
+            case 52: outputs.samp4Amp += adjustAmpMod(modValue); break;
             // LFO 1
             case 53: outputs.lfoPeriod[0] += modValue; break;
             case 54: outputs.lfoMorph[0] += modValue; break;
