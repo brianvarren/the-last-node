@@ -61,7 +61,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     , modMatrixDestinationParamIndex(0)
     , modMatrixDestinationFocusColumn(1)
     , sampleBrowserActive(false)
-    , sampleBrowserCurrentDir("../samples")
+    , sampleBrowserCurrentDir("samples")
     , sampleBrowserSelectedIndex(0)
     , sampleBrowserScrollOffset(0)
     , mainPageActionIndex(0)
@@ -212,6 +212,12 @@ void UI::setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>
 void UI::setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort) {
     availableMidiDevices = devices;
     currentMidiPortNum = currentPort;
+}
+
+void UI::setSampleDirectory(const std::string& path) {
+    if (!path.empty()) {
+        sampleBrowserCurrentDir = path;
+    }
 }
 
 void UI::requestAudioBufferSizeChange(int newSize) {

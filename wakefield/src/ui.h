@@ -1027,6 +1027,7 @@ public:
     // Set available devices
     void setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId);
     void setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort);
+    void setSampleDirectory(const std::string& path);
     
     void addConsoleMessage(const std::string& message);
 

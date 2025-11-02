@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <cstdlib>
+#include <filesystem>
 #include <sys/stat.h>
 #include <pwd.h>
 
@@ -505,24 +507,46 @@ int main(int argc, char** argv) {
     synth = new Synth(static_cast<float>(sampleRate));
 
     // Load samples from ../samples directory (relative to project root)
-    std::vector<std::string> sampleDirectories = {"samples", "../samples"};
-    int samplesLoaded = 0;
-    std::string samplePathUsed;
-    for (const auto& dir : sampleDirectories) {
-        samplesLoaded = synth->getSampleBank()->loadSamplesFromDirectory(dir);
-        if (samplesLoaded > 0) {
-            samplePathUsed = dir;
-            break;
+    auto resolveSampleDirectory = []() -> std::string {
+        std::vector<std::string> candidates;
+        if (const char* envPath = std::getenv("WAKEFIELD_SAMPLES")) {
+            candidates.emplace_back(envPath);
         }
+        candidates.emplace_back("samples");
+        candidates.emplace_back("build/samples");
+        candidates.emplace_back("../samples");
+        candidates.emplace_back("../build/samples");
+        candidates.emplace_back("../../samples");
+
+        for (const auto& candidate : candidates) {
+            try {
+                std::filesystem::path path(candidate);
+                if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+                    return std::filesystem::canonical(path).string();
+                }
+            } catch (...) {
+                continue;
+            }
+        }
+        return {};
+    };
+
+    const std::string samplePath = resolveSampleDirectory();
+    int samplesLoaded = 0;
+    if (!samplePath.empty()) {
+        samplesLoaded = synth->getSampleBank()->loadSamplesFromDirectory(samplePath.c_str());
     }
 
     if (samplesLoaded > 0) {
-        std::cout << "Loaded " << samplesLoaded << " samples from " << samplePathUsed << std::endl;
+        std::cout << "Loaded " << samplesLoaded << " samples from " << samplePath << std::endl;
         // Load first sample into first sampler
         synth->setSamplerSample(0, 0);
         std::cout << "Loaded first sample into Sampler 1" << std::endl;
+        if (ui) {
+            ui->setSampleDirectory(samplePath);
+        }
     } else {
-        std::cout << "Warning: No samples found in ./samples or ../samples" << std::endl;
+        std::cout << "Warning: No samples found in default locations (samples, build/samples, ../samples)" << std::endl;
     }
 
     // Create shared transport clock
