@@ -435,26 +435,10 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     refreshSamplerPhaseDrivers();
     float masterGain = std::clamp(masterVolume + lastGlobalModOutputs.mixerMasterVolume, 0.0f, 1.0f);
 
-    // Phase 1: Dynamic voice normalization
-    // Count active voices for dynamic gain compensation
-    int activeVoiceCount = 0;
-    for (int v = 0; v < MAX_VOICES; ++v) {
-        if (voices[v].active) {
-            activeVoiceCount++;
-        }
-    }
-
-    // Calculate voice gain using linear normalization (most conservative, prevents clipping)
-    // Linear 1/N normalization: aggressive reduction ensures no clipping
-    // 1 voice: 1.0x, 2 voices: 0.5x, 4 voices: 0.25x, 8 voices: 0.125x
-    // Combined with per-source normalization in voices, this prevents summing clipping
-    float targetVoiceGain = (activeVoiceCount > 0)
-        ? (1.0f / static_cast<float>(activeVoiceCount))
-        : 1.0f;
-
-    // Apply gain immediately without smoothing to prevent clipping during voice attacks
-    // Smoothing caused brief clipping when multiple voices triggered simultaneously
-    float voiceGain = targetVoiceGain;
+    // Phase 1: fixed headroom voice gain
+    // Choose a conservative mix gain that accommodates worst-case polyphony without clipping.
+    constexpr float kVoiceHeadroomGain = 0.35f;  // tuned for 8 voices with internal source normalization
+    float voiceGain = kVoiceHeadroomGain;
 
     // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
     for (int v = 0; v < MAX_VOICES; ++v) {
