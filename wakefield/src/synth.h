@@ -59,7 +59,7 @@ public:
     void setCompressorEnabled(bool enabled) { compressorEnabled = enabled; }
     void updateCompressorParameters(float threshold, float ratio, float attack,
                                     float release, float knee, float mix,
-                                    bool autoMakeup, bool rmsMode);
+                                    bool autoMakeup, float manualMakeup, bool rmsMode);
     float getCompressorGainReduction() const;  // For metering (in dB)
 
     // LFO control

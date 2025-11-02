@@ -26,13 +26,52 @@ void UI::drawCompressorPage() {
         gainReduction = synth->getCompressorGainReduction();
     }
 
-    // Draw gain reduction meter
+    // Get output level (peak of last buffer)
+    // TODO: Add synth->getOutputPeak() method for proper metering
+    float outputLevel = 0.5f;  // Placeholder - will add proper metering later
+
     const int meterWidth = 60;
     const int meterHeight = 3;
     const int meterLeft = 4;
-    const int meterTop = row;
+    int meterTop = row;
 
-    // Title
+    // Output Level Meter
+    attron(COLOR_LOCKED);
+    mvprintw(meterTop, meterLeft, "Output Level");
+    attroff(COLOR_LOCKED);
+
+    std::string outputBg(meterWidth, '-');
+    mvprintw(meterTop + 1, meterLeft, "[%s]", outputBg.c_str());
+
+    // Draw output level bar (0 to 1.0 range, showing 0 to -40 dB)
+    if (outputLevel > 0.0f) {
+        float outputDB = 20.0f * std::log10(std::max(outputLevel, 1e-6f));
+        float normalizedLevel = std::clamp((outputDB + 40.0f) / 40.0f, 0.0f, 1.0f);  // Map -40 to 0 dB -> 0 to 1
+        int barLength = static_cast<int>(normalizedLevel * meterWidth);
+        barLength = std::clamp(barLength, 0, meterWidth);
+
+        // Color based on level
+        int color = COLOR_VALUE;
+        if (outputDB > -3.0f) {
+            color = COLOR_SECTION_HEADER;  // Red zone (near clipping)
+        } else if (outputDB > -6.0f) {
+            color = COLOR_STATUS_ACTIVE;  // Yellow zone
+        }
+
+        attron(color | A_BOLD);
+        for (int i = 0; i < barLength; ++i) {
+            mvprintw(meterTop + 1, meterLeft + 1 + i, "=");
+        }
+        attroff(color | A_BOLD);
+
+        mvprintw(meterTop + 2, meterLeft, "Level: %.1f dB", outputDB);
+    } else {
+        mvprintw(meterTop + 2, meterLeft, "Level: -inf dB");
+    }
+
+    meterTop += 4;  // Move down for gain reduction meter
+
+    // Gain Reduction Meter Title
     attron(COLOR_LOCKED);
     mvprintw(meterTop, meterLeft, "Gain Reduction Meter");
     attroff(COLOR_LOCKED);

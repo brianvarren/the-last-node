@@ -227,6 +227,20 @@ void UI::initializeParameters() {
     parameters.push_back({412, ParamType::FLOAT, "CHAOS 3 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});
     parameters.push_back({413, ParamType::FLOAT, "CHAOS 4 Level", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MIXER), false});
 
+    // ============================================================================
+    // COMPRESSOR PAGE - RANDOMIZABLE (except enabled)
+    // ============================================================================
+    parameters.push_back({70, ParamType::BOOL, "Enabled", "", 0, 1, {}, true, static_cast<int>(UIPage::COMPRESSOR), false});
+    parameters.push_back({71, ParamType::FLOAT, "Threshold", "dB", -60.0f, 0.0f, {}, true, static_cast<int>(UIPage::COMPRESSOR), true});
+    parameters.push_back({72, ParamType::FLOAT, "Ratio", ":1", 1.0f, 20.0f, {}, true, static_cast<int>(UIPage::COMPRESSOR), true});
+    parameters.push_back({73, ParamType::FLOAT, "Attack", "ms", 0.1f, 100.0f, {}, true, static_cast<int>(UIPage::COMPRESSOR), true, ParamCurve::Logarithmic});
+    parameters.push_back({74, ParamType::FLOAT, "Release", "ms", 10.0f, 1000.0f, {}, true, static_cast<int>(UIPage::COMPRESSOR), true, ParamCurve::Logarithmic});
+    parameters.push_back({75, ParamType::FLOAT, "Knee", "dB", 0.0f, 20.0f, {}, true, static_cast<int>(UIPage::COMPRESSOR), true});
+    parameters.push_back({76, ParamType::FLOAT, "Mix", "%", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::COMPRESSOR), true});
+    parameters.push_back({77, ParamType::BOOL, "Auto Makeup", "", 0, 1, {}, true, static_cast<int>(UIPage::COMPRESSOR), false});
+    parameters.push_back({79, ParamType::FLOAT, "Manual Makeup", "dB", 0.0f, 24.0f, {}, true, static_cast<int>(UIPage::COMPRESSOR), true});
+    parameters.push_back({78, ParamType::BOOL, "RMS Mode", "", 0, 1, {}, true, static_cast<int>(UIPage::COMPRESSOR), false});
+
     for (const auto& param : parameters) {
         ParameterRegistry::Register(param);
     }
@@ -349,6 +363,7 @@ void SynthParameters::applyParameterValue(int id,
         case 75: compressorKnee = value; break;
         case 76: compressorMix = value; break;
         case 77: compressorAutoMakeup = (value > 0.5f); break;
+        case 79: compressorManualMakeup = value; break;
         case 78: compressorRMS = (value > 0.5f); break;
         case 300: setEnvAttack(0, value); attack = value; break;
         case 301: setEnvDecay(0, value); decay = value; break;
@@ -465,8 +480,9 @@ std::vector<int> UI::getCompressorParameterIds() const {
     // 75 = Knee
     // 76 = Mix
     // 77 = Auto Makeup
+    // 79 = Manual Makeup
     // 78 = RMS Mode
-    return {70, 71, 72, 73, 74, 75, 76, 77, 78};
+    return {70, 71, 72, 73, 74, 75, 76, 77, 79, 78};
 }
 
 std::vector<int> UI::getRandomizableParameterIds() {
@@ -1619,6 +1635,7 @@ float UI::getParameterValue(int id) {
         case 75: return params->compressorKnee.load();
         case 76: return params->compressorMix.load();
         case 77: return params->compressorAutoMakeup.load() ? 1.0f : 0.0f;
+        case 79: return params->compressorManualMakeup.load();
         case 78: return params->compressorRMS.load() ? 1.0f : 0.0f;
         // CONFIG page parameters
         case 400: return cpuMonitor.isEnabled() ? 1.0f : 0.0f;
@@ -1740,7 +1757,8 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         case 72:
             params->compressorRatio = value;
@@ -1748,7 +1766,8 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         case 73:
             params->compressorAttack = value;
@@ -1756,7 +1775,8 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         case 74:
             params->compressorRelease = value;
@@ -1764,7 +1784,8 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         case 75:
             params->compressorKnee = value;
@@ -1772,7 +1793,8 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         case 76:
             params->compressorMix = value;
@@ -1780,7 +1802,8 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         case 77:
             params->compressorAutoMakeup = (value > 0.5f);
@@ -1788,7 +1811,17 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
+            break;
+        case 79:
+            params->compressorManualMakeup = value;
+            if (synth) synth->updateCompressorParameters(
+                params->compressorThreshold.load(), params->compressorRatio.load(),
+                params->compressorAttack.load(), params->compressorRelease.load(),
+                params->compressorKnee.load(), params->compressorMix.load(),
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         case 78:
             params->compressorRMS = (value > 0.5f);
@@ -1796,7 +1829,8 @@ void UI::setParameterValue(int id, float value) {
                 params->compressorThreshold.load(), params->compressorRatio.load(),
                 params->compressorAttack.load(), params->compressorRelease.load(),
                 params->compressorKnee.load(), params->compressorMix.load(),
-                params->compressorAutoMakeup.load(), params->compressorRMS.load());
+                params->compressorAutoMakeup.load(), params->compressorManualMakeup.load(),
+                params->compressorRMS.load());
             break;
         // CONFIG page parameters
         case 400: cpuMonitor.setEnabled(value > 0.5f); break;

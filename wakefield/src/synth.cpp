@@ -163,7 +163,7 @@ void Synth::updateReverbParameters(float delayTime, float size, float damping, f
 
 void Synth::updateCompressorParameters(float threshold, float ratio, float attack,
                                        float release, float knee, float mix,
-                                       bool autoMakeup, bool rmsMode) {
+                                       bool autoMakeup, float manualMakeup, bool rmsMode) {
     compressor.setThreshold(threshold);
     compressor.setRatio(ratio);
     compressor.setAttack(attack);
@@ -171,6 +171,7 @@ void Synth::updateCompressorParameters(float threshold, float ratio, float attac
     compressor.setKnee(knee);
     compressor.setMix(mix);
     compressor.setAutoMakeup(autoMakeup);
+    compressor.setManualMakeup(manualMakeup);
     compressor.setDetectionMode(rmsMode);
 }
 

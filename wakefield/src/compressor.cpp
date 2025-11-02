@@ -10,6 +10,7 @@ Compressor::Compressor(float sampleRate)
       kneeDB(6.0f),
       mix(1.0f),
       autoMakeup(true),
+      manualMakeupDB(0.0f),
       rmsMode(false),
       envelopeL(0.0f),
       envelopeR(0.0f),
@@ -68,6 +69,10 @@ void Compressor::setAutoMakeup(bool enable) {
     autoMakeup = enable;
 }
 
+void Compressor::setManualMakeup(float dB) {
+    manualMakeupDB = std::clamp(dB, 0.0f, 24.0f);
+}
+
 void Compressor::setDetectionMode(bool rms) {
     rmsMode = rms;
 }
@@ -119,7 +124,13 @@ float Compressor::softClip(float x) {
 }
 
 void Compressor::updateMakeupGain() {
-    if (!autoMakeup || grHistorySamples < GR_HISTORY_SIZE / 4) {
+    if (!autoMakeup) {
+        // Use manual makeup gain
+        makeupGainDB = manualMakeupDB;
+        return;
+    }
+
+    if (grHistorySamples < GR_HISTORY_SIZE / 4) {
         makeupGainDB = 0.0f;
         return;
     }

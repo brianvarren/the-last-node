@@ -176,6 +176,7 @@ struct SynthParameters {
     std::atomic<float> compressorKnee{6.0f};          // dB (0 to 20)
     std::atomic<float> compressorMix{1.0f};           // Dry/wet (0 to 1)
     std::atomic<bool> compressorAutoMakeup{true};     // Automatic makeup gain
+    std::atomic<float> compressorManualMakeup{0.0f};  // Manual makeup gain in dB (0 to 24)
     std::atomic<bool> compressorRMS{false};           // Detection mode: false=Peak, true=RMS
 
     // Generic MIDI CC Learn for new parameter system

@@ -35,6 +35,7 @@ public:
     void setKnee(float dB);           // Soft knee width in dB (0 to 20)
     void setMix(float mix);           // Dry/wet mix (0 = dry, 1 = wet)
     void setAutoMakeup(bool enable);  // Enable automatic makeup gain
+    void setManualMakeup(float dB);   // Manual makeup gain in dB (0 to 24)
     void setDetectionMode(bool rms);  // true = RMS, false = Peak
 
     // Process stereo audio (interleaved L/R)
@@ -58,6 +59,7 @@ private:
     float kneeDB;
     float mix;
     bool autoMakeup;
+    float manualMakeupDB;
     bool rmsMode;
 
     // State variables
@@ -65,7 +67,7 @@ private:
     float envelopeR;
     float gainSmoother;  // Smoothed gain reduction
     float currentGainReductionDB;
-    float makeupGainDB;
+    float makeupGainDB;  // Auto-calculated or manual
 
     // RMS detection buffers (for efficient RMS calculation)
     static constexpr int RMS_WINDOW_SIZE = 64;
