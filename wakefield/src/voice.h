@@ -24,28 +24,47 @@ struct Voice {
     Synth* synth;          // Pointer to synth for base level access
 
     // Oscillator modulation storage (set once per buffer by Synth::process)
+    // Current and previous values for audio-rate interpolation to prevent zippering
     float pitchMod[OSCILLATORS_PER_VOICE];
+    float prevPitchMod[OSCILLATORS_PER_VOICE];
     float morphMod[OSCILLATORS_PER_VOICE];
+    float prevMorphMod[OSCILLATORS_PER_VOICE];
     float dutyMod[OSCILLATORS_PER_VOICE];
+    float prevDutyMod[OSCILLATORS_PER_VOICE];
     float ratioMod[OSCILLATORS_PER_VOICE];
+    float prevRatioMod[OSCILLATORS_PER_VOICE];
     float offsetMod[OSCILLATORS_PER_VOICE];
+    float prevOffsetMod[OSCILLATORS_PER_VOICE];
     float ampMod[OSCILLATORS_PER_VOICE];  // Renamed from levelMod
+    float prevAmpMod[OSCILLATORS_PER_VOICE];
 
     // Sampler modulation storage
     float samplerPitchMod[SAMPLERS_PER_VOICE];
+    float prevSamplerPitchMod[SAMPLERS_PER_VOICE];
     float samplerLoopStartMod[SAMPLERS_PER_VOICE];
+    float prevSamplerLoopStartMod[SAMPLERS_PER_VOICE];
     float samplerLoopLengthMod[SAMPLERS_PER_VOICE];
+    float prevSamplerLoopLengthMod[SAMPLERS_PER_VOICE];
     float samplerCrossfadeMod[SAMPLERS_PER_VOICE];
+    float prevSamplerCrossfadeMod[SAMPLERS_PER_VOICE];
     float samplerLevelMod[SAMPLERS_PER_VOICE];
+    float prevSamplerLevelMod[SAMPLERS_PER_VOICE];
     float samplerPhaseDriver[SAMPLERS_PER_VOICE];
 
     // FM global depth modulation
     float fmGlobalDepthMod;
+    float prevFmGlobalDepthMod;
     float fmDepthMod[kFMTargetCount][kFMSourceCount];
+    float prevFmDepthMod[kFMTargetCount][kFMSourceCount];  // Previous buffer's values for audio-rate interpolation
 
     // Cached mixer levels (pre-computed per buffer to avoid per-sample function calls)
     float cachedOscLevel[OSCILLATORS_PER_VOICE];      // Final oscillator level (base + mod, clamped)
+    float prevCachedOscLevel[OSCILLATORS_PER_VOICE];
     float cachedSamplerLevelMod[SAMPLERS_PER_VOICE];   // Sampler level modulation offset
+    float prevCachedSamplerLevelMod[SAMPLERS_PER_VOICE];
+    
+    // Buffer size for audio-rate interpolation (set per buffer)
+    unsigned int currentBufferSize;
 
     Voice(float sampleRate)
         : active(false)
@@ -59,33 +78,45 @@ struct Voice {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             lastOscOutputs[i] = 0.0f;
             pitchMod[i] = 0.0f;
+            prevPitchMod[i] = 0.0f;
             morphMod[i] = 0.0f;
+            prevMorphMod[i] = 0.0f;
             dutyMod[i] = 0.0f;
+            prevDutyMod[i] = 0.0f;
             ratioMod[i] = 0.0f;
+            prevRatioMod[i] = 0.0f;
             offsetMod[i] = 0.0f;
+            prevOffsetMod[i] = 0.0f;
             ampMod[i] = 0.0f;
+            prevAmpMod[i] = 0.0f;
+            cachedOscLevel[i] = 0.0f;
+            prevCachedOscLevel[i] = 0.0f;
         }
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             lastSamplerOutputs[i] = 0.0f;
             samplerPitchMod[i] = 0.0f;
+            prevSamplerPitchMod[i] = 0.0f;
             samplerLoopStartMod[i] = 0.0f;
+            prevSamplerLoopStartMod[i] = 0.0f;
             samplerLoopLengthMod[i] = 0.0f;
+            prevSamplerLoopLengthMod[i] = 0.0f;
             samplerCrossfadeMod[i] = 0.0f;
+            prevSamplerCrossfadeMod[i] = 0.0f;
             samplerLevelMod[i] = 0.0f;
+            prevSamplerLevelMod[i] = 0.0f;
             samplerPhaseDriver[i] = -1.0f;
+            cachedSamplerLevelMod[i] = 0.0f;
+            prevCachedSamplerLevelMod[i] = 0.0f;
         }
         fmGlobalDepthMod = 0.0f;
+        prevFmGlobalDepthMod = 0.0f;
         for (int t = 0; t < kFMTargetCount; ++t) {
             for (int s = 0; s < kFMSourceCount; ++s) {
                 fmDepthMod[t][s] = 0.0f;
+                prevFmDepthMod[t][s] = 0.0f;
             }
         }
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            cachedOscLevel[i] = 0.0f;
-        }
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            cachedSamplerLevelMod[i] = 0.0f;
-        }
+        currentBufferSize = 256;  // Default buffer size
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)
@@ -114,3 +145,4 @@ private:
 };
 
 #endif // VOICE_H
+

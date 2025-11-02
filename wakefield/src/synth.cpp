@@ -440,15 +440,36 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     constexpr float kVoiceHeadroomGain = 0.35f;  // tuned for 8 voices with internal source normalization
     float voiceGain = kVoiceHeadroomGain;
 
-    // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
-    for (int v = 0; v < MAX_VOICES; ++v) {
-        if (!voices[v].active) {
-            continue;
+        // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
+        for (int v = 0; v < MAX_VOICES; ++v) {
+            if (!voices[v].active) {
+                continue;
+            }
+
+            Voice& voice = voices[v];
+            voice.currentBufferSize = nFrames;  // Store for audio-rate interpolation
+
+            ModulationOutputs modOutputs = processModulationMatrix(&voice);
+
+        // Save previous buffer's values before updating (for audio-rate interpolation to prevent zippering)
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            voice.prevPitchMod[i] = voice.pitchMod[i];
+            voice.prevMorphMod[i] = voice.morphMod[i];
+            voice.prevDutyMod[i] = voice.dutyMod[i];
+            voice.prevRatioMod[i] = voice.ratioMod[i];
+            voice.prevOffsetMod[i] = voice.offsetMod[i];
+            voice.prevAmpMod[i] = voice.ampMod[i];
+            voice.prevCachedOscLevel[i] = voice.cachedOscLevel[i];
         }
-
-        Voice& voice = voices[v];
-
-        ModulationOutputs modOutputs = processModulationMatrix(&voice);
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            voice.prevSamplerPitchMod[i] = voice.samplerPitchMod[i];
+            voice.prevSamplerLoopStartMod[i] = voice.samplerLoopStartMod[i];
+            voice.prevSamplerLoopLengthMod[i] = voice.samplerLoopLengthMod[i];
+            voice.prevSamplerCrossfadeMod[i] = voice.samplerCrossfadeMod[i];
+            voice.prevSamplerLevelMod[i] = voice.samplerLevelMod[i];
+            voice.prevCachedSamplerLevelMod[i] = voice.cachedSamplerLevelMod[i];
+        }
+        voice.prevFmGlobalDepthMod = voice.fmGlobalDepthMod;
 
         // Set modulation values for all oscillators (in octaves for pitch)
         voice.pitchMod[0] = modOutputs.osc1Pitch;
@@ -511,9 +532,13 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
         // Pre-compute final FM depths once per buffer: base + global mod + voice mod
         // This eliminates 2.6 billion per-sample function calls (getFMDepthMod, getFMDepth)
+        // Store previous buffer's values for audio-rate interpolation to prevent zippering
         if (params) {
             for (int target = 0; target < kFMTargetCount; ++target) {
                 for (int source = 0; source < kFMSourceCount; ++source) {
+                    // Save current as previous for next buffer's interpolation
+                    voice.prevFmDepthMod[target][source] = voice.fmDepthMod[target][source];
+                    
                     // Base depth (static parameter)
                     float baseDepth = params->getFMDepth(target, source);
                     // Global modulation (computed per buffer)
@@ -529,6 +554,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             // No params: zero out FM depths
             for (int target = 0; target < kFMTargetCount; ++target) {
                 for (int source = 0; source < kFMSourceCount; ++source) {
+                    voice.prevFmDepthMod[target][source] = voice.fmDepthMod[target][source];
                     voice.fmDepthMod[target][source] = 0.0f;
                 }
             }
@@ -544,6 +570,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
         // Cache oscillator and sampler levels to avoid per-sample function calls
         // These are computed once per buffer instead of millions of times per sample
+        // Previous values already saved above
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             float baseLevel = oscillatorBaseLevels[i];
             float offset = modOutputs.mixerOscLevel[i];
