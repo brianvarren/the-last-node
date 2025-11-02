@@ -51,15 +51,12 @@ const std::vector<ModOption>& buildFMOptions() {
 
     constexpr const char* targetNames[kFMTargetCount] = {
         "OSC1", "OSC2", "OSC3", "OSC4",
-        "SMP1", "SMP2", "SMP3", "SMP4",
-        "CLK1", "CLK2", "CLK3", "CLK4"
+        "SMP1", "SMP2", "SMP3", "SMP4"
     };
 
     constexpr const char* sourceNames[kFMSourceCount] = {
         "OSC1", "OSC2", "OSC3", "OSC4",
-        "SMP1", "SMP2", "SMP3", "SMP4",
-        "C1X",  "C1Y",  "C2X",  "C2Y",
-        "C3X",  "C3Y",  "C4X",  "C4Y"
+        "SMP1", "SMP2", "SMP3", "SMP4"
     };
 
     const size_t cellCount = static_cast<size_t>(kFMTargetCount) * kFMSourceCount;

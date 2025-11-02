@@ -7,7 +7,7 @@ void UI::drawFMPage() {
 
     // Title
     attron(COLOR_PAGE_TITLE | A_BOLD);
-    mvprintw(row, 2, "FM MATRIX - Audio-Rate Phase Modulation (16 sources × 8 targets)");
+    mvprintw(row, 2, "FM MATRIX - Audio-Rate Phase Modulation (8 sources × 8 targets)");
     attroff(COLOR_PAGE_TITLE | A_BOLD);
     row += 2;
 
@@ -20,19 +20,17 @@ void UI::drawFMPage() {
     const int cellStartCol = 12;
     const int cellStride = 5;
     attron(COLOR_SECTION_HEADER);
-    mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4  CK1 CK2 CK3 CK4");
+    mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4");
     attroff(COLOR_SECTION_HEADER);
     row += 2;
 
-    // Draw matrix grid (16 sources × 12 targets)
+    // Draw matrix grid (8 sources × 8 targets)
     const char* sourceLabels[] = {
         "OSC1", "OSC2", "OSC3", "OSC4",
-        "SMP1", "SMP2", "SMP3", "SMP4",
-        "C1X ", "C1Y ", "C2X ", "C2Y ",
-        "C3X ", "C3Y ", "C4X ", "C4Y "
+        "SMP1", "SMP2", "SMP3", "SMP4"
     };
 
-    for (int source = 0; source < 16; ++source) {
+    for (int source = 0; source < 8; ++source) {
         // Row label
         mvprintw(row, 6, "%s", sourceLabels[source]);
 

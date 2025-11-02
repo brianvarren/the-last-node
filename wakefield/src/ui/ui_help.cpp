@@ -523,7 +523,7 @@ CONTROLS:
   M           - Mutate FM matrix (±20% variation on non-zero values)
   Tab         - Navigate between pages
 
-MATRIX LAYOUT (16 Sources × 8 Targets):
+MATRIX LAYOUT (8 Sources × 8 Targets):
   TARGETS (Columns): O1, O2, O3, O4, S1, S2, S3, S4
     O1-O4 = Oscillators 1-4
     S1-S4 = Samplers 1-4
@@ -531,11 +531,6 @@ MATRIX LAYOUT (16 Sources × 8 Targets):
   SOURCES (Rows):
     OSC1, OSC2, OSC3, OSC4     - Oscillator outputs
     SMP1, SMP2, SMP3, SMP4     - Sampler outputs
-    ─────────────────────────
-    C1X, C1Y                   - Chaos Generator 1 (X and Y)
-    C2X, C2Y                   - Chaos Generator 2 (X and Y)
-    C3X, C3Y                   - Chaos Generator 3 (X and Y)
-    C4X, C4Y                   - Chaos Generator 4 (X and Y)
 
 PARAMETERS:
   Global Depth - Master FM depth control (0.0-1.0, bottom of page)
@@ -544,7 +539,7 @@ PARAMETERS:
 
 ABOUT:
 The FM Matrix provides audio-rate frequency modulation routing between
-all oscillators, samplers, and chaos generators. This creates complex,
+all oscillators and samplers. This creates complex,
 harmonically rich timbres through phase modulation synthesis.
 
 HOW FM WORKS:

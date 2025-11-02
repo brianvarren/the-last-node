@@ -35,8 +35,9 @@ float Voice::generateSample(unsigned int frameIndex) {
     }
 
     // Determine FM input for each oscillator using previous outputs (1-sample delay)
-    // FM matrix Targets: OSC1-4 (0-3), SAMP1-4 (4-7), CHAOS CLK1-4 (8-11)
-    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7), Chaos1X-4Y (8-15)
+    (void)frameIndex;  // No per-sample chaos FM routing in this configuration.
+    // FM matrix Targets: OSC1-4 (0-3), SAMP1-4 (4-7)
+    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7)
     auto getModulatedDepth = [&](int targetIndex, int sourceIndex) -> float {
         if (!params) {
             return 0.0f;
@@ -68,18 +69,6 @@ float Voice::generateSample(unsigned int frameIndex) {
                 float depth = getModulatedDepth(target, kFMOscillatorTargetCount + source);
                 if (depth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
-                }
-            }
-            // Chaos sources (8-15): C1X, C1Y, C2X, C2Y, C3X, C3Y, C4X, C4Y
-            for (int source = 0; source < kFMChaosSourceCount; ++source) {
-                int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
-                float depth = getModulatedDepth(target, sourceIndex);
-                if (depth != 0.0f) {
-                    int chaosIndex = source / 2;  // 0,1->0, 2,3->1, 4,5->2, 6,7->3
-                    bool isY = (source % 2) == 1;  // Odd indices are Y
-                    float chaosOutput = isY ? synth->getChaosOutputYAtFrame(chaosIndex, frameIndex)
-                                            : synth->getChaosOutputAtFrame(chaosIndex, frameIndex);
-                    totalFM += chaosOutput * (depth * 100.0f);
                 }
             }
             fmInputs[target] = totalFM * globalDepth;
@@ -175,20 +164,6 @@ float Voice::generateSample(unsigned int frameIndex) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
                 }
             }
-            // Chaos sources (8-15)
-#if 0  // TEMP: disable sampler chaos FM routing while investigating multi-voice crackle (commit 495fdff)
-            for (int source = 0; source < kFMChaosSourceCount; ++source) {
-                int sourceIndex = kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + source;
-                float depth = getModulatedDepth(targetIndex, sourceIndex);
-                if (depth != 0.0f) {
-                    int chaosIndex = source / 2;
-                    bool isY = (source % 2) == 1;
-                    float chaosOutput = isY ? synth->getChaosOutputY(chaosIndex)
-                                            : synth->getChaosOutput(chaosIndex);
-                    totalFM += chaosOutput * (depth * 100.0f);
-                }
-            }
-#endif
             samplerFMInputs[target] = totalFM * globalDepth;
         }
     }

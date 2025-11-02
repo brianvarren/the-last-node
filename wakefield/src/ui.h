@@ -373,8 +373,8 @@ struct SynthParameters {
     // FM Matrix - audio-rate frequency modulation routing
     // fmMatrix[target][source] = depth (-0.99 to +0.99)
     // Example: fmMatrix[2][0] = 0.5 means OSC1 modulates OSC3 at 50% depth
-    // Targets: OSC1-4 (0-3), SAMP1-4 (4-7), CHAOS CLK1-4 (8-11) = 12 total
-    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7), Chaos1X-4Y (8-15) = 16 total
+    // Targets: OSC1-4 (0-3), SAMP1-4 (4-7)
+    // Sources: OSC1-4 (0-3), SAMP1-4 (4-7)
     std::atomic<float> fmMatrix[kFMTargetCount][kFMSourceCount];
     std::atomic<float> fmGlobalDepth{1.0f};  // Global FM depth scalar (0.0-1.0)
 
@@ -948,9 +948,7 @@ struct SynthParameters {
         }
     }
 
-    // FM Matrix accessors
-    // Targets: OSC1-4, SAMP1-4, CHAOS CLK1-4
-    // Sources: OSC1-4, SAMP1-4, Chaos1X-4Y
+    // FM Matrix accessors (8×8: OSC1-4 are 0-3, SAMP1-4 are 4-7)
     float getFMDepth(int target, int source) const {
         if (target < 0 || target >= kFMTargetCount ||
             source < 0 || source >= kFMSourceCount) {

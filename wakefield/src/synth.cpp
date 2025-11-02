@@ -935,7 +935,6 @@ void Synth::processChaos(unsigned int nFrames) {
     }
 
     // Process all 4 chaos generators per sample and populate buffers
-    size_t prevFrameCount = fmSourceBufferPrev.size() / kFMSourceCount;
     for (int i = 0; i < 4; ++i) {
         bool running = params ? params->getChaosRunning(i) : true;
         if (running) {
@@ -947,22 +946,6 @@ void Synth::processChaos(unsigned int nFrames) {
 
             // Generate per-sample chaos values
             for (unsigned int frame = 0; frame < nFrames; ++frame) {
-                float sampleClock = baseClockFreqs[i];
-                if (frame < prevFrameCount && params) {
-                    const float* frameSources = fmSourceBufferPrev.data() + static_cast<size_t>(frame) * kFMSourceCount;
-                    float totalFM = 0.0f;
-                    for (int source = 0; source < kFMSourceCount; ++source) {
-                        float depth = params->getFMDepth(kFMChaosTargetOffset + i, source) +
-                                      lastGlobalModOutputs.fmDepth[kFMChaosTargetOffset + i][source];
-                        depth = std::clamp(depth, -0.99f, 0.99f);
-                        if (depth != 0.0f) {
-                            totalFM += frameSources[source] * (depth * 100.0f);
-                        }
-                    }
-                    float fmOctaves = std::clamp(totalFM * 0.01f, -4.0f, 4.0f);
-                    sampleClock = std::clamp(baseClockFreqs[i] * std::pow(2.0f, fmOctaves), 0.00001f, 20000.0f);
-                }
-                chaos[i].setClockFrequency(sampleClock);
                 chaosBufferX[i].push_back(chaos[i].process());
                 chaosBufferY[i].push_back(chaos[i].getY());
             }
@@ -973,11 +956,6 @@ void Synth::processChaos(unsigned int nFrames) {
             // If not running, clear buffers so fallback to chaosOutputs is used
             chaosBufferX[i].clear();
             chaosBufferY[i].clear();
-            for (unsigned int frame = 0; frame < nFrames; ++frame) {
-                float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(frame) * kFMSourceCount;
-                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + i * 2] = 0.0f;
-                frameSources[kFMOscillatorTargetCount + SAMPLERS_PER_VOICE + i * 2 + 1] = 0.0f;
-            }
         }
         chaos[i].setClockFrequency(baseClockFreqs[i]);
     }
@@ -1254,7 +1232,7 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         if (destination >= chaosBase) {
             int chaosIndex = (destination - chaosBase) / 3;
             int chaosParam = (destination - chaosBase) % 3;
-            if (chaosIndex >= 0 && chaosIndex < kFMChaosTargetCount) {
+            if (chaosIndex >= 0 && chaosIndex < 4) {
                 switch (chaosParam) {
                     case 0: outputs.chaosClockFreq[chaosIndex] += modValue; break;
                     case 1: outputs.chaosParameter[chaosIndex] += modValue; break;
