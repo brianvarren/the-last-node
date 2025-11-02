@@ -241,6 +241,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     static ParameterSmoother filterWidthSmoother;
 
     float* buffer = static_cast<float*>(outputBuffer);
+    auto callbackStart = std::chrono::high_resolution_clock::now();
 
     // Detect buffer underruns (audio glitching/crackling)
     if (status & RTAUDIO_OUTPUT_UNDERFLOW) {
@@ -445,12 +446,27 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     }
 
     // Generate audio from synth
+    constexpr unsigned int nChannels = 2;
     if (synth) {
-        synth->process(buffer, nFrames, 2);
+        synth->process(buffer, nFrames, nChannels);
     } else {
-        std::fill(buffer, buffer + nFrames * 2, 0.0f);
+        std::fill(buffer, buffer + nFrames * nChannels, 0.0f);
     }
-    
+
+    auto callbackEnd = std::chrono::high_resolution_clock::now();
+    uint32_t callbackMicros = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(callbackEnd - callbackStart).count());
+
+    float peak = 0.0f;
+    for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
+        peak = std::max(peak, std::fabs(buffer[i]));
+    }
+
+    uint32_t activeVoices = synth ? static_cast<uint32_t>(synth->getActiveVoiceCount()) : 0;
+    if (ui) {
+        ui->updateAudioDebugStats(callbackMicros, peak, activeVoices);
+    }
+
     return 0;
 }
 

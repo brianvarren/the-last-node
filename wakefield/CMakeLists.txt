@@ -61,6 +61,7 @@ add_executable(synth
     src/ui/pages/ui_page_filter.cpp
     src/ui/pages/ui_page_chaos.cpp
     src/ui/pages/ui_page_config.cpp
+    src/ui/pages/ui_page_debug.cpp
     # UI sequencer files
     src/ui/sequencer/ui_sequencer_state.cpp
     src/ui/sequencer/ui_sequencer_drawing.cpp

@@ -2,6 +2,7 @@
 #include "../synth.h"
 #include "../preset.h"
 #include "../theme.h"
+#include <limits>
 #include <algorithm>
 #include <chrono>
 
@@ -101,6 +102,7 @@ UI::UI(Synth* synth, SynthParameters* params)
     }
 
     resetUndoHistory();
+    resetAudioDebugStats();
 
 }
 
@@ -218,6 +220,51 @@ void UI::setSampleDirectory(const std::string& path) {
     if (!path.empty()) {
         sampleBrowserCurrentDir = path;
     }
+}
+
+void UI::updateAudioDebugStats(uint32_t durationMicros, float peak, uint32_t activeVoices) {
+    audioDebugState.currentMicros.store(durationMicros, std::memory_order_relaxed);
+    audioDebugState.currentPeak.store(peak, std::memory_order_relaxed);
+    audioDebugState.currentVoices.store(activeVoices, std::memory_order_relaxed);
+
+    // Update min micros
+    uint32_t minMicros = audioDebugState.minMicros.load(std::memory_order_relaxed);
+    while (durationMicros < minMicros &&
+           !audioDebugState.minMicros.compare_exchange_weak(minMicros, durationMicros,
+                                                           std::memory_order_relaxed)) {
+        // minMicros updated with current value by compare_exchange
+    }
+
+    // Update max micros
+    uint32_t maxMicros = audioDebugState.maxMicros.load(std::memory_order_relaxed);
+    while (durationMicros > maxMicros &&
+           !audioDebugState.maxMicros.compare_exchange_weak(maxMicros, durationMicros,
+                                                           std::memory_order_relaxed)) {
+    }
+
+    // Update max peak
+    float maxPeak = audioDebugState.maxPeak.load(std::memory_order_relaxed);
+    while (peak > maxPeak &&
+           !audioDebugState.maxPeak.compare_exchange_weak(maxPeak, peak,
+                                                          std::memory_order_relaxed)) {
+    }
+
+    // Update max voices
+    uint32_t maxVoices = audioDebugState.maxVoices.load(std::memory_order_relaxed);
+    while (activeVoices > maxVoices &&
+           !audioDebugState.maxVoices.compare_exchange_weak(maxVoices, activeVoices,
+                                                            std::memory_order_relaxed)) {
+    }
+}
+
+void UI::resetAudioDebugStats() {
+    audioDebugState.currentMicros.store(0, std::memory_order_relaxed);
+    audioDebugState.minMicros.store(std::numeric_limits<uint32_t>::max(), std::memory_order_relaxed);
+    audioDebugState.maxMicros.store(0, std::memory_order_relaxed);
+    audioDebugState.currentPeak.store(0.0f, std::memory_order_relaxed);
+    audioDebugState.maxPeak.store(0.0f, std::memory_order_relaxed);
+    audioDebugState.currentVoices.store(0, std::memory_order_relaxed);
+    audioDebugState.maxVoices.store(0, std::memory_order_relaxed);
 }
 
 void UI::requestAudioBufferSizeChange(int newSize) {

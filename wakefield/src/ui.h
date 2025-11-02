@@ -986,7 +986,8 @@ enum class UIPage {
     FILTER,
     SEQUENCER,
     CHAOS,
-    CONFIG
+    CONFIG,
+    DEBUG
 };
 
 class UI {
@@ -1030,6 +1031,8 @@ public:
     void setSampleDirectory(const std::string& path);
     void setAudioUnderrunCount(uint64_t count) { audioUnderrunCount.store(count, std::memory_order_relaxed); }
     uint64_t getAudioUnderrunCount() const { return audioUnderrunCount.load(std::memory_order_relaxed); }
+    void updateAudioDebugStats(uint32_t durationMicros, float peak, uint32_t activeVoices);
+    void resetAudioDebugStats();
     
     void addConsoleMessage(const std::string& message);
 
@@ -1082,6 +1085,15 @@ private:
     int currentAudioDeviceId;
     int currentMidiPortNum;
     std::atomic<uint64_t> audioUnderrunCount{0};
+    struct AudioDebugState {
+        std::atomic<uint32_t> currentMicros{0};
+        std::atomic<uint32_t> minMicros{std::numeric_limits<uint32_t>::max()};
+        std::atomic<uint32_t> maxMicros{0};
+        std::atomic<float> currentPeak{0.0f};
+        std::atomic<float> maxPeak{0.0f};
+        std::atomic<uint32_t> currentVoices{0};
+        std::atomic<uint32_t> maxVoices{0};
+    } audioDebugState;
     
     // Available devices
     std::vector<std::pair<int, std::string>> availableAudioDevices;  // id, name
@@ -1164,6 +1176,7 @@ private:
     void drawSequencerPage();
     void drawChaosPage();
     void drawConfigPage();
+    void drawDebugPage();
     void cycleAudioBufferSize(int direction);
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawHotkeyLine();

@@ -25,7 +25,8 @@ void UI::drawTabs() {
         {"MOD", UIPage::MOD},
         {"FM", UIPage::FM},
         {"SEQ", UIPage::SEQUENCER},
-        {"CONFIG", UIPage::CONFIG}
+        {"CONFIG", UIPage::CONFIG},
+        {"DEBUG", UIPage::DEBUG}
     };
 
     int x = 0;
@@ -179,7 +180,9 @@ void UI::drawHotkeyLine() {
     } else if (params->midiLearnActive.load()) {
         mvprintw(row, 1, "Move MIDI controller to assign  |  Esc Cancel  |  Q Quit");
     } else {
-        if (currentPage == UIPage::FM) {
+        if (currentPage == UIPage::DEBUG) {
+            mvprintw(row, 1, "Tab Page  |  Ctrl+D Debug  |  R Reset Stats  |  Q Quit");
+        } else if (currentPage == UIPage::FM) {
             mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  -/= Adjust  |  _/+ Fine  |  g/G Rand  |  m/M Mut  |  Enter Type  |  l Lock  |  R Reset  |  Q Quit");
         } else if (currentPage == UIPage::MOD) {
             mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  Enter Edit  |  g/G Rand  |  m/M Mut  |  l Lock Slot  |  Q Quit");
@@ -253,6 +256,9 @@ void UI::draw(int activeVoices) {
             break;
         case UIPage::CONFIG:
             drawConfigPage();
+            break;
+        case UIPage::DEBUG:
+            drawDebugPage();
             break;
     }
 

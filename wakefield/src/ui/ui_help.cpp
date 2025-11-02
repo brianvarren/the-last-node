@@ -707,6 +707,7 @@ CONTROLS:
   H          - Show this help
   Q          - Quit
   Ctrl+K     - Toggle MIDI Keyboard Mode (global)
+  Ctrl+D     - Jump to Debug page
 
 ABOUT:
 The CONFIG page shows system information and allows selection of audio
@@ -745,6 +746,27 @@ Notes:
 - Notes sustain until you release the mode (no key-release detection)
 - All normal UI navigation is disabled while in MIDI keyboard mode
 - Use ESC or Ctrl+K to exit the mode and return to normal operation
+)";
+            break;
+        case UIPage::DEBUG:
+            content = R"(
+=== AUDIO DEBUG ===
+
+CONTROLS:
+  R           - Reset min/max statistics
+  Ctrl+D      - Jump to Debug page from anywhere
+  Tab/Shift+Tab cycles pages (Debug follows Config)
+
+DISPLAYED METRICS:
+  Callback Time (us)  - Time the audio callback spent rendering the last buffer
+                        Min/max hold values help spot timing spikes.
+  Peak Amplitude      - Highest absolute sample seen in the current buffer and
+                        the all-time maximum since the last reset.
+  Active Voices       - Voices currently rendering along with the peak count.
+  Output Underruns    - Total underruns reported by the audio backend.
+
+Use this page during profiling to watch for real-time spikes or runaway peaks.
+Reset statistics with 'R' after each change so new trends are obvious.
 )";
             break;
 
