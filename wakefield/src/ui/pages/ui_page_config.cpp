@@ -29,6 +29,8 @@ void UI::drawConfigPage() {
         attroff(COLOR_STATUS_ACTIVE);
     }
 
+    mvprintw(row++, 2, "Output underruns: %llu", static_cast<unsigned long long>(getAudioUnderrunCount()));
+
     if (audioSampleRate > 0 && audioBufferSize > 0) {
         float latency = (audioBufferSize * 1000.0f) / audioSampleRate;
         mvprintw(row++, 2, "Latency: %.2f ms", latency);

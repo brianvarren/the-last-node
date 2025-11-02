@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <sys/stat.h>
@@ -34,6 +35,7 @@ static UI* ui = nullptr;
 Sequencer* sequencer = nullptr;  // Non-static so UI can access it
 static Clock* transportClock = nullptr;
 static bool running = true;
+static std::atomic<uint64_t> gAudioUnderrunCounter{0};
 
 void signalHandler(int signum) {
     running = false;
@@ -241,13 +243,18 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     float* buffer = static_cast<float*>(outputBuffer);
 
     // Detect buffer underruns (audio glitching/crackling)
-    if (status) {
-        static int underrunCount = 0;
-        underrunCount++;
-        if (underrunCount % 10 == 1) {  // Print every 10th underrun to avoid spam
-            std::cerr << "⚠️  BUFFER UNDERRUN #" << underrunCount
+    if (status & RTAUDIO_OUTPUT_UNDERFLOW) {
+        uint64_t count = ++gAudioUnderrunCounter;
+        if (ui) {
+            ui->setAudioUnderrunCount(count);
+        }
+        if (count % 10 == 1) {
+            std::cerr << "⚠️  BUFFER UNDERRUN #" << count
                       << " - Audio thread can't keep up!" << std::endl;
         }
+    }
+    if (status & RTAUDIO_INPUT_OVERFLOW) {
+        std::cerr << "⚠️  Input overflow detected\n";
     }
 
     // Process pending MIDI messages first

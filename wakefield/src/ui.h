@@ -1028,6 +1028,8 @@ public:
     void setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId);
     void setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort);
     void setSampleDirectory(const std::string& path);
+    void setAudioUnderrunCount(uint64_t count) { audioUnderrunCount.store(count, std::memory_order_relaxed); }
+    uint64_t getAudioUnderrunCount() const { return audioUnderrunCount.load(std::memory_order_relaxed); }
     
     void addConsoleMessage(const std::string& message);
 
@@ -1079,6 +1081,7 @@ private:
     int midiPortNum;
     int currentAudioDeviceId;
     int currentMidiPortNum;
+    std::atomic<uint64_t> audioUnderrunCount{0};
     
     // Available devices
     std::vector<std::pair<int, std::string>> availableAudioDevices;  // id, name
