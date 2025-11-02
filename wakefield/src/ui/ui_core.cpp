@@ -100,27 +100,6 @@ UI::UI(Synth* synth, SynthParameters* params)
         selectedParameterId = initialParams[0];  // Start with first parameter
     }
 
-    // Initialize default modulation routing: ENV 1 → OSC 1-4 Amp (slots 0-3)
-    // This provides amplitude envelope control separate from mix levels
-    for (int i = 0; i < 4; ++i) {
-        modulationSlots[i].source = 4;           // ENV 1 (index 4)
-        modulationSlots[i].curve = 0;            // Linear curve
-        modulationSlots[i].amount = 99;          // 100% modulation (maps to 1.0)
-        modulationSlots[i].destination = i * 6 + 5;  // OSC (i+1) Amp (indices 5, 11, 17, 23)
-        modulationSlots[i].type = 0;             // Unidirectional (0-1 maps to 0-1)
-    }
-
-    // Initialize default modulation routing: ENV 1 → SAMP 1-4 Amp (slots 4-7)
-    // This provides amplitude envelope control for samplers in KEY mode
-    // Using unidirectional so envelope 0-1 maps directly to level 0-1
-    for (int i = 0; i < 4; ++i) {
-        modulationSlots[4 + i].source = 4;       // ENV 1 (index 4)
-        modulationSlots[4 + i].curve = 0;        // Linear curve
-        modulationSlots[4 + i].amount = 99;      // 100% modulation (maps to 1.0)
-        modulationSlots[4 + i].destination = 32 + (i * 5);  // SAMP (i+1) Amp (indices 32, 37, 42, 47)
-        modulationSlots[4 + i].type = 0;         // Unidirectional (gives full 0-1 range)
-    }
-
     resetUndoHistory();
 
 }

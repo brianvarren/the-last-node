@@ -162,6 +162,9 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
 
+        // Apply per-sample envelope so amplitude follows ADSR without zippering
+        finalGain *= envelopeValue;
+
         oscFinalGains[i] = finalGain;
     }
 
@@ -236,7 +239,8 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
 
-        samplerFinalOutputs[i] = samplerOut;
+        // Apply envelope post mute/solo so release tails are sample accurate
+        samplerFinalOutputs[i] = samplerOut * envelopeValue;
     }
 
     // Phase 2 FIX: Normalize ALL sources together (oscillators + samplers)
