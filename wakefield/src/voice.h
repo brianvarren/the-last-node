@@ -43,6 +43,10 @@ struct Voice {
     float fmGlobalDepthMod;
     float fmDepthMod[kFMTargetCount][kFMSourceCount];
 
+    // Cached mixer levels (pre-computed per buffer to avoid per-sample function calls)
+    float cachedOscLevel[OSCILLATORS_PER_VOICE];      // Final oscillator level (base + mod, clamped)
+    float cachedSamplerLevelMod[SAMPLERS_PER_VOICE];   // Sampler level modulation offset
+
     Voice(float sampleRate)
         : active(false)
         , note(-1)
@@ -75,6 +79,12 @@ struct Voice {
             for (int s = 0; s < kFMSourceCount; ++s) {
                 fmDepthMod[t][s] = 0.0f;
             }
+        }
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            cachedOscLevel[i] = 0.0f;
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            cachedSamplerLevelMod[i] = 0.0f;
         }
     }
 

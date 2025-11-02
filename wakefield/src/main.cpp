@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <chrono>
 #include <atomic>
 #include <cstdlib>
 #include <filesystem>

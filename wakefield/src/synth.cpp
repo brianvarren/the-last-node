@@ -509,9 +509,28 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         // FM global depth modulation
         voice.fmGlobalDepthMod = modOutputs.fmGlobalDepth;
 
-        for (int target = 0; target < kFMTargetCount; ++target) {
-            for (int source = 0; source < kFMSourceCount; ++source) {
-                voice.fmDepthMod[target][source] = modOutputs.fmDepth[target][source];
+        // Pre-compute final FM depths once per buffer: base + global mod + voice mod
+        // This eliminates 2.6 billion per-sample function calls (getFMDepthMod, getFMDepth)
+        if (params) {
+            for (int target = 0; target < kFMTargetCount; ++target) {
+                for (int source = 0; source < kFMSourceCount; ++source) {
+                    // Base depth (static parameter)
+                    float baseDepth = params->getFMDepth(target, source);
+                    // Global modulation (computed per buffer)
+                    float globalMod = lastGlobalModOutputs.fmDepth[target][source];
+                    // Voice-specific modulation (computed per buffer per voice)
+                    float voiceMod = modOutputs.fmDepth[target][source];
+                    // Final depth = base + all modulations, clamped
+                    voice.fmDepthMod[target][source] = std::clamp(
+                        baseDepth + globalMod + voiceMod, -0.99f, 0.99f);
+                }
+            }
+        } else {
+            // No params: zero out FM depths
+            for (int target = 0; target < kFMTargetCount; ++target) {
+                for (int source = 0; source < kFMSourceCount; ++source) {
+                    voice.fmDepthMod[target][source] = 0.0f;
+                }
             }
         }
 
@@ -521,6 +540,17 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             } else {
                 voice.samplerPhaseDriver[i] = -1.0f;
             }
+        }
+
+        // Cache oscillator and sampler levels to avoid per-sample function calls
+        // These are computed once per buffer instead of millions of times per sample
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            float baseLevel = oscillatorBaseLevels[i];
+            float offset = modOutputs.mixerOscLevel[i];
+            voice.cachedOscLevel[i] = std::clamp(baseLevel + offset, 0.0f, 1.0f);
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            voice.cachedSamplerLevelMod[i] = modOutputs.mixerSamplerLevel[i];
         }
     }
 

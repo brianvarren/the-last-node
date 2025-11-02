@@ -62,35 +62,28 @@ float Voice::generateSample(unsigned int frameIndex) {
     (void)frameIndex;  // No per-sample chaos FM routing in this configuration.
     // FM matrix Targets: OSC1-4 (0-3), SAMP1-4 (4-7)
     // Sources: OSC1-4 (0-3), SAMP1-4 (4-7)
-    auto getModulatedDepth = [&](int targetIndex, int sourceIndex) -> float {
-        if (!params) {
-            return 0.0f;
-        }
-        float depth = params->getFMDepth(targetIndex, sourceIndex);
-        if (synth) {
-            depth += synth->getFMDepthMod(targetIndex, sourceIndex);
-        }
-        depth += fmDepthMod[targetIndex][sourceIndex];
-        return std::clamp(depth, -0.99f, 0.99f);
-    };
-
+    // OPTIMIZATION: fmDepthMod is now pre-computed per buffer with base + global + voice mod
+    // No per-sample function calls needed - just direct array lookup!
+    
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
     if (params && synth) {
-        // Get global FM depth (base + modulation)
+        // Get global FM depth (base + modulation) - applies to all FM amounts
         float globalDepth = std::clamp(params->fmGlobalDepth.load() + fmGlobalDepthMod, 0.0f, 1.0f);
 
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
             for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-                float depth = getModulatedDepth(target, source);
+                // Direct array lookup - no function calls!
+                float depth = fmDepthMod[target][source];
                 if (depth != 0.0f) {
                     totalFM += lastOscOutputs[source] * (depth * 100.0f);
                 }
             }
             // Sampler sources (4-7)
             for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
-                float depth = getModulatedDepth(target, kFMOscillatorTargetCount + source);
+                // Direct array lookup - no function calls!
+                float depth = fmDepthMod[target][kFMOscillatorTargetCount + source];
                 if (depth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
                 }
@@ -136,9 +129,9 @@ float Voice::generateSample(unsigned int frameIndex) {
     // First pass: calculate oscillator final gains
     float oscFinalGains[OSCILLATORS_PER_VOICE];
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        // Get base amp and level from synth (control-rate)
+        // Get base amp and level (level is pre-computed per buffer, no function call!)
         float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
-        float baseLevel = synth ? synth->getModulatedOscLevel(i) : 0.0f;
+        float baseLevel = cachedOscLevel[i];  // Cached - no per-sample function call!
 
         // Calculate modulated amplitude (clamped 0-1)
         float modulatedAmp = std::min(std::max(baseAmp + ampMod[i], 0.0f), 1.0f);
@@ -179,14 +172,16 @@ float Voice::generateSample(unsigned int frameIndex) {
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
             for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-                float depth = getModulatedDepth(targetIndex, source);
+                // Direct array lookup - no function calls!
+                float depth = fmDepthMod[targetIndex][source];
                 if (depth != 0.0f) {
                     totalFM += lastOscOutputs[source] * (depth * 100.0f);
                 }
             }
             // Sampler sources (4-7)
             for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
-                float depth = getModulatedDepth(targetIndex, kFMOscillatorTargetCount + source);
+                // Direct array lookup - no function calls!
+                float depth = fmDepthMod[targetIndex][kFMOscillatorTargetCount + source];
                 if (depth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
                 }
@@ -207,7 +202,7 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
 
         // Process sampler with FM and modulation (pass MIDI note for KEY mode tracking)
-        float samplerLevelOffset = synth ? synth->getMixerSamplerLevelMod(i) : 0.0f;
+        float samplerLevelOffset = cachedSamplerLevelMod[i];  // Cached - no per-sample function call!
         float samplerOut = samplers[i].process(sampleRate, samplerFMInputs[i],
                                               samplerPitchMod[i],
                                               samplerLoopStartMod[i],
