@@ -669,6 +669,34 @@ void UI::randomizeAllParameters(float amount01) {
     if (synth) {
         SampleBank* bank = synth->getSampleBank();
         int count = bank ? bank->getSampleCount() : 0;
+
+        // If none are loaded, try to load from known locations
+        if (bank && count == 0) {
+            std::vector<std::string> candidates;
+            // UI-selected directory
+            std::string uiDir = getSampleDirectory();
+            if (!uiDir.empty()) candidates.emplace_back(uiDir);
+            // Env var
+            if (const char* envPath = std::getenv("WAKEFIELD_SAMPLES")) {
+                candidates.emplace_back(envPath);
+            }
+            // Project-relative fallbacks
+            candidates.emplace_back("samples");
+            candidates.emplace_back("build/samples");
+            candidates.emplace_back("../samples");
+            candidates.emplace_back("../build/samples");
+            candidates.emplace_back("../../samples");
+
+            for (const auto& dir : candidates) {
+                int loaded = bank->loadSamplesFromDirectory(dir.c_str());
+                if (loaded > 0) {
+                    setSampleDirectory(dir);
+                    count = bank->getSampleCount();
+                    break;
+                }
+            }
+        }
+
         if (count > 0) {
             for (int i = 0; i < 4; ++i) {
                 // With probability proportional to amount, pick a new sample
