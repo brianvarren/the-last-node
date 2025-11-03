@@ -119,14 +119,22 @@ float Voice::generateSample(unsigned int frameIndex) {
     float interpFmGlobalDepthMod = lerp(prevFmGlobalDepthMod, fmGlobalDepthMod);
     
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
+    int activeOscCount = OSCILLATORS_PER_VOICE;
+    int activeSamplerCount = SAMPLERS_PER_VOICE;
+    if (params) {
+        activeOscCount = std::clamp(params->activeOscCount.load(), 1, OSCILLATORS_PER_VOICE);
+        activeSamplerCount = std::clamp(params->activeSamplerCount.load(), 1, SAMPLERS_PER_VOICE);
+    }
     if (params && synth) {
         // Get global FM depth (base + interpolated modulation) - applies to all FM amounts
         float globalDepth = std::clamp(params->fmGlobalDepth.load() + interpFmGlobalDepthMod, 0.0f, 1.0f);
 
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
+            if (target >= activeOscCount) { fmInputs[target] = 0.0f; continue; }
             float totalFM = 0.0f;
             // Oscillator sources (0-3)
             for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+                if (source >= activeOscCount) continue;
                 // Audio-rate interpolation: smooth transition between buffer boundaries
                 float prevDepth = prevFmDepthMod[target][source];
                 float currDepth = fmDepthMod[target][source];
@@ -138,6 +146,7 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
             // Sampler sources (4-7)
             for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+                if (source >= activeSamplerCount) continue;
                 // Audio-rate interpolation: smooth transition between buffer boundaries
                 int targetIdx = kFMOscillatorTargetCount + source;
                 float prevDepth = prevFmDepthMod[target][targetIdx];
@@ -155,6 +164,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     // Generate current oscillator outputs with FM and interpolated modulation applied
     float currentOutputs[OSCILLATORS_PER_VOICE];
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (i >= activeOscCount) { currentOutputs[i] = 0.0f; continue; }
         // Use interpolated modulation values for smooth audio-rate transitions
         currentOutputs[i] = oscillators[i].process(sampleRate, fmInputs[i],
                                                     interpPitchMod[i], interpMorphMod[i], interpDutyMod[i],
@@ -190,6 +200,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     // First pass: calculate oscillator final gains
     float oscFinalGains[OSCILLATORS_PER_VOICE];
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (i >= activeOscCount) { oscFinalGains[i] = 0.0f; continue; }
         // Get base amp and interpolated level (level is pre-computed per buffer, interpolated to audio rate)
         float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
         float baseLevel = interpCachedOscLevel[i];  // Interpolated to audio rate - prevents zippering!
@@ -229,27 +240,30 @@ float Voice::generateSample(unsigned int frameIndex) {
         // Get global FM depth (base + interpolated modulation)
         float globalDepth = std::clamp(params->fmGlobalDepth.load() + interpFmGlobalDepthMod, 0.0f, 1.0f);
 
-        for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
-            int targetIndex = kFMOscillatorTargetCount + target;
-            float totalFM = 0.0f;
-            // Oscillator sources (0-3)
-            for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-                // Audio-rate interpolation: smooth transition between buffer boundaries
-                float prevDepth = prevFmDepthMod[targetIndex][source];
-                float currDepth = fmDepthMod[targetIndex][source];
-                float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
+    for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
+        if (target >= activeSamplerCount) { samplerFMInputs[target] = 0.0f; continue; }
+        int targetIndex = kFMOscillatorTargetCount + target;
+        float totalFM = 0.0f;
+        // Oscillator sources (0-3)
+        for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+            if (source >= activeOscCount) continue;
+            // Audio-rate interpolation: smooth transition between buffer boundaries
+            float prevDepth = prevFmDepthMod[targetIndex][source];
+            float currDepth = fmDepthMod[targetIndex][source];
+            float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
                 
                 if (depth != 0.0f) {
                     totalFM += lastOscOutputs[source] * (depth * 100.0f);
                 }
             }
             // Sampler sources (4-7)
-            for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
-                // Audio-rate interpolation: smooth transition between buffer boundaries
-                int sourceIdx = kFMOscillatorTargetCount + source;
-                float prevDepth = prevFmDepthMod[targetIndex][sourceIdx];
-                float currDepth = fmDepthMod[targetIndex][sourceIdx];
-                float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
+        for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+            if (source >= activeSamplerCount) continue;
+            // Audio-rate interpolation: smooth transition between buffer boundaries
+            int sourceIdx = kFMOscillatorTargetCount + source;
+            float prevDepth = prevFmDepthMod[targetIndex][sourceIdx];
+            float currDepth = fmDepthMod[targetIndex][sourceIdx];
+            float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
                 
                 if (depth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
@@ -264,6 +278,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
 
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        if (i >= activeSamplerCount) { currentSamplerOutputs[i] = 0.0f; samplerFinalOutputs[i] = 0.0f; continue; }
         if (!samplers[i].isKeyMode()) {
             currentSamplerOutputs[i] = 0.0f;
             samplerFinalOutputs[i] = 0.0f;
@@ -314,11 +329,13 @@ float Voice::generateSample(unsigned int frameIndex) {
     // Count total active sources with non-zero, finite output
     int totalActiveSources = 0;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (i >= activeOscCount) continue;
         if (oscFinalGains[i] > 0.0f && std::isfinite(currentOutputs[i])) {
             totalActiveSources++;
         }
     }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        if (i >= activeSamplerCount) continue;
         if (samplerFinalOutputs[i] != 0.0f && std::isfinite(samplerFinalOutputs[i])) {
             totalActiveSources++;
         }
@@ -329,11 +346,13 @@ float Voice::generateSample(unsigned int frameIndex) {
 
     // Mix oscillators with combined normalization
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (i >= activeOscCount) continue;
         mixedSample += currentOutputs[i] * oscFinalGains[i] * sourceNormalization;
     }
 
     // Mix samplers with combined normalization
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        if (i >= activeSamplerCount) continue;
         mixedSample += samplerFinalOutputs[i] * sourceNormalization;
     }
 
@@ -344,9 +363,11 @@ float Voice::generateSample(unsigned int frameIndex) {
 
     // Cache outputs for next sample's FM routing
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (i >= activeOscCount) { lastOscOutputs[i] = 0.0f; continue; }
         lastOscOutputs[i] = currentOutputs[i];
     }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        if (i >= activeSamplerCount) { lastSamplerOutputs[i] = 0.0f; continue; }
         lastSamplerOutputs[i] = currentSamplerOutputs[i];
     }
 

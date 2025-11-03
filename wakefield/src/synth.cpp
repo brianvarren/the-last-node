@@ -758,6 +758,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     }
 
     if (anyFreeSamplers) {
+        int activeSamp = params ? std::clamp(params->activeSamplerCount.load(), 1, SAMPLERS_PER_VOICE) : SAMPLERS_PER_VOICE;
         // Current buffer's modulation values
         float currSamplerPitchMods[SAMPLERS_PER_VOICE] = {
             globalModOutputs.samp1Pitch, globalModOutputs.samp2Pitch,
@@ -801,6 +802,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
             float freeMix = 0.0f;
             for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+                if (s >= activeSamp) continue;
                 if (samplerKeyModes[s]) {
                     continue;
                 }
@@ -1098,8 +1100,16 @@ void Synth::updateLFOParameters(int lfoIndex, float period, int syncMode, int sh
 }
 
 void Synth::processLFOs(float sampleRate, unsigned int nFrames) {
-    // Process all 4 LFOs once per audio buffer
+    // Process LFOs once per audio buffer (respect active count)
+    int activeCount = params ? std::clamp(params->activeLfoCount.load(), 1, 4) : 4;
     for (int i = 0; i < 4; ++i) {
+        if (i >= activeCount) {
+            // Still update UI visual to zero out stale values
+            if (params) {
+                params->setLfoVisualState(i, 0.0f, lfos[i].getPhase());
+            }
+            continue;
+        }
         // Apply modulation to LFO parameters (uses last buffer's outputs)
         float periodBase = params ? params->getLfoPeriod(i) : lfos[i].getPeriod();
         float morphBase = params ? params->getLfoMorph(i) : lfos[i].getMorph();
@@ -1150,8 +1160,15 @@ void Synth::processChaos(unsigned int nFrames) {
         }
     }
 
-    // Process all 4 chaos generators per sample and populate buffers
+    // Process chaos generators (respect active count)
+    int activeCount = params ? std::clamp(params->activeChaosCount.load(), 1, 4) : 4;
     for (int i = 0; i < 4; ++i) {
+        if (i >= activeCount) {
+            chaosBufferX[i].clear();
+            chaosBufferY[i].clear();
+            chaosOutputs[i] = 0.0f;
+            continue;
+        }
         bool running = params ? params->getChaosRunning(i) : true;
         if (running) {
             // Clear and reserve space for per-sample values
@@ -1191,21 +1208,37 @@ void Synth::processChaos(unsigned int nFrames) {
 
 float Synth::getLFOOutput(int lfoIndex) const {
     if (lfoIndex < 0 || lfoIndex >= 4) return 0.0f;
+    if (params) {
+        int activeCount = std::clamp(params->activeLfoCount.load(), 1, 4);
+        if (lfoIndex >= activeCount) return 0.0f;
+    }
     return lfos[lfoIndex].getCurrentValue();
 }
 
 float Synth::getChaosOutput(int chaosIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    if (params) {
+        int activeCount = std::clamp(params->activeChaosCount.load(), 1, 4);
+        if (chaosIndex >= activeCount) return 0.0f;
+    }
     return chaosOutputs[chaosIndex];
 }
 
 float Synth::getChaosOutputY(int chaosIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    if (params) {
+        int activeCount = std::clamp(params->activeChaosCount.load(), 1, 4);
+        if (chaosIndex >= activeCount) return 0.0f;
+    }
     return chaos[chaosIndex].getY();
 }
 
 float Synth::getChaosOutputAtFrame(int chaosIndex, unsigned int frameIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    if (params) {
+        int activeCount = std::clamp(params->activeChaosCount.load(), 1, 4);
+        if (chaosIndex >= activeCount) return 0.0f;
+    }
     // Use per-sample value from buffer if available, otherwise fall back to cached value
     if (frameIndex < chaosBufferX[chaosIndex].size()) {
         return chaosBufferX[chaosIndex][frameIndex];
@@ -1215,6 +1248,10 @@ float Synth::getChaosOutputAtFrame(int chaosIndex, unsigned int frameIndex) cons
 
 float Synth::getChaosOutputYAtFrame(int chaosIndex, unsigned int frameIndex) const {
     if (chaosIndex < 0 || chaosIndex >= 4) return 0.0f;
+    if (params) {
+        int activeCount = std::clamp(params->activeChaosCount.load(), 1, 4);
+        if (chaosIndex >= activeCount) return 0.0f;
+    }
     // Use per-sample value from buffer if available, otherwise fall back to cached value
     if (frameIndex < chaosBufferY[chaosIndex].size()) {
         return chaosBufferY[chaosIndex][frameIndex];
@@ -1268,6 +1305,11 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
         return getLFOOutput(sourceIndex);
     } else if (sourceIndex >= 4 && sourceIndex <= 7) {
         // ENV 1-4
+        if (params) {
+            int activeEnv = std::clamp(params->activeEnvCount.load(), 1, 4);
+            int envIdx = sourceIndex - 4;
+            if (envIdx >= activeEnv) return 0.0f;
+        }
         // For now, only ENV 1 (index 4) is implemented using per-voice envelopes
         // We'll return the envelope value from the most recently triggered voice
         // (or the first active voice we find)

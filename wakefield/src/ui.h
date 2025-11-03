@@ -179,6 +179,13 @@ struct SynthParameters {
     std::atomic<float> compressorManualMakeup{0.0f};  // Manual makeup gain in dB (0 to 24)
     std::atomic<bool> compressorRMS{false};           // Detection mode: false=Peak, true=RMS
 
+    // Instance counts (runtime-scalable generator counts: 1-4)
+    std::atomic<int> activeOscCount{4};
+    std::atomic<int> activeSamplerCount{4};
+    std::atomic<int> activeLfoCount{4};
+    std::atomic<int> activeEnvCount{4};
+    std::atomic<int> activeChaosCount{4};
+
     // Generic MIDI CC Learn for new parameter system
     std::atomic<bool> midiLearnActive{false};
     std::atomic<int> midiLearnParameterId{-1};  // Which parameter ID to learn (-1 = none)

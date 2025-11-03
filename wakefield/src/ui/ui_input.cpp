@@ -286,7 +286,7 @@ void UI::handleInput(int ch) {
                 return;
             case KEY_DOWN:
                 if (mainPageFocusLeft) {
-                    if (mainPageActionIndex < 8) {
+                    if (mainPageActionIndex < 13) {
                         mainPageActionIndex++;
                     }
                 } else {
@@ -307,6 +307,37 @@ void UI::handleInput(int ch) {
                         globalMutatePercentage = std::min(100.0f, globalMutatePercentage + delta);
                         return;
                     }
+                    // Instance counts increment (1..4)
+                    if (mainPageActionIndex >= 9 && mainPageActionIndex <= 13) {
+                        switch (mainPageActionIndex) {
+                            case 9: {
+                                int cur = params->activeOscCount.load();
+                                params->activeOscCount = std::min(4, cur + 1);
+                                break;
+                            }
+                            case 10: {
+                                int cur = params->activeSamplerCount.load();
+                                params->activeSamplerCount = std::min(4, cur + 1);
+                                break;
+                            }
+                            case 11: {
+                                int cur = params->activeLfoCount.load();
+                                params->activeLfoCount = std::min(4, cur + 1);
+                                break;
+                            }
+                            case 12: {
+                                int cur = params->activeEnvCount.load();
+                                params->activeEnvCount = std::min(4, cur + 1);
+                                break;
+                            }
+                            case 13: {
+                                int cur = params->activeChaosCount.load();
+                                params->activeChaosCount = std::min(4, cur + 1);
+                                break;
+                            }
+                        }
+                        return;
+                    }
                 } else {
                     float delta = (ch == '+') ? 0.01f : 0.05f;
                     adjustMainMixerLevel(delta);
@@ -323,6 +354,37 @@ void UI::handleInput(int ch) {
                     }
                     if (mainPageActionIndex == 5) {  // Mutate Amount
                         globalMutatePercentage = std::max(0.0f, globalMutatePercentage - delta);
+                        return;
+                    }
+                    // Instance counts decrement (1..4)
+                    if (mainPageActionIndex >= 9 && mainPageActionIndex <= 13) {
+                        switch (mainPageActionIndex) {
+                            case 9: {
+                                int cur = params->activeOscCount.load();
+                                params->activeOscCount = std::max(1, cur - 1);
+                                break;
+                            }
+                            case 10: {
+                                int cur = params->activeSamplerCount.load();
+                                params->activeSamplerCount = std::max(1, cur - 1);
+                                break;
+                            }
+                            case 11: {
+                                int cur = params->activeLfoCount.load();
+                                params->activeLfoCount = std::max(1, cur - 1);
+                                break;
+                            }
+                            case 12: {
+                                int cur = params->activeEnvCount.load();
+                                params->activeEnvCount = std::max(1, cur - 1);
+                                break;
+                            }
+                            case 13: {
+                                int cur = params->activeChaosCount.load();
+                                params->activeChaosCount = std::max(1, cur - 1);
+                                break;
+                            }
+                        }
                         return;
                     }
                 } else {

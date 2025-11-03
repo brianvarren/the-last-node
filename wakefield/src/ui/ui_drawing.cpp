@@ -610,14 +610,21 @@ void UI::drawMainPage() {
         "Mutate Amount",
         "Global Reset",
         "Compressor",
-        "CPU Monitor"
+        "CPU Monitor",
+        // Instance controls
+        "OSC Instances",
+        "SAMP Instances",
+        "LFO Instances",
+        "ENV Instances",
+        "CHAOS Instances"
     };
 
     mvprintw(row, col, "Actions:");
     row += 2;
 
     // Draw action buttons
-    for (int i = 0; i < 9; ++i) {
+    const int actionCount = 14;
+    for (int i = 0; i < actionCount; ++i) {
         bool selected = (i == mainPageActionIndex && mainPageFocusLeft);
 
         if (selected) {
@@ -646,6 +653,23 @@ void UI::drawMainPage() {
         if (i == 8) {  // CPU Monitor
             const char* state = cpuMonitor.isEnabled() ? "ON" : "OFF";
             mvprintw(row, col + 20, "%s", state);
+        }
+
+        // Show instance counts for generator items
+        if (i == 9) {
+            mvprintw(row, col + 20, "%d", std::clamp(params->activeOscCount.load(), 1, 4));
+        }
+        if (i == 10) {
+            mvprintw(row, col + 20, "%d", std::clamp(params->activeSamplerCount.load(), 1, 4));
+        }
+        if (i == 11) {
+            mvprintw(row, col + 20, "%d", std::clamp(params->activeLfoCount.load(), 1, 4));
+        }
+        if (i == 12) {
+            mvprintw(row, col + 20, "%d", std::clamp(params->activeEnvCount.load(), 1, 4));
+        }
+        if (i == 13) {
+            mvprintw(row, col + 20, "%d", std::clamp(params->activeChaosCount.load(), 1, 4));
         }
 
         row++;
