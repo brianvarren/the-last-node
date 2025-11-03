@@ -1221,6 +1221,9 @@ public:
     // Returns true if a MIDI note was consumed to fill the sequencer note/name popup
     bool handleMidiNoteForSequencerNumeric(int midiNote);
 
+    // Baseline reset to last loaded/saved preset values
+    void resetToBaseline();
+
     // MOD matrix menu helpers
     void startModMatrixMenu();
     void handleModMatrixMenuInput(int ch);
@@ -1397,6 +1400,14 @@ public:
     void handlePresetBrowserInput(int ch);
     void finishPresetBrowser(bool applySelection);
     void refreshPresetBrowserList();
+
+    // Unified preset helpers
+    std::string buildUnifiedPresetContent(const std::string& name);
+    void applyUnifiedPresetContent(const std::string& fullContent);
+
+    // Baseline content captured on load/save for global reset
+    std::string baselinePresetContent;
+    bool baselineAvailable = false;
 };
 
 #endif // UI_H

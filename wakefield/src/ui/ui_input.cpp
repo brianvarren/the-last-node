@@ -349,8 +349,7 @@ void UI::handleInput(int ch) {
                         case 5:  // Mutate Amount (no action)
                             return;
                         case 6:  // Global Reset
-                            resetAllParametersToNeutral();
-                            addConsoleMessage("Global parameters reset to neutral");
+                            resetToBaseline();
                             return;
                         case 7:  // Compressor Toggle
                             params->compressorEnabled = !params->compressorEnabled.load();
