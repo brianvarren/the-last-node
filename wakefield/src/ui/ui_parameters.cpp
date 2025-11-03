@@ -680,13 +680,18 @@ void UI::randomizeAllParameters(float amount01) {
             candidates.emplace_back("../build/samples");
             candidates.emplace_back("../../samples");
 
+            int totalLoaded = 0;
+            std::string firstLoadedDir;
             for (const auto& dir : candidates) {
                 int loaded = bank->loadSamplesFromDirectory(dir.c_str());
-                if (loaded > 0) {
-                    setSampleDirectory(dir);
-                    count = bank->getSampleCount();
-                    break;
+                if (loaded > 0 && firstLoadedDir.empty()) {
+                    firstLoadedDir = dir;
                 }
+                totalLoaded += std::max(0, loaded);
+            }
+            if (totalLoaded > 0) {
+                if (!firstLoadedDir.empty()) setSampleDirectory(firstLoadedDir);
+                count = bank->getSampleCount();
             }
         }
 
