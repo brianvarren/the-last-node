@@ -1070,6 +1070,8 @@ public:
     // LFO amplitude history for rolling scope view
     void writeToLFOHistory(int lfoIndex, float amplitude);
 
+    
+
     // CPU monitor access
     CPUMonitor& getCPUMonitor() { return cpuMonitor; }
 
@@ -1205,6 +1207,7 @@ private:
     void drawDebugPage();
     void cycleAudioBufferSize(int direction);
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
+    void drawBarInactive(int y, int x, const char* label, float value, float min, float max, int width);
     void drawHotkeyLine();
     void drawStatusMessage();
     void drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth);

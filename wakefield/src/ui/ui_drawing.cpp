@@ -89,6 +89,33 @@ void UI::drawBar(int y, int x, const char* label, float value, float min, float 
     mvprintw(y, barStart + width + 3, "%.3f", value);
 }
 
+void UI::drawBarInactive(int y, int x, const char* label, float value, float min, float max, int width) {
+    float normalized = (value - min) / (max - min);
+    int fillWidth = static_cast<int>(normalized * width);
+
+    attron(COLOR_LOCKED);
+    mvprintw(y, x, "%s", label);
+
+    int labelLen = 0;
+    while (label[labelLen] != '\0') labelLen++;
+
+    int barStart = x + labelLen + 1;
+
+    mvaddch(y, barStart, '[');
+    // Use locked color for the entire bar
+    for (int i = 0; i < width; ++i) {
+        if (i < fillWidth) {
+            mvaddch(y, barStart + 1 + i, '=');
+        } else {
+            mvaddch(y, barStart + 1 + i, ' ');
+        }
+    }
+    mvaddch(y, barStart + width + 1, ']');
+
+    mvprintw(y, barStart + width + 3, "%.3f", value);
+    attroff(COLOR_LOCKED);
+}
+
 void UI::drawCPUOverlay() {
     if (!cpuMonitor.isEnabled()) {
         return;
@@ -699,7 +726,7 @@ void UI::drawMainPage() {
         bool selected = (mainPageMixerChannel == i && !mainPageFocusLeft);
         bool inactive = (i >= activeOsc);
 
-        if (inactive) attron(A_DIM);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
 
         if (selected) {
             attron(COLOR_SELECTION | A_BOLD);
@@ -710,29 +737,30 @@ void UI::drawMainPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_STATUS_MUTED | A_BOLD);
+            if (!inactive) attron(COLOR_STATUS_MUTED | A_BOLD); else attron(COLOR_LOCKED);
             mvprintw(mixerRow, rightCol + 9, "M");
-            attroff(COLOR_STATUS_MUTED | A_BOLD);
+            if (!inactive) attroff(COLOR_STATUS_MUTED | A_BOLD); else attroff(COLOR_LOCKED);
         } else {
             mvprintw(mixerRow, rightCol + 9, "-");
         }
 
         if (solo) {
-            attron(COLOR_STATUS_SOLO | A_BOLD);
+            if (!inactive) attron(COLOR_STATUS_SOLO | A_BOLD); else attron(COLOR_LOCKED);
             mvprintw(mixerRow, rightCol + 11, "S");
-            attroff(COLOR_STATUS_SOLO | A_BOLD);
+            if (!inactive) attroff(COLOR_STATUS_SOLO | A_BOLD); else attroff(COLOR_LOCKED);
         } else {
             mvprintw(mixerRow, rightCol + 11, "-");
         }
 
         // Draw compact bar (20 chars)
-        drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+        if (inactive) drawBarInactive(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+        else drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
 
         if (selected) {
             attroff(COLOR_SELECTION | A_BOLD);
         }
 
-        if (inactive) attroff(A_DIM);
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
 
         mixerRow++;
     }
@@ -748,7 +776,7 @@ void UI::drawMainPage() {
         bool selected = (mainPageMixerChannel == i + 4 && !mainPageFocusLeft);
         bool inactive = (i >= activeSamp);
 
-        if (inactive) attron(A_DIM);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
 
         if (selected) {
             attron(COLOR_SELECTION | A_BOLD);
@@ -759,29 +787,30 @@ void UI::drawMainPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_STATUS_MUTED | A_BOLD);
+            if (!inactive) attron(COLOR_STATUS_MUTED | A_BOLD); else attron(COLOR_LOCKED);
             mvprintw(mixerRow, rightCol + 9, "M");
-            attroff(COLOR_STATUS_MUTED | A_BOLD);
+            if (!inactive) attroff(COLOR_STATUS_MUTED | A_BOLD); else attroff(COLOR_LOCKED);
         } else {
             mvprintw(mixerRow, rightCol + 9, "-");
         }
 
         if (solo) {
-            attron(COLOR_STATUS_SOLO | A_BOLD);
+            if (!inactive) attron(COLOR_STATUS_SOLO | A_BOLD); else attron(COLOR_LOCKED);
             mvprintw(mixerRow, rightCol + 11, "S");
-            attroff(COLOR_STATUS_SOLO | A_BOLD);
+            if (!inactive) attroff(COLOR_STATUS_SOLO | A_BOLD); else attroff(COLOR_LOCKED);
         } else {
             mvprintw(mixerRow, rightCol + 11, "-");
         }
 
         // Draw compact bar (20 chars)
-        drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+        if (inactive) drawBarInactive(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+        else drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
 
         if (selected) {
             attroff(COLOR_SELECTION | A_BOLD);
         }
 
-        if (inactive) attroff(A_DIM);
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
 
         mixerRow++;
     }
@@ -797,7 +826,7 @@ void UI::drawMainPage() {
         bool selected = (mainPageMixerChannel == i + 8 && !mainPageFocusLeft);
         bool inactive = (i >= activeChaos);
 
-        if (inactive) attron(A_DIM);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
 
         if (selected) {
             attron(COLOR_SELECTION | A_BOLD);
@@ -808,29 +837,30 @@ void UI::drawMainPage() {
 
         // Draw mute/solo indicators
         if (muted) {
-            attron(COLOR_STATUS_MUTED | A_BOLD);
+            if (!inactive) attron(COLOR_STATUS_MUTED | A_BOLD); else attron(COLOR_LOCKED);
             mvprintw(mixerRow, rightCol + 9, "M");
-            attroff(COLOR_STATUS_MUTED | A_BOLD);
+            if (!inactive) attroff(COLOR_STATUS_MUTED | A_BOLD); else attroff(COLOR_LOCKED);
         } else {
             mvprintw(mixerRow, rightCol + 9, "-");
         }
 
         if (solo) {
-            attron(COLOR_STATUS_SOLO | A_BOLD);
+            if (!inactive) attron(COLOR_STATUS_SOLO | A_BOLD); else attron(COLOR_LOCKED);
             mvprintw(mixerRow, rightCol + 11, "S");
-            attroff(COLOR_STATUS_SOLO | A_BOLD);
+            if (!inactive) attroff(COLOR_STATUS_SOLO | A_BOLD); else attroff(COLOR_LOCKED);
         } else {
             mvprintw(mixerRow, rightCol + 11, "-");
         }
 
         // Draw compact bar (20 chars)
-        drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+        if (inactive) drawBarInactive(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
+        else drawBar(mixerRow, rightCol + 14, "", level, 0.0f, 1.0f, 20);
 
         if (selected) {
             attroff(COLOR_SELECTION | A_BOLD);
         }
 
-        if (inactive) attroff(A_DIM);
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
 
         mixerRow++;
     }
