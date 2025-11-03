@@ -758,27 +758,28 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
     }
 
     if (anyFreeSamplers) {
-        float samplerPitchMods[SAMPLERS_PER_VOICE] = {
+        // Current buffer's modulation values
+        float currSamplerPitchMods[SAMPLERS_PER_VOICE] = {
             globalModOutputs.samp1Pitch, globalModOutputs.samp2Pitch,
             globalModOutputs.samp3Pitch, globalModOutputs.samp4Pitch
         };
-        float samplerLoopStartMods[SAMPLERS_PER_VOICE] = {
+        float currSamplerLoopStartMods[SAMPLERS_PER_VOICE] = {
             globalModOutputs.samp1LoopStart, globalModOutputs.samp2LoopStart,
             globalModOutputs.samp3LoopStart, globalModOutputs.samp4LoopStart
         };
-        float samplerLoopLengthMods[SAMPLERS_PER_VOICE] = {
+        float currSamplerLoopLengthMods[SAMPLERS_PER_VOICE] = {
             globalModOutputs.samp1LoopLength, globalModOutputs.samp2LoopLength,
             globalModOutputs.samp3LoopLength, globalModOutputs.samp4LoopLength
         };
-        float samplerCrossfadeMods[SAMPLERS_PER_VOICE] = {
+        float currSamplerCrossfadeMods[SAMPLERS_PER_VOICE] = {
             globalModOutputs.samp1Crossfade, globalModOutputs.samp2Crossfade,
             globalModOutputs.samp3Crossfade, globalModOutputs.samp4Crossfade
         };
-        float samplerLevelMods[SAMPLERS_PER_VOICE] = {
+        float currSamplerLevelMods[SAMPLERS_PER_VOICE] = {
             globalModOutputs.samp1Amp, globalModOutputs.samp2Amp,
             globalModOutputs.samp3Amp, globalModOutputs.samp4Amp
         };
-        float samplerLevelOffsets[SAMPLERS_PER_VOICE] = {
+        float currSamplerLevelOffsets[SAMPLERS_PER_VOICE] = {
             lastGlobalModOutputs.mixerSamplerLevel[0], lastGlobalModOutputs.mixerSamplerLevel[1],
             lastGlobalModOutputs.mixerSamplerLevel[2], lastGlobalModOutputs.mixerSamplerLevel[3]
         };
@@ -789,21 +790,44 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             samplerPhaseSource[3] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[3], samplerPhaseType[3]) : -1.0f
         };
 
+        // Process free samplers with per-sample interpolation (prevents crackling)
         for (unsigned int i = 0; i < nFrames; ++i) {
+            // Calculate interpolation factor for smooth audio-rate transition
+            float interpFactor = 0.0f;
+            if (nFrames > 1) {
+                interpFactor = static_cast<float>(i) / static_cast<float>(nFrames - 1);
+                interpFactor = std::clamp(interpFactor, 0.0f, 1.0f);
+            }
+
             float freeMix = 0.0f;
             for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
                 if (samplerKeyModes[s]) {
                     continue;
                 }
+
+                // Interpolate modulation values per-sample to prevent zippering
+                float interpPitchMod = prevFreeSamplerPitchMod[s] +
+                    (currSamplerPitchMods[s] - prevFreeSamplerPitchMod[s]) * interpFactor;
+                float interpLoopStartMod = prevFreeSamplerLoopStartMod[s] +
+                    (currSamplerLoopStartMods[s] - prevFreeSamplerLoopStartMod[s]) * interpFactor;
+                float interpLoopLengthMod = prevFreeSamplerLoopLengthMod[s] +
+                    (currSamplerLoopLengthMods[s] - prevFreeSamplerLoopLengthMod[s]) * interpFactor;
+                float interpCrossfadeMod = prevFreeSamplerCrossfadeMod[s] +
+                    (currSamplerCrossfadeMods[s] - prevFreeSamplerCrossfadeMod[s]) * interpFactor;
+                float interpLevelMod = prevFreeSamplerLevelMod[s] +
+                    (currSamplerLevelMods[s] - prevFreeSamplerLevelMod[s]) * interpFactor;
+                float interpLevelOffset = prevFreeSamplerLevelOffset[s] +
+                    (currSamplerLevelOffsets[s] - prevFreeSamplerLevelOffset[s]) * interpFactor;
+
                 float samplerOut = freeSamplers[s].process(
                     sampleRate,
                     0.0f,                            // No FM input
-                    samplerPitchMods[s],
-                    samplerLoopStartMods[s],
-                    samplerLoopLengthMods[s],
-                    samplerCrossfadeMods[s],
-                    samplerLevelMods[s],
-                    samplerLevelOffsets[s],
+                    interpPitchMod,
+                    interpLoopStartMod,
+                    interpLoopLengthMod,
+                    interpCrossfadeMod,
+                    interpLevelMod,
+                    interpLevelOffset,
                     samplerPhaseDrivers[s],
                     60                                // Reference MIDI note (ignored in FREE mode)
                 );
@@ -817,6 +841,16 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     output[i * nChannels + ch] += freeMix * voiceGain * masterGain;
                 }
             }
+        }
+
+        // Save current as previous for next buffer
+        for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+            prevFreeSamplerPitchMod[s] = currSamplerPitchMods[s];
+            prevFreeSamplerLoopStartMod[s] = currSamplerLoopStartMods[s];
+            prevFreeSamplerLoopLengthMod[s] = currSamplerLoopLengthMods[s];
+            prevFreeSamplerCrossfadeMod[s] = currSamplerCrossfadeMods[s];
+            prevFreeSamplerLevelMod[s] = currSamplerLevelMods[s];
+            prevFreeSamplerLevelOffset[s] = currSamplerLevelOffsets[s];
         }
     }
 
