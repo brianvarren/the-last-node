@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <vector>
+#include <mutex>
 #include "voice.h"
 #include "brainwave_osc.h"
 #include "lfo.h"
@@ -281,6 +282,13 @@ public:
     int samplerPhaseType[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};
     std::vector<float> fmSourceBuffer;
     std::vector<float> fmSourceBufferPrev;
+
+    // Per-voice temporary buffers for parallel processing
+    std::vector<float> voiceBuffers[MAX_VOICES];
+    std::vector<float> voiceFmTraces[MAX_VOICES]; // per-voice, per-frame FM sources (osc + sampler)
+
+    // Protect shared state writes invoked from voices (e.g., sampler phase save)
+    std::mutex samplerPhaseMutex;
 
     // Stereo filters (left and right channel)
     OnePoleTPT filterL;

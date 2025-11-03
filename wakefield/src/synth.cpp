@@ -3,6 +3,7 @@
 #include "ui.h"
 #include <algorithm>
 #include <iostream>
+#include <thread>
 
 Synth::Synth(float sampleRate)
     : sampleRate(sampleRate)
@@ -654,47 +655,96 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         }
     }
 
-    // Process each active voice and mix into output
+    // Parallel voice processing: generate into per-voice buffers
+    std::vector<int> activeVoices;
+    activeVoices.reserve(MAX_VOICES);
     for (int v = 0; v < MAX_VOICES; ++v) {
-        if (!voices[v].active) {
-            continue;
-        }
+        if (voices[v].active) activeVoices.push_back(v);
+    }
 
-        // Generate samples for this voice
-        for (unsigned int i = 0; i < nFrames; ++i) {
-            // Pass frame index for per-sample modulation sources (chaos generators)
-            float sample = voices[v].generateSample(i);
+    for (int v : activeVoices) {
+        auto &buf = voiceBuffers[v];
+        auto &trace = voiceFmTraces[v];
+        buf.resize(static_cast<size_t>(nFrames) * nChannels);
+        trace.resize(static_cast<size_t>(nFrames) * kFMSourceCount);
+        std::fill(buf.begin(), buf.end(), 0.0f);
+        std::fill(trace.begin(), trace.end(), 0.0f);
+    }
 
-            float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(i) * kFMSourceCount;
-            const float* oscOutputs = voices[v].getLastOscOutputs();
-            for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
-                frameSources[o] += oscOutputs[o];
-            }
-            const float* samplerOutputs = voices[v].getLastSamplerOutputs();
-            for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
-                frameSources[kFMOscillatorTargetCount + s] += samplerOutputs[s];
-            }
+    unsigned int hwc = std::thread::hardware_concurrency();
+    if (hwc == 0) hwc = 1;
+    unsigned int threadsToUse = std::min<unsigned int>(hwc, std::max<size_t>(1, activeVoices.size()));
 
-            // Write to UI oscilloscope buffer if this is the first active voice
-            // Show unity-gain oscillator output (first active oscillator, raw)
-            if (v == 0 && ui) {
-                // Get raw oscillator output at unity gain for display
-                const float* oscOutputs = voices[v].getLastOscOutputs();
-                // Find first non-zero oscillator for display
-                float displaySample = 0.0f;
-                for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
-                    if (oscOutputs[o] != 0.0f) {
-                        displaySample = oscOutputs[o];
-                        break;
-                    }
+    auto worker = [&](size_t beginIdx, size_t endIdx) {
+        for (size_t idx = beginIdx; idx < endIdx; ++idx) {
+            int v = activeVoices[idx];
+            Voice &voice = voices[v];
+            float *buf = voiceBuffers[v].data();
+            float *trace = voiceFmTraces[v].data();
+            for (unsigned int i = 0; i < nFrames; ++i) {
+                float sample = voice.generateSample(i);
+                // write voice-local buffer (mono to all channels)
+                for (unsigned int ch = 0; ch < nChannels; ++ch) {
+                    buf[static_cast<size_t>(i) * nChannels + ch] = sample;
                 }
-                ui->writeToWaveformBuffer(displaySample);
+                // capture FM sources per frame (oscillators + samplers)
+                float *frameTrace = trace + static_cast<size_t>(i) * kFMSourceCount;
+                const float *osc = voice.getLastOscOutputs();
+                for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) frameTrace[o] = osc[o];
+                const float *samp = voice.getLastSamplerOutputs();
+                for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) frameTrace[kFMOscillatorTargetCount + s] = samp[s];
             }
+        }
+    };
 
-            // Mix into all channels with master volume
-            // Apply dynamic voice gain normalization to prevent clipping
+    if (threadsToUse <= 1 || activeVoices.size() <= 1) {
+        worker(0, activeVoices.size());
+    } else {
+        std::vector<std::thread> threads;
+        threads.reserve(threadsToUse);
+        size_t total = activeVoices.size();
+        size_t chunk = (total + threadsToUse - 1) / threadsToUse;
+        size_t begin = 0;
+        for (unsigned int t = 0; t < threadsToUse && begin < total; ++t) {
+            size_t end = std::min(begin + chunk, total);
+            threads.emplace_back(worker, begin, end);
+            begin = end;
+        }
+        for (auto &th : threads) th.join();
+    }
+
+    // After parallel stage: accumulate FM sources and mix with gains; write UI waveform
+    // First, accumulate fmSourceBuffer from per-voice traces
+    for (unsigned int i = 0; i < nFrames; ++i) {
+        float *frameSources = fmSourceBuffer.data() + static_cast<size_t>(i) * kFMSourceCount;
+        for (int v : activeVoices) {
+            const float *frameTrace = voiceFmTraces[v].data() + static_cast<size_t>(i) * kFMSourceCount;
+            for (int s = 0; s < kFMSourceCount; ++s) {
+                frameSources[s] += frameTrace[s];
+            }
+        }
+    }
+
+    // UI waveform from the first active voice (if any)
+    if (ui && !activeVoices.empty()) {
+        int v0 = activeVoices.front();
+        for (unsigned int i = 0; i < nFrames; ++i) {
+            const float *frameTrace = voiceFmTraces[v0].data() + static_cast<size_t>(i) * kFMSourceCount;
+            float displaySample = 0.0f;
+            for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
+                if (frameTrace[o] != 0.0f) { displaySample = frameTrace[o]; break; }
+            }
+            ui->writeToWaveformBuffer(displaySample);
+        }
+    }
+
+    // Mix per-voice buffers into final output with gains
+    for (unsigned int i = 0; i < nFrames; ++i) {
+        for (int v : activeVoices) {
+            const float *buf = voiceBuffers[v].data();
             for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                output[i * nChannels + ch] += sample * voiceGain * masterGain;
+                output[static_cast<size_t>(i) * nChannels + ch] +=
+                    buf[static_cast<size_t>(i) * nChannels + ch] * voiceGain * masterGain;
             }
         }
     }
@@ -1702,6 +1752,7 @@ void Synth::saveSamplerPhase(int samplerIndex, uint64_t phase) {
     }
     // Only save if Note Reset is OFF (so phase persists across notes)
     if (!samplerNoteResets[samplerIndex]) {
+        std::lock_guard<std::mutex> lock(samplerPhaseMutex);
         samplerLastPhases[samplerIndex] = phase;
     }
 }

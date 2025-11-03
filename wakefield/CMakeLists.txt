@@ -9,6 +9,7 @@ pkg_check_modules(RTAUDIO REQUIRED rtaudio)
 pkg_check_modules(RTMIDI REQUIRED rtmidi)
 set(CURSES_NEED_WIDE TRUE)
 find_package(Curses REQUIRED)
+find_package(Threads REQUIRED)
 
 option(WAKEFIELD_BUILD_PROFILER "Build the standalone profiling runner" ON)
 option(WAKEFIELD_ENABLE_GPROF "Enable gprof instrumentation for profiling builds" OFF)
@@ -82,6 +83,7 @@ set(WAKEFIELD_LINK_LIBS
     ${RTMIDI_LIBRARIES}
     ${CURSES_LIBRARIES}
     ncursesw
+    Threads::Threads
 )
 
 target_link_libraries(wakefield_core PUBLIC ${WAKEFIELD_LINK_LIBS})
