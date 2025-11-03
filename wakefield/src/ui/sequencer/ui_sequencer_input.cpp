@@ -40,7 +40,7 @@ bool UI::handleSequencerInput(int ch) {
 
     ensureSequencerSelectionInRange();
 
-    int maxRows = std::min(16, patternLength);
+    int maxRows = patternLength;
     if (maxRows <= 0) {
         maxRows = 1;
     }
@@ -74,6 +74,12 @@ bool UI::handleSequencerInput(int ch) {
                 }
             } else {
                 sequencerSelectedRow = wrapIndex(sequencerSelectedRow - 1, maxRows);
+                const int visibleRows = 16;
+                if (sequencerSelectedRow < sequencerScrollOffset) {
+                    sequencerScrollOffset = std::max(0, sequencerSelectedRow);
+                } else if (sequencerSelectedRow >= sequencerScrollOffset + visibleRows) {
+                    sequencerScrollOffset = std::max(0, sequencerSelectedRow - visibleRows + 1);
+                }
             }
             return true;
 
@@ -96,6 +102,12 @@ bool UI::handleSequencerInput(int ch) {
                 }
             } else {
                 sequencerSelectedRow = wrapIndex(sequencerSelectedRow + 1, maxRows);
+                const int visibleRows = 16;
+                if (sequencerSelectedRow < sequencerScrollOffset) {
+                    sequencerScrollOffset = std::max(0, sequencerSelectedRow);
+                } else if (sequencerSelectedRow >= sequencerScrollOffset + visibleRows) {
+                    sequencerScrollOffset = std::max(0, sequencerSelectedRow - visibleRows + 1);
+                }
             }
             return true;
 
@@ -103,6 +115,8 @@ bool UI::handleSequencerInput(int ch) {
         case KEY_LEFT:
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow >= 2 && sequencerActionsColumn > 0) {
+                    --sequencerActionsColumn;
+                } else if (sequencerActionsRow == 1 && sequencerActionsColumn > 0) {
                     --sequencerActionsColumn;
                 } else {
                     // Move from actions to tracker
@@ -120,9 +134,11 @@ bool UI::handleSequencerInput(int ch) {
             if (sequencerFocusActionsPane) {
                 if (sequencerActionsRow >= 2 && sequencerActionsColumn < 4) {
                     ++sequencerActionsColumn;
-                } else if (sequencerActionsRow < 2) {
-                    // On Generate/Clear, move right to next button
-                    if (sequencerActionsRow == 0) sequencerActionsRow = 1;
+                } else if (sequencerActionsRow == 0) {
+                    // Only one button on row 0
+                } else if (sequencerActionsRow == 1) {
+                    // Toggle between [Clear] and [Lock All]
+                    sequencerActionsColumn = std::min(1, sequencerActionsColumn + 1);
                 }
             } else if (!sequencerFocusRightPane) {
                 if (sequencerSelectedColumn < static_cast<int>(SequencerTrackerColumn::PROBABILITY)) {
@@ -197,6 +213,17 @@ bool UI::handleSequencerInput(int ch) {
                 }
             }
             return true;
+
+        case KEY_PPAGE: { // Page Up: scroll up view
+            const int visibleRows = 16;
+            sequencerScrollOffset = std::max(0, sequencerScrollOffset - visibleRows);
+            return true;
+        }
+        case KEY_NPAGE: { // Page Down: scroll down view
+            const int visibleRows = 16;
+            sequencerScrollOffset = std::min(std::max(0, patternLength - visibleRows), sequencerScrollOffset + visibleRows);
+            return true;
+        }
 
         default:
             break;

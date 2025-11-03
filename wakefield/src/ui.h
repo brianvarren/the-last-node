@@ -1289,7 +1289,7 @@ public:
     // FM Matrix UI state
     int fmMatrixCursorRow;        // 0-15 sources
     int fmMatrixCursorCol;        // 0-(kFMTargetCount-1): targets
-    bool fmMatrixLocked[kFMTargetCount][kFMSourceCount] = {{false}}; // target x source lock flags
+    bool fmMatrixLocked[kFMTargetCount][kFMSourceCount] = {{false}}; // target x source lock flags (set to all locked at runtime)
 
     // MOD Matrix UI state
     int modMatrixCursorRow;       // 0-15: modulation slot
@@ -1337,6 +1337,7 @@ public:
 
     int sequencerSelectedRow;
     int sequencerSelectedColumn;
+    int sequencerScrollOffset = 0;   // Top row index for tracker view (for >16 steps)
     bool sequencerFocusRightPane;
     int sequencerRightSelection;
     float sequencerMutateAmount;  // Percentage 0-100

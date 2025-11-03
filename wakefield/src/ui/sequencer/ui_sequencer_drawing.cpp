@@ -75,7 +75,7 @@ void UI::drawSequencerPage() {
     attroff(A_BOLD);
     actionsStartRow++;
 
-    // Generate and Clear buttons
+    // Generate and Clear/Lock All buttons
     bool generateSelected = sequencerFocusActionsPane && sequencerActionsRow == 0;
     if (generateSelected) {
         attron(COLOR_SELECTION | A_BOLD);
@@ -85,12 +85,20 @@ void UI::drawSequencerPage() {
         attroff(COLOR_SELECTION | A_BOLD);
     }
 
-    bool clearSelected = sequencerFocusActionsPane && sequencerActionsRow == 1;
+    bool clearSelected = sequencerFocusActionsPane && sequencerActionsRow == 1 && sequencerActionsColumn == 0;
     if (clearSelected) {
         attron(COLOR_SELECTION | A_BOLD);
     }
     mvprintw(actionsStartRow, rightCol + 12, "[Clear]");
     if (clearSelected) {
+        attroff(COLOR_SELECTION | A_BOLD);
+    }
+    bool lockAllSelected = sequencerFocusActionsPane && sequencerActionsRow == 1 && sequencerActionsColumn == 1;
+    if (lockAllSelected) {
+        attron(COLOR_SELECTION | A_BOLD);
+    }
+    mvprintw(actionsStartRow, rightCol + 22, "[Lock All]");
+    if (lockAllSelected) {
         attroff(COLOR_SELECTION | A_BOLD);
     }
     actionsStartRow += 2;
@@ -229,8 +237,9 @@ void UI::drawSequencerPage() {
         ++infoRow;
     }
 
-    // Simple tracker display - cap at 16 steps
-    int displayRows = std::min(16, patternLength);
+    // Simple tracker display with vertical scrolling (show up to 16 rows)
+    const int visibleRows = 16;
+    int displayRows = std::min(visibleRows, patternLength);
 
     // Draw header
     attron(A_BOLD);
@@ -242,11 +251,13 @@ void UI::drawSequencerPage() {
     mvprintw(row, leftCol, "----------------------------");
     row++;
 
-    // Draw each step
+    // Draw each step (respect scroll offset)
+    int startIndex = std::clamp(sequencerScrollOffset, 0, std::max(0, patternLength - displayRows));
     for (int i = 0; i < displayRows; ++i) {
-        const PatternStep& step = pattern.getStep(i);
-        bool rowSelected = (!sequencerFocusRightPane && !sequencerFocusActionsPane && sequencerSelectedRow == i);
-        bool isCurrentStep = (currentStep == i);
+        int stepIndex = startIndex + i;
+        const PatternStep& step = pattern.getStep(stepIndex);
+        bool rowSelected = (!sequencerFocusRightPane && !sequencerFocusActionsPane && sequencerSelectedRow == stepIndex);
+        bool isCurrentStep = (currentStep == stepIndex);
 
         // Reset attributes and clear the line
         attrset(A_NORMAL);
@@ -259,7 +270,7 @@ void UI::drawSequencerPage() {
         }
 
         // Step number (1-based)
-        mvprintw(row, leftCol, "%2d", i + 1);
+        mvprintw(row, leftCol, "%2d", stepIndex + 1);
 
         // Lock indicator - with selection highlight
         bool lockSelected = rowSelected && sequencerSelectedColumn == static_cast<int>(SequencerTrackerColumn::LOCK);

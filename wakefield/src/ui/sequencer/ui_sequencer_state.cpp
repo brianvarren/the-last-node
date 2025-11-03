@@ -32,7 +32,7 @@ void UI::ensureSequencerSelectionInRange() {
     if (!sequencer) return;
 
     Pattern& pattern = sequencer->getPattern();
-    int maxRows = std::min(16, pattern.getLength());
+    int maxRows = pattern.getLength();
     if (maxRows <= 0) {
         maxRows = 1;
     }
@@ -48,6 +48,16 @@ void UI::ensureSequencerSelectionInRange() {
         sequencerSelectedColumn = static_cast<int>(SequencerTrackerColumn::LOCK);
     } else if (sequencerSelectedColumn > maxColumn) {
         sequencerSelectedColumn = maxColumn;
+    }
+
+    // Keep scroll offset sane and ensure selected row is visible
+    const int visibleRows = 16;
+    int maxOffset = std::max(0, maxRows - visibleRows);
+    sequencerScrollOffset = std::clamp(sequencerScrollOffset, 0, maxOffset);
+    if (sequencerSelectedRow < sequencerScrollOffset) {
+        sequencerScrollOffset = sequencerSelectedRow;
+    } else if (sequencerSelectedRow >= sequencerScrollOffset + visibleRows) {
+        sequencerScrollOffset = std::max(0, sequencerSelectedRow - visibleRows + 1);
     }
 
     if (sequencerRightSelection < 0) {

@@ -9,6 +9,11 @@ void UI::drawFMPage() {
     attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "FM MATRIX - Audio-Rate Phase Modulation (8 sources × 8 targets)");
     attroff(COLOR_PAGE_TITLE | A_BOLD);
+    // Actions (right side): Lock All
+    // Square brackets signify a button across pages
+    int maxX = getmaxx(stdscr);
+    int actionX = std::max(2, maxX - 14); // place near right edge
+    mvprintw(row, actionX, "[Lock All]");
     row += 2;
 
     // Column labels (targets) with clear abbreviations
@@ -77,8 +82,8 @@ void UI::drawFMPage() {
         row++;
     }
 
-    // Legend
+    // Legend / hints
     attron(COLOR_HINT);
-    mvprintw(row + 1, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles lock");
+    mvprintw(row + 1, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles cell lock  |  'K' = Lock All");
     attroff(COLOR_HINT);
 }

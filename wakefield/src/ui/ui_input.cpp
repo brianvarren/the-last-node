@@ -737,6 +737,18 @@ void UI::handleInput(int ch) {
         return;
     }
 
+    // FM page: 'K' = Lock All cells
+    if (currentPage == UIPage::FM && (ch == 'K')) {
+        captureUndoSnapshot("fm_lock_all");
+        for (int t = 0; t < kFMTargetCount; ++t) {
+            for (int s = 0; s < kFMSourceCount; ++s) {
+                fmMatrixLocked[t][s] = true;
+            }
+        }
+        addConsoleMessage("FM: Locked all cells");
+        return;
+    }
+
     // Per-page actions on parameter pages
     if (parameterPage && !numericInputActive) {
         if (ch == 'g') {

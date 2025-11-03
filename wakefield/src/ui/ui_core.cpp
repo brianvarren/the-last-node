@@ -104,6 +104,13 @@ UI::UI(Synth* synth, SynthParameters* params)
     resetUndoHistory();
     resetAudioDebugStats();
 
+    // Default: lock all FM matrix cells (immune to randomize/mutate until explicitly unlocked)
+    for (int t = 0; t < kFMTargetCount; ++t) {
+        for (int s = 0; s < kFMSourceCount; ++s) {
+            fmMatrixLocked[t][s] = true;
+        }
+    }
+
 }
 
 UI::~UI() {

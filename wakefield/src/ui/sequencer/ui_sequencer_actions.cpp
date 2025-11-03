@@ -24,10 +24,17 @@ void UI::executeSequencerAction(int actionRow, int actionColumn) {
     }
 
     if (actionRow == 1) {
-        // Clear - deactivate all steps
-        for (int i = 0; i < pattern.getLength(); ++i) {
-            if (!pattern.getStep(i).locked) {
-                pattern.getStep(i).active = false;
+        if (actionColumn == 0) {
+            // Clear - deactivate all unlocked steps
+            for (int i = 0; i < pattern.getLength(); ++i) {
+                if (!pattern.getStep(i).locked) {
+                    pattern.getStep(i).active = false;
+                }
+            }
+        } else if (actionColumn == 1) {
+            // Lock All steps
+            for (int i = 0; i < pattern.getLength(); ++i) {
+                pattern.getStep(i).locked = true;
             }
         }
         return;
