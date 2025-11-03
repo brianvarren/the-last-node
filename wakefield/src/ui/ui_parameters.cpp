@@ -527,6 +527,13 @@ static inline float frand(float a, float b) {
     return a + (b - a) * r;
 }
 
+// Forward declarations for sequencer access
+#include "../sequencer.h"
+#include "../track.h"
+#include "../constraint.h"
+#include "../clock.h"
+extern Sequencer* sequencer;
+
 void UI::randomizeAllParameters(float amount01) {
     amount01 = std::clamp(amount01, 0.0f, 1.0f);
     if (amount01 <= 0.0f) return;
@@ -622,6 +629,100 @@ void UI::randomizeAllParameters(float amount01) {
                 }
                 break;
             }
+        }
+    }
+
+    // Also randomize FM matrix depths (respect FM lock flags)
+    for (int target = 0; target < kFMTargetCount; ++target) {
+        for (int source = 0; source < kFMSourceCount; ++source) {
+            if (fmMatrixLocked[target][source]) continue;
+            float cur = params->getFMDepth(target, source);
+            float rnd = frand(-0.99f, 0.99f);
+            float v = cur + (rnd - cur) * amount01;
+            params->setFMDepth(target, source, v);
+        }
+    }
+
+    // Randomize modulation connections/amounts across all slots
+    randomizeAllModSlots(amount01);
+
+    // Randomize mixer levels (previously immune); scale towards random with amount
+    for (int i = 0; i < 4; ++i) {
+        float cur = params->getOscLevel(i);
+        float rnd = frand(0.0f, 1.0f);
+        params->setOscLevel(i, cur + (rnd - cur) * amount01);
+    }
+    if (synth) {
+        for (int i = 0; i < 4; ++i) {
+            float cur = synth->getSamplerLevel(i);
+            float rnd = frand(0.0f, 1.0f);
+            synth->setSamplerLevel(i, cur + (rnd - cur) * amount01);
+        }
+    }
+    for (int i = 0; i < 4; ++i) {
+        float cur = params->getChaosLevel(i);
+        float rnd = frand(0.0f, 1.0f);
+        params->setChaosLevel(i, cur + (rnd - cur) * amount01);
+    }
+
+    // Randomize selected samples on samplers
+    if (synth) {
+        SampleBank* bank = synth->getSampleBank();
+        int count = bank ? bank->getSampleCount() : 0;
+        if (count > 0) {
+            for (int i = 0; i < 4; ++i) {
+                // With probability proportional to amount, pick a new sample
+                if (frand(0.0f, 1.0f) < amount01) {
+                    int idx = rand() % count;
+                    synth->setSamplerSample(i, idx);
+                }
+            }
+        }
+    }
+
+    // Randomize sequencer parameters and regenerate patterns
+    if (sequencer) {
+        // Randomize tempo slightly
+        double curTempo = sequencer->getTempo();
+        double rndTempo = std::clamp(curTempo + (frand(-30.0f, 30.0f) * amount01), 40.0, 180.0);
+        sequencer->setTempo(rndTempo);
+
+        for (int t = 0; t < sequencer->getTrackCount(); ++t) {
+            Track& track = sequencer->getTrack(t);
+            Pattern& pattern = track.getPattern();
+            MusicalConstraints& c = track.getConstraints();
+            EuclideanPattern& eu = track.getEuclideanPattern();
+
+            // Length: choose from {8, 16, 32}
+            const int lengths[3] = {8, 16, 32};
+            int newLen = lengths[rand() % 3];
+            pattern.setLength(newLen);
+
+            // Subdivision: pick among typical values
+            const Subdivision subdivs[4] = {Subdivision::EIGHTH, Subdivision::SIXTEENTH, Subdivision::THIRTYSECOND, Subdivision::QUARTER};
+            track.setSubdivision(subdivs[rand() % 4]);
+
+            // Euclidean
+            int steps = std::max(1, newLen);
+            int hits = std::clamp(static_cast<int>(std::round(frand(0.0f, 1.0f) * steps)), 0, steps);
+            int rot = (steps > 0) ? (rand() % steps) : 0;
+            eu.setSteps(steps);
+            eu.setHits(hits);
+            eu.setRotation(rot);
+
+            // Constraints
+            c.setRootNote(rand() % 12);
+            c.setScale(static_cast<Scale>(rand() % 10)); // Scale enum up to CUSTOM
+            int octMin = rand() % 5; // 0..4
+            int octMax = octMin + 2 + (rand() % 3); // ensure range
+            c.setOctaveRange(octMin, std::min(octMax, 10));
+            c.setDensity(std::clamp(frand(0.2f, 1.0f), 0.0f, 1.0f));
+            c.setMaxInterval(1 + (rand() % 12));
+            c.setContour(static_cast<Contour>(rand() % 5));
+            c.setGravityNote((octMin + 1) * 12 + c.getRootNote());
+
+            // Generate new pattern for this track
+            track.generatePattern();
         }
     }
 }
