@@ -180,15 +180,8 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
         if (anyFreeMode) break;
     }
 
-    // Check all samplers
-    if (!anyFreeMode) {
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            if (!samplerKeyModes[i]) {  // false = FREE mode
-                anyFreeMode = true;
-                break;
-            }
-        }
-    }
+    // Note: FREE sampler playback is handled by freeSamplers path directly.
+    // Do not spawn a free-running voice based on sampler FREE mode alone.
 
     // Spawn or kill free-running voice based on mode
     if (anyFreeMode && !freeRunningVoiceActive) {
@@ -801,9 +794,23 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             }
 
             float freeMix = 0.0f;
+            // Determine if any sampler channel is soloed
+            bool anySamplerSolo = false;
+            for (int ss = 0; ss < SAMPLERS_PER_VOICE; ++ss) {
+                if (params->samplerSolo[ss].load()) { anySamplerSolo = true; break; }
+            }
             for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
                 if (s >= activeSamp) continue;
                 if (samplerKeyModes[s]) {
+                    continue;
+                }
+
+                // Apply mute/solo logic for free samplers
+                if (anySamplerSolo) {
+                    if (!params->samplerSolo[s].load()) {
+                        continue;
+                    }
+                } else if (params->samplerMuted[s].load()) {
                     continue;
                 }
 
@@ -1804,15 +1811,8 @@ void Synth::setSamplerKeyMode(int samplerIndex, bool enabled) {
         if (anyFreeMode) break;
     }
 
-    // Check all samplers
-    if (!anyFreeMode) {
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            if (!samplerKeyModes[i]) {  // false = FREE mode
-                anyFreeMode = true;
-                break;
-            }
-        }
-    }
+    // Note: FREE sampler playback is handled by freeSamplers path directly.
+    // Do not spawn a free-running voice based on sampler FREE mode alone.
 
     // Spawn or kill free-running voice based on mode
     if (anyFreeMode && !freeRunningVoiceActive) {

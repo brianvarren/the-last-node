@@ -401,13 +401,25 @@ int16_t Sampler::getSample(const SampleData* sample, const SamplerVoice* voice, 
         }
     }
 
-    // Additional fade near buffer end during crossfade
+    // Additional fade near loop boundary during crossfade to avoid edge artifacts
     float additionalFade = 1.0f;
-    if (crossfading && voice == primaryVoice &&
-        i >= sample->sampleCount - 8) {
-        uint32_t distanceFromEnd = sample->sampleCount - 1 - i;
-        additionalFade = static_cast<float>(distanceFromEnd) / 7.0f;
-        additionalFade = std::clamp(additionalFade, 0.0f, 1.0f);
+    if (crossfading && voice == primaryVoice) {
+        // Fade over last few samples approaching the loop boundary actually being crossed
+        constexpr uint32_t kFadeSpan = 8u;
+        if (isReverse) {
+            // Approaching loop start in reverse
+            if (i < voice->loop_start + kFadeSpan) {
+                uint32_t dist = (i > voice->loop_start) ? (i - voice->loop_start) : 0u;
+                additionalFade = std::clamp(static_cast<float>(dist) / static_cast<float>(kFadeSpan - 1), 0.0f, 1.0f);
+            }
+        } else {
+            // Approaching loop end in forward
+            uint32_t endIdx = voice->loop_end > 0 ? (voice->loop_end - 1) : voice->loop_start;
+            if (i > endIdx - kFadeSpan) {
+                uint32_t dist = (endIdx > i) ? (endIdx - i) : 0u;
+                additionalFade = std::clamp(static_cast<float>(dist) / static_cast<float>(kFadeSpan - 1), 0.0f, 1.0f);
+            }
+        }
     }
 
     // Get second sample for interpolation (handle loop boundaries)

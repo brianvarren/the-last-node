@@ -318,11 +318,8 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
 
-        // Do not apply the voice envelope here.
-        // Sampler amplitude follows its own amp modulation. If the envelope
-        // is routed to the sampler amp parameter via the modulation matrix,
-        // it will take precedence there. Otherwise, sampler is audible by default.
-        samplerFinalOutputs[i] = samplerOut;
+        // Apply the voice envelope to sampler level (consistent with oscillator gains)
+        samplerFinalOutputs[i] = samplerOut * envelopeValue;
     }
 
     // Phase 2 FIX: Normalize ALL sources together (oscillators + samplers)
