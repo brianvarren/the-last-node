@@ -365,8 +365,24 @@ void UI::finishGlobalResetPopup(bool applySelection) {
         if (globalResetPopupIndex == 0) {
             resetToBaseline();
         } else {
-            resetAllParametersToNeutral();
-            addConsoleMessage("Reset to init defaults");
+            // Full re-initialization: reset engine state and parameters
+            if (synth) {
+                synth->resetAudioState();
+            }
+            if (params) {
+                params->resetToInitDefaults();
+            }
+            // Reset UI modulation state and locks to init
+            for (int i = 0; i < 16; ++i) {
+                modulationSlots[i] = ModulationSlot();
+                modSlotLocked[i] = false;
+            }
+            for (int t = 0; t < kFMTargetCount; ++t) {
+                for (int s = 0; s < kFMSourceCount; ++s) {
+                    fmMatrixLocked[t][s] = true; // default: locked for safety
+                }
+            }
+            addConsoleMessage("Reset to init defaults (engine + params reinitialized)");
         }
     }
     globalResetPopupActive = false;

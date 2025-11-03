@@ -7,6 +7,7 @@
 #include <limits>
 #include <string>
 #include <atomic>
+#include <new>
 #include <vector>
 #include <functional>
 #include <chrono>
@@ -414,6 +415,9 @@ struct SynthParameters {
             }
         }
     }
+
+    // Reset all parameters to constructor defaults (init state)
+    void resetToInitDefaults() { new (this) SynthParameters(); }
 
     int getOscMode(int index) const {
         switch (index) {
