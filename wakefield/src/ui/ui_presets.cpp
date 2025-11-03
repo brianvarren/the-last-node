@@ -11,9 +11,19 @@ void UI::refreshPresetList() {
 }
 
 void UI::loadPreset(const std::string& filename) {
-    if (!PresetManager::loadPreset(filename, params)) {
-        return;
+    // If sidecars missing but bundle exists, import it first
+    {
+        std::string baseDir = PresetManager::getPresetDirectory();
+        std::ifstream stateCheck(baseDir + "/" + filename + ".state");
+        if (!stateCheck.good()) {
+            std::string bundle = baseDir + "/" + filename + ".wkbundle";
+            std::ifstream b(bundle);
+            if (b.good()) {
+                PresetManager::importPresetBundle(bundle);
+            }
+        }
     }
+    if (!PresetManager::loadPreset(filename, params)) return;
 
     currentPresetName = filename;
     resetUndoHistory();
@@ -128,7 +138,7 @@ void UI::loadPreset(const std::string& filename) {
         }
     }
 
-    // 4) Load sampler selections (sample names)
+    // 4) Load sampler selections (sample names + optional directory)
     if (synth) {
         try {
             std::string sampPath = baseDir + "/" + filename + ".samplers.txt";
@@ -136,6 +146,7 @@ void UI::loadPreset(const std::string& filename) {
             if (f.good()) {
                 auto* bank = synth->getSampleBank();
                 std::string line;
+                std::string sampleDir;
                 while (std::getline(f, line)) {
                     if (line.empty() || line[0] == '#') continue;
                     auto eq = line.find('=');
@@ -149,16 +160,29 @@ void UI::loadPreset(const std::string& filename) {
                         return s.substr(a, b - a + 1);
                     };
                     key = trim(key); val = trim(val);
+                    if (key == "sample_dir") {
+                        sampleDir = val;
+                        continue;
+                    }
                     if (key.rfind("sampler", 0) == 0 && key.size() > 8) {
                         int idx = std::stoi(key.substr(7));
                         if (idx < 0 || idx >= 4) continue;
                         if (!val.empty() && bank) {
                             int sidx = bank->findSampleByName(val.c_str());
+                            if (sidx < 0 && !sampleDir.empty()) {
+                                // Try loading samples from saved directory to resolve name
+                                bank->loadSamplesFromDirectory(sampleDir.c_str());
+                                sidx = bank->findSampleByName(val.c_str());
+                            }
                             if (sidx >= 0) {
                                 synth->setSamplerSample(idx, sidx);
                             }
                         }
                     }
+                }
+                if (!sampleDir.empty()) {
+                    // Remember sample directory in UI for browsing
+                    setSampleDirectory(sampleDir);
                 }
             }
         } catch (...) {
@@ -167,9 +191,7 @@ void UI::loadPreset(const std::string& filename) {
 }
 
 void UI::savePreset(const std::string& filename) {
-    if (!PresetManager::savePreset(filename, params)) {
-        return;
-    }
+    if (!PresetManager::savePreset(filename, params)) return;
 
     std::string baseDir = PresetManager::getPresetDirectory();
 
@@ -221,12 +243,14 @@ void UI::savePreset(const std::string& filename) {
         }
     }
 
-    // 3) Save sampler selections (by sample name)
+    // 3) Save sampler selections (by sample name) and current sample directory
     if (synth) {
         try {
             std::string sampPath = baseDir + "/" + filename + ".samplers.txt";
             std::ofstream sf(sampPath);
             if (sf.is_open()) {
+                // Save current sample directory (write even if empty)
+                sf << "sample_dir=" << getSampleDirectory() << "\n";
                 for (int i = 0; i < 4; ++i) {
                     int sidx = synth->getSamplerSampleIndex(i);
                     const SampleBank* bank = synth->getSampleBank();
@@ -240,6 +264,9 @@ void UI::savePreset(const std::string& filename) {
 
     currentPresetName = filename;
     refreshPresetList();
+
+    // Also create a single-file bundle for sharing
+    PresetManager::exportPresetBundle(filename);
 }
 
 void UI::startTextInput() {

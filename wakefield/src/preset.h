@@ -51,6 +51,14 @@ private:
 
     static bool parsePresetStream(std::istream& stream, SynthParameters* params);
     static void writePresetStream(std::ostream& stream, SynthParameters* params);
+
+public:
+    // Bundle a preset and its sidecars into a single shareable file
+    // Writes to getPresetDirectory()/name + ".wkbundle"
+    static bool exportPresetBundle(const std::string& name);
+    // Import a bundle file (absolute or in preset directory) and write its sidecars
+    // If outName is provided, returns the inferred preset name
+    static bool importPresetBundle(const std::string& bundlePath, std::string* outName = nullptr);
 };
 
 #endif // PRESET_H

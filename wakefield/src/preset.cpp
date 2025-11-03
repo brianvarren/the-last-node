@@ -10,6 +10,8 @@
 #include <pwd.h>
 #include <algorithm>
 #include <cctype>
+#include <sstream>
+#include <filesystem>
 
 std::string PresetManager::getPresetDirectory() {
     const char* homeDir = getenv("HOME");
@@ -283,4 +285,113 @@ bool PresetManager::savePreset(const std::string& name, SynthParameters* params)
 bool PresetManager::loadPreset(const std::string& name, SynthParameters* params) {
     std::string filepath = getPresetPath(name);
     return parsePresetFile(filepath, params);
+}
+
+static std::string readFileIfExists(const std::string& path) {
+    std::ifstream f(path);
+    if (!f.is_open()) return {};
+    std::stringstream ss; ss << f.rdbuf();
+    return ss.str();
+}
+
+bool PresetManager::exportPresetBundle(const std::string& name) {
+    try {
+        const std::string dir = getPresetDirectory();
+        const std::string bundlePath = dir + "/" + name + ".wkbundle";
+        const std::string presetTxt = getPresetPath(name);
+        const std::string statePath = dir + "/" + name + ".state";
+        const std::string seqPath = dir + "/" + name + ".seq.txt";
+        const std::string sampPath = dir + "/" + name + ".samplers.txt";
+        const std::string t1 = dir + "/" + name + "_track1.csv";
+        const std::string t2 = dir + "/" + name + "_track2.csv";
+        const std::string t3 = dir + "/" + name + "_track3.csv";
+        const std::string t4 = dir + "/" + name + "_track4.csv";
+
+        std::ofstream out(bundlePath);
+        if (!out.is_open()) return false;
+        auto writeSection = [&](const char* key, const std::string& content) {
+            if (content.empty()) return;  // skip missing
+            out << "--FILE " << key << "\n" << content << "\n--END\n";
+        };
+        out << "#BUNDLE v1\n";
+        writeSection("preset", readFileIfExists(presetTxt));
+        writeSection("state", readFileIfExists(statePath));
+        writeSection("seq", readFileIfExists(seqPath));
+        writeSection("samplers", readFileIfExists(sampPath));
+        writeSection("track1", readFileIfExists(t1));
+        writeSection("track2", readFileIfExists(t2));
+        writeSection("track3", readFileIfExists(t3));
+        writeSection("track4", readFileIfExists(t4));
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool PresetManager::importPresetBundle(const std::string& bundlePathIn, std::string* outName) {
+    try {
+        std::string bundlePath = bundlePathIn;
+        if (!std::filesystem::exists(bundlePath)) {
+            // Try relative to preset directory
+            std::string candidate = getPresetDirectory() + "/" + bundlePathIn;
+            if (std::filesystem::exists(candidate)) bundlePath = candidate;
+        }
+        std::ifstream in(bundlePath);
+        if (!in.is_open()) return false;
+
+        // Infer name from filename (strip dir and extension)
+        std::string filename = bundlePath;
+        size_t slash = filename.find_last_of("/\\");
+        if (slash != std::string::npos) filename = filename.substr(slash + 1);
+        size_t dot = filename.find_last_of('.');
+        if (dot != std::string::npos) filename = filename.substr(0, dot);
+        if (outName) *outName = filename;
+
+        std::string line;
+        std::string currentKey;
+        std::stringstream current;
+        auto flush = [&](const std::string& key, const std::string& content) {
+            if (key.empty() || content.empty()) return;
+            const std::string dir = getPresetDirectory();
+            if (key == "preset") {
+                std::ofstream f(getPresetPath(filename)); if (f.is_open()) f << content;
+            } else if (key == "state") {
+                std::ofstream f(dir + "/" + filename + ".state"); if (f.is_open()) f << content;
+            } else if (key == "seq") {
+                std::ofstream f(dir + "/" + filename + ".seq.txt"); if (f.is_open()) f << content;
+            } else if (key == "samplers") {
+                std::ofstream f(dir + "/" + filename + ".samplers.txt"); if (f.is_open()) f << content;
+            } else if (key == "track1") {
+                std::ofstream f(dir + "/" + filename + "_track1.csv"); if (f.is_open()) f << content;
+            } else if (key == "track2") {
+                std::ofstream f(dir + "/" + filename + "_track2.csv"); if (f.is_open()) f << content;
+            } else if (key == "track3") {
+                std::ofstream f(dir + "/" + filename + "_track3.csv"); if (f.is_open()) f << content;
+            } else if (key == "track4") {
+                std::ofstream f(dir + "/" + filename + "_track4.csv"); if (f.is_open()) f << content;
+            }
+        };
+
+        while (std::getline(in, line)) {
+            if (line.rfind("--FILE ", 0) == 0) {
+                // new section
+                flush(currentKey, current.str());
+                currentKey = line.substr(7);
+                current.str("");
+                current.clear();
+            } else if (line == "--END") {
+                flush(currentKey, current.str());
+                currentKey.clear();
+                current.str("");
+                current.clear();
+            } else {
+                current << line << '\n';
+            }
+        }
+        // Flush any trailing content
+        flush(currentKey, current.str());
+        return true;
+    } catch (...) {
+        return false;
+    }
 }

@@ -1042,6 +1042,7 @@ public:
     void setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId);
     void setAvailableMidiDevices(const std::vector<std::pair<int, std::string>>& devices, int currentPort);
     void setSampleDirectory(const std::string& path);
+    std::string getSampleDirectory() const { return sampleBrowserCurrentDir; }
     void setAudioUnderrunCount(uint64_t count) { audioUnderrunCount.store(count, std::memory_order_relaxed); }
     uint64_t getAudioUnderrunCount() const { return audioUnderrunCount.load(std::memory_order_relaxed); }
     void updateAudioDebugStats(uint32_t durationMicros, float peak, uint32_t activeVoices);

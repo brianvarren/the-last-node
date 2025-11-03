@@ -139,6 +139,10 @@ void restartWithNewDevices(int audioDeviceId, int midiPort, unsigned int bufferS
             // Sampler selections
             std::ofstream sf(baseDir + "/" + name + ".samplers.txt");
             if (sf.is_open()) {
+                // Save current sample directory (if UI provided)
+                if (ui) {
+                    sf << "sample_dir=" << ui->getSampleDirectory() << "\n";
+                }
                 for (int i = 0; i < 4; ++i) {
                     int sidx = synth->getSamplerSampleIndex(i);
                     const SampleBank* bank = synth->getSampleBank();

@@ -1072,6 +1072,28 @@ std::string UI::serializeState() {
     out << "modCursorCol " << modMatrixCursorCol << '\n';
     out << "#UI_END\n";
 
+    // MIDI CC mapping section (param ID -> CC with context indices)
+    out << "#MIDI_BEGIN\n";
+    if (params) {
+        // Legacy single mapping for cutoff (kept for compatibility)
+        int legacyCutoff = params->filterCutoffCC.load();
+        out << "LEGACY_CUTOFF_CC " << legacyCutoff << "\n";
+
+        for (int pid = 0; pid < SynthParameters::kMaxParamMap; ++pid) {
+            int cc = params->parameterCCMap[pid].load();
+            if (cc >= 0) {
+                int osc = params->parameterContextOsc[pid].load();
+                int lfo = params->parameterContextLFO[pid].load();
+                int env = params->parameterContextEnv[pid].load();
+                int samp = params->parameterContextSampler[pid].load();
+                int chaos = params->parameterContextChaos[pid].load();
+                out << "CC " << pid << ' ' << cc << ' ' << osc << ' ' << lfo << ' '
+                    << env << ' ' << samp << ' ' << chaos << "\n";
+            }
+        }
+    }
+    out << "#MIDI_END\n";
+
     return out.str();
 }
 
@@ -1082,7 +1104,7 @@ void UI::applySerializedState(const std::string& data) {
 
     std::istringstream stream(data);
     std::string line;
-    enum class Section { None, Param, FM, FMLock, Mod, UI };
+    enum class Section { None, Param, FM, FMLock, Mod, UI, MIDI };
     Section section = Section::None;
 
     int savedOsc = currentOscillatorIndex;
@@ -1105,6 +1127,8 @@ void UI::applySerializedState(const std::string& data) {
             else if (line == "#MOD_END") section = Section::None;
             else if (line == "#UI_BEGIN") section = Section::UI;
             else if (line == "#UI_END") section = Section::None;
+            else if (line == "#MIDI_BEGIN") section = Section::MIDI;
+            else if (line == "#MIDI_END") section = Section::None;
             continue;
         }
 
@@ -1211,6 +1235,29 @@ void UI::applySerializedState(const std::string& data) {
                     ls >> modMatrixCursorRow;
                 } else if (key == "modCursorCol") {
                     ls >> modMatrixCursorCol;
+                }
+                break;
+            }
+            case Section::MIDI: {
+                // Format:
+                //   LEGACY_CUTOFF_CC <cc>
+                //   CC <paramId> <cc> <osc> <lfo> <env> <samp> <chaos>
+                std::string token;
+                ls >> token;
+                if (token == "LEGACY_CUTOFF_CC") {
+                    int v; if (ls >> v) { params->filterCutoffCC = v; }
+                } else if (token == "CC") {
+                    int pid, cc, osc, lfo, env, samp, chaos;
+                    if (ls >> pid >> cc >> osc >> lfo >> env >> samp >> chaos) {
+                        if (pid >= 0 && pid < SynthParameters::kMaxParamMap) {
+                            params->parameterCCMap[pid] = cc;
+                            params->parameterContextOsc[pid] = osc;
+                            params->parameterContextLFO[pid] = lfo;
+                            params->parameterContextEnv[pid] = env;
+                            params->parameterContextSampler[pid] = samp;
+                            params->parameterContextChaos[pid] = chaos;
+                        }
+                    }
                 }
                 break;
             }
