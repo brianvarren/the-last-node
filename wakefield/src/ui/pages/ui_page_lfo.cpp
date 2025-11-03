@@ -187,14 +187,16 @@ void UI::drawLFOWavePreview(int topRow, int leftCol, int plotHeight, int plotWid
 
 void UI::drawLFOPage() {
     int row = 2;
+    // Page title with inline instance buttons
     attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "LFOs");
     attroff(COLOR_PAGE_TITLE | A_BOLD);
 
-    row += 2;
+    int titleLen = 4; // length of "LFOs"
+    int buttonsStartCol = 2 + titleLen + 2;
     int activeLfo = std::clamp(params->activeLfoCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
-        int col = 2 + i * 4;
+        int col = buttonsStartCol + i * 4;
         bool inactive = (i >= activeLfo);
         if (inactive) attron(COLOR_LOCKED | A_DIM);
         if (!inactive && i == currentLFOIndex) {
@@ -206,7 +208,6 @@ void UI::drawLFOPage() {
         }
         if (inactive) attroff(COLOR_LOCKED | A_DIM);
     }
-
     row += 2;
     const int plotWidth = 42;
     const int plotHeight = 14;

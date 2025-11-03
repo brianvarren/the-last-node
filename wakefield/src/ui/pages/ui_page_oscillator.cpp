@@ -80,11 +80,9 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
     float morph = params->getOscMorph(currentOscillatorIndex);
     float duty = params->getOscDuty(currentOscillatorIndex);
     int shape = params->getOscShape(currentOscillatorIndex);
-    float level = params->getOscLevel(currentOscillatorIndex);
 
     morph = std::min(std::max(morph, 0.0f), 1.0f);
     duty = std::min(std::max(duty, 0.0f), 1.0f);
-    level = std::min(std::max(level, -1.0f), 1.0f);
 
     int width = std::max(16, plotWidth);
     int height = std::max(6, plotHeight);
@@ -107,8 +105,6 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
     for (int x = 0; x < width; ++x) {
         float phase = (width == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(width - 1);
         float sample = computeWaveSample(phase, morph, duty, shape);
-        // Apply level (including inversion when negative)
-        sample *= level;
         sample = std::min(std::max(sample, -1.0f), 1.0f);
         float normalized = (-sample + 1.0f) * 0.5f;
         int row = static_cast<int>(std::round(normalized * (height - 1)));
@@ -144,14 +140,16 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
 
 void UI::drawOscillatorPage() {
     int row = 2;
+    // Page title with inline instance buttons
     attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, 2, "OSCILLATORS");
     attroff(COLOR_PAGE_TITLE | A_BOLD);
 
-    row += 2;
+    int titleLen = 11; // length of "OSCILLATORS"
+    int buttonsStartCol = 2 + titleLen + 2;
     int activeOsc = std::clamp(params->activeOscCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
-        int col = 2 + i * 4;
+        int col = buttonsStartCol + i * 4;
         bool inactive = (i >= activeOsc);
         if (inactive) attron(COLOR_LOCKED | A_DIM);
         if (!inactive && i == currentOscillatorIndex) {
@@ -163,7 +161,6 @@ void UI::drawOscillatorPage() {
         }
         if (inactive) attroff(COLOR_LOCKED | A_DIM);
     }
-
     row += 2;
     const int plotWidth = 42;
     const int plotHeight = 14;

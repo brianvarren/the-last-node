@@ -138,16 +138,18 @@ void UI::drawEnvelopePreview(int topRow, int leftCol, int plotHeight, int plotWi
 }
 
 void UI::drawEnvelopePage() {
-    // Draw envelope selector at top
-    int row = 3;
-    attron(COLOR_SECTION_HEADER | A_BOLD);
-    mvprintw(row, 2, "Select Envelope (1-4): ");
-    attroff(COLOR_SECTION_HEADER | A_BOLD);
+    // Page title with inline instance buttons
+    int row = 2;
+    attron(COLOR_PAGE_TITLE | A_BOLD);
+    mvprintw(row, 2, "ENVELOPES");
+    attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     // Draw envelope buttons (consistent formatting, gray inactive)
     int activeEnv = std::clamp(params->activeEnvCount.load(), 1, 4);
+    int titleLen = 9; // length of "ENVELOPES"
+    int buttonsStartCol = 2 + titleLen + 2;
     for (int i = 0; i < 4; ++i) {
-        int col = 26 + (i * 4);
+        int col = buttonsStartCol + (i * 4);
         bool inactive = (i >= activeEnv);
         if (inactive) attron(COLOR_LOCKED | A_DIM);
         if (!inactive && i == currentEnvelopeIndex) {
@@ -159,7 +161,6 @@ void UI::drawEnvelopePage() {
         }
         if (inactive) attroff(COLOR_LOCKED | A_DIM);
     }
-
     row += 2;
     attron(COLOR_SECTION_HEADER);
     mvprintw(row, 2, "Envelope %d Parameters:", currentEnvelopeIndex + 1);

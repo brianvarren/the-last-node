@@ -82,14 +82,15 @@ void UI::drawSamplerPage() {
     int sampleIndex = synth->getSamplerSampleIndex(currentSamplerIndex);
     const SampleData* sample = (sampleIndex >= 0) ? bank->getSample(sampleIndex) : nullptr;
 
-    // Instance buttons and title
+    // Page title with inline instance buttons
     attron(COLOR_PAGE_TITLE | A_BOLD);
     mvprintw(row, leftCol, "SAMPLERS");
     attroff(COLOR_PAGE_TITLE | A_BOLD);
-    row += 2;
+    int titleLen = 8; // length of "SAMPLERS"
+    int buttonsStartCol = leftCol + titleLen + 2;
     int activeSamp = std::clamp(params->activeSamplerCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
-        int col = leftCol + i * 4;
+        int col = buttonsStartCol + i * 4;
         bool inactive = (i >= activeSamp);
         if (inactive) attron(COLOR_LOCKED | A_DIM);
         if (!inactive && i == currentSamplerIndex) {
