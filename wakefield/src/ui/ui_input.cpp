@@ -1020,11 +1020,12 @@ void UI::handleInput(int ch) {
                 addConsoleMessage("Pattern mutated");
                 break;
 
-            // Reset sequencer (R/r)
+            // Reset/clear sequencer (R/r): clear pattern and reset transport
             case 'R':
             case 'r':
+                sequencer->clearPattern();
                 sequencer->reset();
-                addConsoleMessage("Sequencer reset");
+                addConsoleMessage("Sequencer cleared and reset");
                 break;
 
             // Tempo control (T/Y)
