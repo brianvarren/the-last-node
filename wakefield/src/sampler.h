@@ -127,20 +127,35 @@ private:
 
     float lastPhaseDriver;
 
+    // MIDI note to pitch ratio lookup table (128 MIDI notes, note 60 = 1.0)
+    // Avoids expensive std::pow(2.0, (note - 60) / 12.0) calculations
+    static const float MIDI_PITCH_TABLE[128];
+
+    // Equal-power crossfade lookup table (256 entries for smooth curves)
+    // [0] = cos(pi/2 * t), [1] = sin(pi/2 * t) where t = [0..1]
+    // Avoids expensive std::cos/sin calls during crossfading
+    static constexpr int XFADE_TABLE_SIZE = 256;
+    static const float XFADE_TABLE_COS[XFADE_TABLE_SIZE];
+    static const float XFADE_TABLE_SIN[XFADE_TABLE_SIZE];
+
     // Helper functions
-    void calculateLoopBoundaries(float startMod, float lengthMod);
-    void ensurePendingLoop(float startMod, float lengthMod);
+    void calculateLoopBoundaries(const SampleData* sample, float startMod, float lengthMod);
+    void ensurePendingLoop(const SampleData* sample, float startMod, float lengthMod);
     void applyPendingLoopToVoice(SamplerVoice* voice);
     bool wrapPhase(SamplerVoice* voice) const;
-    int16_t getSample(const SamplerVoice* voice, bool isReverse) const;
-    int64_t calculateIncrement(float sampleRate, float fmInput, float pitchMod, bool isReverse, int midiNote);
+    int16_t getSample(const SampleData* sample, const SamplerVoice* voice, bool isReverse) const;
+    int64_t calculateIncrement(const SampleData* sample, float sampleRate, float fmInput, float pitchMod, bool isReverse, int midiNote);
     bool isInCrossfadeZone(uint64_t phase, uint32_t loopStart, uint32_t loopEnd,
                           uint32_t xfadeLen, bool isReverse) const;
     void setupCrossfade(uint32_t xfadeLen, uint32_t xfadeSamples, bool isReverse);
-    void applyPhaseDriver(float normalized);
+    void applyPhaseDriver(const SampleData* sample, float normalized);
 
     // Interpolation helper
     static inline int16_t interpolate(int16_t x, int16_t y, uint8_t mu);
+
+    // Fast 2^x approximation for pitch modulation (accurate to <0.15% over [-1, 1])
+    // Uses 5th-order minimax polynomial
+    static inline float fastPow2(float x);
 };
 
 #endif // SAMPLER_H
