@@ -11,9 +11,148 @@ void UI::refreshPresetList() {
 }
 
 void UI::loadPreset(const std::string& filename) {
-    // If sidecars missing but bundle exists, import it first
-    {
-        std::string baseDir = PresetManager::getPresetDirectory();
+    std::string baseDir = PresetManager::getPresetDirectory();
+    std::string presetPath = baseDir + "/" + filename + ".txt";
+
+    // Load the combined preset file if present
+    std::ifstream pf(presetPath);
+    std::string full;
+    if (pf.good()) {
+        std::stringstream ss; ss << pf.rdbuf();
+        full = ss.str();
+    }
+
+    // Always parse base INI via PresetManager (unknown lines/blocks are ignored)
+    PresetManager::loadPreset(filename, params);
+
+    currentPresetName = filename;
+    resetUndoHistory();
+
+    auto findBlock = [&](const char* beginTag, const char* endTag) -> std::string {
+        size_t b = full.find(beginTag);
+        size_t e = full.find(endTag);
+        if (b == std::string::npos || e == std::string::npos || e <= b) return {};
+        b += std::char_traits<char>::length(beginTag);
+        return full.substr(b, e - b);
+    };
+
+    // 1) UI state block
+    try {
+        std::string state = findBlock("#STATE_BEGIN\n", "#STATE_END");
+        if (!state.empty()) {
+            applySerializedState(state);
+        }
+    } catch (...) {}
+
+    // 2) Sequencer meta
+    if (sequencer) {
+        try {
+            std::string meta = findBlock("#SEQ_META_BEGIN\n", "#SEQ_META_END");
+            if (!meta.empty()) {
+                std::istringstream f(meta);
+                std::string line;
+                auto trim = [](std::string s){ size_t a=s.find_first_not_of(" \t\r\n"); size_t b=s.find_last_not_of(" \t\r\n"); if (a==std::string::npos) return std::string(); return s.substr(a,b-a+1); };
+                while (std::getline(f, line)) {
+                    if (line.empty() || line[0] == '#') continue;
+                    auto eq = line.find('='); if (eq == std::string::npos) continue;
+                    std::string key = trim(line.substr(0, eq));
+                    std::string val = trim(line.substr(eq + 1));
+                    if (key == "tempo") { try { sequencer->setTempo(std::stod(val)); } catch (...) {} continue; }
+                    if (key.rfind("t", 0) == 0 && key.size() > 2) {
+                        size_t dot = key.find('.'); if (dot == std::string::npos) continue;
+                        int tIdx = std::stoi(key.substr(1, dot - 1)); if (tIdx < 0 || tIdx >= 4) continue;
+                        std::string field = key.substr(dot + 1);
+                        auto& track = sequencer->getTrack(tIdx);
+                        auto& constraints = track.getConstraints();
+                        auto& euclid = track.getEuclideanPattern();
+                        try {
+                            if (field == "len") track.getPattern().setLength(std::stoi(val));
+                            else if (field == "subdiv") track.setSubdivision(static_cast<Subdivision>(std::stoi(val)));
+                            else if (field == "muted") track.setMuted(val == "1" || val == "true");
+                            else if (field == "solo") track.setSolo(val == "1" || val == "true");
+                            else if (field == "eu_hits") euclid.setHits(std::stoi(val));
+                            else if (field == "eu_steps") euclid.setSteps(std::stoi(val));
+                            else if (field == "eu_rot") euclid.setRotation(std::stoi(val));
+                            else if (field == "scale") constraints.setScale(static_cast<Scale>(std::stoi(val)));
+                            else if (field == "root") constraints.setRootNote(std::stoi(val));
+                            else if (field == "oct_min") constraints.setOctaveRange(std::stoi(val), constraints.getOctaveMax());
+                            else if (field == "oct_max") constraints.setOctaveRange(constraints.getOctaveMin(), std::stoi(val));
+                            else if (field == "density") constraints.setDensity(std::stof(val));
+                            else if (field == "max_interval") constraints.setMaxInterval(std::stoi(val));
+                            else if (field == "contour") constraints.setContour(static_cast<Contour>(std::stoi(val)));
+                            else if (field == "gravity") constraints.setGravityNote(std::stoi(val));
+                            else if (field == "phase_driver") sequencer->setTrackPhaseDriver(tIdx, static_cast<Sequencer::PhaseDriver>(std::stoi(val)));
+                        } catch (...) {}
+                    }
+                }
+            }
+        } catch (...) {}
+    }
+
+    // 3) Sequencer tracks CSV
+    auto loadTrackCsv = [&](int idx, const std::string& csv){
+        if (!sequencer || csv.empty()) return;
+        Pattern& pat = sequencer->getTrack(idx).getPattern();
+        std::istringstream f(csv);
+        std::string line;
+        std::getline(f, line); // header
+        int stepIndex = 0;
+        while (std::getline(f, line) && stepIndex < pat.getLength()) {
+            if (line.empty()) continue;
+            std::stringstream ss(line);
+            std::string token;
+            std::getline(ss, token, ','); // step
+            std::getline(ss, token, ','); pat.getStep(stepIndex).active = (token == "1");
+            std::getline(ss, token, ','); pat.getStep(stepIndex).locked = (token == "1");
+            std::getline(ss, token, ','); pat.getStep(stepIndex).midiNote = std::stoi(token);
+            std::getline(ss, token, ','); pat.getStep(stepIndex).velocity = std::stoi(token);
+            std::getline(ss, token, ','); pat.getStep(stepIndex).gateLength = std::stof(token);
+            std::getline(ss, token, ','); pat.getStep(stepIndex).probability = std::stof(token);
+            stepIndex++;
+        }
+    };
+    loadTrackCsv(0, findBlock("#SEQ_TRACK1_BEGIN\n", "#SEQ_TRACK1_END"));
+    loadTrackCsv(1, findBlock("#SEQ_TRACK2_BEGIN\n", "#SEQ_TRACK2_END"));
+    loadTrackCsv(2, findBlock("#SEQ_TRACK3_BEGIN\n", "#SEQ_TRACK3_END"));
+    loadTrackCsv(3, findBlock("#SEQ_TRACK4_BEGIN\n", "#SEQ_TRACK4_END"));
+
+    // 4) Samplers + sample_dir
+    if (synth) {
+        try {
+            std::string sblock = findBlock("#SAMPLERS_BEGIN\n", "#SAMPLERS_END");
+            if (!sblock.empty()) {
+                auto* bank = synth->getSampleBank();
+                std::istringstream f(sblock);
+                std::string line; std::string sampleDir;
+                auto trim = [](std::string s){ size_t a=s.find_first_not_of(" \t\r\n"); size_t b=s.find_last_not_of(" \t\r\n"); if (a==std::string::npos) return std::string(); return s.substr(a,b-a+1); };
+                while (std::getline(f, line)) {
+                    if (line.empty() || line[0] == '#') continue;
+                    auto eq = line.find('='); if (eq == std::string::npos) continue;
+                    std::string key = trim(line.substr(0, eq));
+                    std::string val = trim(line.substr(eq + 1));
+                    if (key == "sample_dir") { sampleDir = val; continue; }
+                    if (key.rfind("sampler", 0) == 0 && key.size() > 8) {
+                        int idx = std::stoi(key.substr(7)); if (idx < 0 || idx >= 4) continue;
+                        if (!val.empty() && bank) {
+                            int sidx = bank->findSampleByName(val.c_str());
+                            if (sidx < 0 && !sampleDir.empty()) {
+                                bank->loadSamplesFromDirectory(sampleDir.c_str());
+                                sidx = bank->findSampleByName(val.c_str());
+                            }
+                            if (sidx >= 0) synth->setSamplerSample(idx, sidx);
+                        }
+                    }
+                }
+                if (!sampleDir.empty()) setSampleDirectory(sampleDir);
+            }
+        } catch (...) {}
+    }
+
+    // Fallbacks: handle bundles/sidecars for legacy presets
+    if (full.empty()) {
+        // If no unified content read, try legacy bundle/sidecars
+        // (re-use previous legacy flow)
+        // If sidecars missing but bundle exists, import it first
         std::ifstream stateCheck(baseDir + "/" + filename + ".state");
         if (!stateCheck.good()) {
             std::string bundle = baseDir + "/" + filename + ".wkbundle";
@@ -22,251 +161,100 @@ void UI::loadPreset(const std::string& filename) {
                 PresetManager::importPresetBundle(bundle);
             }
         }
-    }
-    if (!PresetManager::loadPreset(filename, params)) return;
-
-    currentPresetName = filename;
-    resetUndoHistory();
-
-    std::string baseDir = PresetManager::getPresetDirectory();
-
-    // 1) Load serialized UI state sidecar if present (captures all parameters, FM, MOD, UI indices)
-    try {
-        std::string statePath = baseDir + "/" + filename + ".state";
-        std::ifstream f(statePath);
-        if (f.good()) {
-            std::stringstream ss; ss << f.rdbuf();
-            applySerializedState(ss.str());
-        }
-    } catch (...) {
-        // Ignore state load errors
-    }
-
-    // 2) Load sequencer patterns
-    if (sequencer) {
-        for (int t = 0; t < 4; ++t) {
-            std::string trackPath = baseDir + "/" + filename + "_track" + std::to_string(t+1) + ".csv";
-            try {
-                sequencer->getTrack(t).getPattern().loadFromFile(trackPath);
-            } catch (...) {
-            }
-        }
-    }
-
-    // 3) Load sequencer meta (tempo, track constraints, euclidean, mute/solo, subdivision, rotation, phase driver)
-    if (sequencer) {
+        // Load state
         try {
-            std::string seqMetaPath = baseDir + "/" + filename + ".seq.txt";
-            std::ifstream f(seqMetaPath);
-            if (f.good()) {
-                std::string line;
-                while (std::getline(f, line)) {
-                    if (line.empty() || line[0] == '#') continue;
-                    auto eq = line.find('=');
-                    if (eq == std::string::npos) continue;
-                    std::string key = line.substr(0, eq);
-                    std::string val = line.substr(eq + 1);
-                    auto trim = [](std::string s){
-                        size_t a = s.find_first_not_of(" \t\r\n");
-                        size_t b = s.find_last_not_of(" \t\r\n");
-                        if (a == std::string::npos) return std::string();
-                        return s.substr(a, b - a + 1);
-                    };
-                    key = trim(key); val = trim(val);
-
-                    if (key == "tempo") {
-                        try { sequencer->setTempo(std::stod(val)); } catch (...) {}
-                        continue;
-                    }
-                    // Keys are of the form t{idx}.field
-                    if (key.rfind("t", 0) == 0 && key.size() > 2) {
-                        size_t dot = key.find('.');
-                        if (dot == std::string::npos) continue;
-                        int tIdx = std::stoi(key.substr(1, dot - 1));
-                        if (tIdx < 0 || tIdx >= 4) continue;
-                        std::string field = key.substr(dot + 1);
-
-                        auto& track = sequencer->getTrack(tIdx);
-                        auto& constraints = track.getConstraints();
-                        auto& euclid = track.getEuclideanPattern();
-
-                        try {
-                            if (field == "len") {
-                                track.getPattern().setLength(std::stoi(val));
-                            } else if (field == "subdiv") {
-                                int denom = std::stoi(val);
-                                track.setSubdivision(static_cast<Subdivision>(denom));
-                            } else if (field == "muted") {
-                                track.setMuted(val == "1" || val == "true");
-                            } else if (field == "solo") {
-                                track.setSolo(val == "1" || val == "true");
-                            } else if (field == "eu_hits") {
-                                euclid.setHits(std::stoi(val));
-                            } else if (field == "eu_steps") {
-                                euclid.setSteps(std::stoi(val));
-                            } else if (field == "eu_rot") {
-                                euclid.setRotation(std::stoi(val));
-                            } else if (field == "scale") {
-                                constraints.setScale(static_cast<Scale>(std::stoi(val)));
-                            } else if (field == "root") {
-                                constraints.setRootNote(std::stoi(val));
-                            } else if (field == "oct_min") {
-                                int minOct = std::stoi(val);
-                                constraints.setOctaveRange(minOct, constraints.getOctaveMax());
-                            } else if (field == "oct_max") {
-                                int maxOct = std::stoi(val);
-                                constraints.setOctaveRange(constraints.getOctaveMin(), maxOct);
-                            } else if (field == "density") {
-                                constraints.setDensity(std::stof(val));
-                            } else if (field == "max_interval") {
-                                constraints.setMaxInterval(std::stoi(val));
-                            } else if (field == "contour") {
-                                constraints.setContour(static_cast<Contour>(std::stoi(val)));
-                            } else if (field == "gravity") {
-                                constraints.setGravityNote(std::stoi(val));
-                            } else if (field == "phase_driver") {
-                                sequencer->setTrackPhaseDriver(tIdx,
-                                    static_cast<Sequencer::PhaseDriver>(std::stoi(val)));
-                            }
-                        } catch (...) {
-                            // Ignore malformed values
-                        }
-                    }
-                }
+            std::ifstream f(baseDir + "/" + filename + ".state"); if (f.good()) { std::stringstream s; s << f.rdbuf(); applySerializedState(s.str()); }
+        } catch (...) {}
+        // Load patterns
+        if (sequencer) {
+            for (int t = 0; t < 4; ++t) {
+                std::string trackPath = baseDir + "/" + filename + "_track" + std::to_string(t+1) + ".csv";
+                try { sequencer->getTrack(t).getPattern().loadFromFile(trackPath); } catch (...) {}
             }
-        } catch (...) {
-        }
-    }
-
-    // 4) Load sampler selections (sample names + optional directory)
-    if (synth) {
-        try {
-            std::string sampPath = baseDir + "/" + filename + ".samplers.txt";
-            std::ifstream f(sampPath);
-            if (f.good()) {
-                auto* bank = synth->getSampleBank();
-                std::string line;
-                std::string sampleDir;
-                while (std::getline(f, line)) {
-                    if (line.empty() || line[0] == '#') continue;
-                    auto eq = line.find('=');
-                    if (eq == std::string::npos) continue;
-                    std::string key = line.substr(0, eq);
-                    std::string val = line.substr(eq + 1);
-                    auto trim = [](std::string s){
-                        size_t a = s.find_first_not_of(" \t\r\n");
-                        size_t b = s.find_last_not_of(" \t\r\n");
-                        if (a == std::string::npos) return std::string();
-                        return s.substr(a, b - a + 1);
-                    };
-                    key = trim(key); val = trim(val);
-                    if (key == "sample_dir") {
-                        sampleDir = val;
-                        continue;
-                    }
-                    if (key.rfind("sampler", 0) == 0 && key.size() > 8) {
-                        int idx = std::stoi(key.substr(7));
-                        if (idx < 0 || idx >= 4) continue;
-                        if (!val.empty() && bank) {
-                            int sidx = bank->findSampleByName(val.c_str());
-                            if (sidx < 0 && !sampleDir.empty()) {
-                                // Try loading samples from saved directory to resolve name
-                                bank->loadSamplesFromDirectory(sampleDir.c_str());
-                                sidx = bank->findSampleByName(val.c_str());
-                            }
-                            if (sidx >= 0) {
-                                synth->setSamplerSample(idx, sidx);
-                            }
-                        }
-                    }
-                }
-                if (!sampleDir.empty()) {
-                    // Remember sample directory in UI for browsing
-                    setSampleDirectory(sampleDir);
-                }
-            }
-        } catch (...) {
         }
     }
 }
 
 void UI::savePreset(const std::string& filename) {
-    if (!PresetManager::savePreset(filename, params)) return;
+    // Build a single, unified preset file
+    const std::string baseDir = PresetManager::getPresetDirectory();
+    const std::string presetPath = baseDir + "/" + filename + ".txt";
 
-    std::string baseDir = PresetManager::getPresetDirectory();
+    std::ostringstream out;
+    // Base INI-parameters (legacy and quick-view)
+    out << PresetManager::serializeToString(params);
 
-    // 1) Save full UI state as sidecar
-    try {
-        std::string statePath = baseDir + "/" + filename + ".state";
-        std::ofstream f(statePath);
-        if (f.is_open()) {
-            f << serializeState();
-        }
-    } catch (...) {
-        // Ignore write errors
-    }
+    // Full UI state
+    out << "\n#STATE_BEGIN\n";
+    out << serializeState();
+    out << "#STATE_END\n";
 
-    // 2) Save sequencer patterns and meta
+    // Sequencer meta
     if (sequencer) {
+        out << "#SEQ_META_BEGIN\n";
+        out << "tempo=" << sequencer->getTempo() << "\n";
         for (int t = 0; t < 4; ++t) {
-            std::string trackPath = baseDir + "/" + filename + "_track" + std::to_string(t+1) + ".csv";
-            sequencer->getTrack(t).getPattern().saveToFile(trackPath);
+            const auto& track = sequencer->getTrack(t);
+            const auto& constraints = track.getConstraints();
+            const auto& euclid = track.getEuclideanPattern();
+            out << "t" << t << ".len=" << track.getPattern().getLength() << "\n";
+            out << "t" << t << ".subdiv=" << static_cast<int>(track.getPattern().getResolution()) << "\n";
+            out << "t" << t << ".muted=" << (track.isMuted() ? 1 : 0) << "\n";
+            out << "t" << t << ".solo=" << (track.isSolo() ? 1 : 0) << "\n";
+            out << "t" << t << ".eu_hits=" << euclid.getHits() << "\n";
+            out << "t" << t << ".eu_steps=" << euclid.getSteps() << "\n";
+            out << "t" << t << ".eu_rot=" << euclid.getRotation() << "\n";
+            out << "t" << t << ".scale=" << static_cast<int>(constraints.getScale()) << "\n";
+            out << "t" << t << ".root=" << constraints.getRootNote() << "\n";
+            out << "t" << t << ".oct_min=" << constraints.getOctaveMin() << "\n";
+            out << "t" << t << ".oct_max=" << constraints.getOctaveMax() << "\n";
+            out << "t" << t << ".density=" << constraints.getDensity() << "\n";
+            out << "t" << t << ".max_interval=" << constraints.getMaxInterval() << "\n";
+            out << "t" << t << ".contour=" << static_cast<int>(constraints.getContour()) << "\n";
+            out << "t" << t << ".gravity=" << constraints.getGravityNote() << "\n";
+            out << "t" << t << ".phase_driver=" << static_cast<int>(sequencer->getTrackPhaseDriver(t)) << "\n";
         }
-        try {
-            std::string seqMetaPath = baseDir + "/" + filename + ".seq.txt";
-            std::ofstream sm(seqMetaPath);
-            if (sm.is_open()) {
-                sm << "tempo=" << sequencer->getTempo() << "\n";
-                for (int t = 0; t < 4; ++t) {
-                    const auto& track = sequencer->getTrack(t);
-                    const auto& constraints = track.getConstraints();
-                    const auto& euclid = track.getEuclideanPattern();
-                    sm << "t" << t << ".len=" << track.getPattern().getLength() << "\n";
-                    sm << "t" << t << ".subdiv=" << static_cast<int>(track.getPattern().getResolution()) << "\n";
-                    sm << "t" << t << ".muted=" << (track.isMuted() ? 1 : 0) << "\n";
-                    sm << "t" << t << ".solo=" << (track.isSolo() ? 1 : 0) << "\n";
-                    sm << "t" << t << ".eu_hits=" << euclid.getHits() << "\n";
-                    sm << "t" << t << ".eu_steps=" << euclid.getSteps() << "\n";
-                    sm << "t" << t << ".eu_rot=" << euclid.getRotation() << "\n";
-                    sm << "t" << t << ".scale=" << static_cast<int>(constraints.getScale()) << "\n";
-                    sm << "t" << t << ".root=" << constraints.getRootNote() << "\n";
-                    sm << "t" << t << ".oct_min=" << constraints.getOctaveMin() << "\n";
-                    sm << "t" << t << ".oct_max=" << constraints.getOctaveMax() << "\n";
-                    sm << "t" << t << ".density=" << constraints.getDensity() << "\n";
-                    sm << "t" << t << ".max_interval=" << constraints.getMaxInterval() << "\n";
-                    sm << "t" << t << ".contour=" << static_cast<int>(constraints.getContour()) << "\n";
-                    sm << "t" << t << ".gravity=" << constraints.getGravityNote() << "\n";
-                    sm << "t" << t << ".phase_driver=" << static_cast<int>(sequencer->getTrackPhaseDriver(t)) << "\n";
-                }
-            }
-        } catch (...) {
-        }
+        out << "#SEQ_META_END\n";
     }
 
-    // 3) Save sampler selections (by sample name) and current sample directory
-    if (synth) {
-        try {
-            std::string sampPath = baseDir + "/" + filename + ".samplers.txt";
-            std::ofstream sf(sampPath);
-            if (sf.is_open()) {
-                // Save current sample directory (write even if empty)
-                sf << "sample_dir=" << getSampleDirectory() << "\n";
-                for (int i = 0; i < 4; ++i) {
-                    int sidx = synth->getSamplerSampleIndex(i);
-                    const SampleBank* bank = synth->getSampleBank();
-                    const char* name = (bank && sidx >= 0) ? bank->getSampleName(sidx) : nullptr;
-                    sf << "sampler" << i << '=' << (name ? name : "") << "\n";
-                }
-            }
-        } catch (...) {
+    // Sequencer tracks CSV
+    auto writeTrackCsv = [&](int idx){
+        if (!sequencer) return;
+        const Pattern& pat = sequencer->getTrack(idx).getPattern();
+        out << "#SEQ_TRACK" << (idx+1) << "_BEGIN\n";
+        out << "step,active,locked,note,velocity,gate,probability\n";
+        for (int i = 0; i < pat.getLength(); ++i) {
+            const auto& s = pat.getStep(i);
+            out << i << "," << (s.active?1:0) << "," << (s.locked?1:0) << ","
+                << s.midiNote << "," << s.velocity << "," << s.gateLength << "," << s.probability << "\n";
         }
+        out << "#SEQ_TRACK" << (idx+1) << "_END\n";
+    };
+    writeTrackCsv(0); writeTrackCsv(1); writeTrackCsv(2); writeTrackCsv(3);
+
+    // Samplers block
+    if (synth) {
+        out << "#SAMPLERS_BEGIN\n";
+        out << "sample_dir=" << getSampleDirectory() << "\n";
+        for (int i = 0; i < 4; ++i) {
+            int sidx = synth->getSamplerSampleIndex(i);
+            const SampleBank* bank = synth->getSampleBank();
+            const char* name = (bank && sidx >= 0) ? bank->getSampleName(sidx) : nullptr;
+            out << "sampler" << i << '=' << (name ? name : "") << "\n";
+        }
+        out << "#SAMPLERS_END\n";
     }
+
+    // Write unified file
+    try {
+        std::ofstream f(presetPath);
+        if (f.is_open()) {
+            f << out.str();
+        }
+    } catch (...) {}
 
     currentPresetName = filename;
     refreshPresetList();
-
-    // Also create a single-file bundle for sharing
-    PresetManager::exportPresetBundle(filename);
 }
 
 void UI::startTextInput() {
