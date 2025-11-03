@@ -859,6 +859,16 @@ void UI::handleInput(int ch) {
         };
 
         switch (ch) {
+            case '\n':
+            case KEY_ENTER: {
+                // Start numeric entry for selected FM cell (percent -99..99)
+                numericInputActive = true;
+                numericInputIsFM = true;
+                numericInputBuffer.clear();
+                fmNumericTarget = fmMatrixCursorCol;
+                fmNumericSource = fmMatrixCursorRow;
+                return;
+            }
             case KEY_UP:
                 fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 8) % 8;
                 return;

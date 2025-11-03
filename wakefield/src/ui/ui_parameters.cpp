@@ -2227,6 +2227,30 @@ void UI::startNumericInput(int id) {
 
 void UI::finishNumericInput() {
     if (!numericInputActive) return;
+    if (numericInputIsFM) {
+        if (!numericInputBuffer.empty() && fmNumericTarget >= 0 && fmNumericSource >= 0) {
+            // Accept values like -99, 50, 25%, etc.
+            std::string txt = numericInputBuffer;
+            // Strip trailing % and spaces
+            while (!txt.empty() && (txt.back() == '%' || std::isspace(static_cast<unsigned char>(txt.back())))) {
+                txt.pop_back();
+            }
+            try {
+                float pct = std::stof(txt);
+                pct = std::clamp(pct, -99.0f, 99.0f);
+                float depth = pct / 100.0f;
+                captureUndoSnapshot("fm_numeric_input");
+                params->setFMDepth(fmNumericTarget, fmNumericSource, depth);
+            } catch (...) {
+                // ignore invalid
+            }
+        }
+        numericInputIsFM = false;
+        fmNumericTarget = fmNumericSource = -1;
+        numericInputActive = false;
+        numericInputBuffer.clear();
+        return;
+    }
     if (numericInputIsSequencer) {
         if (!numericInputBuffer.empty()) {
             applySequencerNumericInput(numericInputBuffer);

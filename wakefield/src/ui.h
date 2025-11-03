@@ -1248,6 +1248,10 @@ public:
     std::string getParameterDisplayString(int id);
     void startNumericInput(int id);
     void finishNumericInput();
+    // FM numeric input context
+    bool numericInputIsFM = false;
+    int fmNumericTarget = -1;
+    int fmNumericSource = -1;
     void startMidiLearn(int id);
     void finishMidiLearn();
     bool isParameterModulated(int id);  // Check if parameter has active modulation

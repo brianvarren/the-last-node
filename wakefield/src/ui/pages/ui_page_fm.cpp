@@ -23,9 +23,9 @@ void UI::drawFMPage() {
     attroff(COLOR_SECTION_HEADER);
     row++;
     const int cellStartCol = 12;
-    const int cellStride = 5;
+    const int cellStride = 6; // widen cells for clearer labels/values
     attron(COLOR_SECTION_HEADER);
-    mvprintw(row, cellStartCol, " O1  O2  O3  O4  S1  S2  S3  S4");
+    mvprintw(row, cellStartCol, " OSC1 OSC2 OSC3 OSC4 SMP1 SMP2 SMP3 SMP4");
     attroff(COLOR_SECTION_HEADER);
     row += 2;
 
@@ -65,9 +65,9 @@ void UI::drawFMPage() {
             }
 
             if (isLocked) {
-                mvprintw(row, cellCol, "%3dL", depthPercent);
+                mvprintw(row, cellCol, "%4dL", depthPercent);
             } else {
-                mvprintw(row, cellCol, "%4d", depthPercent);
+                mvprintw(row, cellCol, "%5d", depthPercent);
             }
 
             if (isSelected) {

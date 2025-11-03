@@ -327,6 +327,14 @@ public:
     bool samplerKeyModes[SAMPLERS_PER_VOICE] = {true, true, true, true};
     Sampler freeSamplers[SAMPLERS_PER_VOICE];
 
+    // Free sampler modulation interpolation (to prevent crackling)
+    float prevFreeSamplerPitchMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float prevFreeSamplerLoopStartMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float prevFreeSamplerLoopLengthMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float prevFreeSamplerCrossfadeMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float prevFreeSamplerLevelMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float prevFreeSamplerLevelOffset[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+
     // Sampler pitch parameters (octave and tune)
     int samplerOctaves[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};     // -5 to +5
     float samplerTunes[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};  // -1.0 to +1.0 (±6 semitones)

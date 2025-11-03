@@ -248,8 +248,9 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
 
 void UI::drawModPage() {
     static const char* headers[] = {"Slot", "Source", "Curve", "Amount", "Destination", "Type"};
-    static const int headerCols[] = {2, 10, 28, 40, 56, 74};
-    static const int colWidths[] = {4, 16, 10, 12, 18, 8};
+    // Layout: expand Source/Destination, keep Type at right edge
+    static const int headerCols[] = {2, 8, 36, 42, 52, 78};
+    static const int colWidths[] = {4, 28, 4, 8, 26, 6};
     constexpr int slotCount = 16;
     constexpr int columnCount = 5;  // Source..Type
 
@@ -283,13 +284,13 @@ void UI::drawModPage() {
 
         // Format cell values based on stored data
         cellValues[0] = (modSlot.source >= 0 && modSlot.source < static_cast<int>(sources.size()))
-                        ? sources[modSlot.source].symbol : "--";
+                        ? sources[modSlot.source].displayName : "--";
         cellValues[1] = (modSlot.curve >= 0 && modSlot.curve < static_cast<int>(curves.size()))
-                        ? curves[modSlot.curve].symbol : "--";
+                        ? curves[modSlot.curve].symbol : "--"; // LIN/EXP/LOG/S
         cellValues[2] = (modSlot.amount != 0 || modSlot.isComplete())
                         ? std::to_string(static_cast<int>(modSlot.amount)) : "--";
         cellValues[3] = (modSlot.destination >= 0 && modSlot.destination < static_cast<int>(destinations.size()))
-                        ? destinations[modSlot.destination].symbol : "--";
+                        ? destinations[modSlot.destination].displayName : "--";
         cellValues[4] = (modSlot.type >= 0 && modSlot.type < static_cast<int>(types.size()))
                         ? types[modSlot.type].symbol : "--";
 
