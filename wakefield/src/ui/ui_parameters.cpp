@@ -1711,6 +1711,24 @@ void UI::mutatePageParameters(UIPage page, float amount01) {
 
 void UI::resetPageParameters(UIPage page) {
     captureUndoSnapshot("reset_page");
+
+    // Special-case: Filter page should reset all filter-type parameters to sane defaults,
+    // not just the currently visible subset, and without changing Enabled/Type.
+    if (page == UIPage::FILTER) {
+        // Do not alter filterEnabled (31) nor filterType (30).
+        // Reset all numeric params used across filter implementations to their defaults.
+        setParameterValue(32, 1000.0f);  // Cutoff Hz
+        setParameterValue(33,   0.0f);   // Gain dB (shelves)
+        setParameterValue(34,   0.4f);   // Resonance
+        setParameterValue(35,   1.0f);   // Drive
+        setParameterValue(36, 200.0f);   // Feedback HP Hz
+        setParameterValue(37,   0.5f);   // Spread
+        setParameterValue(38,   0.3f);   // Notch feedback
+        setParameterValue(39,   0.5f);   // Band width (normalized)
+        setParameterValue(42,   1.0f);   // Dry/Wet for notch
+        return;
+    }
+
     auto ids = getParameterIdsForPage(page);
     for (int id : ids) {
         InlineParameter* p = getParameter(id);
