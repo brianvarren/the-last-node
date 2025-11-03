@@ -691,11 +691,15 @@ void UI::drawMainPage() {
     attroff(COLOR_SECTION_HEADER);
 
     // Draw oscillators
+    int activeOsc = std::clamp(params->activeOscCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
         float level = params->getOscLevel(i);
         bool muted = params->oscMuted[i].load();
         bool solo = params->oscSolo[i].load();
         bool selected = (mainPageMixerChannel == i && !mainPageFocusLeft);
+        bool inactive = (i >= activeOsc);
+
+        if (inactive) attron(A_DIM);
 
         if (selected) {
             attron(COLOR_SELECTION | A_BOLD);
@@ -728,17 +732,23 @@ void UI::drawMainPage() {
             attroff(COLOR_SELECTION | A_BOLD);
         }
 
+        if (inactive) attroff(A_DIM);
+
         mixerRow++;
     }
 
     mixerRow++; // Blank line
 
     // Draw samplers
+    int activeSamp = std::clamp(params->activeSamplerCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
         float level = synth->getSamplerLevel(i);
         bool muted = params->samplerMuted[i].load();
         bool solo = params->samplerSolo[i].load();
         bool selected = (mainPageMixerChannel == i + 4 && !mainPageFocusLeft);
+        bool inactive = (i >= activeSamp);
+
+        if (inactive) attron(A_DIM);
 
         if (selected) {
             attron(COLOR_SELECTION | A_BOLD);
@@ -771,17 +781,23 @@ void UI::drawMainPage() {
             attroff(COLOR_SELECTION | A_BOLD);
         }
 
+        if (inactive) attroff(A_DIM);
+
         mixerRow++;
     }
 
     mixerRow++; // Blank line
 
     // Draw chaos generators
+    int activeChaos = std::clamp(params->activeChaosCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
         float level = params->getChaosLevel(i);
         bool muted = params->chaosMuted[i].load();
         bool solo = params->chaosSolo[i].load();
         bool selected = (mainPageMixerChannel == i + 8 && !mainPageFocusLeft);
+        bool inactive = (i >= activeChaos);
+
+        if (inactive) attron(A_DIM);
 
         if (selected) {
             attron(COLOR_SELECTION | A_BOLD);
@@ -813,6 +829,8 @@ void UI::drawMainPage() {
         if (selected) {
             attroff(COLOR_SELECTION | A_BOLD);
         }
+
+        if (inactive) attroff(A_DIM);
 
         mixerRow++;
     }
