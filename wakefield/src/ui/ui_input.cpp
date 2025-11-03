@@ -170,6 +170,12 @@ void UI::handleInput(int ch) {
         return;
     }
 
+    // Handle Global Reset popup
+    if (globalResetPopupActive) {
+        handleGlobalResetPopupInput(ch);
+        return;
+    }
+
     // Handle numeric input mode for parameters
     if (numericInputActive) {
         if (ch == '\n' || ch == KEY_ENTER) {
@@ -349,7 +355,7 @@ void UI::handleInput(int ch) {
                         case 5:  // Mutate Amount (no action)
                             return;
                         case 6:  // Global Reset
-                            resetToBaseline();
+                            startGlobalResetPopup();
                             return;
                         case 7:  // Compressor Toggle
                             params->compressorEnabled = !params->compressorEnabled.load();

@@ -1408,6 +1408,13 @@ public:
     // Baseline content captured on load/save for global reset
     std::string baselinePresetContent;
     bool baselineAvailable = false;
+
+    // Global Reset popup (choose baseline vs init defaults)
+    bool globalResetPopupActive = false;
+    int globalResetPopupIndex = 0; // 0=Preset Baseline, 1=Init Defaults
+    void startGlobalResetPopup() { globalResetPopupActive = true; globalResetPopupIndex = 0; }
+    void finishGlobalResetPopup(bool applySelection);
+    void handleGlobalResetPopupInput(int ch);
 };
 
 #endif // UI_H

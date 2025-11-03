@@ -424,6 +424,44 @@ void UI::draw(int activeVoices) {
         attron(COLOR_HINT);
         mvprintw(startY + height - 2, startX + 2, "Enter confirm, Esc cancel");
         attroff(COLOR_HINT);
+    } else if (globalResetPopupActive) {
+        int maxY = getmaxy(stdscr);
+        int maxX = getmaxx(stdscr);
+        int height = 10;
+        int width = 44;
+        int startY = std::max(1, (maxY - height) / 2);
+        int startX = std::max(1, (maxX - width) / 2);
+
+        for (int y = startY; y < startY + height; ++y) {
+            for (int x = startX; x < startX + width; ++x) {
+                mvaddch(y, x, ' ');
+            }
+        }
+
+        attron(A_BOLD);
+        mvhline(startY, startX, '-', width);
+        mvhline(startY + height - 1, startX, '-', width);
+        mvvline(startY, startX, '|', height);
+        mvvline(startY, startX + width - 1, '|', height);
+        mvprintw(startY + 1, startX + 2, "Global Reset");
+        attroff(A_BOLD);
+
+        const char* options[2] = {"Reset to Saved Preset", "Reset to Init Defaults"};
+        for (int i = 0; i < 2; ++i) {
+            int y = startY + 3 + i;
+            bool selected = (i == globalResetPopupIndex);
+            if (selected) {
+                attron(COLOR_SELECTION | A_BOLD);
+                mvprintw(y, startX + 2, "> %s", options[i]);
+                attroff(COLOR_SELECTION | A_BOLD);
+            } else {
+                mvprintw(y, startX + 2, "  %s", options[i]);
+            }
+        }
+
+        attron(COLOR_HINT);
+        mvprintw(startY + height - 2, startX + 2, "Up/Down choose, Enter confirm, Esc cancel");
+        attroff(COLOR_HINT);
     } else if (sampleBrowserActive) {
         int maxY = getmaxy(stdscr);
         int maxX = getmaxx(stdscr);

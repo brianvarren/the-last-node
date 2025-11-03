@@ -359,6 +359,43 @@ void UI::resetToBaseline() {
     addConsoleMessage("Baseline unavailable; reset to neutral");
 }
 
+void UI::finishGlobalResetPopup(bool applySelection) {
+    if (!globalResetPopupActive) return;
+    if (applySelection) {
+        if (globalResetPopupIndex == 0) {
+            resetToBaseline();
+        } else {
+            resetAllParametersToNeutral();
+            addConsoleMessage("Reset to init defaults");
+        }
+    }
+    globalResetPopupActive = false;
+}
+
+void UI::handleGlobalResetPopupInput(int ch) {
+    switch (ch) {
+        case KEY_UP:
+        case 'k':
+        case 'K':
+            globalResetPopupIndex = (globalResetPopupIndex - 1 + 2) % 2;
+            break;
+        case KEY_DOWN:
+        case 'j':
+        case 'J':
+            globalResetPopupIndex = (globalResetPopupIndex + 1) % 2;
+            break;
+        case '\n':
+        case KEY_ENTER:
+            finishGlobalResetPopup(true);
+            break;
+        case 27:  // Esc
+            finishGlobalResetPopup(false);
+            break;
+        default:
+            break;
+    }
+}
+
 void UI::startTextInput() {
     textInputActive = true;
     textInputBuffer.clear();
