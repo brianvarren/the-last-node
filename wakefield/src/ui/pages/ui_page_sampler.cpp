@@ -82,10 +82,29 @@ void UI::drawSamplerPage() {
     int sampleIndex = synth->getSamplerSampleIndex(currentSamplerIndex);
     const SampleData* sample = (sampleIndex >= 0) ? bank->getSample(sampleIndex) : nullptr;
 
-    // Title with sampler index in bright cyan, sample name inline to the right
+    // Instance buttons and title
     attron(COLOR_PAGE_TITLE | A_BOLD);
-    mvprintw(row, leftCol, "SAMPLER %d", currentSamplerIndex + 1);
+    mvprintw(row, leftCol, "SAMPLERS");
     attroff(COLOR_PAGE_TITLE | A_BOLD);
+    row += 2;
+    int activeSamp = std::clamp(params->activeSamplerCount.load(), 1, 4);
+    for (int i = 0; i < 4; ++i) {
+        int col = leftCol + i * 4;
+        bool inactive = (i >= activeSamp);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
+        if (!inactive && i == currentSamplerIndex) {
+            attron(COLOR_SELECTION | A_BOLD);
+            mvprintw(row, col, "[%d]", i + 1);
+            attroff(COLOR_SELECTION | A_BOLD);
+        } else {
+            mvprintw(row, col, "[%d]", i + 1);
+        }
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
+    }
+    row += 2;
+    attron(COLOR_SECTION_HEADER);
+    mvprintw(row, leftCol, "Sampler %d", currentSamplerIndex + 1);
+    attroff(COLOR_SECTION_HEADER);
 
     // Sample name as selectable parameter (ID 69) - inline with title
     const int sampleCol = leftCol + 15;

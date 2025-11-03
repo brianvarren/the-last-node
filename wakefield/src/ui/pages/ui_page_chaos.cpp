@@ -162,16 +162,19 @@ void UI::drawChaosPage() {
     attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     row += 2;
-    // Draw tabs for chaos generators 1-4
+    int activeChaos = std::clamp(params->activeChaosCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
         int col = 2 + i * 4;
-        if (i == currentChaosIndex) {
+        bool inactive = (i >= activeChaos);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
+        if (!inactive && i == currentChaosIndex) {
             attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, "[%d]", i + 1);
             attroff(COLOR_SELECTION | A_BOLD);
         } else {
-            mvprintw(row, col, " %d ", i + 1);
+            mvprintw(row, col, "[%d]", i + 1);
         }
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
     }
 
     row += 2;

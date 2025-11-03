@@ -149,15 +149,19 @@ void UI::drawOscillatorPage() {
     attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     row += 2;
+    int activeOsc = std::clamp(params->activeOscCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
         int col = 2 + i * 4;
-        if (i == currentOscillatorIndex) {
+        bool inactive = (i >= activeOsc);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
+        if (!inactive && i == currentOscillatorIndex) {
             attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, "[%d]", i + 1);
             attroff(COLOR_SELECTION | A_BOLD);
         } else {
-            mvprintw(row, col, " %d ", i + 1);
+            mvprintw(row, col, "[%d]", i + 1);
         }
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
     }
 
     row += 2;

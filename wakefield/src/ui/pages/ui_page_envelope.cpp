@@ -144,17 +144,20 @@ void UI::drawEnvelopePage() {
     mvprintw(row, 2, "Select Envelope (1-4): ");
     attroff(COLOR_SECTION_HEADER | A_BOLD);
 
-    // Draw envelope buttons
+    // Draw envelope buttons (consistent formatting, gray inactive)
+    int activeEnv = std::clamp(params->activeEnvCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
-        if (i == currentEnvelopeIndex) {
-            attron(COLOR_SELECTION | A_BOLD);  // Highlight selected
-            mvprintw(row, 26 + (i * 4), "[%d]", i + 1);
+        int col = 26 + (i * 4);
+        bool inactive = (i >= activeEnv);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
+        if (!inactive && i == currentEnvelopeIndex) {
+            attron(COLOR_SELECTION | A_BOLD);
+            mvprintw(row, col, "[%d]", i + 1);
             attroff(COLOR_SELECTION | A_BOLD);
         } else {
-            attron(COLOR_TAB_INACTIVE);
-            mvprintw(row, 26 + (i * 4), " %d ", i + 1);
-            attroff(COLOR_TAB_INACTIVE);
+            mvprintw(row, col, "[%d]", i + 1);
         }
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
     }
 
     row += 2;

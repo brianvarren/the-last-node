@@ -192,15 +192,19 @@ void UI::drawLFOPage() {
     attroff(COLOR_PAGE_TITLE | A_BOLD);
 
     row += 2;
+    int activeLfo = std::clamp(params->activeLfoCount.load(), 1, 4);
     for (int i = 0; i < 4; ++i) {
         int col = 2 + i * 4;
-        if (i == currentLFOIndex) {
+        bool inactive = (i >= activeLfo);
+        if (inactive) attron(COLOR_LOCKED | A_DIM);
+        if (!inactive && i == currentLFOIndex) {
             attron(COLOR_SELECTION | A_BOLD);
             mvprintw(row, col, "[%d]", i + 1);
             attroff(COLOR_SELECTION | A_BOLD);
         } else {
-            mvprintw(row, col, " %d ", i + 1);
+            mvprintw(row, col, "[%d]", i + 1);
         }
+        if (inactive) attroff(COLOR_LOCKED | A_DIM);
     }
 
     row += 2;

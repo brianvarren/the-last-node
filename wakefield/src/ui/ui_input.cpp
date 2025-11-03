@@ -857,51 +857,56 @@ void UI::handleInput(int ch) {
 
     // Oscillator selection (1-4 keys on OSCILLATOR page)
     if (currentPage == UIPage::OSCILLATOR) {
+        int activeOsc = std::clamp(params->activeOscCount.load(), 1, 4);
         switch (ch) {
-            case '1': currentOscillatorIndex = 0; addConsoleMessage("Oscillator 1 selected"); return;
-            case '2': currentOscillatorIndex = 1; addConsoleMessage("Oscillator 2 selected"); return;
-            case '3': currentOscillatorIndex = 2; addConsoleMessage("Oscillator 3 selected"); return;
-            case '4': currentOscillatorIndex = 3; addConsoleMessage("Oscillator 4 selected"); return;
+            case '1': if (activeOsc > 0) { currentOscillatorIndex = 0; addConsoleMessage("Oscillator 1 selected"); } return;
+            case '2': if (activeOsc > 1) { currentOscillatorIndex = 1; addConsoleMessage("Oscillator 2 selected"); } return;
+            case '3': if (activeOsc > 2) { currentOscillatorIndex = 2; addConsoleMessage("Oscillator 3 selected"); } return;
+            case '4': if (activeOsc > 3) { currentOscillatorIndex = 3; addConsoleMessage("Oscillator 4 selected"); } return;
         }
     }
 
     // LFO selection (1-4 keys on LFO page)
     if (currentPage == UIPage::LFO) {
+        int activeLfo = std::clamp(params->activeLfoCount.load(), 1, 4);
         switch (ch) {
-            case '1': currentLFOIndex = 0; addConsoleMessage("LFO 1 selected"); return;
-            case '2': currentLFOIndex = 1; addConsoleMessage("LFO 2 selected"); return;
-            case '3': currentLFOIndex = 2; addConsoleMessage("LFO 3 selected"); return;
-            case '4': currentLFOIndex = 3; addConsoleMessage("LFO 4 selected"); return;
+            case '1': if (activeLfo > 0) { currentLFOIndex = 0; addConsoleMessage("LFO 1 selected"); } return;
+            case '2': if (activeLfo > 1) { currentLFOIndex = 1; addConsoleMessage("LFO 2 selected"); } return;
+            case '3': if (activeLfo > 2) { currentLFOIndex = 2; addConsoleMessage("LFO 3 selected"); } return;
+            case '4': if (activeLfo > 3) { currentLFOIndex = 3; addConsoleMessage("LFO 4 selected"); } return;
         }
     }
 
     // Envelope selection (1-4 keys on ENV page)
     if (currentPage == UIPage::ENV) {
+        int activeEnv = std::clamp(params->activeEnvCount.load(), 1, 4);
         switch (ch) {
-            case '1': currentEnvelopeIndex = 0; addConsoleMessage("Envelope 1 selected"); return;
-            case '2': currentEnvelopeIndex = 1; addConsoleMessage("Envelope 2 selected"); return;
-            case '3': currentEnvelopeIndex = 2; addConsoleMessage("Envelope 3 selected"); return;
-            case '4': currentEnvelopeIndex = 3; addConsoleMessage("Envelope 4 selected"); return;
+            case '1': if (activeEnv > 0) { currentEnvelopeIndex = 0; addConsoleMessage("Envelope 1 selected"); } return;
+            case '2': if (activeEnv > 1) { currentEnvelopeIndex = 1; addConsoleMessage("Envelope 2 selected"); } return;
+            case '3': if (activeEnv > 2) { currentEnvelopeIndex = 2; addConsoleMessage("Envelope 3 selected"); } return;
+            case '4': if (activeEnv > 3) { currentEnvelopeIndex = 3; addConsoleMessage("Envelope 4 selected"); } return;
         }
     }
 
     // Sampler selection (1-4 keys on SAMPLER page)
     if (currentPage == UIPage::SAMPLER) {
+        int activeSamp = std::clamp(params->activeSamplerCount.load(), 1, 4);
         switch (ch) {
-            case '1': currentSamplerIndex = 0; addConsoleMessage("Sampler 1 selected"); return;
-            case '2': currentSamplerIndex = 1; addConsoleMessage("Sampler 2 selected"); return;
-            case '3': currentSamplerIndex = 2; addConsoleMessage("Sampler 3 selected"); return;
-            case '4': currentSamplerIndex = 3; addConsoleMessage("Sampler 4 selected"); return;
+            case '1': if (activeSamp > 0) { currentSamplerIndex = 0; addConsoleMessage("Sampler 1 selected"); } return;
+            case '2': if (activeSamp > 1) { currentSamplerIndex = 1; addConsoleMessage("Sampler 2 selected"); } return;
+            case '3': if (activeSamp > 2) { currentSamplerIndex = 2; addConsoleMessage("Sampler 3 selected"); } return;
+            case '4': if (activeSamp > 3) { currentSamplerIndex = 3; addConsoleMessage("Sampler 4 selected"); } return;
         }
     }
 
     // Chaos selection (1-4 keys on CHAOS page)
     if (currentPage == UIPage::CHAOS) {
+        int activeChaos = std::clamp(params->activeChaosCount.load(), 1, 4);
         switch (ch) {
-            case '1': currentChaosIndex = 0; addConsoleMessage("Chaos 1 selected"); return;
-            case '2': currentChaosIndex = 1; addConsoleMessage("Chaos 2 selected"); return;
-            case '3': currentChaosIndex = 2; addConsoleMessage("Chaos 3 selected"); return;
-            case '4': currentChaosIndex = 3; addConsoleMessage("Chaos 4 selected"); return;
+            case '1': if (activeChaos > 0) { currentChaosIndex = 0; addConsoleMessage("Chaos 1 selected"); } return;
+            case '2': if (activeChaos > 1) { currentChaosIndex = 1; addConsoleMessage("Chaos 2 selected"); } return;
+            case '3': if (activeChaos > 2) { currentChaosIndex = 2; addConsoleMessage("Chaos 3 selected"); } return;
+            case '4': if (activeChaos > 3) { currentChaosIndex = 3; addConsoleMessage("Chaos 4 selected"); } return;
         }
     }
 
