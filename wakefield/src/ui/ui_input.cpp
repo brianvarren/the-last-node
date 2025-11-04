@@ -925,19 +925,23 @@ void UI::handleInput(int ch) {
             params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, depth);
         };
 
+        auto lockAllCells = [&]() {
+            captureUndoSnapshot("fm_lock_all");
+            for (int t = 0; t < kFMTargetCount; ++t) {
+                for (int s = 0; s < kFMSourceCount; ++s) {
+                    fmMatrixLocked[t][s] = true;
+                }
+            }
+            addConsoleMessage("FM: Locked all cells");
+        };
+
         switch (ch) {
             case '\n':
             case KEY_ENTER: {
                 // Enter activates based on FM focus area
                 if (fmFocusArea == 1) {
                     // Activate Lock All button
-                    captureUndoSnapshot("fm_lock_all");
-                    for (int t = 0; t < kFMTargetCount; ++t) {
-                        for (int s = 0; s < kFMSourceCount; ++s) {
-                            fmMatrixLocked[t][s] = true;
-                        }
-                    }
-                    addConsoleMessage("FM: Locked all cells");
+                    lockAllCells();
                 } else if (fmFocusArea == 2) {
                     // Global Depth numeric input
                     selectedParameterId = 360;
@@ -1039,8 +1043,10 @@ void UI::handleInput(int ch) {
                 }
                 return;
 
-            case ' ':  // Space bar: cycle 0 -> +99 -> -99 -> 0
-                {
+            case ' ':  // Space: on matrix, cycle; on Lock All, lock all
+                if (fmFocusArea == 1) {
+                    lockAllCells();
+                } else if (fmFocusArea == 0) {
                     captureUndoSnapshot("fm_cycle");
                     float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
                     if (depth > 0.05f) {
@@ -1052,6 +1058,13 @@ void UI::handleInput(int ch) {
                     }
                 }
                 return;
+
+            case 'k':  // also allow lowercase k to Lock All
+                if (fmFocusArea == 1) {
+                    lockAllCells();
+                    return;
+                }
+                break;
 
             case 'g':
             case 'G':  // Generate/Randomize FM matrix (skip locked), scale by random amount
