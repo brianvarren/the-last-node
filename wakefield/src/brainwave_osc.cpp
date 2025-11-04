@@ -1,9 +1,16 @@
 #include "brainwave_osc.h"
+#include "fast_math.h"
 #include <algorithm>
 #include <cmath>
 
+#if USE_WAVETABLE_OSCILLATORS
+#include "wavetable.h"
+#endif
+
+using namespace FastMath;
+
 // Classic Casio CZ style phase distortion for sawtooth with extended morph range
-static float generatePhaseDistorted(float phase, float amount) {
+static inline __attribute__((always_inline)) float generatePhaseDistorted(float phase, float amount) {
     // phase is normalized [0, 1)
     // amount: 0.0 = sawtooth pointing top-left (peak at left)
     // amount: 0.5 = sine wave (centered peak)
@@ -41,35 +48,30 @@ static float generatePhaseDistorted(float phase, float amount) {
     }
 
     // No vertical inversion - just horizontal mirroring via phase
-    float output = -std::cos(shapedPhase * 2.0f * static_cast<float>(M_PI));
+    float output = -fastcos(shapedPhase * kTwoPi);
     return output;
 }
 
 // Generate waveform with tanh-shaped pulse (morph 0.5 to 1.0)
-static float generateTanhShaped(float phase, float morph, float duty) {
+static inline __attribute__((always_inline)) float generateTanhShaped(float phase, float morph, float duty) {
     // phase is normalized [0, 1)
-    const float twoPi = 2.0f * M_PI;
-    float sine = std::sin(twoPi * phase);
+    float sine = fastsin(kTwoPi * phase);
 
     // Map morph to edge parameter (0 = sine, 1 = hard square)
-    float edge = std::min(std::max(morph, 0.0f), 1.0f);
-    edge = std::min(std::max(edge, 0.0f), 1.0f);
+    // Remove redundant double clamp
+    float edge = fastclamp(morph, 0.0f, 1.0f);
 
-    // When edge is very small, just return a pure sine wave.
-    if (edge < 1e-3f) {
-        return sine;
-    }
+    // Branchless early exit: blend instead of if-statement
+    // When edge is very small, output ~= sine
+    float theta = kTwoPi * (duty - 0.5f);
+    float x = sine - fastsin(theta);
 
-    // Map duty to comparator bias
-    float theta = twoPi * (duty - 0.5f);
-    float x = sine - std::sin(theta);
-    
     // Edge hardness control
     float beta = 1.0f + 80.0f * edge;
-    
-    float tanh_pulse = std::tanh(beta * x);
 
-    // Crossfade from sine to tanh pulse based on edge to ensure smooth transition
+    float tanh_pulse = fasttanh(beta * x);
+
+    // Crossfade from sine to tanh pulse based on edge
     return (1.0f - edge) * sine + edge * tanh_pulse;
 }
 
@@ -106,81 +108,97 @@ float BrainwaveOscillator::calculateEffectiveFrequency(float sampleRate) {
     return freq;
 }
 
-float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos) {
-    // Convert 32-bit phase accumulator to normalized phase (0.0 to 1.0)
-    float normalizedPhase = static_cast<double>(phase) / 4294967296.0;
-    
-    float morphAmount = std::min(std::max(morphPos, 0.0f), 1.0f);
+float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos, float duty, float frequency) {
+#if USE_WAVETABLE_OSCILLATORS
+    // Use wavetable lookup - much faster than computing trig functions
+    auto& bank = Wavetable::WavetableBank::getInstance();
+
+    if (bank.isInitialized()) {
+        float morphAmount = fastclamp(morphPos, 0.0f, 1.0f);
+        float dutyAmount = fastclamp(duty, 0.0f, 1.0f);
+
+        if (shape_ == BrainwaveShape::SAW) {
+            return bank.lookupSaw(phase, morphAmount, frequency);
+        } else {
+            // Pulse needs phase shift
+            uint32_t shiftedPhase = phase + 0x80000000;  // Add 180 degrees
+            return bank.lookupPulse(shiftedPhase, morphAmount, dutyAmount, frequency);
+        }
+    }
+    // Fall through to computed version if not initialized
+#endif
+
+    // Computed version (fallback or when USE_WAVETABLE_OSCILLATORS=0)
+    constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
+    float normalizedPhase = static_cast<float>(phase) * kPhaseToFloat;
+
+    float morphAmount = fastclamp(morphPos, 0.0f, 1.0f);
 
     if (shape_ == BrainwaveShape::SAW) {
         return generatePhaseDistorted(normalizedPhase, morphAmount);
     }
 
+    // Phase shift with branchless wrap
     float shiftedPhase = normalizedPhase + 0.5f;
-    if (shiftedPhase >= 1.0f) {
-        shiftedPhase -= 1.0f;
-    }
-    return generateTanhShaped(shiftedPhase, morphAmount, duty_);
+    shiftedPhase -= (shiftedPhase >= 1.0f) ? 1.0f : 0.0f;
+
+    return generateTanhShaped(shiftedPhase, morphAmount, duty);
 }
 
 float BrainwaveOscillator::process(float sampleRate, float fmInput,
                                    float pitchMod, float morphMod, float dutyMod,
                                    float ratioMod, float offsetMod) {
+    // Pre-computed constants
+    constexpr float kPhaseScale = 4294967296.0f;
+    const float nyquistLimit = sampleRate * 0.45f;
+
     // Calculate base frequency (FREE or KEY mode)
-    float freq = 0.0f;
-    if (mode_ == BrainwaveMode::FREE) {
-        freq = baseFrequency_;
-    } else {
-        freq = noteFrequency_;
-    }
+    // Reorder: KEY mode is more common, check it first
+    float freq = (mode_ == BrainwaveMode::KEY) ? noteFrequency_ : baseFrequency_;
 
-    // Apply pitch modulation as frequency multiplier (pitchMod is in octaves)
-    // This applies AFTER mode selection but BEFORE ratio/offset
-    float pitchMultiplier = std::pow(2.0f, pitchMod);
-    freq *= pitchMultiplier;
+    // Apply pitch modulation - use std::pow for rock-solid pitch accuracy
+    // pitchMod is in octaves: 1.0 = double frequency, -1.0 = half frequency
+    // Pitch perception is extremely sensitive, no approximations allowed
+    freq *= std::pow(2.0f, pitchMod);
 
-    // Apply modulated ratio and offset
+    // Apply modulated ratio and offset with FMA (fused multiply-add)
     float modulatedRatio = ratio_ + ratioMod;
     float modulatedOffset = offsetHz_ + offsetMod;
-    freq = freq * modulatedRatio + modulatedOffset;
+    freq = std::fma(freq, modulatedRatio, modulatedOffset);
 
     // Prevent negative or zero frequency
-    freq = std::max(freq, 0.01f);
+    freq = fastmax(freq, 0.01f);
 
-    // Apply Through-Zero FM: modulate frequency directly
+    // TZFM: Through-Zero FM (full implementation, optimized)
     // FM input is bipolar (-1 to +1), scaled by sensitivity
-    // TZFM allows frequency to go negative (phase reversal)
-    float fmAmount = fmInput * fmSensitivity_ * freq;  // Scale FM by current frequency
-    float modulatedFreq = freq + fmAmount;
+    // Combine operations: freq * (1 + fmInput * sensitivity)
+    float modulatedFreq = std::fma(fmInput * fmSensitivity_, freq, freq);
 
-    // TZFM: Allow negative frequencies (through-zero)
-    // Negative frequency = phase runs backward
-    bool isNegative = modulatedFreq < 0.0f;
-    float absFreq = std::abs(modulatedFreq);
+    // Branchless abs and sign extraction for TZFM
+    int32_t freqBits = *reinterpret_cast<int32_t*>(&modulatedFreq);
+    int32_t signBit = freqBits >> 31;  // Extract sign: 0xFFFFFFFF if negative, 0 if positive
+    float absFreq = fastabs(modulatedFreq);
 
-    // Prevent extremely high frequencies that could cause aliasing
-    absFreq = std::min(absFreq, sampleRate * 0.45f);  // Nyquist limit with margin
+    // Nyquist limiting
+    absFreq = fastmin(absFreq, nyquistLimit);
 
-    // Calculate phase increment using double precision
-    double phaseIncrementDouble = (static_cast<double>(absFreq) * 4294967296.0) / static_cast<double>(sampleRate);
-    uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementDouble);
+    // Calculate phase increment (stay in float, sufficient precision)
+    float phaseIncrementFloat = (absFreq * kPhaseScale) / sampleRate;
+    uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementFloat);
 
-    // Apply morph and duty modulation
-    float modulatedMorph = std::min(std::max(morphPosition_ + morphMod, 0.0f), 1.0f);
-    float modulatedDuty = std::min(std::max(duty_ + dutyMod, 0.0f), 1.0f);
+    // Apply morph and duty modulation (single clamp instead of min/max)
+    float modulatedMorph = fastclamp(morphPosition_ + morphMod, 0.0f, 1.0f);
+    float modulatedDuty = fastclamp(duty_ + dutyMod, 0.0f, 1.0f);
 
-    // Temporarily override duty_ for this sample (generateSample uses member variable)
-    float savedDuty = duty_;
-    duty_ = modulatedDuty;
-    float sample = generateSample(phaseAccumulator_, modulatedMorph);
-    duty_ = savedDuty;
+    // Generate sample (pass current frequency to support wavetable path)
+    float sample = generateSample(phaseAccumulator_, modulatedMorph, modulatedDuty, absFreq);
 
-    // Advance or reverse phase depending on frequency sign (TZFM)
-    if (isNegative) {
-        phaseAccumulator_ -= phaseIncrement;  // Reverse phase direction
-    } else {
-        phaseAccumulator_ += phaseIncrement;  // Normal phase advancement
-    }
+    // Branchless phase update for TZFM
+    // If negative (signBit = 0xFFFFFFFF), negate the increment
+    // If positive (signBit = 0), keep increment as-is
+    int32_t signedIncrement = (int32_t)phaseIncrement ^ signBit;
+    signedIncrement = signedIncrement - signBit;  // Two's complement if negative
+    phaseAccumulator_ = (uint32_t)((int32_t)phaseAccumulator_ + signedIncrement);
 
     return sample;
 }

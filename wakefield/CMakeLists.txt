@@ -20,6 +20,7 @@ set(WAKEFIELD_CORE_SOURCES
     src/envelope.cpp
     src/oscillator.cpp
     src/brainwave_osc.cpp
+    src/wavetable.cpp
     src/lfo.cpp
     src/voice.cpp
     src/reverb.cpp

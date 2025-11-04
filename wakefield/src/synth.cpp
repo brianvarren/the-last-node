@@ -1,6 +1,7 @@
 #include "synth.h"
 #include "clock.h"
 #include "ui.h"
+#include "wavetable.h"
 #include <algorithm>
 #include <iostream>
 #include <thread>
@@ -38,7 +39,10 @@ Synth::Synth(float sampleRate)
     bandpass2FilterR.setSampleRate(sampleRate);
     notchFilterL.setSampleRate(sampleRate);
     notchFilterR.setSampleRate(sampleRate);
-    
+
+    // Initialize wavetable bank (pre-compute all waveforms)
+    Wavetable::WavetableBank::getInstance().initialize();
+
     // Initialize voices with sample rate
     for (int i = 0; i < MAX_VOICES; ++i) {
         voices.emplace_back(sampleRate);

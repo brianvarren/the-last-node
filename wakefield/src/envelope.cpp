@@ -6,31 +6,28 @@ Envelope::Envelope(float sampleRate)
     : sampleRate(sampleRate)
     , stage(EnvelopeStage::OFF)
     , level(0.0f)
+    , stageProgress(0.0f)
     , attackTime(0.01f)      // 10ms default attack
     , decayTime(0.1f)        // 100ms default decay
     , sustainLevel(0.7f)     // 70% sustain level
     , releaseTime(0.2f)      // 200ms default release
     , attackBend(0.5f)       // Linear by default
     , releaseBend(0.5f)      // Linear by default
-    , alphaAttack(1.0f)
-    , alphaDecay(1.0f)
-    , alphaRelease(1.0f)
-    , attackSamples(0)
-    , decaySamples(0)
-    , releaseSamples(0)
-    , stageSamplesLeft(0)
+    , attackRate(0.0f)
+    , decayRate(0.0f)
+    , releaseRate(0.0f)
     , attackStartLevel(0.0f)
     , releaseStartLevel(0.0f) {
     calculateRates();
 }
 
 void Envelope::setAttack(float seconds) {
-    attackTime = std::max(0.0001f, seconds);  // Minimum 0.1ms
+    attackTime = std::max(0.001f, seconds);  // Minimum 1ms
     calculateRates();
 }
 
 void Envelope::setDecay(float seconds) {
-    decayTime = std::max(0.0001f, seconds);
+    decayTime = std::max(0.001f, seconds);
     calculateRates();
 }
 
@@ -39,63 +36,47 @@ void Envelope::setSustain(float level) {
 }
 
 void Envelope::setRelease(float seconds) {
-    releaseTime = std::max(0.0001f, seconds);
+    releaseTime = std::max(0.001f, seconds);
     calculateRates();
 }
 
 void Envelope::setAttackBend(float bend) {
     attackBend = std::clamp(bend, 0.0f, 1.0f);
-    calculateRates();
+    rebuildBendTables();
 }
 
 void Envelope::setReleaseBend(float bend) {
     releaseBend = std::clamp(bend, 0.0f, 1.0f);
-    calculateRates();
+    rebuildBendTables();
 }
 
 void Envelope::calculateRates() {
-    // Map time (seconds) to a per-sample alpha so that we reach ~99% of the target at the given time.
-    // alpha = 1 - exp(-ln(100)/(time*fs)) with alpha clamped to [0,1].
-    auto timeToAlpha = [&](float timeSeconds) -> float {
-        if (timeSeconds <= 0.0f) return 1.0f;  // instant
-        float denom = timeSeconds * sampleRate;
-        float k = 4.605170186f; // ln(100)
-        float a = 1.0f - std::exp(-k / denom);
-        if (a < 0.0f) a = 0.0f; if (a > 1.0f) a = 1.0f;
-        return a;
+    auto timeToRate = [&](float timeSeconds) -> float {
+        if (timeSeconds <= 0.0f) return 1.0f;
+        return 1.0f / (timeSeconds * sampleRate);
     };
-
-    auto bendScale = [&](float bend) -> float { return bendToScale(bend); };
-
-    float baseAttack = timeToAlpha(attackTime);
-    float baseDecay  = timeToAlpha(decayTime);
-    float baseRelease= timeToAlpha(releaseTime);
-
-    float atkScale = bendScale(attackBend);
-    float relScale = bendScale(releaseBend);
-
-    // Adjust alpha by shaping: alpha_eff = 1 - (1 - alpha)^(scale)
-    auto shapeAlpha = [](float a, float s) -> float {
-        a = std::clamp(a, 0.0f, 1.0f);
-        s = std::max(0.05f, s);
-        float oneMinus = 1.0f - a;
-        float shaped = 1.0f - std::pow(oneMinus, s);
-        return std::clamp(shaped, 0.0f, 1.0f);
-    };
-
-    alphaAttack  = shapeAlpha(baseAttack, atkScale);
-    alphaDecay   = shapeAlpha(baseDecay,  relScale);
-    alphaRelease = shapeAlpha(baseRelease,relScale);
-
-    attackSamples  = std::max(0, static_cast<int>(std::round(attackTime  * sampleRate)));
-    decaySamples   = std::max(0, static_cast<int>(std::round(decayTime   * sampleRate)));
-    releaseSamples = std::max(0, static_cast<int>(std::round(releaseTime * sampleRate)));
+    attackRate = timeToRate(attackTime);
+    decayRate = timeToRate(decayTime);
+    releaseRate = timeToRate(releaseTime);
+    rebuildBendTables();
 }
 
-float Envelope::bendToScale(float bend) {
-    // 0.5 = neutral ~1x, <0.5 slows (0.25x), >0.5 speeds (4x). Smooth, monotonic mapping.
-    float t = std::clamp(bend, 0.0f, 1.0f);
-    return std::pow(2.0f, (t - 0.5f) * 4.0f); // 0.25 .. 4.0
+void Envelope::rebuildBendTables() {
+    // Precompute pow curve for current bends to preserve exact sound with a LUT
+    auto build = [](float bend, std::array<float, kBendLUTSize>& table) {
+        // Map bend to exponent exactly like original applyBend
+        float exponent = std::pow(10.0f, (bend - 0.5f) * 2.0f);
+        for (int i = 0; i < kBendLUTSize; ++i) {
+            float t = static_cast<float>(i) / static_cast<float>(kBendLUTSize - 1);
+            if (bend == 0.5f) {
+                table[i] = t;
+            } else {
+                table[i] = std::pow(t, exponent);
+            }
+        }
+    };
+    build(attackBend, attackLUT);
+    build(releaseBend, releaseLUT);
 }
 
 void Envelope::noteOn(bool fromCurrentLevel) {
@@ -106,15 +87,15 @@ void Envelope::noteOn(bool fromCurrentLevel) {
         attackStartLevel = 0.0f;
         level = 0.0f;
     }
-    stageSamplesLeft = attackSamples;
+    stageProgress = 0.0f;
 }
 
 void Envelope::noteOff() {
     // Enter release stage
     stage = EnvelopeStage::RELEASE;
     releaseStartLevel = level;
-    stageSamplesLeft = releaseSamples;
-    if (alphaRelease >= 1.0f || releaseSamples == 0) {
+    stageProgress = 0.0f;
+    if (releaseRate >= 1.0f) {
         // Instant release
         level = 0.0f;
         stage = EnvelopeStage::OFF;
@@ -124,9 +105,9 @@ void Envelope::noteOff() {
 void Envelope::reset() {
     stage = EnvelopeStage::OFF;
     level = 0.0f;
+    stageProgress = 0.0f;
     attackStartLevel = 0.0f;
     releaseStartLevel = 0.0f;
-    stageSamplesLeft = 0;
 }
 
 float Envelope::process() {
@@ -136,35 +117,26 @@ float Envelope::process() {
             break;
 
         case EnvelopeStage::ATTACK:
-            if (attackSamples == 0 || alphaAttack >= 1.0f) {
+            stageProgress += attackRate;
+            if (stageProgress >= 1.0f) {
                 level = 1.0f;
                 stage = EnvelopeStage::DECAY;
-                stageSamplesLeft = decaySamples;
+                stageProgress = 0.0f;
             } else {
-                // One-pole toward 1.0
-                float target = 1.0f;
-                // Ensure smooth retrigger start
-                if (level < attackStartLevel) level = attackStartLevel;
-                level += (target - level) * alphaAttack;
-                if (--stageSamplesLeft <= 0 || (target - level) < 1e-6f) {
-                    level = target;
-                    stage = EnvelopeStage::DECAY;
-                    stageSamplesLeft = decaySamples;
-                }
+                float bent = lookupAttack(stageProgress);
+                level = attackStartLevel + (1.0f - attackStartLevel) * bent;
             }
             break;
 
         case EnvelopeStage::DECAY:
-            if (decaySamples == 0 || alphaDecay >= 1.0f) {
+            stageProgress += decayRate;
+            if (stageProgress >= 1.0f) {
                 level = sustainLevel;
                 stage = EnvelopeStage::SUSTAIN;
+                stageProgress = 0.0f;
             } else {
-                float target = sustainLevel;
-                level += (target - level) * alphaDecay;
-                if (--stageSamplesLeft <= 0 || std::fabs(target - level) < 1e-6f) {
-                    level = target;
-                    stage = EnvelopeStage::SUSTAIN;
-                }
+                float bent = lookupRelease(stageProgress);
+                level = 1.0f + (sustainLevel - 1.0f) * bent;
             }
             break;
 
@@ -174,16 +146,15 @@ float Envelope::process() {
             break;
 
         case EnvelopeStage::RELEASE: {
-            if (releaseSamples == 0 || alphaRelease >= 1.0f) {
+            stageProgress += releaseRate;
+            if (stageProgress >= 1.0f) {
                 level = 0.0f;
                 stage = EnvelopeStage::OFF;
+                stageProgress = 0.0f;
             } else {
-                float target = 0.0f;
-                level += (target - level) * alphaRelease;
-                if (--stageSamplesLeft <= 0 || level < 1e-6f) {
-                    level = 0.0f;
-                    stage = EnvelopeStage::OFF;
-                }
+                float bent = lookupRelease(stageProgress);
+                level = releaseStartLevel * (1.0f - bent);
+                if (level < 1e-6f) { level = 0.0f; stage = EnvelopeStage::OFF; stageProgress = 0.0f; }
             }
             break;
         }

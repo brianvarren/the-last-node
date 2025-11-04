@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <cmath>
 
+// Toggle between wavetable and computed oscillators
+#define USE_WAVETABLE_OSCILLATORS 0
+
 // Brainwave oscillator modes
 enum class BrainwaveMode {
     FREE = 0,  // Free-running, user controls frequency
@@ -73,10 +76,10 @@ private:
 
     // Phase accumulator (32-bit for high precision)
     uint32_t phaseAccumulator_;
-    
+
     // Helper functions
     float calculateEffectiveFrequency(float sampleRate);
-    float generateSample(uint32_t phase, float morphPos);
+    float generateSample(uint32_t phase, float morphPos, float duty, float frequency);
 };
 
 #endif // BRAINWAVE_OSC_H
