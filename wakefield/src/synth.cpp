@@ -1,7 +1,7 @@
 #include "synth.h"
 #include "clock.h"
 #include "ui.h"
-#include "wavetable.h"
+#include "fast_math.h"
 #include <algorithm>
 #include <iostream>
 #include <thread>
@@ -40,8 +40,8 @@ Synth::Synth(float sampleRate)
     notchFilterL.setSampleRate(sampleRate);
     notchFilterR.setSampleRate(sampleRate);
 
-    // Initialize wavetable bank (pre-compute all waveforms)
-    Wavetable::WavetableBank::getInstance().initialize();
+    // Initialize fast math lookup tables
+    FastMath::initSinTable();
 
     // Initialize voices with sample rate
     for (int i = 0; i < MAX_VOICES; ++i) {
@@ -556,27 +556,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
             ModulationOutputs modOutputs = processModulationMatrix(&voice);
 
-        // Save previous buffer's values before updating (for audio-rate interpolation to prevent zippering)
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            voice.prevPitchMod[i] = voice.pitchMod[i];
-            voice.prevMorphMod[i] = voice.morphMod[i];
-            voice.prevDutyMod[i] = voice.dutyMod[i];
-            voice.prevRatioMod[i] = voice.ratioMod[i];
-            voice.prevOffsetMod[i] = voice.offsetMod[i];
-            voice.prevAmpMod[i] = voice.ampMod[i];
-            voice.prevCachedOscLevel[i] = voice.cachedOscLevel[i];
-        }
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            voice.prevSamplerPitchMod[i] = voice.samplerPitchMod[i];
-            voice.prevSamplerLoopStartMod[i] = voice.samplerLoopStartMod[i];
-            voice.prevSamplerLoopLengthMod[i] = voice.samplerLoopLengthMod[i];
-            voice.prevSamplerCrossfadeMod[i] = voice.samplerCrossfadeMod[i];
-            voice.prevSamplerLevelMod[i] = voice.samplerLevelMod[i];
-            voice.prevCachedSamplerLevelMod[i] = voice.cachedSamplerLevelMod[i];
-        }
-        voice.prevFmGlobalDepthMod = voice.fmGlobalDepthMod;
-
         // Set modulation values for all oscillators (in octaves for pitch)
+        // One-pole smoothing handles zipper prevention automatically
         voice.pitchMod[0] = modOutputs.osc1Pitch;
         voice.pitchMod[1] = modOutputs.osc2Pitch;
         voice.pitchMod[2] = modOutputs.osc3Pitch;
@@ -641,9 +622,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         if (params) {
             for (int target = 0; target < kFMTargetCount; ++target) {
                 for (int source = 0; source < kFMSourceCount; ++source) {
-                    // Save current as previous for next buffer's interpolation
-                    voice.prevFmDepthMod[target][source] = voice.fmDepthMod[target][source];
-                    
                     // Base depth (static parameter)
                     float baseDepth = params->getFMDepth(target, source);
                     // Global modulation (computed per buffer)
@@ -657,7 +635,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             // No params: zero out FM depths
             for (int target = 0; target < kFMTargetCount; ++target) {
                 for (int source = 0; source < kFMSourceCount; ++source) {
-                    voice.prevFmDepthMod[target][source] = voice.fmDepthMod[target][source];
                     voice.fmDepthMod[target][source] = 0.0f;
                 }
             }

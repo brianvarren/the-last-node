@@ -3,10 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#if USE_WAVETABLE_OSCILLATORS
-#include "wavetable.h"
-#endif
-
 using namespace FastMath;
 
 // Classic Casio CZ style phase distortion for sawtooth with extended morph range
@@ -108,27 +104,7 @@ float BrainwaveOscillator::calculateEffectiveFrequency(float sampleRate) {
     return freq;
 }
 
-float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos, float duty, float frequency) {
-#if USE_WAVETABLE_OSCILLATORS
-    // Use wavetable lookup - much faster than computing trig functions
-    auto& bank = Wavetable::WavetableBank::getInstance();
-
-    if (bank.isInitialized()) {
-        float morphAmount = fastclamp(morphPos, 0.0f, 1.0f);
-        float dutyAmount = fastclamp(duty, 0.0f, 1.0f);
-
-        if (shape_ == BrainwaveShape::SAW) {
-            return bank.lookupSaw(phase, morphAmount, frequency);
-        } else {
-            // Pulse needs phase shift
-            uint32_t shiftedPhase = phase + 0x80000000;  // Add 180 degrees
-            return bank.lookupPulse(shiftedPhase, morphAmount, dutyAmount, frequency);
-        }
-    }
-    // Fall through to computed version if not initialized
-#endif
-
-    // Computed version (fallback or when USE_WAVETABLE_OSCILLATORS=0)
+float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos, float duty) {
     constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
     float normalizedPhase = static_cast<float>(phase) * kPhaseToFloat;
 
@@ -190,8 +166,8 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     float modulatedMorph = fastclamp(morphPosition_ + morphMod, 0.0f, 1.0f);
     float modulatedDuty = fastclamp(duty_ + dutyMod, 0.0f, 1.0f);
 
-    // Generate sample (pass current frequency to support wavetable path)
-    float sample = generateSample(phaseAccumulator_, modulatedMorph, modulatedDuty, absFreq);
+    // Generate sample
+    float sample = generateSample(phaseAccumulator_, modulatedMorph, modulatedDuty);
 
     // Branchless phase update for TZFM
     // If negative (signBit = 0xFFFFFFFF), negate the increment

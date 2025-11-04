@@ -17,6 +17,24 @@ constexpr float kHalfPi = 1.57079632679f;
 constexpr float kInvPi = 0.31830988618f;
 constexpr float kInvTwoPi = 0.15915494309f;
 
+// Sine lookup table for fast sin/cos
+// 512 samples covering [0, 2π] = 2KB (fits in L1 cache)
+constexpr int kSinTableSize = 512;
+constexpr float kSinTableScale = kSinTableSize / kTwoPi;
+
+// Sine table - initialized at runtime
+extern float sinTable[kSinTableSize + 1];  // +1 for wrap-around sample
+extern bool sinTableInitialized;
+
+// Initialize sine table (call once at startup)
+inline void initSinTable() {
+    if (sinTableInitialized) return;
+    for (int i = 0; i <= kSinTableSize; ++i) {
+        sinTable[i] = std::sin((i * kTwoPi) / kSinTableSize);
+    }
+    sinTableInitialized = true;
+}
+
 // Fast min/max (branchless on some architectures)
 inline float fastmin(float a, float b) {
     return std::fminf(a, b);  // Compiler intrinsic, often single instruction
@@ -43,14 +61,29 @@ inline float fast_exp2(float x) {
     return u.f;
 }
 
-// Use standard library sin/cos for now - accurate and compiler will optimize
-// Phase 2 wavetables will eliminate these entirely
+// Fast sine using lookup table with linear interpolation
+// ~10x faster than std::sin, <0.001 error
 inline float fastsin(float x) {
-    return std::sin(x);
+    // Wrap to [0, 2π) range using fast integer-based modulo
+    // Convert to table index space first
+    float fidx = x * kSinTableScale;
+
+    // Fast modulo: subtract table size until in range
+    // Most audio signals are already in [-2π, 2π] so this is fast
+    while (fidx >= kSinTableSize) fidx -= kSinTableSize;
+    while (fidx < 0.0f) fidx += kSinTableSize;
+
+    // Extract integer and fractional parts
+    int idx = static_cast<int>(fidx);
+    float frac = fidx - idx;
+
+    // Linear interpolation
+    return sinTable[idx] + frac * (sinTable[idx + 1] - sinTable[idx]);
 }
 
+// Fast cosine using sine table with phase shift
 inline float fastcos(float x) {
-    return std::cos(x);
+    return fastsin(x + kHalfPi);
 }
 
 // Fast tanh approximation using rational function
