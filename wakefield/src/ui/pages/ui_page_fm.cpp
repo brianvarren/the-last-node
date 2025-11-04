@@ -105,6 +105,6 @@ void UI::drawFMPage() {
 
     // Legend / hints
     attron(COLOR_HINT);
-    mvprintw(row + 2, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles cell lock  |  'K' = Lock All");
+    mvprintw(row + 2, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles cell lock  |  'K' toggles all locks");
     attroff(COLOR_HINT);
 }

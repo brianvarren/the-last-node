@@ -799,15 +799,30 @@ void UI::handleInput(int ch) {
         return;
     }
 
-    // FM page: 'K' = Lock All cells
+    // FM page: 'K' = Toggle All locks (lock all if any unlocked; otherwise unlock all)
     if (currentPage == UIPage::FM && (ch == 'K')) {
-        captureUndoSnapshot("fm_lock_all");
-        for (int t = 0; t < kFMTargetCount; ++t) {
+        bool allLocked = true;
+        for (int t = 0; t < kFMTargetCount && allLocked; ++t) {
             for (int s = 0; s < kFMSourceCount; ++s) {
-                fmMatrixLocked[t][s] = true;
+                if (!fmMatrixLocked[t][s]) { allLocked = false; break; }
             }
         }
-        addConsoleMessage("FM: Locked all cells");
+        captureUndoSnapshot("fm_lock_all_toggle");
+        if (allLocked) {
+            for (int t = 0; t < kFMTargetCount; ++t) {
+                for (int s = 0; s < kFMSourceCount; ++s) {
+                    fmMatrixLocked[t][s] = false;
+                }
+            }
+            addConsoleMessage("FM: Unlocked all cells");
+        } else {
+            for (int t = 0; t < kFMTargetCount; ++t) {
+                for (int s = 0; s < kFMSourceCount; ++s) {
+                    fmMatrixLocked[t][s] = true;
+                }
+            }
+            addConsoleMessage("FM: Locked all cells");
+        }
         return;
     }
 
@@ -925,14 +940,29 @@ void UI::handleInput(int ch) {
             params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, depth);
         };
 
-        auto lockAllCells = [&]() {
-            captureUndoSnapshot("fm_lock_all");
-            for (int t = 0; t < kFMTargetCount; ++t) {
+        auto toggleAllLocks = [&]() {
+            bool allLocked = true;
+            for (int t = 0; t < kFMTargetCount && allLocked; ++t) {
                 for (int s = 0; s < kFMSourceCount; ++s) {
-                    fmMatrixLocked[t][s] = true;
+                    if (!fmMatrixLocked[t][s]) { allLocked = false; break; }
                 }
             }
-            addConsoleMessage("FM: Locked all cells");
+            captureUndoSnapshot("fm_lock_all_toggle");
+            if (allLocked) {
+                for (int t = 0; t < kFMTargetCount; ++t) {
+                    for (int s = 0; s < kFMSourceCount; ++s) {
+                        fmMatrixLocked[t][s] = false;
+                    }
+                }
+                addConsoleMessage("FM: Unlocked all cells");
+            } else {
+                for (int t = 0; t < kFMTargetCount; ++t) {
+                    for (int s = 0; s < kFMSourceCount; ++s) {
+                        fmMatrixLocked[t][s] = true;
+                    }
+                }
+                addConsoleMessage("FM: Locked all cells");
+            }
         };
 
         switch (ch) {
@@ -940,8 +970,8 @@ void UI::handleInput(int ch) {
             case KEY_ENTER: {
                 // Enter activates based on FM focus area
                 if (fmFocusArea == 1) {
-                    // Activate Lock All button
-                    lockAllCells();
+                    // Activate Lock All toggle
+                    toggleAllLocks();
                 } else if (fmFocusArea == 2) {
                     // Global Depth numeric input
                     selectedParameterId = 360;
@@ -1043,9 +1073,9 @@ void UI::handleInput(int ch) {
                 }
                 return;
 
-            case ' ':  // Space: on matrix, cycle; on Lock All, lock all
+            case ' ':  // Space: on matrix, cycle; on Lock All, toggle all
                 if (fmFocusArea == 1) {
-                    lockAllCells();
+                    toggleAllLocks();
                 } else if (fmFocusArea == 0) {
                     captureUndoSnapshot("fm_cycle");
                     float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
@@ -1059,9 +1089,9 @@ void UI::handleInput(int ch) {
                 }
                 return;
 
-            case 'k':  // also allow lowercase k to Lock All
+            case 'k':  // also allow lowercase k to toggle when focused
                 if (fmFocusArea == 1) {
-                    lockAllCells();
+                    toggleAllLocks();
                     return;
                 }
                 break;
