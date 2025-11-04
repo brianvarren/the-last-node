@@ -739,7 +739,7 @@ void UI::handleInput(int ch) {
             startNumericInput(selectedParameterId);
         }
         return;
-    } else if (currentPage != UIPage::SEQUENCER && (ch == '\n' || ch == KEY_ENTER)) {
+    } else if (currentPage != UIPage::SEQUENCER && currentPage != UIPage::FM && (ch == '\n' || ch == KEY_ENTER)) {
         if (!pageParams.empty() &&
             std::find(pageParams.begin(), pageParams.end(), selectedParameterId) == pageParams.end()) {
             selectedParameterId = pageParams.front();
@@ -917,7 +917,7 @@ void UI::handleInput(int ch) {
         return;
     }
 
-    // FM Matrix navigation and editing (8 sources × 8 targets)
+    // FM Matrix navigation and editing (8 sources × 8 targets) + focus on Lock All and Global Depth
     if (currentPage == UIPage::FM) {
         auto adjustFMDepth = [&](float delta) {
             float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
@@ -928,48 +928,115 @@ void UI::handleInput(int ch) {
         switch (ch) {
             case '\n':
             case KEY_ENTER: {
-                // Start numeric entry for selected FM cell (percent -99..99)
-                numericInputActive = true;
-                numericInputIsFM = true;
-                numericInputBuffer.clear();
-                fmNumericTarget = fmMatrixCursorCol;
-                fmNumericSource = fmMatrixCursorRow;
+                // Enter activates based on FM focus area
+                if (fmFocusArea == 1) {
+                    // Activate Lock All button
+                    captureUndoSnapshot("fm_lock_all");
+                    for (int t = 0; t < kFMTargetCount; ++t) {
+                        for (int s = 0; s < kFMSourceCount; ++s) {
+                            fmMatrixLocked[t][s] = true;
+                        }
+                    }
+                    addConsoleMessage("FM: Locked all cells");
+                } else if (fmFocusArea == 2) {
+                    // Global Depth numeric input
+                    selectedParameterId = 360;
+                    startNumericInput(360);
+                } else {
+                    // Start numeric entry for selected FM cell (percent -99..99)
+                    numericInputActive = true;
+                    numericInputIsFM = true;
+                    numericInputBuffer.clear();
+                    fmNumericTarget = fmMatrixCursorCol;
+                    fmNumericSource = fmMatrixCursorRow;
+                }
                 return;
             }
             case KEY_UP:
-                fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 8) % 8;
+                if (fmFocusArea == 2) {
+                    // Move from Global Depth to matrix bottom row
+                    fmFocusArea = 0;
+                    fmMatrixCursorRow = 7;
+                } else if (fmFocusArea == 0) {
+                    if (fmMatrixCursorRow == 0) {
+                        fmFocusArea = 1; // Move to Lock All button
+                    } else {
+                        fmMatrixCursorRow = (fmMatrixCursorRow - 1 + 8) % 8;
+                    }
+                } else {
+                    // Stay on Lock All; no wrap-around by default
+                }
                 return;
 
             case KEY_DOWN:
-                fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 8;
+                if (fmFocusArea == 1) {
+                    // From Lock All to matrix top
+                    fmFocusArea = 0;
+                    fmMatrixCursorRow = 0;
+                } else if (fmFocusArea == 0) {
+                    if (fmMatrixCursorRow == 7) {
+                        fmFocusArea = 2; // Move to Global Depth
+                        selectedParameterId = 360;
+                    } else {
+                        fmMatrixCursorRow = (fmMatrixCursorRow + 1) % 8;
+                    }
+                } else {
+                    // Stay on Global Depth; no further down
+                }
                 return;
 
             case KEY_LEFT:
-                fmMatrixCursorCol = (fmMatrixCursorCol - 1 + kFMTargetCount) % kFMTargetCount;
+                if (fmFocusArea == 0) {
+                    fmMatrixCursorCol = (fmMatrixCursorCol - 1 + kFMTargetCount) % kFMTargetCount;
+                } else {
+                    // No horizontal nav for Lock All or Global Depth
+                }
                 return;
 
             case KEY_RIGHT:
-                fmMatrixCursorCol = (fmMatrixCursorCol + 1) % kFMTargetCount;
+                if (fmFocusArea == 0) {
+                    fmMatrixCursorCol = (fmMatrixCursorCol + 1) % kFMTargetCount;
+                } else {
+                    // No horizontal nav for Lock All or Global Depth
+                }
                 return;
 
             case '=':
-                captureUndoSnapshot("fm_adjust");
-                adjustFMDepth(0.05f);
+                if (fmFocusArea == 2) {
+                    // Adjust Global Depth coarsely
+                    adjustParameter(360, /*increase*/true, /*fine*/false);
+                } else {
+                    captureUndoSnapshot("fm_adjust");
+                    adjustFMDepth(0.05f);
+                }
                 return;
 
             case '+':
-                captureUndoSnapshot("fm_adjust");
-                adjustFMDepth(0.01f);
+                if (fmFocusArea == 2) {
+                    // Adjust Global Depth finely
+                    adjustParameter(360, /*increase*/true, /*fine*/true);
+                } else {
+                    captureUndoSnapshot("fm_adjust");
+                    adjustFMDepth(0.01f);
+                }
                 return;
 
             case '-':
-                captureUndoSnapshot("fm_adjust");
-                adjustFMDepth(-0.05f);
+                if (fmFocusArea == 2) {
+                    adjustParameter(360, /*increase*/false, /*fine*/false);
+                } else {
+                    captureUndoSnapshot("fm_adjust");
+                    adjustFMDepth(-0.05f);
+                }
                 return;
 
             case '_':
-                captureUndoSnapshot("fm_adjust");
-                adjustFMDepth(-0.01f);
+                if (fmFocusArea == 2) {
+                    adjustParameter(360, /*increase*/false, /*fine*/true);
+                } else {
+                    captureUndoSnapshot("fm_adjust");
+                    adjustFMDepth(-0.01f);
+                }
                 return;
 
             case ' ':  // Space bar: cycle 0 -> +99 -> -99 -> 0

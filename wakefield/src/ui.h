@@ -1308,6 +1308,8 @@ public:
     int fmMatrixCursorRow;        // 0-15 sources
     int fmMatrixCursorCol;        // 0-(kFMTargetCount-1): targets
     bool fmMatrixLocked[kFMTargetCount][kFMSourceCount] = {{false}}; // target x source lock flags (set to all locked at runtime)
+    // FM page focus: 0 = matrix, 1 = Lock All button, 2 = Global Depth control
+    int fmFocusArea = 0;
 
     // MOD Matrix UI state
     int modMatrixCursorRow;       // 0-15: modulation slot

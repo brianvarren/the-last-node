@@ -13,7 +13,13 @@ void UI::drawFMPage() {
     // Square brackets signify a button across pages
     int maxX = getmaxx(stdscr);
     int actionX = std::max(2, maxX - 14); // place near right edge
-    mvprintw(row, actionX, "[Lock All]");
+    if (fmFocusArea == 1) {
+        attron(COLOR_SELECTION | A_BOLD);
+        mvprintw(row, actionX, "[Lock All]");
+        attroff(COLOR_SELECTION | A_BOLD);
+    } else {
+        mvprintw(row, actionX, "[Lock All]");
+    }
     row += 2;
 
     // Column labels (targets) with clear abbreviations
@@ -82,8 +88,19 @@ void UI::drawFMPage() {
         row++;
     }
 
+    // Global Depth control (standalone parameter below matrix)
+    row += 1;
+    // Draw a small focus indicator when selected
+    if (fmFocusArea == 2) {
+        mvaddch(row, 1, '>');
+    } else {
+        mvaddch(row, 1, ' ');
+    }
+    float gdepth = params ? params->fmGlobalDepth.load() : 0.0f;
+    drawBar(row, 2, "Global Depth", gdepth, 0.0f, 1.0f, 40);
+
     // Legend / hints
     attron(COLOR_HINT);
-    mvprintw(row + 1, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles cell lock  |  'K' = Lock All");
+    mvprintw(row + 2, 2, "Legend: red = locked (immune to G/M/R)  |  'l' toggles cell lock  |  'K' = Lock All");
     attroff(COLOR_HINT);
 }
