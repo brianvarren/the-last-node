@@ -40,7 +40,7 @@ private:
     float sampleRate;
     EnvelopeStage stage;
     float level;
-    float stageProgress;  // 0-1 progress through current stage (for bend calculation)
+    double stageProgress;  // 0-1 progress through current stage (for bend calculation)
     
     // ADSR parameters
     float attackTime;
@@ -53,9 +53,9 @@ private:
     float releaseBend;
 
     // Rates (increment per sample)
-    float attackRate;
-    float decayRate;
-    float releaseRate;
+    double attackRate;
+    double decayRate;
+    double releaseRate;
     float attackStartLevel;   // Level to start attack from (for smooth retriggering)
     float releaseStartLevel;
 

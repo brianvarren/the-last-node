@@ -176,31 +176,31 @@ void UI::initializeParameters() {
     // ENVELOPE PAGE - ALL RANDOMIZABLE (modulation sources)
     // ============================================================================
     // Envelope 1: 300-305
-    parameters.push_back({300, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
-    parameters.push_back({301, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({300, ParamType::FLOAT, "Attack", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({301, ParamType::FLOAT, "Decay", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({302, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
-    parameters.push_back({303, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({303, ParamType::FLOAT, "Release", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({304, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     parameters.push_back({305, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     // Envelope 2: 306-311
-    parameters.push_back({306, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
-    parameters.push_back({307, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({306, ParamType::FLOAT, "Attack", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({307, ParamType::FLOAT, "Decay", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({308, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
-    parameters.push_back({309, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({309, ParamType::FLOAT, "Release", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({310, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     parameters.push_back({311, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     // Envelope 3: 312-317
-    parameters.push_back({312, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
-    parameters.push_back({313, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({312, ParamType::FLOAT, "Attack", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({313, ParamType::FLOAT, "Decay", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({314, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
-    parameters.push_back({315, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({315, ParamType::FLOAT, "Release", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({316, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     parameters.push_back({317, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     // Envelope 4: 318-323
-    parameters.push_back({318, ParamType::FLOAT, "Attack", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
-    parameters.push_back({319, ParamType::FLOAT, "Decay", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({318, ParamType::FLOAT, "Attack", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({319, ParamType::FLOAT, "Decay", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({320, ParamType::FLOAT, "Sustain", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
-    parameters.push_back({321, ParamType::FLOAT, "Release", "s", 0.001f, 30.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
+    parameters.push_back({321, ParamType::FLOAT, "Release", "s", 0.001f, 600.0f, {}, true, static_cast<int>(UIPage::ENV), true, ParamCurve::Logarithmic});
     parameters.push_back({322, ParamType::FLOAT, "Atk Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
     parameters.push_back({323, ParamType::FLOAT, "Rel Bend", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::ENV), true});
 
@@ -2123,7 +2123,20 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
                 newValue = increase ? base * factor : base / factor;
                 newValue = std::clamp(newValue, 0.0001f, 20000.0f);
             } else if (isEnvelopeTime) { // Envelope attack/decay/release
-                adjustMultiplicative(1.3f);
+                // Exponential acceleration: as value grows toward max, increase factor
+                float minv = std::max(param->min_val, 0.000001f);
+                float maxv = std::max(param->max_val, minv * 2.0f);
+                float base = std::max(currentValue, minv);
+                float pos = 0.0f;
+                float span = std::log(maxv / minv);
+                if (span > 0.0f) {
+                    pos = std::clamp(std::log(base / minv) / span, 0.0f, 1.0f);
+                }
+                // Factor ranges roughly [1.15 .. 1.50]
+                float factorCoarse = 1.15f + 0.35f * pos;
+                float factor = fine ? (1.0f + (factorCoarse - 1.0f) * 0.1f) : factorCoarse;
+                newValue = increase ? base * factor : base / factor;
+                newValue = std::clamp(newValue, param->min_val, param->max_val);
             } else if (id == 11) { // Oscillator frequency - semitone steps
                 adjustMultiplicative(1.122462f);
             } else if (id == 14) { // Oscillator ratio

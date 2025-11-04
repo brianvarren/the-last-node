@@ -13,9 +13,9 @@ Envelope::Envelope(float sampleRate)
     , releaseTime(0.2f)      // 200ms default release
     , attackBend(0.5f)       // Linear by default
     , releaseBend(0.5f)      // Linear by default
-    , attackRate(0.0f)
-    , decayRate(0.0f)
-    , releaseRate(0.0f)
+    , attackRate(0.0)
+    , decayRate(0.0)
+    , releaseRate(0.0)
     , attackStartLevel(0.0f)
     , releaseStartLevel(0.0f) {
 
@@ -50,11 +50,11 @@ void Envelope::setReleaseBend(float bend) {
 }
 
 void Envelope::calculateRates() {
-    auto timeToRate = [&](float timeSeconds) {
+    auto timeToRate = [&](float timeSeconds) -> double {
         if (timeSeconds <= 0.0f) {
-            return 1.0f;  // Instant stage
+            return 1.0;  // Instant stage
         }
-        return 1.0f / (timeSeconds * sampleRate);
+        return 1.0 / (static_cast<double>(timeSeconds) * static_cast<double>(sampleRate));
     };
 
     attackRate = timeToRate(attackTime);
@@ -125,7 +125,7 @@ float Envelope::process() {
                 stage = EnvelopeStage::DECAY;
                 stageProgress = 0.0f;
             } else {
-                float progress = std::clamp(stageProgress, 0.0f, 1.0f);
+                float progress = static_cast<float>(std::clamp(stageProgress, 0.0, 1.0));
                 float bentProgress = applyBend(progress, attackBend);
                 // Interpolate from attackStartLevel to 1.0 (supports smooth retriggering)
                 level = attackStartLevel + (1.0f - attackStartLevel) * bentProgress;
@@ -139,7 +139,7 @@ float Envelope::process() {
                 stage = EnvelopeStage::SUSTAIN;
                 stageProgress = 0.0f;
             } else {
-                float progress = std::clamp(stageProgress, 0.0f, 1.0f);
+                float progress = static_cast<float>(std::clamp(stageProgress, 0.0, 1.0));
                 float bentProgress = applyBend(progress, releaseBend);
                 level = 1.0f + (sustainLevel - 1.0f) * bentProgress;
             }
@@ -157,7 +157,7 @@ float Envelope::process() {
                 stage = EnvelopeStage::OFF;
                 stageProgress = 0.0f;
             } else {
-                float progress = std::clamp(stageProgress, 0.0f, 1.0f);
+                float progress = static_cast<float>(std::clamp(stageProgress, 0.0, 1.0));
                 float bentProgress = applyBend(progress, releaseBend);
                 level = releaseStartLevel * (1.0f - bentProgress);
                 if (level <= 0.0001f) {
