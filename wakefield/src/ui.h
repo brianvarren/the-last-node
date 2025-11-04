@@ -11,6 +11,7 @@
 #include <vector>
 #include <functional>
 #include <chrono>
+#include <cstdint>
 #include <termios.h>
 #include <unistd.h>
 #include "fm_constants.h"
@@ -169,15 +170,15 @@ struct SynthParameters {
     std::atomic<float> filterDryWet{1.0f};  // Dry/wet mix for notch filter
 
     // Compressor/Limiter parameters
-    std::atomic<bool> compressorEnabled{false};
+    std::atomic<bool> compressorEnabled{true};
     std::atomic<float> compressorThreshold{-20.0f};  // dB (-60 to 0)
     std::atomic<float> compressorRatio{4.0f};         // ratio (1 to 20, or 100 for limiting)
     std::atomic<float> compressorAttack{5.0f};        // ms (0.1 to 100)
     std::atomic<float> compressorRelease{50.0f};      // ms (10 to 1000)
     std::atomic<float> compressorKnee{6.0f};          // dB (0 to 20)
     std::atomic<float> compressorMix{1.0f};           // Dry/wet (0 to 1)
-    std::atomic<bool> compressorAutoMakeup{true};     // Automatic makeup gain
-    std::atomic<float> compressorManualMakeup{0.0f};  // Manual makeup gain in dB (0 to 24)
+    std::atomic<bool> compressorAutoMakeup{false};    // Automatic makeup gain
+    std::atomic<float> compressorManualMakeup{12.0f}; // Manual makeup gain in dB (0 to 24)
     std::atomic<bool> compressorRMS{false};           // Detection mode: false=Peak, true=RMS
 
     // Instance counts (runtime-scalable generator counts: 1-4)
@@ -1056,7 +1057,13 @@ public:
     std::string getSampleDirectory() const { return sampleBrowserCurrentDir; }
     void setAudioUnderrunCount(uint64_t count) { audioUnderrunCount.store(count, std::memory_order_relaxed); }
     uint64_t getAudioUnderrunCount() const { return audioUnderrunCount.load(std::memory_order_relaxed); }
-    void updateAudioDebugStats(uint32_t durationMicros, float peak, uint32_t activeVoices);
+    void updateAudioDebugStats(uint32_t durationMicros,
+                               float peak,
+                               uint32_t activeVoices,
+                               uint32_t intervalMicros,
+                               int schedulerPolicy,
+                               int schedulerPriority,
+                               int callbackCpu);
     void resetAudioDebugStats();
     
     void addConsoleMessage(const std::string& message);
@@ -1120,6 +1127,15 @@ private:
         std::atomic<float> maxPeak{0.0f};
         std::atomic<uint32_t> currentVoices{0};
         std::atomic<uint32_t> maxVoices{0};
+        std::atomic<uint64_t> callbackCount{0};
+        std::atomic<uint64_t> totalMicros{0};
+        std::atomic<uint32_t> currentIntervalMicros{0};
+        std::atomic<uint32_t> minIntervalMicros{std::numeric_limits<uint32_t>::max()};
+        std::atomic<uint32_t> maxIntervalMicros{0};
+        std::atomic<uint64_t> totalIntervalMicros{0};
+        std::atomic<int32_t> schedulerPolicy{-1};
+        std::atomic<int32_t> schedulerPriority{-1};
+        std::atomic<int32_t> callbackCpu{-1};
     } audioDebugState;
     
     // Available devices

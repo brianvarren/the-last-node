@@ -11,7 +11,7 @@ Synth::Synth(float sampleRate)
     , masterVolume(0.7f)  // Increased from 0.5 due to conservative normalization
     , reverbEnabled(false)
     , filterEnabled(false)
-    , compressorEnabled(false)
+    , compressorEnabled(true)
     , currentFilterType(0)
     , ui(nullptr)
     , params(nullptr)
@@ -66,6 +66,9 @@ Synth::Synth(float sampleRate)
     for (int i = 0; i < 4; ++i) {
         chaos[i].setSampleRate(sampleRate);
     }
+
+    compressor.setAutoMakeup(false);
+    compressor.setManualMakeup(12.0f);
 }
 
 float Synth::midiNoteToFrequency(int midiNote) {

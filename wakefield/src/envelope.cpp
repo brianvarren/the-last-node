@@ -180,3 +180,126 @@ float Envelope::process() {
     if (std::fabs(level) < 1e-12f) level = 0.0f;
     return level;
 }
+
+float Envelope::processBlock(unsigned int samples) {
+    if (samples == 0) {
+        return level;
+    }
+
+    unsigned int remaining = samples;
+
+    while (remaining > 0) {
+        switch (stage) {
+            case EnvelopeStage::OFF:
+                level = 0.0f;
+                remaining = 0;
+                break;
+
+            case EnvelopeStage::ATTACK: {
+                if (attackRate <= 0.0f) {
+                    level = 1.0f;
+                    stage = EnvelopeStage::DECAY;
+                    stageProgress = 0.0f;
+                    continue;
+                }
+
+                float advance = attackRate * static_cast<float>(remaining);
+                if (stageProgress + advance < 1.0f) {
+                    stageProgress += advance;
+                    float bent = lookupAttack(stageProgress);
+                    level = attackStartLevel + (1.0f - attackStartLevel) * bent;
+                    remaining = 0;
+                } else {
+                    float samplesNeeded = (1.0f - stageProgress) / attackRate;
+                    samplesNeeded = std::max(samplesNeeded, 0.0f);
+                    unsigned int consumed = std::min<unsigned int>(
+                        remaining,
+                        std::max(1u, static_cast<unsigned int>(std::ceil(samplesNeeded))));
+                    stageProgress = 1.0f;
+                    level = 1.0f;
+                    stage = EnvelopeStage::DECAY;
+                    stageProgress = 0.0f;
+                    remaining -= consumed;
+                    continue;
+                }
+                break;
+            }
+
+            case EnvelopeStage::DECAY: {
+                if (decayRate <= 0.0f) {
+                    level = sustainLevel;
+                    stage = EnvelopeStage::SUSTAIN;
+                    stageProgress = 0.0f;
+                    continue;
+                }
+
+                float advance = decayRate * static_cast<float>(remaining);
+                if (stageProgress + advance < 1.0f) {
+                    stageProgress += advance;
+                    float bent = lookupRelease(stageProgress);
+                    level = 1.0f + (sustainLevel - 1.0f) * bent;
+                    remaining = 0;
+                } else {
+                    float samplesNeeded = (1.0f - stageProgress) / decayRate;
+                    samplesNeeded = std::max(samplesNeeded, 0.0f);
+                    unsigned int consumed = std::min<unsigned int>(
+                        remaining,
+                        std::max(1u, static_cast<unsigned int>(std::ceil(samplesNeeded))));
+                    stageProgress = 1.0f;
+                    level = sustainLevel;
+                    stage = EnvelopeStage::SUSTAIN;
+                    stageProgress = 0.0f;
+                    remaining -= consumed;
+                    continue;
+                }
+                break;
+            }
+
+            case EnvelopeStage::SUSTAIN:
+                level = sustainLevel;
+                remaining = 0;
+                break;
+
+            case EnvelopeStage::RELEASE: {
+                if (releaseRate <= 0.0f) {
+                    level = 0.0f;
+                    stage = EnvelopeStage::OFF;
+                    stageProgress = 0.0f;
+                    remaining = 0;
+                    break;
+                }
+
+                float advance = releaseRate * static_cast<float>(remaining);
+                if (stageProgress + advance < 1.0f) {
+                    stageProgress += advance;
+                    float bent = lookupRelease(stageProgress);
+                    level = releaseStartLevel * (1.0f - bent);
+                    if (level < 1e-6f) {
+                        level = 0.0f;
+                        stage = EnvelopeStage::OFF;
+                        stageProgress = 0.0f;
+                    }
+                    remaining = 0;
+                } else {
+                    float samplesNeeded = (1.0f - stageProgress) / releaseRate;
+                    samplesNeeded = std::max(samplesNeeded, 0.0f);
+                    unsigned int consumed = std::min<unsigned int>(
+                        remaining,
+                        std::max(1u, static_cast<unsigned int>(std::ceil(samplesNeeded))));
+                    stageProgress = 1.0f;
+                    level = 0.0f;
+                    stage = EnvelopeStage::OFF;
+                    stageProgress = 0.0f;
+                    remaining -= consumed;
+                    continue;
+                }
+                break;
+            }
+        }
+    }
+
+    if (std::fabs(level) < 1e-12f) {
+        level = 0.0f;
+    }
+    return level;
+}

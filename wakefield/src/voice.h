@@ -73,14 +73,18 @@ struct Voice {
     // Smaller alpha = slower/smoother, Larger alpha = faster/choppier
     static constexpr float kSmoothingAlpha = 0.02f;
 
-    // Sub-buffer FM depth modulation slices (option B)
-    static constexpr int kFmDepthSlices = 8;
-    int fmSliceInterval = 1;         // frames per slice
-    int fmSliceStartFrame = 0;       // inclusive start frame of current slice
-    int fmSliceEndFrame = 1;         // exclusive end frame of current slice
-    bool fmSliceInitialized = false; // whether slice buffers are initialized this buffer
-    float fmDepthSlicePrev[kFMTargetCount][kFMSourceCount];
-    float fmDepthSliceCurr[kFMTargetCount][kFMSourceCount];
+    // Block-level caches to avoid per-sample atomics
+    int cachedActiveOscCount = OSCILLATORS_PER_VOICE;
+    int cachedActiveSamplerCount = SAMPLERS_PER_VOICE;
+    bool cachedAnySolo = false;
+    bool cachedOscSolo[OSCILLATORS_PER_VOICE]{};
+    bool cachedOscMuted[OSCILLATORS_PER_VOICE]{};
+    bool cachedSamplerSolo[SAMPLERS_PER_VOICE]{};
+    bool cachedSamplerMuted[SAMPLERS_PER_VOICE]{};
+    bool cachedChaosSolo[4]{};
+
+    float envelopeTargets[4]{};
+    float cachedFmGlobalDepthBase = 0.0f;
 
     Voice(float sampleRate)
         : active(false)

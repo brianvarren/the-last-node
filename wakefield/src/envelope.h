@@ -32,6 +32,8 @@ public:
     
     // Advance envelope by one sample and return current level
     float process();
+    // Advance envelope by a block of samples and return level at block end
+    float processBlock(unsigned int samples);
     
     // Get current state
     EnvelopeStage getStage() const { return stage; }
