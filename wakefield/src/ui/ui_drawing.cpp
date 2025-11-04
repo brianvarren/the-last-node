@@ -360,7 +360,7 @@ void UI::draw(int activeVoices) {
 
         const char* label = nullptr;
         if (numericInputIsMod) {
-            label = "Modulation Amount (-99 to 99)";
+            label = "Modulation Amt (-99 to 99)";
         } else if (numericInputIsSequencer) {
             switch (sequencerNumericContext.field) {
                 case SequencerNumericField::NOTE: label = "MIDI Note / Name"; break;

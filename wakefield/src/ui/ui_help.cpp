@@ -208,7 +208,7 @@ Currently, Envelope 1 drives the primary amplitude envelope for each voice.
 CONTROLS:
   Tab/Shift+Tab  - Navigate between pages
   Up/Down        - Navigate modulation slots (1-16)
-  Left/Right     - Navigate columns (Dest/Source/Curve/Amount/Type)
+  Left/Right     - Navigate columns (Dest/Source/Map/Amt/Type)
   Enter          - Open selection menu for current column
   X or C         - Clear current modulation slot
   g/G            - Randomize current slot / all slots
@@ -218,8 +218,8 @@ CONTROLS:
 MODULATION ROUTING:
   Destination - Target parameter (Oscillators, Samplers, LFOs, Filter, etc.)
   Source      - Modulation source (LFOs, ENVs, Chaos, MIDI controls, Clock)
-  Curve       - Modulation curve (Linear, Exponential, Logarithmic, S-Curve)
-  Amount      - Modulation depth (-99 to +99)
+  Map         - Mapping curve (Linear, Exponential, Logarithmic, S-Curve)
+  Amt         - Modulation depth (-99 to +99)
   Type        - Unidirectional (-->) or Bidirectional (<->)
 
 SOURCES:
@@ -246,7 +246,7 @@ WORKFLOW:
 1. Navigate to an empty slot with Up/Down
 2. Press Enter (on any column) to start quick create
 3. Choose Destination, then choose Source
-4. Defaults are set automatically: Curve=Linear, Amount=99, Type=-->
+4. Defaults are set automatically: Map=Linear, Amt=99, Type=-->
 5. Optionally adjust Curve/Amount/Type after assignment
 6. Press X or C to clear a slot if you want to start over
 

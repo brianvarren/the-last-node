@@ -249,7 +249,7 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
 void UI::drawModPage() {
     // Columns (left-to-right): Slot | Destination | Source | Curve | Amount | Type
     // Tight widths for Slot/Curve/Amount/Type to maximize space for Destination/Source
-    static const char* headers[] = {"Slot", "Destination", "Source", "Curve", "Amount", "Type"};
+    static const char* headers[] = {"Slot", "Destination", "Source", "Map", "Amt", "Type"};
     static const int headerCols[] = {2, 8, 44, 69, 73, 78};
     static const int colWidths[]  = {4, 34, 23, 3, 4, 3};
     constexpr int slotCount = 16;
@@ -284,8 +284,23 @@ void UI::drawModPage() {
         std::string cellValues[columnCount];
 
         // Format cell values based on stored data (Destination first, then Source)
-        cellValues[0] = (modSlot.destination >= 0 && modSlot.destination < static_cast<int>(destinations.size()))
-                        ? destinations[modSlot.destination].displayName : "--";
+        if (modSlot.destination >= 0 && modSlot.destination < static_cast<int>(destinations.size())) {
+            int mIdx = -1, pIdx = -1;
+            if (getModuleParamFromDestinationIndex(modSlot.destination, mIdx, pIdx)) {
+                if (mIdx >= 0 && mIdx < static_cast<int>(destinationModules.size())) {
+                    const auto& mod = destinationModules[mIdx];
+                    if (pIdx >= 0 && pIdx < static_cast<int>(mod.options.size())) {
+                        std::string composed = std::string(mod.name) + ": " + mod.options[pIdx].displayName;
+                        cellValues[0] = composed;
+                    }
+                }
+            }
+            if (cellValues[0].empty()) {
+                cellValues[0] = destinations[modSlot.destination].displayName; // fallback
+            }
+        } else {
+            cellValues[0] = "--";
+        }
         cellValues[1] = (modSlot.source >= 0 && modSlot.source < static_cast<int>(sources.size()))
                         ? sources[modSlot.source].displayName : "--";
         cellValues[2] = (modSlot.curve >= 0 && modSlot.curve < static_cast<int>(curves.size()))
@@ -337,7 +352,7 @@ void UI::drawModPage() {
 
             if (modMatrixMenuColumn == 2) {
                 options = &curves;
-                title = "Select Curve";
+                title = "Select Map";
             } else if (modMatrixMenuColumn == 4) {
                 options = &types;
                 title = "Select Type";
