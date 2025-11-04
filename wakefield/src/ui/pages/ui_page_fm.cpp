@@ -24,14 +24,19 @@ void UI::drawFMPage() {
 
     // Column labels (targets) with clear abbreviations
     mvprintw(row, 2, "SOURCE");
-    attron(COLOR_SECTION_HEADER);
-    mvprintw(row, 12, "TARGETS:");
-    attroff(COLOR_SECTION_HEADER);
-    row++;
     const int cellStartCol = 12;
     const int cellStride = 6; // widen cells for clearer labels/values
+    const char* targetLabels[] = {"OSC1","OSC2","OSC3","OSC4","SMP1","SMP2","SMP3","SMP4"};
+    // Draw header "TARGETS:" and individual labels aligned with cells
     attron(COLOR_SECTION_HEADER);
-    mvprintw(row, cellStartCol, " OSC1 OSC2 OSC3 OSC4 SMP1 SMP2 SMP3 SMP4");
+    mvprintw(row, cellStartCol, "TARGETS:");
+    attroff(COLOR_SECTION_HEADER);
+    row++;
+    attron(COLOR_SECTION_HEADER);
+    for (int target = 0; target < kFMTargetCount; ++target) {
+        int labelCol = cellStartCol + target * cellStride;
+        mvprintw(row, labelCol, "%5s", targetLabels[target]);
+    }
     attroff(COLOR_SECTION_HEADER);
     row += 2;
 
@@ -54,20 +59,20 @@ void UI::drawFMPage() {
             int depthPercent = static_cast<int>(std::round(depth * 100.0f));
             depthPercent = std::max(-99, std::min(99, depthPercent));
 
-            // Check if this cell is selected
-            bool isSelected = (fmMatrixCursorRow == source && fmMatrixCursorCol == target);
+            // Check if this cell is selected (only when matrix has focus)
+            bool isSelected = (fmFocusArea == 0 && fmMatrixCursorRow == source && fmMatrixCursorCol == target);
 
             bool isNonZero = (depthPercent != 0);
 
             bool isLocked = fmMatrixLocked[target][source];
 
-            if (isLocked) {
+            // Selection uses standard highlight; otherwise show status/lock colors
+            if (isSelected) {
+                attron(COLOR_SELECTION | A_BOLD);
+            } else if (isLocked) {
                 attron(COLOR_LOCKED);
             } else if (isNonZero) {
                 attron(COLOR_STATUS_ACTIVE);
-            }
-            if (isSelected) {
-                attron(A_REVERSE);
             }
 
             if (isLocked) {
@@ -77,9 +82,8 @@ void UI::drawFMPage() {
             }
 
             if (isSelected) {
-                attroff(A_REVERSE);
-            }
-            if (isLocked) {
+                attroff(COLOR_SELECTION | A_BOLD);
+            } else if (isLocked) {
                 attroff(COLOR_LOCKED);
             } else if (isNonZero) {
                 attroff(COLOR_STATUS_ACTIVE);
@@ -90,14 +94,14 @@ void UI::drawFMPage() {
 
     // Global Depth control (standalone parameter below matrix)
     row += 1;
-    // Draw a small focus indicator when selected
-    if (fmFocusArea == 2) {
-        mvaddch(row, 1, '>');
-    } else {
-        mvaddch(row, 1, ' ');
-    }
     float gdepth = params ? params->fmGlobalDepth.load() : 0.0f;
     drawBar(row, 2, "Global Depth", gdepth, 0.0f, 1.0f, 40);
+    // Overlay highlight on the label when focused
+    if (fmFocusArea == 2) {
+        attron(COLOR_SELECTION | A_BOLD);
+        mvprintw(row, 2, "Global Depth");
+        attroff(COLOR_SELECTION | A_BOLD);
+    }
 
     // Legend / hints
     attron(COLOR_HINT);
