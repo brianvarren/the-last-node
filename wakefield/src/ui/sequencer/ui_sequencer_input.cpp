@@ -56,6 +56,16 @@ bool UI::handleSequencerInput(int ch) {
     };
 
     switch (ch) {
+        case KEY_DC:           // Delete key: clear selected step
+        case KEY_BACKSPACE:    // Backspace: clear selected step
+        case 127: {            // Some terminals send 127 for backspace
+            if (!sequencerFocusActionsPane && !sequencerFocusRightPane) {
+                PatternStep& step = pattern.getStep(sequencerSelectedRow);
+                step.active = false;
+                return true;
+            }
+            break;
+        }
         case KEY_SR:
         case KEY_UP:
             if (sequencerFocusActionsPane) {

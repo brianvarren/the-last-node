@@ -213,6 +213,8 @@ void UI::drawHotkeyLine() {
             mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  -/= Adjust  |  _/+ Fine  |  g/G Rand  |  m/M Mut  |  Enter Type  |  l Lock  |  R Reset  |  Q Quit");
         } else if (currentPage == UIPage::MOD) {
             mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  Enter Edit  |  g/G Rand  |  m/M Mut  |  l Lock Slot  |  Q Quit");
+        } else if (currentPage == UIPage::SEQUENCER) {
+            mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  -/= Adjust  |  _/+ Fine  |  Enter Type  |  Backspace/Delete Clear Step  |  Q Quit");
         } else {
             mvprintw(row, 1, "Tab Page  |  Arrows Nav  |  -/= Adjust  |  _/+ Fine  |  g/G Rand  |  m/M Mut  |  Enter Type  |  l Lock  |  L Learn  |  R Reset  |  Q Quit");
         }
