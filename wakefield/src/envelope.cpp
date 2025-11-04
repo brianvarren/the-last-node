@@ -6,29 +6,31 @@ Envelope::Envelope(float sampleRate)
     : sampleRate(sampleRate)
     , stage(EnvelopeStage::OFF)
     , level(0.0f)
-    , stageProgress(0.0f)
     , attackTime(0.01f)      // 10ms default attack
     , decayTime(0.1f)        // 100ms default decay
     , sustainLevel(0.7f)     // 70% sustain level
     , releaseTime(0.2f)      // 200ms default release
     , attackBend(0.5f)       // Linear by default
     , releaseBend(0.5f)      // Linear by default
-    , attackRate(0.0)
-    , decayRate(0.0)
-    , releaseRate(0.0)
+    , alphaAttack(1.0f)
+    , alphaDecay(1.0f)
+    , alphaRelease(1.0f)
+    , attackSamples(0)
+    , decaySamples(0)
+    , releaseSamples(0)
+    , stageSamplesLeft(0)
     , attackStartLevel(0.0f)
     , releaseStartLevel(0.0f) {
-
     calculateRates();
 }
 
 void Envelope::setAttack(float seconds) {
-    attackTime = std::max(0.001f, seconds);  // Minimum 1ms
+    attackTime = std::max(0.0001f, seconds);  // Minimum 0.1ms
     calculateRates();
 }
 
 void Envelope::setDecay(float seconds) {
-    decayTime = std::max(0.001f, seconds);
+    decayTime = std::max(0.0001f, seconds);
     calculateRates();
 }
 
@@ -37,50 +39,82 @@ void Envelope::setSustain(float level) {
 }
 
 void Envelope::setRelease(float seconds) {
-    releaseTime = std::max(0.001f, seconds);
+    releaseTime = std::max(0.0001f, seconds);
     calculateRates();
 }
 
 void Envelope::setAttackBend(float bend) {
     attackBend = std::clamp(bend, 0.0f, 1.0f);
+    calculateRates();
 }
 
 void Envelope::setReleaseBend(float bend) {
     releaseBend = std::clamp(bend, 0.0f, 1.0f);
+    calculateRates();
 }
 
 void Envelope::calculateRates() {
-    auto timeToRate = [&](float timeSeconds) -> double {
-        if (timeSeconds <= 0.0f) {
-            return 1.0;  // Instant stage
-        }
-        return 1.0 / (static_cast<double>(timeSeconds) * static_cast<double>(sampleRate));
+    // Map time (seconds) to a per-sample alpha so that we reach ~99% of the target at the given time.
+    // alpha = 1 - exp(-ln(100)/(time*fs)) with alpha clamped to [0,1].
+    auto timeToAlpha = [&](float timeSeconds) -> float {
+        if (timeSeconds <= 0.0f) return 1.0f;  // instant
+        float denom = timeSeconds * sampleRate;
+        float k = 4.605170186f; // ln(100)
+        float a = 1.0f - std::exp(-k / denom);
+        if (a < 0.0f) a = 0.0f; if (a > 1.0f) a = 1.0f;
+        return a;
     };
 
-    attackRate = timeToRate(attackTime);
-    decayRate = timeToRate(decayTime);
-    releaseRate = timeToRate(releaseTime);
+    auto bendScale = [&](float bend) -> float { return bendToScale(bend); };
+
+    float baseAttack = timeToAlpha(attackTime);
+    float baseDecay  = timeToAlpha(decayTime);
+    float baseRelease= timeToAlpha(releaseTime);
+
+    float atkScale = bendScale(attackBend);
+    float relScale = bendScale(releaseBend);
+
+    // Adjust alpha by shaping: alpha_eff = 1 - (1 - alpha)^(scale)
+    auto shapeAlpha = [](float a, float s) -> float {
+        a = std::clamp(a, 0.0f, 1.0f);
+        s = std::max(0.05f, s);
+        float oneMinus = 1.0f - a;
+        float shaped = 1.0f - std::pow(oneMinus, s);
+        return std::clamp(shaped, 0.0f, 1.0f);
+    };
+
+    alphaAttack  = shapeAlpha(baseAttack, atkScale);
+    alphaDecay   = shapeAlpha(baseDecay,  relScale);
+    alphaRelease = shapeAlpha(baseRelease,relScale);
+
+    attackSamples  = std::max(0, static_cast<int>(std::round(attackTime  * sampleRate)));
+    decaySamples   = std::max(0, static_cast<int>(std::round(decayTime   * sampleRate)));
+    releaseSamples = std::max(0, static_cast<int>(std::round(releaseTime * sampleRate)));
+}
+
+float Envelope::bendToScale(float bend) {
+    // 0.5 = neutral ~1x, <0.5 slows (0.25x), >0.5 speeds (4x). Smooth, monotonic mapping.
+    float t = std::clamp(bend, 0.0f, 1.0f);
+    return std::pow(2.0f, (t - 0.5f) * 4.0f); // 0.25 .. 4.0
 }
 
 void Envelope::noteOn(bool fromCurrentLevel) {
     stage = EnvelopeStage::ATTACK;
     if (fromCurrentLevel) {
-        // Smooth retriggering: start attack from current level (for voice stealing)
-        attackStartLevel = level;
+        attackStartLevel = level; // smooth retrigger from current level
     } else {
-        // Normal retrigger: start from zero
         attackStartLevel = 0.0f;
         level = 0.0f;
     }
-    stageProgress = 0.0f;
+    stageSamplesLeft = attackSamples;
 }
 
 void Envelope::noteOff() {
     // Enter release stage
     stage = EnvelopeStage::RELEASE;
-    stageProgress = 0.0f;
     releaseStartLevel = level;
-    if (releaseRate >= 1.0f) {
+    stageSamplesLeft = releaseSamples;
+    if (alphaRelease >= 1.0f || releaseSamples == 0) {
         // Instant release
         level = 0.0f;
         stage = EnvelopeStage::OFF;
@@ -90,26 +124,9 @@ void Envelope::noteOff() {
 void Envelope::reset() {
     stage = EnvelopeStage::OFF;
     level = 0.0f;
-    stageProgress = 0.0f;
     attackStartLevel = 0.0f;
     releaseStartLevel = 0.0f;
-}
-
-float Envelope::applyBend(float progress, float bend) const {
-    // progress: 0 to 1 (linear time progress)
-    // bend: 0 to 1, where 0.5 = linear, <0.5 = concave (slow start), >0.5 = convex (fast start)
-
-    if (bend == 0.5f) {
-        return progress;  // Linear, no bend
-    }
-
-    // Map bend from [0, 1] to an exponent
-    // bend = 0.0 -> exp = 0.1 (very concave)
-    // bend = 0.5 -> exp = 1.0 (linear)
-    // bend = 1.0 -> exp = 10.0 (very convex)
-    float exponent = std::pow(10.0f, (bend - 0.5f) * 2.0f);
-
-    return std::pow(progress, exponent);
+    stageSamplesLeft = 0;
 }
 
 float Envelope::process() {
@@ -119,29 +136,35 @@ float Envelope::process() {
             break;
 
         case EnvelopeStage::ATTACK:
-            stageProgress += attackRate;
-            if (stageProgress >= 1.0f) {
+            if (attackSamples == 0 || alphaAttack >= 1.0f) {
                 level = 1.0f;
                 stage = EnvelopeStage::DECAY;
-                stageProgress = 0.0f;
+                stageSamplesLeft = decaySamples;
             } else {
-                float progress = static_cast<float>(std::clamp(stageProgress, 0.0, 1.0));
-                float bentProgress = applyBend(progress, attackBend);
-                // Interpolate from attackStartLevel to 1.0 (supports smooth retriggering)
-                level = attackStartLevel + (1.0f - attackStartLevel) * bentProgress;
+                // One-pole toward 1.0
+                float target = 1.0f;
+                // Ensure smooth retrigger start
+                if (level < attackStartLevel) level = attackStartLevel;
+                level += (target - level) * alphaAttack;
+                if (--stageSamplesLeft <= 0 || (target - level) < 1e-6f) {
+                    level = target;
+                    stage = EnvelopeStage::DECAY;
+                    stageSamplesLeft = decaySamples;
+                }
             }
             break;
 
         case EnvelopeStage::DECAY:
-            stageProgress += decayRate;
-            if (stageProgress >= 1.0f) {
+            if (decaySamples == 0 || alphaDecay >= 1.0f) {
                 level = sustainLevel;
                 stage = EnvelopeStage::SUSTAIN;
-                stageProgress = 0.0f;
             } else {
-                float progress = static_cast<float>(std::clamp(stageProgress, 0.0, 1.0));
-                float bentProgress = applyBend(progress, releaseBend);
-                level = 1.0f + (sustainLevel - 1.0f) * bentProgress;
+                float target = sustainLevel;
+                level += (target - level) * alphaDecay;
+                if (--stageSamplesLeft <= 0 || std::fabs(target - level) < 1e-6f) {
+                    level = target;
+                    stage = EnvelopeStage::SUSTAIN;
+                }
             }
             break;
 
@@ -151,24 +174,22 @@ float Envelope::process() {
             break;
 
         case EnvelopeStage::RELEASE: {
-            stageProgress += releaseRate;
-            if (stageProgress >= 1.0f) {
+            if (releaseSamples == 0 || alphaRelease >= 1.0f) {
                 level = 0.0f;
                 stage = EnvelopeStage::OFF;
-                stageProgress = 0.0f;
             } else {
-                float progress = static_cast<float>(std::clamp(stageProgress, 0.0, 1.0));
-                float bentProgress = applyBend(progress, releaseBend);
-                level = releaseStartLevel * (1.0f - bentProgress);
-                if (level <= 0.0001f) {
+                float target = 0.0f;
+                level += (target - level) * alphaRelease;
+                if (--stageSamplesLeft <= 0 || level < 1e-6f) {
                     level = 0.0f;
                     stage = EnvelopeStage::OFF;
-                    stageProgress = 0.0f;
                 }
             }
             break;
         }
     }
 
+    // Denormal guard
+    if (std::fabs(level) < 1e-12f) level = 0.0f;
     return level;
 }

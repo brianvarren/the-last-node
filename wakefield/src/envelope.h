@@ -40,7 +40,6 @@ private:
     float sampleRate;
     EnvelopeStage stage;
     float level;
-    double stageProgress;  // 0-1 progress through current stage (for bend calculation)
     
     // ADSR parameters
     float attackTime;
@@ -51,19 +50,22 @@ private:
     // Bend/curve parameters (0.5 = linear, <0.5 = concave, >0.5 = convex)
     float attackBend;
     float releaseBend;
-
-    // Rates (increment per sample)
-    double attackRate;
-    double decayRate;
-    double releaseRate;
+    // Precomputed per-sample smoothing coefficients (radically efficient core)
+    float alphaAttack;
+    float alphaDecay;
+    float alphaRelease;
+    // Stage sample counters for precise stage transitions
+    int attackSamples;
+    int decaySamples;
+    int releaseSamples;
+    int stageSamplesLeft;  // decremented per sample during A/D/R
     float attackStartLevel;   // Level to start attack from (for smooth retriggering)
     float releaseStartLevel;
 
     // Calculate rates from times
     void calculateRates();
-
-    // Apply bend curve to a linear 0-1 progress value
-    float applyBend(float progress, float bend) const;
+    // Map bend [0..1] to a shape scale (>1 = faster, <1 = slower)
+    static float bendToScale(float bend);
 };
 
 #endif // ENVELOPE_H
