@@ -247,12 +247,13 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
 } // namespace
 
 void UI::drawModPage() {
-    static const char* headers[] = {"Slot", "Source", "Curve", "Amount", "Destination", "Type"};
-    // Layout: expand Source/Destination, keep Type at right edge
-    static const int headerCols[] = {2, 8, 36, 42, 52, 78};
-    static const int colWidths[] = {4, 28, 4, 8, 26, 6};
+    // Columns (left-to-right): Slot | Destination | Source | Curve | Amount | Type
+    // Tight widths for Slot/Curve/Amount/Type to maximize space for Destination/Source
+    static const char* headers[] = {"Slot", "Destination", "Source", "Curve", "Amount", "Type"};
+    static const int headerCols[] = {2, 8, 44, 69, 73, 78};
+    static const int colWidths[]  = {4, 34, 23, 3, 4, 3};
     constexpr int slotCount = 16;
-    constexpr int columnCount = 5;  // Source..Type
+    constexpr int columnCount = 5;  // Destination..Type
 
     const auto& sources = getModSourceOptions();
     const auto& curves = getModCurveOptions();
@@ -282,15 +283,15 @@ void UI::drawModPage() {
         const ModulationSlot& modSlot = modulationSlots[slot];
         std::string cellValues[columnCount];
 
-        // Format cell values based on stored data
-        cellValues[0] = (modSlot.source >= 0 && modSlot.source < static_cast<int>(sources.size()))
-                        ? sources[modSlot.source].displayName : "--";
-        cellValues[1] = (modSlot.curve >= 0 && modSlot.curve < static_cast<int>(curves.size()))
-                        ? curves[modSlot.curve].symbol : "--"; // LIN/EXP/LOG/S
-        cellValues[2] = (modSlot.amount != 0 || modSlot.isComplete())
-                        ? std::to_string(static_cast<int>(modSlot.amount)) : "--";
-        cellValues[3] = (modSlot.destination >= 0 && modSlot.destination < static_cast<int>(destinations.size()))
+        // Format cell values based on stored data (Destination first, then Source)
+        cellValues[0] = (modSlot.destination >= 0 && modSlot.destination < static_cast<int>(destinations.size()))
                         ? destinations[modSlot.destination].displayName : "--";
+        cellValues[1] = (modSlot.source >= 0 && modSlot.source < static_cast<int>(sources.size()))
+                        ? sources[modSlot.source].displayName : "--";
+        cellValues[2] = (modSlot.curve >= 0 && modSlot.curve < static_cast<int>(curves.size()))
+                        ? curves[modSlot.curve].symbol : "--"; // Lin/Exp/Log/S
+        cellValues[3] = (modSlot.amount != 0 || modSlot.isComplete())
+                        ? std::to_string(static_cast<int>(modSlot.amount)) : "--";
         cellValues[4] = (modSlot.type >= 0 && modSlot.type < static_cast<int>(types.size()))
                         ? types[modSlot.type].symbol : "--";
 
@@ -317,7 +318,7 @@ void UI::drawModPage() {
 
     // Draw selection menu if active
     if (modMatrixMenuActive) {
-        if (modMatrixMenuColumn == 3) {
+        if (modMatrixMenuColumn == 0) {
             const ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
             SelectionHighlight highlight = getCurrentDestinationHighlight(slot.destination);
             drawDestinationPicker(destinationModules,
@@ -325,7 +326,7 @@ void UI::drawModPage() {
                                   modMatrixDestinationParamIndex,
                                   modMatrixDestinationFocusColumn,
                                   highlight);
-        } else if (modMatrixMenuColumn == 0) {
+        } else if (modMatrixMenuColumn == 1) {
             // Source picker - large two-column view
             const ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
             drawSourcePicker(sources, modMatrixMenuIndex, slot.source);
@@ -334,7 +335,7 @@ void UI::drawModPage() {
             const std::vector<ModOption>* options = nullptr;
             const char* title = "";
 
-            if (modMatrixMenuColumn == 1) {
+            if (modMatrixMenuColumn == 2) {
                 options = &curves;
                 title = "Select Curve";
             } else if (modMatrixMenuColumn == 4) {

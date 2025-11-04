@@ -624,8 +624,8 @@ void UI::handleInput(int ch) {
                 return;
             case '\n':
             case KEY_ENTER:
-                // Column 2 is Amount - use numeric input
-                if (modMatrixCursorCol == 2) {
+                // Column 3 is Amount - use numeric input (after reordering)
+                if (modMatrixCursorCol == 3) {
                     startModMatrixAmountInput();
                 } else {
                     // All other columns use menu selection

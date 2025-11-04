@@ -8,15 +8,25 @@ void UI::startModMatrixMenu() {
     modMatrixMenuColumn = modMatrixCursorCol;
     modMatrixMenuActive = true;
 
-    const ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+    ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
 
-    if (modMatrixMenuColumn == 0) {
+    // New-connection workflow defaults: Linear / 99 / -->, start at Destination picker
+    bool isNew = (slot.source == -1 && slot.curve == -1 && slot.destination == -1 && slot.type == -1);
+    if (isNew) {
+        slot.curve = 0;   // Linear
+        slot.amount = 99; // Default depth
+        slot.type = 0;    // Unidirectional (-->)
+        modMatrixMenuColumn = 0; // Force Destination first
+        modMatrixCursorCol = 0;
+    }
+
+    if (modMatrixMenuColumn == 1) { // Source
         modMatrixMenuIndex = (slot.source >= 0) ? slot.source : 0;
-    } else if (modMatrixMenuColumn == 1) {
+    } else if (modMatrixMenuColumn == 2) { // Curve
         modMatrixMenuIndex = (slot.curve >= 0) ? slot.curve : 0;
-    } else if (modMatrixMenuColumn == 4) {
+    } else if (modMatrixMenuColumn == 4) { // Type
         modMatrixMenuIndex = (slot.type >= 0) ? slot.type : 0;
-    } else if (modMatrixMenuColumn == 3) {
+    } else if (modMatrixMenuColumn == 0) { // Destination picker
         const auto& modules = getModDestinationModules();
         if (!modules.empty()) {
             int moduleIndex = 0;
@@ -47,7 +57,7 @@ void UI::startModMatrixMenu() {
 void UI::handleModMatrixMenuInput(int ch) {
     if (!modMatrixMenuActive) return;
 
-    if (modMatrixMenuColumn == 3) {
+    if (modMatrixMenuColumn == 0) {
         const auto& modules = getModDestinationModules();
         if (modules.empty()) {
             finishModMatrixMenu(false);
@@ -127,9 +137,9 @@ void UI::handleModMatrixMenuInput(int ch) {
 
     // Get the appropriate option list for the current column
     const std::vector<ModOption>* options = nullptr;
-    if (modMatrixMenuColumn == 0) {
+    if (modMatrixMenuColumn == 1) {
         options = &getModSourceOptions();
-    } else if (modMatrixMenuColumn == 1) {
+    } else if (modMatrixMenuColumn == 2) {
         options = &getModCurveOptions();
     } else if (modMatrixMenuColumn == 4) {
         options = &getModTypeOptions();
@@ -174,18 +184,18 @@ void UI::finishModMatrixMenu(bool applySelection) {
         ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
 
         // Apply the selected value to the appropriate field
-        if (modMatrixMenuColumn == 0) {
+        if (modMatrixMenuColumn == 1) {
             slot.source = modMatrixMenuIndex;
-        } else if (modMatrixMenuColumn == 1) {
+        } else if (modMatrixMenuColumn == 2) {
             slot.curve = modMatrixMenuIndex;
-        } else if (modMatrixMenuColumn == 3) {
+        } else if (modMatrixMenuColumn == 0) {
             int destinationIndex = getDestinationIndexFromModule(
                 modMatrixDestinationModuleIndex, modMatrixDestinationParamIndex);
             if (destinationIndex >= 0) {
                 slot.destination = destinationIndex;
-                // Set default bidirectional type if not already set
+                // Ensure default unidirectional type if not already set
                 if (slot.type == -1) {
-                    slot.type = 1;  // 1 = Bidirectional (<->)
+                    slot.type = 0;  // 0 = Unidirectional (-->)
                 }
             }
         } else if (modMatrixMenuColumn == 4) {
@@ -194,29 +204,25 @@ void UI::finishModMatrixMenu(bool applySelection) {
 
         modMatrixMenuActive = false;
 
-        // Check if slot is still incomplete and advance to next empty field ("bus" workflow)
+        // Streamlined creation: after picking Destination, jump to Source if unset
+        if (modMatrixMenuColumn == 0 && slot.source == -1) {
+            modMatrixCursorCol = 1; // Source column
+            startModMatrixMenu();
+            return;
+        }
+
+        // Generic completion order (Destination -> Source -> Curve -> Amount -> Type)
         if (!slot.isComplete()) {
-            // Find next empty field in order: Source -> Curve -> Amount -> Dest -> Type
-            if (slot.source == -1) {
-                modMatrixCursorCol = 0;
-                startModMatrixMenu();
-                return;
+            if (slot.destination == -1) {
+                modMatrixCursorCol = 0; startModMatrixMenu(); return;
+            } else if (slot.source == -1) {
+                modMatrixCursorCol = 1; startModMatrixMenu(); return;
             } else if (slot.curve == -1) {
-                modMatrixCursorCol = 1;
-                startModMatrixMenu();
-                return;
-            } else if (slot.amount == 0 && modMatrixMenuColumn != 2) {
-                modMatrixCursorCol = 2;
-                startModMatrixAmountInput();
-                return;
-            } else if (slot.destination == -1) {
-                modMatrixCursorCol = 3;
-                startModMatrixMenu();
-                return;
+                modMatrixCursorCol = 2; startModMatrixMenu(); return;
+            } else if (slot.amount == 0 && modMatrixMenuColumn != 3) {
+                modMatrixCursorCol = 3; startModMatrixAmountInput(); return;
             } else if (slot.type == -1) {
-                modMatrixCursorCol = 4;
-                startModMatrixMenu();
-                return;
+                modMatrixCursorCol = 4; startModMatrixMenu(); return;
             }
         }
     } else {
@@ -249,24 +255,16 @@ void UI::finishModMatrixAmountInput() {
     numericInputIsMod = false;
     numericInputBuffer.clear();
 
-    // Continue bus workflow if slot still incomplete
+    // Continue workflow if slot still incomplete (new column order)
     if (!slot.isComplete()) {
-        if (slot.source == -1) {
-            modMatrixCursorCol = 0;
-            startModMatrixMenu();
-            return;
+        if (slot.destination == -1) {
+            modMatrixCursorCol = 0; startModMatrixMenu(); return;
+        } else if (slot.source == -1) {
+            modMatrixCursorCol = 1; startModMatrixMenu(); return;
         } else if (slot.curve == -1) {
-            modMatrixCursorCol = 1;
-            startModMatrixMenu();
-            return;
-        } else if (slot.destination == -1) {
-            modMatrixCursorCol = 3;
-            startModMatrixMenu();
-            return;
+            modMatrixCursorCol = 2; startModMatrixMenu(); return;
         } else if (slot.type == -1) {
-            modMatrixCursorCol = 4;
-            startModMatrixMenu();
-            return;
+            modMatrixCursorCol = 4; startModMatrixMenu(); return;
         }
     }
 }

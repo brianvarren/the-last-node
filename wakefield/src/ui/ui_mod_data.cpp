@@ -15,8 +15,8 @@ struct ModuleData {
 const std::vector<ModOption>& buildSources() {
     static const std::vector<ModOption> sources = {
         {"LFO 1", "LFO1"}, {"LFO 2", "LFO2"}, {"LFO 3", "LFO3"}, {"LFO 4", "LFO4"},
-        {"ENV 1", "ENV1"}, {"ENV 2", "ENV2"}, {"ENV 3", "ENV3"}, {"ENV 4", "ENV4"},
-        {"MIDI Note", "Note"}, {"Velocity", "Vel"}, {"Aftertouch", "AT"}, {"Mod Wheel", "MW"}, {"Pitch Bend", "PB"},
+        {"Envelope 1", "ENV1"}, {"Envelope 2", "ENV2"}, {"Envelope 3", "ENV3"}, {"Envelope 4", "ENV4"},
+        {"MIDI Note", "Note"}, {"Velocity", "Vel"}, {"Aftertouch", "AT"}, {"MIDI Mod Wheel", "MW"}, {"Pitch Bend", "PB"},
         {"Clock", "Clk"},
         {"Chaos 1 X", "C1X"}, {"Chaos 1 Y", "C1Y"},
         {"Chaos 2 X", "C2X"}, {"Chaos 2 Y", "C2Y"},
@@ -139,11 +139,11 @@ const std::vector<ModuleData>& buildDestinationModules() {
             {"Rate", "L4:Rate"}, {"Morph", "L4:Morph"}, {"Duty", "L4:Duty"}
         }},
         {"Mixer", {
-            {"Master Volume", "Mix:Mst"}, {"OSC 1 Level", "Mix:O1"},
-            {"OSC 2 Level", "Mix:O2"}, {"OSC 3 Level", "Mix:O3"},
-            {"OSC 4 Level", "Mix:O4"}, {"SAMP 1 Level", "Mix:S1"},
-            {"SAMP 2 Level", "Mix:S2"}, {"SAMP 3 Level", "Mix:S3"},
-            {"SAMP 4 Level", "Mix:S4"}
+            {"Master Volume", "Mix:Mst"}, {"Oscillator 1 Level", "Mix:O1"},
+            {"Oscillator 2 Level", "Mix:O2"}, {"Oscillator 3 Level", "Mix:O3"},
+            {"Oscillator 4 Level", "Mix:O4"}, {"Sampler 1 Level", "Mix:S1"},
+            {"Sampler 2 Level", "Mix:S2"}, {"Sampler 3 Level", "Mix:S3"},
+            {"Sampler 4 Level", "Mix:S4"}
         }},
         {"Clock Targets", {
             {"Seq Track 1 Phase", "Clk:T1"}, {"Seq Track 2 Phase", "Clk:T2"},
