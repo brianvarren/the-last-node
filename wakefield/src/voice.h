@@ -67,6 +67,15 @@ struct Voice {
     // Buffer size for audio-rate interpolation (set per buffer)
     unsigned int currentBufferSize;
 
+    // Sub-buffer FM depth modulation slices (option B)
+    static constexpr int kFmDepthSlices = 8;
+    int fmSliceInterval = 1;         // frames per slice
+    int fmSliceStartFrame = 0;       // inclusive start frame of current slice
+    int fmSliceEndFrame = 1;         // exclusive end frame of current slice
+    bool fmSliceInitialized = false; // whether slice buffers are initialized this buffer
+    float fmDepthSlicePrev[kFMTargetCount][kFMSourceCount];
+    float fmDepthSliceCurr[kFMTargetCount][kFMSourceCount];
+
     Voice(float sampleRate)
         : active(false)
         , note(-1)

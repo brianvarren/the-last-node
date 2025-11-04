@@ -503,6 +503,13 @@ float Synth::getVoiceEnvelopeValue(int voiceIndex) const {
     return voices[voiceIndex].getEnvelopeValue();
 }
 
+float Synth::getVoiceEnvelopeValue(int voiceIndex, int envIndex) const {
+    if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) {
+        return 0.0f;
+    }
+    return voices[voiceIndex].getEnvelopeValue(envIndex);
+}
+
 int Synth::getVoiceNote(int voiceIndex) const {
     if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) {
         return -1;

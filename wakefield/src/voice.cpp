@@ -63,7 +63,6 @@ float Voice::generateSample(unsigned int frameIndex) {
     }
 
     // Determine FM input for each oscillator using previous outputs (1-sample delay)
-    (void)frameIndex;  // No per-sample chaos FM routing in this configuration.
     // FM matrix Targets: OSC1-4 (0-3), SAMP1-4 (4-7)
     // Sources: OSC1-4 (0-3), SAMP1-4 (4-7)
     // OPTIMIZATION: fmDepthMod is now pre-computed per buffer with base + global + voice mod
@@ -133,8 +132,43 @@ float Voice::generateSample(unsigned int frameIndex) {
         // Get global FM depth (base + interpolated modulation) - applies to all FM amounts
         float globalDepth = std::clamp(params->fmGlobalDepth.load() + interpFmGlobalDepthMod, 0.0f, 1.0f);
 
-        // Compute per-sample modulation for FM depths (audio-rate)
-        Synth::ModulationOutputs sampleMod = synth->processModulationMatrix(this);
+        // Initialize sub-buffer FM depth slices at frame 0
+        if (frameIndex == 0 || !fmSliceInitialized) {
+            fmSliceInterval = std::max(1u, currentBufferSize / static_cast<unsigned int>(kFmDepthSlices));
+            fmSliceStartFrame = 0;
+            fmSliceEndFrame = std::min(static_cast<unsigned int>(fmSliceInterval), currentBufferSize - 1);
+            // Fill both prev and curr with current modulation state (will update curr at first boundary)
+            auto sliceOut = synth->processModulationMatrix(this);
+            for (int t = 0; t < kFMTargetCount; ++t) {
+                for (int s = 0; s < kFMSourceCount; ++s) {
+                    fmDepthSlicePrev[t][s] = sliceOut.fmDepth[t][s];
+                    fmDepthSliceCurr[t][s] = sliceOut.fmDepth[t][s];
+                }
+            }
+            fmSliceInitialized = true;
+        }
+
+        // Advance slice boundary and refresh current slice as needed
+        if (static_cast<int>(frameIndex) >= fmSliceEndFrame && fmSliceEndFrame < static_cast<int>(currentBufferSize)) {
+            // Shift curr to prev, compute new curr at this boundary
+            for (int t = 0; t < kFMTargetCount; ++t) {
+                for (int s = 0; s < kFMSourceCount; ++s) {
+                    fmDepthSlicePrev[t][s] = fmDepthSliceCurr[t][s];
+                }
+            }
+            auto sliceOut = synth->processModulationMatrix(this);
+            for (int t = 0; t < kFMTargetCount; ++t) {
+                for (int s = 0; s < kFMSourceCount; ++s) {
+                    fmDepthSliceCurr[t][s] = sliceOut.fmDepth[t][s];
+                }
+            }
+            fmSliceStartFrame = fmSliceEndFrame;
+            fmSliceEndFrame = std::min(fmSliceEndFrame + fmSliceInterval, static_cast<int>(currentBufferSize) - 1);
+        }
+
+        // Compute slice interpolation factor (0..1 within current slice)
+        float sliceSpan = std::max(1, fmSliceEndFrame - fmSliceStartFrame);
+        float sliceT = std::clamp((static_cast<int>(frameIndex) - fmSliceStartFrame) / static_cast<float>(sliceSpan), 0.0f, 1.0f);
 
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
             if (target >= activeOscCount) { fmInputs[target] = 0.0f; continue; }
@@ -146,8 +180,9 @@ float Voice::generateSample(unsigned int frameIndex) {
                 float prevDepth = prevFmDepthMod[target][source];
                 float currDepth = fmDepthMod[target][source];
                 float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
-                // Add per-sample voice modulation
-                depth = std::clamp(depth + sampleMod.fmDepth[target][source], -0.99f, 0.99f);
+                // Add per-slice interpolated voice modulation
+                float add = fmDepthSlicePrev[target][source] + (fmDepthSliceCurr[target][source] - fmDepthSlicePrev[target][source]) * sliceT;
+                depth = std::clamp(depth + add, -0.99f, 0.99f);
                 
                 if (depth != 0.0f) {
                     totalFM += lastOscOutputs[source] * (depth * 100.0f);
@@ -161,9 +196,10 @@ float Voice::generateSample(unsigned int frameIndex) {
                 float prevDepth = prevFmDepthMod[target][targetIdx];
                 float currDepth = fmDepthMod[target][targetIdx];
                 float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
-                // Add per-sample voice modulation
+                // Add per-slice interpolated voice modulation
                 int sourceIdx = kFMOscillatorTargetCount + source;
-                depth = std::clamp(depth + sampleMod.fmDepth[target][sourceIdx], -0.99f, 0.99f);
+                float add = fmDepthSlicePrev[target][sourceIdx] + (fmDepthSliceCurr[target][sourceIdx] - fmDepthSlicePrev[target][sourceIdx]) * sliceT;
+                depth = std::clamp(depth + add, -0.99f, 0.99f);
                 
                 if (depth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);

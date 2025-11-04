@@ -206,14 +206,14 @@ void UI::drawEnvelopePage() {
     int voiceMeterRow = row + 1;
 
     attron(COLOR_SECTION_HEADER);
-    mvprintw(voiceMeterRow++, voiceMeterCol, "VOICE ENVELOPES");
+    mvprintw(voiceMeterRow++, voiceMeterCol, "VOICE ENVELOPES (ENV%d)", currentEnvelopeIndex + 1);
     attroff(COLOR_SECTION_HEADER);
     voiceMeterRow++;
 
     // Draw 8 voice meters (showing envelope level for each voice)
     for (int v = 0; v < 8; ++v) {
         bool active = synth->isVoiceActive(v);
-        float envValue = synth->getVoiceEnvelopeValue(v);
+        float envValue = synth->getVoiceEnvelopeValue(v, currentEnvelopeIndex);
         int note = synth->getVoiceNote(v);
 
         // Voice label

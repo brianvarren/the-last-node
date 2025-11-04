@@ -174,6 +174,7 @@ public:
     // Voice envelope debugging
     bool isVoiceActive(int voiceIndex) const;
     float getVoiceEnvelopeValue(int voiceIndex) const;
+    float getVoiceEnvelopeValue(int voiceIndex, int envIndex) const;
     int getVoiceNote(int voiceIndex) const;
 
     void setOscillatorState(int index, BrainwaveMode mode, int shape,
