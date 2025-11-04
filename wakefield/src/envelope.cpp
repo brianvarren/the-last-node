@@ -18,17 +18,25 @@ Envelope::Envelope(float sampleRate)
     , releaseRate(0.0f)
     , attackStartLevel(0.0f)
     , releaseStartLevel(0.0f) {
+    // Initialize rates and bend tables once
     calculateRates();
+    rebuildBendTables();
 }
 
 void Envelope::setAttack(float seconds) {
-    attackTime = std::max(0.001f, seconds);  // Minimum 1ms
-    calculateRates();
+    float newAttack = std::max(0.001f, seconds);  // Minimum 1ms
+    if (std::fabs(newAttack - attackTime) > 1e-6f) {
+        attackTime = newAttack;
+        calculateRates();
+    }
 }
 
 void Envelope::setDecay(float seconds) {
-    decayTime = std::max(0.001f, seconds);
-    calculateRates();
+    float newDecay = std::max(0.001f, seconds);
+    if (std::fabs(newDecay - decayTime) > 1e-6f) {
+        decayTime = newDecay;
+        calculateRates();
+    }
 }
 
 void Envelope::setSustain(float level) {
@@ -36,18 +44,27 @@ void Envelope::setSustain(float level) {
 }
 
 void Envelope::setRelease(float seconds) {
-    releaseTime = std::max(0.001f, seconds);
-    calculateRates();
+    float newRelease = std::max(0.001f, seconds);
+    if (std::fabs(newRelease - releaseTime) > 1e-6f) {
+        releaseTime = newRelease;
+        calculateRates();
+    }
 }
 
 void Envelope::setAttackBend(float bend) {
-    attackBend = std::clamp(bend, 0.0f, 1.0f);
-    rebuildBendTables();
+    float newBend = std::clamp(bend, 0.0f, 1.0f);
+    if (std::fabs(newBend - attackBend) > 1e-6f) {
+        attackBend = newBend;
+        rebuildBendTables();
+    }
 }
 
 void Envelope::setReleaseBend(float bend) {
-    releaseBend = std::clamp(bend, 0.0f, 1.0f);
-    rebuildBendTables();
+    float newBend = std::clamp(bend, 0.0f, 1.0f);
+    if (std::fabs(newBend - releaseBend) > 1e-6f) {
+        releaseBend = newBend;
+        rebuildBendTables();
+    }
 }
 
 void Envelope::calculateRates() {
@@ -58,7 +75,6 @@ void Envelope::calculateRates() {
     attackRate = timeToRate(attackTime);
     decayRate = timeToRate(decayTime);
     releaseRate = timeToRate(releaseTime);
-    rebuildBendTables();
 }
 
 void Envelope::rebuildBendTables() {
