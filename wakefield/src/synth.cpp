@@ -84,7 +84,7 @@ int Synth::findFreeVoice() {
     uint64_t oldestReleaseTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].envelope.getStage() == EnvelopeStage::RELEASE) {
+        if (voices[i].envelopes[0].getStage() == EnvelopeStage::RELEASE) {
             // Prefer the oldest voice in release
             if (voices[i].startTime < oldestReleaseTime) {
                 oldestReleaseTime = voices[i].startTime;
@@ -102,7 +102,7 @@ int Synth::findFreeVoice() {
     uint64_t oldestTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].envelope.getStage() == EnvelopeStage::SUSTAIN) {
+        if (voices[i].envelopes[0].getStage() == EnvelopeStage::SUSTAIN) {
             if (voices[i].startTime < oldestTime) {
                 oldestTime = voices[i].startTime;
                 oldestVoiceIndex = i;
@@ -131,12 +131,31 @@ int Synth::findFreeVoice() {
 }
 
 void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, float release) {
-    // Update all voice envelopes with new parameters
+    // Update ENV1 with smoothed parameters and apply bends from params
     for (auto& voice : voices) {
-        voice.envelope.setAttack(attack);
-        voice.envelope.setDecay(decay);
-        voice.envelope.setSustain(sustain);
-        voice.envelope.setRelease(release);
+        voice.envelopes[0].setAttack(attack);
+        voice.envelopes[0].setDecay(decay);
+        voice.envelopes[0].setSustain(sustain);
+        voice.envelopes[0].setRelease(release);
+        // Bends
+        if (params) {
+            voice.envelopes[0].setAttackBend(params->getEnvAttackBend(0));
+            voice.envelopes[0].setReleaseBend(params->getEnvReleaseBend(0));
+        }
+    }
+
+    // Update ENV2-ENV4 directly from params (unsmoothed)
+    if (params) {
+        for (auto& voice : voices) {
+            for (int i = 1; i < 4; ++i) {
+                voice.envelopes[i].setAttack(params->getEnvAttack(i));
+                voice.envelopes[i].setDecay(params->getEnvDecay(i));
+                voice.envelopes[i].setSustain(params->getEnvSustain(i));
+                voice.envelopes[i].setRelease(params->getEnvRelease(i));
+                voice.envelopes[i].setAttackBend(params->getEnvAttackBend(i));
+                voice.envelopes[i].setReleaseBend(params->getEnvReleaseBend(i));
+            }
+        }
     }
 }
 
@@ -354,16 +373,20 @@ void Synth::noteOn(int midiNote, int velocity) {
     }
     voice.resetFMHistory();
 
-    // Trigger envelope attack
+    // Trigger envelope attack on all envelopes
     // If stealing an active voice, start from current level to avoid discontinuity clicks
-    voice.envelope.noteOn(isStealingVoice);
+    for (int ei = 0; ei < 4; ++ei) {
+        voice.envelopes[ei].noteOn(isStealingVoice);
+    }
 }
 
 void Synth::noteOff(int midiNote) {
     // Find all voices playing this note and trigger their release
     for (int i = 0; i < MAX_VOICES; ++i) {
         if (voices[i].active && voices[i].note == midiNote) {
-            voices[i].envelope.noteOff();  // Trigger release
+            for (int ei = 0; ei < 4; ++ei) {
+                voices[i].envelopes[ei].noteOff();  // Trigger release
+            }
         }
     }
 
@@ -423,8 +446,10 @@ void Synth::spawnFreeRunningVoice() {
 
     voice.resetFMHistory();
 
-    // Trigger envelope with sustain at max (infinite hold)
-    voice.envelope.noteOn();
+    // Trigger envelopes with sustain at max (infinite hold)
+    for (int ei = 0; ei < 4; ++ei) {
+        voice.envelopes[ei].noteOn();
+    }
 
     // Mark as free-running voice
     freeRunningVoiceActive = true;
@@ -440,7 +465,9 @@ void Synth::killFreeRunningVoice() {
 
     // Immediately deactivate the voice (no release envelope)
     voice.active = false;
-    voice.envelope.noteOff();
+    for (int ei = 0; ei < 4; ++ei) {
+        voice.envelopes[ei].noteOff();
+    }
     voice.resetFMHistory();
 
     // Stop all samplers
@@ -597,7 +624,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
         // FM global depth modulation
         voice.fmGlobalDepthMod = modOutputs.fmGlobalDepth;
 
-        // Pre-compute final FM depths once per buffer: base + global mod + voice mod
+        // Pre-compute final FM depths once per buffer: base + global mod
         // This eliminates 2.6 billion per-sample function calls (getFMDepthMod, getFMDepth)
         // Store previous buffer's values for audio-rate interpolation to prevent zippering
         if (params) {
@@ -610,11 +637,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
                     float baseDepth = params->getFMDepth(target, source);
                     // Global modulation (computed per buffer)
                     float globalMod = lastGlobalModOutputs.fmDepth[target][source];
-                    // Voice-specific modulation (computed per buffer per voice)
-                    float voiceMod = modOutputs.fmDepth[target][source];
-                    // Final depth = base + all modulations, clamped
+                    // Final depth = base + global modulation, clamped
                     voice.fmDepthMod[target][source] = std::clamp(
-                        baseDepth + globalMod + voiceMod, -0.99f, 0.99f);
+                        baseDepth + globalMod, -0.99f, 0.99f);
                 }
             }
         } else {
@@ -1311,32 +1336,24 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
         // LFO 1-4
         return getLFOOutput(sourceIndex);
     } else if (sourceIndex >= 4 && sourceIndex <= 7) {
-        // ENV 1-4
+        // ENV 1-4 (per-voice)
+        int envIdx = sourceIndex - 4; // 0..3
         if (params) {
             int activeEnv = std::clamp(params->activeEnvCount.load(), 1, 4);
-            int envIdx = sourceIndex - 4;
             if (envIdx >= activeEnv) return 0.0f;
         }
-        // For now, only ENV 1 (index 4) is implemented using per-voice envelopes
-        // We'll return the envelope value from the most recently triggered voice
-        // (or the first active voice we find)
-        if (sourceIndex == 4) {  // ENV 1
-            if (voiceContext) {
-                return voiceContext->getEnvelopeValue();
-            }
-            float maxEnv = 0.0f;
-            for (int i = MAX_VOICES - 1; i >= 0; --i) {
-                if (voices[i].active) {
-                    float env = voices[i].getEnvelopeValue();
-                    if (env > maxEnv) {
-                        maxEnv = env;
-                    }
-                }
-            }
-            return maxEnv;
+        if (voiceContext) {
+            return voiceContext->getEnvelopeValue(envIdx);
         }
-        // ENV 2-4 not yet implemented (would need synth-level envelope generators)
-        return 0.0f;
+        // Fallback: max of active voices for this envelope index
+        float maxEnv = 0.0f;
+        for (int i = MAX_VOICES - 1; i >= 0; --i) {
+            if (voices[i].active) {
+                float env = voices[i].getEnvelopeValue(envIdx);
+                if (env > maxEnv) maxEnv = env;
+            }
+        }
+        return maxEnv;
     } else if (sourceIndex == 8) {
         // MIDI Note (0-127 mapped to -1 to +1, with 64 as center)
         if (voiceContext && voiceContext->active) {
@@ -1492,6 +1509,10 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         }
 
         if (destination >= fmCellStart && destination < fmCellEnd) {
+            // Skip per-voice sources (ENV1-4) in global pass
+            if (!voiceContext && slot.source >= 4 && slot.source <= 7) {
+                continue;
+            }
             int cellIndex = destination - fmCellStart;
             int target = cellIndex / kFMSourceCount;
             int source = cellIndex % kFMSourceCount;

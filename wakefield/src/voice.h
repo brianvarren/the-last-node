@@ -20,7 +20,7 @@ struct Voice {
     uint64_t startTime;   // Voice start timestamp (for voice stealing priority)
     BrainwaveOscillator oscillators[OSCILLATORS_PER_VOICE]; // 4 oscillators per voice
     Sampler samplers[SAMPLERS_PER_VOICE]; // 4 samplers per voice
-    Envelope envelope;     // Amplitude envelope
+    Envelope envelopes[4];     // 4 per-voice envelopes (ENV1..ENV4)
     SynthParameters* params;  // Pointer to FM matrix and other params
     Synth* synth;          // Pointer to synth for base level access
 
@@ -72,11 +72,11 @@ struct Voice {
         , note(-1)
         , velocity(64)
         , startTime(0)
-        , envelope(sampleRate)
+        , envelopes{ Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate) }
         , sampleRate(sampleRate)
         , params(nullptr)
         , synth(nullptr)
-        , envelopeValue(0.0f) {
+        {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             lastOscOutputs[i] = 0.0f;
             pitchMod[i] = 0.0f;
@@ -119,6 +119,7 @@ struct Voice {
             }
         }
         currentBufferSize = 256;  // Default buffer size
+        for (int i = 0; i < 4; ++i) envelopeValues[i] = 0.0f;
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)
@@ -132,8 +133,10 @@ struct Voice {
     void forceSilence();
 
     // Get current envelope value (for modulation routing)
-    float getEnvelopeValue() const {
-        return envelopeValue;
+    float getEnvelopeValue() const { return envelopeValues[0]; }
+    float getEnvelopeValue(int index) const {
+        int idx = (index < 0) ? 0 : (index > 3 ? 0 : index);
+        return envelopeValues[idx];
     }
 
     const float* getLastOscOutputs() const { return lastOscOutputs; }
@@ -143,8 +146,7 @@ private:
     float sampleRate;
     float lastOscOutputs[OSCILLATORS_PER_VOICE];
     float lastSamplerOutputs[SAMPLERS_PER_VOICE];
-    float envelopeValue;  // Current envelope output (cached for modulation)
+    float envelopeValues[4];  // Current envelope outputs (cached for modulation)
 };
 
 #endif // VOICE_H
-

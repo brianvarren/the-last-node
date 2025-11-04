@@ -13,8 +13,10 @@ void Voice::resetFMHistory() {
 
 void Voice::forceSilence() {
     active = false;
-    envelope.reset();
-    envelopeValue = 0.0f;
+    for (int i = 0; i < 4; ++i) {
+        envelopes[i].reset();
+        envelopeValues[i] = 0.0f;
+    }
     resetFMHistory();
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         pitchMod[i] = 0.0f;
@@ -37,15 +39,17 @@ void Voice::forceSilence() {
 
 float Voice::generateSample(unsigned int frameIndex) {
     if (!active) {
-        envelopeValue = 0.0f;
+        for (int i = 0; i < 4; ++i) envelopeValues[i] = 0.0f;
         return 0.0f;
     }
 
-    // Get envelope level and cache for modulation routing
-    envelopeValue = envelope.process();
+    // Get envelope levels and cache for modulation routing (ENV1..ENV4)
+    for (int i = 0; i < 4; ++i) {
+        envelopeValues[i] = envelopes[i].process();
+    }
 
     // If envelope finished, deactivate voice and clear FM history
-    if (!envelope.isActive()) {
+    if (!envelopes[0].isActive()) {
         // Save sampler phases before deactivating (for Note Reset OFF)
         if (synth) {
             for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
@@ -53,7 +57,7 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
         }
         active = false;
-        envelopeValue = 0.0f;
+        for (int i = 0; i < 4; ++i) envelopeValues[i] = 0.0f;
         resetFMHistory();
         return 0.0f;
     }
@@ -129,6 +133,9 @@ float Voice::generateSample(unsigned int frameIndex) {
         // Get global FM depth (base + interpolated modulation) - applies to all FM amounts
         float globalDepth = std::clamp(params->fmGlobalDepth.load() + interpFmGlobalDepthMod, 0.0f, 1.0f);
 
+        // Compute per-sample modulation for FM depths (audio-rate)
+        Synth::ModulationOutputs sampleMod = synth->processModulationMatrix(this);
+
         for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
             if (target >= activeOscCount) { fmInputs[target] = 0.0f; continue; }
             float totalFM = 0.0f;
@@ -139,6 +146,8 @@ float Voice::generateSample(unsigned int frameIndex) {
                 float prevDepth = prevFmDepthMod[target][source];
                 float currDepth = fmDepthMod[target][source];
                 float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
+                // Add per-sample voice modulation
+                depth = std::clamp(depth + sampleMod.fmDepth[target][source], -0.99f, 0.99f);
                 
                 if (depth != 0.0f) {
                     totalFM += lastOscOutputs[source] * (depth * 100.0f);
@@ -152,6 +161,9 @@ float Voice::generateSample(unsigned int frameIndex) {
                 float prevDepth = prevFmDepthMod[target][targetIdx];
                 float currDepth = fmDepthMod[target][targetIdx];
                 float depth = prevDepth + (currDepth - prevDepth) * interpFactor;
+                // Add per-sample voice modulation
+                int sourceIdx = kFMOscillatorTargetCount + source;
+                depth = std::clamp(depth + sampleMod.fmDepth[target][sourceIdx], -0.99f, 0.99f);
                 
                 if (depth != 0.0f) {
                     totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
@@ -228,7 +240,7 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
 
         // Apply per-sample envelope so amplitude follows ADSR without zippering
-        finalGain *= envelopeValue;
+        finalGain *= envelopeValues[0];
 
         oscFinalGains[i] = finalGain;
     }
@@ -319,7 +331,7 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
 
         // Apply the voice envelope to sampler level (consistent with oscillator gains)
-        samplerFinalOutputs[i] = samplerOut * envelopeValue;
+        samplerFinalOutputs[i] = samplerOut * envelopeValues[0];
     }
 
     // Phase 2 FIX: Normalize ALL sources together (oscillators + samplers)
