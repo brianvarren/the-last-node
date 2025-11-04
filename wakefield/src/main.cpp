@@ -1,3 +1,6 @@
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
 #define RTAUDIO_EXCEPTIONS
 #include <RtAudio.h>
 #include <iostream>
@@ -14,6 +17,10 @@
 #include <filesystem>
 #include <sys/stat.h>
 #include <pwd.h>
+#if defined(__unix__) || defined(__APPLE__)
+#include <pthread.h>
+#include <sched.h>
+#endif
 
 // SSE intrinsics for denormal prevention
 #ifdef __SSE__
@@ -307,6 +314,34 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     float* buffer = static_cast<float*>(outputBuffer);
     auto callbackStart = std::chrono::high_resolution_clock::now();
 
+    static std::chrono::high_resolution_clock::time_point previousCallbackStart;
+    static bool havePreviousCallbackStart = false;
+    uint32_t intervalMicros = 0;
+    if (havePreviousCallbackStart) {
+        intervalMicros = static_cast<uint32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(callbackStart - previousCallbackStart).count());
+    }
+    previousCallbackStart = callbackStart;
+    havePreviousCallbackStart = true;
+
+    int schedulerPolicy = -1;
+    int schedulerPriority = -1;
+    int callbackCpu = -1;
+#if defined(__unix__) || defined(__APPLE__)
+    struct sched_param schedParam;
+    int policy = 0;
+    if (pthread_getschedparam(pthread_self(), &policy, &schedParam) == 0) {
+        schedulerPolicy = policy;
+        schedulerPriority = schedParam.sched_priority;
+    }
+#endif
+#if defined(__linux__)
+    int cpu = sched_getcpu();
+    if (cpu >= 0) {
+        callbackCpu = cpu;
+    }
+#endif
+
     // Detect buffer underruns (audio glitching/crackling)
     if (status & RTAUDIO_OUTPUT_UNDERFLOW) {
         uint64_t count = ++gAudioUnderrunCounter;
@@ -528,7 +563,8 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
 
     uint32_t activeVoices = synth ? static_cast<uint32_t>(synth->getActiveVoiceCount()) : 0;
     if (ui) {
-        ui->updateAudioDebugStats(callbackMicros, peak, activeVoices);
+        ui->updateAudioDebugStats(callbackMicros, peak, activeVoices,
+                                  intervalMicros, schedulerPolicy, schedulerPriority, callbackCpu);
     }
 
     return 0;

@@ -230,10 +230,18 @@ void UI::setSampleDirectory(const std::string& path) {
     }
 }
 
-void UI::updateAudioDebugStats(uint32_t durationMicros, float peak, uint32_t activeVoices) {
+void UI::updateAudioDebugStats(uint32_t durationMicros,
+                               float peak,
+                               uint32_t activeVoices,
+                               uint32_t intervalMicros,
+                               int schedulerPolicy,
+                               int schedulerPriority,
+                               int callbackCpu) {
     audioDebugState.currentMicros.store(durationMicros, std::memory_order_relaxed);
     audioDebugState.currentPeak.store(peak, std::memory_order_relaxed);
     audioDebugState.currentVoices.store(activeVoices, std::memory_order_relaxed);
+    audioDebugState.totalMicros.fetch_add(durationMicros, std::memory_order_relaxed);
+    audioDebugState.callbackCount.fetch_add(1, std::memory_order_relaxed);
 
     // Update min micros
     uint32_t minMicros = audioDebugState.minMicros.load(std::memory_order_relaxed);
@@ -263,6 +271,33 @@ void UI::updateAudioDebugStats(uint32_t durationMicros, float peak, uint32_t act
            !audioDebugState.maxVoices.compare_exchange_weak(maxVoices, activeVoices,
                                                             std::memory_order_relaxed)) {
     }
+
+    if (intervalMicros > 0) {
+        audioDebugState.currentIntervalMicros.store(intervalMicros, std::memory_order_relaxed);
+        audioDebugState.totalIntervalMicros.fetch_add(intervalMicros, std::memory_order_relaxed);
+
+        uint32_t minInterval = audioDebugState.minIntervalMicros.load(std::memory_order_relaxed);
+        while (intervalMicros < minInterval &&
+               !audioDebugState.minIntervalMicros.compare_exchange_weak(minInterval, intervalMicros,
+                                                                       std::memory_order_relaxed)) {
+        }
+
+        uint32_t maxInterval = audioDebugState.maxIntervalMicros.load(std::memory_order_relaxed);
+        while (intervalMicros > maxInterval &&
+               !audioDebugState.maxIntervalMicros.compare_exchange_weak(maxInterval, intervalMicros,
+                                                                        std::memory_order_relaxed)) {
+        }
+    }
+
+    if (schedulerPolicy >= 0) {
+        audioDebugState.schedulerPolicy.store(schedulerPolicy, std::memory_order_relaxed);
+    }
+    if (schedulerPriority >= 0) {
+        audioDebugState.schedulerPriority.store(schedulerPriority, std::memory_order_relaxed);
+    }
+    if (callbackCpu >= 0) {
+        audioDebugState.callbackCpu.store(callbackCpu, std::memory_order_relaxed);
+    }
 }
 
 void UI::resetAudioDebugStats() {
@@ -273,6 +308,15 @@ void UI::resetAudioDebugStats() {
     audioDebugState.maxPeak.store(0.0f, std::memory_order_relaxed);
     audioDebugState.currentVoices.store(0, std::memory_order_relaxed);
     audioDebugState.maxVoices.store(0, std::memory_order_relaxed);
+    audioDebugState.callbackCount.store(0, std::memory_order_relaxed);
+    audioDebugState.totalMicros.store(0, std::memory_order_relaxed);
+    audioDebugState.currentIntervalMicros.store(0, std::memory_order_relaxed);
+    audioDebugState.minIntervalMicros.store(std::numeric_limits<uint32_t>::max(), std::memory_order_relaxed);
+    audioDebugState.maxIntervalMicros.store(0, std::memory_order_relaxed);
+    audioDebugState.totalIntervalMicros.store(0, std::memory_order_relaxed);
+    audioDebugState.schedulerPolicy.store(-1, std::memory_order_relaxed);
+    audioDebugState.schedulerPriority.store(-1, std::memory_order_relaxed);
+    audioDebugState.callbackCpu.store(-1, std::memory_order_relaxed);
 }
 
 void UI::requestAudioBufferSizeChange(int newSize) {
