@@ -954,7 +954,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
 
     // Apply filter if enabled (stereo processing)
     if (filterEnabled && nChannels == 2) {
-        // Apply filter modulation (using lastGlobalModOutputs from previous buffer)
+        // Apply filter modulation and smoothing (using lastGlobalModOutputs from previous buffer)
         if (params) {
             float baseCutoff = params->filterCutoff.load();
             float baseResonance = params->filterResonance.load();
@@ -967,21 +967,40 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels)
             // Cutoff: multiplicative modulation in octaves (±4 octaves max)
             // modValue of +1 = +4 octaves, -1 = -4 octaves
             float cutoffOctaves = lastGlobalModOutputs.filterCutoff * 4.0f;
-            float modulatedCutoff = std::clamp(baseCutoff * std::pow(2.0f, cutoffOctaves), 20.0f, 20000.0f);
+            float targetCutoff = std::clamp(baseCutoff * std::pow(2.0f, cutoffOctaves), 20.0f, 20000.0f);
 
             // Resonance: scale to ±0.6 for good range without too much instability
-            float modulatedResonance = std::clamp(baseResonance + lastGlobalModOutputs.filterResonance * 0.6f, 0.0f, 1.2f);
+            float targetResonance = std::clamp(baseResonance + lastGlobalModOutputs.filterResonance * 0.6f, 0.0f, 1.2f);
 
             // Drive: scale to ±7 for useful range
-            float modulatedDrive = std::clamp(baseDrive + lastGlobalModOutputs.filterDrive * 7.0f, 0.1f, 15.0f);
+            float targetDrive = std::clamp(baseDrive + lastGlobalModOutputs.filterDrive * 7.0f, 0.1f, 15.0f);
 
             // Width, Spread, DryWet: full 0-1 range is good
-            float modulatedWidth = std::clamp(baseWidth + lastGlobalModOutputs.filterWidth, 0.0f, 1.0f);
-            float modulatedSpread = std::clamp(baseSpread + lastGlobalModOutputs.filterSpread, 0.0f, 1.0f);
-            float modulatedDryWet = std::clamp(baseDryWet + lastGlobalModOutputs.filterDryWet, 0.0f, 1.0f);
+            float targetWidth = std::clamp(baseWidth + lastGlobalModOutputs.filterWidth, 0.0f, 1.0f);
+            float targetSpread = std::clamp(baseSpread + lastGlobalModOutputs.filterSpread, 0.0f, 1.0f);
+            float targetDryWet = std::clamp(baseDryWet + lastGlobalModOutputs.filterDryWet, 0.0f, 1.0f);
 
             // Notch Feedback: scale to ±0.5 to avoid hitting stability limits too easily
-            float modulatedNotchFeedback = std::clamp(baseNotchFeedback + lastGlobalModOutputs.filterNotchFeedback * 0.5f, 0.0f, 0.98f);
+            float targetNotchFeedback = std::clamp(baseNotchFeedback + lastGlobalModOutputs.filterNotchFeedback * 0.5f, 0.0f, 0.98f);
+
+            // Apply one-pole smoothing for musical UI control
+            constexpr float alpha = kFilterSmoothingAlpha;
+            smoothedFilterCutoff += alpha * (targetCutoff - smoothedFilterCutoff);
+            smoothedFilterResonance += alpha * (targetResonance - smoothedFilterResonance);
+            smoothedFilterDrive += alpha * (targetDrive - smoothedFilterDrive);
+            smoothedFilterWidth += alpha * (targetWidth - smoothedFilterWidth);
+            smoothedFilterSpread += alpha * (targetSpread - smoothedFilterSpread);
+            smoothedFilterDryWet += alpha * (targetDryWet - smoothedFilterDryWet);
+            smoothedFilterNotchFeedback += alpha * (targetNotchFeedback - smoothedFilterNotchFeedback);
+
+            // Use smoothed values for filter parameters
+            float modulatedCutoff = smoothedFilterCutoff;
+            float modulatedResonance = smoothedFilterResonance;
+            float modulatedDrive = smoothedFilterDrive;
+            float modulatedWidth = smoothedFilterWidth;
+            float modulatedSpread = smoothedFilterSpread;
+            float modulatedDryWet = smoothedFilterDryWet;
+            float modulatedNotchFeedback = smoothedFilterNotchFeedback;
 
             // Apply modulated parameters to all filter types
             filterL.setCutoff(modulatedCutoff);

@@ -483,8 +483,8 @@ int64_t Sampler::calculateIncrement(const SampleData* sample, float sampleRate, 
                       (1.0f - MODULATOR_SMOOTHING) * fmInput;
 
     // Apply modulation: allows through-zero
-    // FM input comes pre-scaled from the matrix, so apply directly
-    float modulated = static_cast<float>(baseInc) * (1.0f + modulatorSmoothed);
+    // FM input comes pre-scaled from the matrix, apply tzfmDepth scaling
+    float modulated = static_cast<float>(baseInc) * (1.0f + modulatorSmoothed * tzfmDepth);
     baseInc = static_cast<int64_t>(modulated);
 
     // Safety limits

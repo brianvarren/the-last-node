@@ -59,8 +59,9 @@ struct Voice {
     float fmGlobalDepthMod;
     float smoothedFmGlobalDepthMod;
 
-    // FM depth matrix - keep sub-buffer slicing for smooth audio-rate FM modulation
+    // FM depth matrix - smoothed for musical UI control
     float fmDepthMod[kFMTargetCount][kFMSourceCount];
+    float smoothedFmDepthMod[kFMTargetCount][kFMSourceCount];
 
     // Cached sampler level modulation (non-critical)
     float cachedSamplerLevelMod[SAMPLERS_PER_VOICE];
@@ -72,6 +73,10 @@ struct Voice {
     // alpha = 0.02 settles in ~100 samples @ 48kHz (~2ms)
     // Smaller alpha = slower/smoother, Larger alpha = faster/choppier
     static constexpr float kSmoothingAlpha = 0.02f;
+
+    // FM depth smoothing uses faster alpha for more responsive/musical control
+    // alpha = 0.05 settles in ~40 samples @ 48kHz (~0.8ms)
+    static constexpr float kFmDepthSmoothingAlpha = 0.05f;
 
     // Block-level caches to avoid per-sample atomics
     int cachedActiveOscCount = OSCILLATORS_PER_VOICE;
@@ -130,6 +135,7 @@ struct Voice {
         for (int t = 0; t < kFMTargetCount; ++t) {
             for (int s = 0; s < kFMSourceCount; ++s) {
                 fmDepthMod[t][s] = 0.0f;
+                smoothedFmDepthMod[t][s] = 0.0f;
             }
         }
         currentBufferSize = 256;  // Default buffer size

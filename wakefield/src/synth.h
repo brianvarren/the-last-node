@@ -311,6 +311,18 @@ public:
     OnePoleLowShelfBLT lowShelfL;
     OnePoleLowShelfBLT lowShelfR;
 
+    // Smoothed filter parameters for musical UI control
+    float smoothedFilterCutoff = 1000.0f;
+    float smoothedFilterResonance = 0.0f;
+    float smoothedFilterDrive = 1.0f;
+    float smoothedFilterWidth = 0.5f;
+    float smoothedFilterNotchFeedback = 0.0f;
+    float smoothedFilterSpread = 0.0f;
+    float smoothedFilterDryWet = 1.0f;
+
+    // Filter smoothing coefficient (same as FM depth for responsive control)
+    static constexpr float kFilterSmoothingAlpha = 0.05f;
+
     // Per-oscillator base amps (control-rate, modulation target)
     // Combined with ampMod, then multiplied by mix levels
     float oscillatorBaseAmps[OSCILLATORS_PER_VOICE] = {1.0f, 1.0f, 1.0f, 1.0f};
