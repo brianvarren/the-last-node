@@ -196,6 +196,9 @@ struct SynthParameters {
     // MIDI CC mappings for all parameters (parameter ID -> CC number, -1 means not mapped)
     static constexpr int kMaxParamMap = 1024;
     std::atomic<int> parameterCCMap[kMaxParamMap];  // Broad range for parameter IDs
+    // MIDI pickup mode state (prevents parameter jumps when controller hasn't picked up current value)
+    std::atomic<int> parameterCCLastValue[kMaxParamMap];  // Last CC value received (-1 = never received)
+    std::atomic<bool> parameterCCPickedUp[kMaxParamMap];  // Has controller picked up the current value?
     // Context storage for parameters (which osc/LFO/env/sampler/chaos instance)
     std::atomic<int> parameterContextOsc[kMaxParamMap];
     std::atomic<int> parameterContextLFO[kMaxParamMap];
@@ -214,9 +217,9 @@ struct SynthParameters {
     // Oscillator 1 (index 0)
     std::atomic<int> osc1Mode{1};              // 0=FREE, 1=KEY
     std::atomic<float> osc1Freq{440.0f};       // Base frequency (20-2000 Hz)
-    std::atomic<float> osc1Morph{0.5f};        // Waveform morph (0.0001-0.9999)
-    std::atomic<int> osc1Shape{0};            // 0=Saw, 1=Pulse
-    std::atomic<float> osc1Duty{0.5f};         // Pulse width (0.0-1.0)
+    std::atomic<float> osc1Morph{0.5f};        // Waveform morph (deprecated, unused)
+    std::atomic<float> osc1Shape{0.5f};        // Shape continuum: 0.0-0.2 (Sine), 0.2-0.4 (Tri), 0.4-0.6 (Saw), 0.6-0.8 (Square), 0.8-1.0 (Pulse)
+    std::atomic<float> osc1Duty{0.5f};         // Pulse width (deprecated, unused)
     std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
     std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
     std::atomic<float> osc1Amp{1.0f};          // Amplitude (modulation target, 0.0-1.0)
@@ -225,9 +228,9 @@ struct SynthParameters {
     // Oscillator 2 (index 1)
     std::atomic<int> osc2Mode{1};
     std::atomic<float> osc2Freq{440.0f};
-    std::atomic<float> osc2Morph{0.5f};
-    std::atomic<int> osc2Shape{0};
-    std::atomic<float> osc2Duty{0.5f};
+    std::atomic<float> osc2Morph{0.5f};        // Deprecated, unused
+    std::atomic<float> osc2Shape{0.5f};
+    std::atomic<float> osc2Duty{0.5f};         // Deprecated, unused
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
     std::atomic<float> osc2Amp{1.0f};
@@ -236,9 +239,9 @@ struct SynthParameters {
     // Oscillator 3 (index 2)
     std::atomic<int> osc3Mode{1};
     std::atomic<float> osc3Freq{440.0f};
-    std::atomic<float> osc3Morph{0.5f};
-    std::atomic<int> osc3Shape{0};
-    std::atomic<float> osc3Duty{0.5f};
+    std::atomic<float> osc3Morph{0.5f};        // Deprecated, unused
+    std::atomic<float> osc3Shape{0.5f};
+    std::atomic<float> osc3Duty{0.5f};         // Deprecated, unused
     std::atomic<float> osc3Ratio{1.0f};
     std::atomic<float> osc3Offset{0.0f};
     std::atomic<float> osc3Amp{1.0f};
@@ -247,9 +250,9 @@ struct SynthParameters {
     // Oscillator 4 (index 3)
     std::atomic<int> osc4Mode{1};
     std::atomic<float> osc4Freq{440.0f};
-    std::atomic<float> osc4Morph{0.5f};
-    std::atomic<int> osc4Shape{0};
-    std::atomic<float> osc4Duty{0.5f};
+    std::atomic<float> osc4Morph{0.5f};        // Deprecated, unused
+    std::atomic<float> osc4Shape{0.5f};
+    std::atomic<float> osc4Duty{0.5f};         // Deprecated, unused
     std::atomic<float> osc4Ratio{1.0f};
     std::atomic<float> osc4Offset{0.0f};
     std::atomic<float> osc4Amp{1.0f};
@@ -403,6 +406,8 @@ struct SynthParameters {
     SynthParameters() {
         for (int i = 0; i < kMaxParamMap; ++i) {
             parameterCCMap[i] = -1;  // -1 means no CC assigned
+            parameterCCLastValue[i] = -1;  // -1 means no CC value received yet
+            parameterCCPickedUp[i] = false;  // Haven't picked up yet
             parameterContextOsc[i] = -1;
             parameterContextLFO[i] = -1;
             parameterContextEnv[i] = -1;
@@ -440,7 +445,7 @@ struct SynthParameters {
         }
     }
 
-    int getOscShape(int index) const {
+    float getOscShape(int index) const {
         switch (index) {
             case 0: return osc1Shape.load();
             case 1: return osc2Shape.load();
@@ -450,7 +455,7 @@ struct SynthParameters {
         }
     }
 
-    void setOscShape(int index, int value) {
+    void setOscShape(int index, float value) {
         switch (index) {
             case 0: osc1Shape = value; break;
             case 1: osc2Shape = value; break;

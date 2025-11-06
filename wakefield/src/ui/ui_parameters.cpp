@@ -89,10 +89,8 @@ void UI::initializeParameters() {
     // OSCILLATOR PAGE - MOSTLY RANDOMIZABLE (except mode)
     // ============================================================================
     parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR), false});  // IMMUNE
-    parameters.push_back({19, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::OSCILLATOR), true});
+    parameters.push_back({19, ParamType::FLOAT, "Shape", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true, ParamCurve::Logarithmic});
-    parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
-    parameters.push_back({13, ParamType::FLOAT, "Duty", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true, ParamCurve::Logarithmic});
     parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({18, ParamType::FLOAT, "Amp", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
@@ -296,10 +294,8 @@ void SynthParameters::applyParameterValue(int id,
             break;
         case 6: masterVolume = value; break;
         case 10: setOscMode(osc, static_cast<int>(value)); break;
-        case 19: setOscShape(osc, static_cast<int>(value)); break;
+        case 19: setOscShape(osc, value); break;
         case 11: setOscFrequency(osc, value); break;
-        case 12: setOscMorph(osc, value); break;
-        case 13: setOscDuty(osc, value); break;
         case 14: setOscRatio(osc, value); break;
         case 15: setOscOffset(osc, value); break;
         case 18: setOscAmp(osc, value); break;
@@ -498,7 +494,7 @@ std::vector<int> UI::getRandomizableParameterIds() {
 // Helper to detect which selector index a parameter uses (if any)
 static inline bool paramUsesOscIndex(int id) {
     switch (id) {
-        case 10: case 11: case 12: case 13: case 14: case 15: case 18: case 19:
+        case 10: case 11: case 14: case 15: case 18: case 19:
             return true;
         default: return false;
     }
@@ -1759,10 +1755,8 @@ float UI::getParameterValue(int id) {
     switch (id) {
         case 6: return params->masterVolume.load();
         case 10: return static_cast<float>(params->getOscMode(oscIndex));
-        case 19: return static_cast<float>(params->getOscShape(oscIndex));
+        case 19: return params->getOscShape(oscIndex);
         case 11: return params->getOscFrequency(oscIndex);
-        case 12: return params->getOscMorph(oscIndex);
-        case 13: return params->getOscDuty(oscIndex);
         case 14: return params->getOscRatio(oscIndex);
         case 15: return params->getOscOffset(oscIndex);
         case 18: return params->getOscAmp(oscIndex);  // Changed from Level to Amp
@@ -1879,10 +1873,8 @@ void UI::setParameterValue(int id, float value) {
     switch (id) {
         case 6: params->masterVolume = value; break;
         case 10: params->setOscMode(oscIndex, static_cast<int>(value)); break;
-        case 19: params->setOscShape(oscIndex, static_cast<int>(value)); break;
+        case 19: params->setOscShape(oscIndex, value); break;
         case 11: params->setOscFrequency(oscIndex, value); break;
-        case 12: params->setOscMorph(oscIndex, value); break;
-        case 13: params->setOscDuty(oscIndex, value); break;
         case 14: params->setOscRatio(oscIndex, value); break;
         case 15: params->setOscOffset(oscIndex, value); break;
         case 18: params->setOscAmp(oscIndex, value); break;  // Changed from Level to Amp
@@ -2068,6 +2060,12 @@ void UI::setParameterValue(int id, float value) {
         // FM page parameters (360-360)
         case 360: params->fmGlobalDepth.store(std::clamp(value, 0.0f, 1.0f)); break;
     }
+
+    // Reset MIDI pickup state when parameter is changed via UI
+    // This ensures MIDI controller must pick up the new value before controlling the parameter
+    if (id >= 0 && id < SynthParameters::kMaxParamMap) {
+        params->parameterCCPickedUp[id] = false;
+    }
 }
 
 void UI::adjustParameter(int id, bool increase, bool fine) {
@@ -2141,6 +2139,13 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
                 adjustMultiplicative(1.122462f);
             } else if (id == 14) { // Oscillator ratio
                 adjustMultiplicative(1.25f);
+            } else if (id == 19) { // Shape - very fine increments (0.05 coarse, 0.005 fine)
+                float step = fine ? 0.005f : 0.05f;
+                if (increase) {
+                    newValue = clampValue(currentValue + step);
+                } else {
+                    newValue = clampValue(currentValue - step);
+                }
             } else if (id == 32) { // Filter cutoff
                 adjustMultiplicative(1.3f);
             } else if (id == 35) { // Filter drive - fine increments (0.2 coarse, 0.05 fine)
@@ -2344,22 +2349,16 @@ bool UI::isParameterModulated(int id) {
         case 19: // Shape - not modulatable
             return false;
         case 11: // Frequency/Pitch
-            modDestination = currentOscillatorIndex * 6 + 0;
-            break;
-        case 12: // Morph
-            modDestination = currentOscillatorIndex * 6 + 1;
-            break;
-        case 13: // Duty
-            modDestination = currentOscillatorIndex * 6 + 2;
+            modDestination = currentOscillatorIndex * 4 + 0;
             break;
         case 14: // Ratio
-            modDestination = currentOscillatorIndex * 6 + 3;
+            modDestination = currentOscillatorIndex * 4 + 1;
             break;
         case 15: // Offset
-            modDestination = currentOscillatorIndex * 6 + 4;
+            modDestination = currentOscillatorIndex * 4 + 2;
             break;
         case 18: // Amp (changed from Level)
-            modDestination = currentOscillatorIndex * 6 + 5;
+            modDestination = currentOscillatorIndex * 4 + 3;
             break;
         case 32: // Filter Cutoff
             modDestination = 24;
