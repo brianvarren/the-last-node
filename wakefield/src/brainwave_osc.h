@@ -6,14 +6,8 @@
 
 // Brainwave oscillator modes
 enum class BrainwaveMode {
-    FREE = 0,  // Free-running, user controls frequency
-    KEY = 1    // Key-tracking, MIDI note controls frequency
-};
-
-// Oscillator waveshape families
-enum class BrainwaveShape {
-    SAW = 0,
-    PULSE = 1
+    FREE = 0,  // MIDI note + frequency offset (allows detuning from MIDI)
+    KEY = 1    // MIDI note only (standard key-tracking)
 };
 
 class BrainwaveOscillator {
@@ -32,16 +26,17 @@ public:
     void setOffset(float offsetHz) { offsetHz_ = offsetHz; }
     float getOffset() const { return offsetHz_; }
     
-    // Morph control (0.0 to 1.0, maps to frames 0-255)
+    // Shape control (0.0 to 1.0: Sine → Triangle → Saw → Square)
+    void setShape(float shape) { shape_ = std::min(std::max(shape, 0.0f), 1.0f); }
+    float getShape() const { return shape_; }
+
+    // Morph control (0.0 to 1.0, behavior adapts to current shape)
     void setMorph(float morph) { morphPosition_ = morph; }
     float getMorph() const { return morphPosition_; }
-    
+
     // Duty control (0.0 to 1.0, pulse width for square/pulse waves)
     void setDuty(float duty) { duty_ = std::min(std::max(duty, 0.0f), 1.0f); }
     float getDuty() const { return duty_; }
-
-    void setShape(BrainwaveShape shape) { shape_ = shape; }
-    BrainwaveShape getShape() const { return shape_; }
     
     // Note control (for KEY mode)
     void setNoteFrequency(float freq) { noteFrequency_ = freq; }
@@ -64,9 +59,9 @@ private:
     BrainwaveMode mode_;
     float baseFrequency_;      // User-controlled frequency or offset
     float noteFrequency_;      // MIDI note frequency (KEY mode)
-    float morphPosition_;      // 0.0 to 1.0
+    float shape_;              // 0.0 to 1.0 (Sine → Triangle → Saw → Square)
+    float morphPosition_;      // 0.0 to 1.0, behavior adapts to shape
     float duty_;               // 0.0 to 1.0, pulse width control
-    BrainwaveShape shape_;
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
     float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)
@@ -76,7 +71,7 @@ private:
 
     // Helper functions
     float calculateEffectiveFrequency(float sampleRate);
-    float generateSample(uint32_t phase, float morphPos, float duty);
+    float generateSample(uint32_t phase, float phaseInc, float shapePos, float morphPos, float duty);
 };
 
 #endif // BRAINWAVE_OSC_H

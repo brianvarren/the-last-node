@@ -657,6 +657,38 @@ void UI::handleInput(int ch) {
                 mutateAllModSlots(std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
                 addConsoleMessage("Mutated all modulation slots");
                 return;
+            case '=':
+                // Adjust modulation amount coarsely (when focused on Amount column)
+                if (modMatrixCursorCol == 3) {
+                    captureUndoSnapshot("mod_amount_adjust");
+                    ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+                    slot.amount = static_cast<int8_t>(std::clamp(static_cast<int>(slot.amount) + 5, -99, 99));
+                }
+                return;
+            case '+':
+                // Adjust modulation amount finely (when focused on Amount column)
+                if (modMatrixCursorCol == 3) {
+                    captureUndoSnapshot("mod_amount_adjust");
+                    ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+                    slot.amount = static_cast<int8_t>(std::clamp(static_cast<int>(slot.amount) + 1, -99, 99));
+                }
+                return;
+            case '-':
+                // Adjust modulation amount coarsely (when focused on Amount column)
+                if (modMatrixCursorCol == 3) {
+                    captureUndoSnapshot("mod_amount_adjust");
+                    ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+                    slot.amount = static_cast<int8_t>(std::clamp(static_cast<int>(slot.amount) - 5, -99, 99));
+                }
+                return;
+            case '_':
+                // Adjust modulation amount finely (when focused on Amount column)
+                if (modMatrixCursorCol == 3) {
+                    captureUndoSnapshot("mod_amount_adjust");
+                    ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
+                    slot.amount = static_cast<int8_t>(std::clamp(static_cast<int>(slot.amount) - 1, -99, 99));
+                }
+                return;
         }
     }
 

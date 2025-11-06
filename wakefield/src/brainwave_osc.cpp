@@ -1,83 +1,100 @@
 #include "brainwave_osc.h"
 #include "fast_math.h"
+#include "osc_profiler.h"
 #include <algorithm>
 #include <cmath>
 
 using namespace FastMath;
 
-// Classic Casio CZ style phase distortion for sawtooth with extended morph range
-static inline __attribute__((always_inline)) float generatePhaseDistorted(float phase, float amount) {
-    // phase is normalized [0, 1)
-    // amount: 0.0 = sawtooth pointing top-left (peak at left)
-    // amount: 0.5 = sine wave (centered peak)
-    // amount: 1.0 = sawtooth pointing top-right (peak at right)
-    // Creates visually symmetrical morphing
+// Global profiler instance
+OscProfiler g_oscProfiler;
 
-    float clamped = std::min(std::max(amount, 0.0f), 1.0f);
-    bool mirror = false;
-    float morphAmount = clamped;
-
-    // For morph 0.0-0.5, we mirror the phase and remap to 0.5-1.0 range
-    if (clamped < 0.5f) {
-        mirror = true;
-        morphAmount = 1.0f - clamped * 2.0f;  // 0.0 -> 1.0, 0.5 -> 0.0
-        morphAmount = 0.5f + morphAmount * 0.5f;  // Map to 0.5-1.0
+// PolyBLEP anti-aliasing for band-limited waveforms
+// Applies correction near discontinuities to reduce aliasing
+static inline __attribute__((always_inline)) float polyblep(float phase, float phaseInc) {
+    // Only apply correction near discontinuities (within one sample of wraparound)
+    if (phase < phaseInc) {
+        float t = phase / phaseInc;
+        return t + t - t * t - 1.0f;
+    } else if (phase > 1.0f - phaseInc) {
+        float t = (phase - 1.0f) / phaseInc;
+        return t * t + t + t + 1.0f;
     }
-
-    // After remapping, morphAmount is always in range [0.5, 1.0]
-    // morphAmount 0.5 -> pivot 0.5 (sine wave)
-    // morphAmount 1.0 -> pivot 0.9999 (sharp sawtooth)
-    float t = (morphAmount - 0.5f) * 2.0f;  // 0 at morphAmount=0.5, 1 at morphAmount=1.0
-    float pivot = 0.5f + 0.4999f * t;
-    pivot = std::min(std::max(pivot, 0.0001f), 0.9999f);
-
-    // Mirror phase for left-side morphing (flip horizontally)
-    float workingPhase = mirror ? (1.0f - phase) : phase;
-
-    float shapedPhase;
-    if (workingPhase <= pivot) {
-        float denom = std::max(1e-6f, 2.0f * pivot);
-        shapedPhase = workingPhase / denom;
-    } else {
-        float denom = std::max(1e-6f, 1.0f - pivot);
-        shapedPhase = 0.5f * (1.0f + ((workingPhase - pivot) / denom));
-    }
-
-    // No vertical inversion - just horizontal mirroring via phase
-    float output = -fastcos(shapedPhase * kTwoPi);
-    return output;
+    return 0.0f;
 }
 
-// Generate waveform with tanh-shaped pulse (morph 0.5 to 1.0)
-static inline __attribute__((always_inline)) float generateTanhShaped(float phase, float morph, float duty) {
-    // phase is normalized [0, 1)
+// Generate sine wave (no aliasing, pure fundamental)
+static inline __attribute__((always_inline)) float generateSine(float phase, float morph) {
+    // Morph controls waveshaping amount (subtle harmonic coloring)
     float sine = fastsin(kTwoPi * phase);
 
-    // Map morph to edge parameter (0 = sine, 1 = hard square)
-    // Remove redundant double clamp
-    float edge = fastclamp(morph, 0.0f, 1.0f);
+    // Apply soft waveshaping when morph > 0
+    // morph 0.0 = pure sine, morph 1.0 = shaped/saturated sine
+    float shaped = sine + 0.3f * morph * sine * sine * sine;
+    return fastclamp(shaped, -1.0f, 1.0f);
+}
 
-    // Branchless early exit: blend instead of if-statement
-    // When edge is very small, output ~= sine
-    float theta = kTwoPi * (duty - 0.5f);
-    float x = sine - fastsin(theta);
+// Generate triangle wave with PolyBLEP
+static inline __attribute__((always_inline)) float generateTriangle(float phase, float phaseInc, float morph) {
+    // Morph controls slope asymmetry
+    // morph 0.0 = ramp down, morph 0.5 = symmetric triangle, morph 1.0 = ramp up
+    float pivot = 0.5f * (1.0f - morph) + morph * morph;  // Smooth transition
 
-    // Edge hardness control
-    float beta = 1.0f + 80.0f * edge;
+    float tri;
+    if (phase < pivot) {
+        tri = phase / pivot;
+    } else {
+        tri = 1.0f - (phase - pivot) / (1.0f - pivot);
+    }
+    tri = 2.0f * tri - 1.0f;
 
-    float tanh_pulse = fasttanh(beta * x);
+    // PolyBLEP correction at pivot point for anti-aliasing
+    float correction = 0.0f;
+    if (phase < phaseInc) {
+        correction = polyblep(phase, phaseInc);
+    } else if (phase > 1.0f - phaseInc) {
+        correction = polyblep(phase, phaseInc);
+    }
 
-    // Crossfade from sine to tanh pulse based on edge
-    return (1.0f - edge) * sine + edge * tanh_pulse;
+    return tri - 0.5f * correction;
+}
+
+// Generate sawtooth wave with PolyBLEP
+static inline __attribute__((always_inline)) float generateSaw(float phase, float phaseInc, float morph) {
+    // Morph controls ramp direction
+    // morph 0.0 = ramp down, morph 0.5 = mix, morph 1.0 = ramp up
+    float sawUp = 2.0f * phase - 1.0f;
+    sawUp -= polyblep(phase, phaseInc);
+
+    float sawDown = 1.0f - 2.0f * phase;
+    sawDown += polyblep(phase, phaseInc);
+
+    // Crossfade between ramp directions
+    return (1.0f - morph) * sawDown + morph * sawUp;
+}
+
+// Generate square/pulse wave with PolyBLEP
+static inline __attribute__((always_inline)) float generateSquare(float phase, float phaseInc, float duty) {
+    // duty controls pulse width (0.0 = narrow pulse, 0.5 = square, 1.0 = inverted narrow)
+    float square = (phase < duty) ? 1.0f : -1.0f;
+
+    // Apply PolyBLEP at both edges
+    square += polyblep(phase, phaseInc);
+
+    float phaseShifted = phase + (1.0f - duty);
+    if (phaseShifted >= 1.0f) phaseShifted -= 1.0f;
+    square -= polyblep(phaseShifted, phaseInc);
+
+    return square;
 }
 
 BrainwaveOscillator::BrainwaveOscillator()
     : mode_(BrainwaveMode::KEY)
     , baseFrequency_(440.0f)
     , noteFrequency_(440.0f)
+    , shape_(0.5f)  // Default to Saw (middle of range)
     , morphPosition_(0.5f)
     , duty_(0.5f)  // Default to 50% duty (symmetric square)
-    , shape_(BrainwaveShape::SAW)
     , ratio_(1.0f)
     , offsetHz_(0.0f)
     , fmSensitivity_(0.5f)  // Default FM sensitivity
@@ -104,21 +121,22 @@ float BrainwaveOscillator::calculateEffectiveFrequency(float sampleRate) {
     return freq;
 }
 
-float BrainwaveOscillator::generateSample(uint32_t phase, float morphPos, float duty) {
+float BrainwaveOscillator::generateSample(uint32_t phase, float phaseInc, float shapePos, float morphPos, float duty) {
     constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
     float normalizedPhase = static_cast<float>(phase) * kPhaseToFloat;
 
-    float morphAmount = fastclamp(morphPos, 0.0f, 1.0f);
+    // Fast discrete shape selection (no crossfading for max performance)
+    // Shape regions: 0.0-0.25 (Sine), 0.25-0.5 (Tri), 0.5-0.75 (Saw), 0.75-1.0 (Square)
 
-    if (shape_ == BrainwaveShape::SAW) {
-        return generatePhaseDistorted(normalizedPhase, morphAmount);
+    if (shapePos < 0.25f) {
+        return generateSine(normalizedPhase, morphPos);
+    } else if (shapePos < 0.5f) {
+        return generateTriangle(normalizedPhase, phaseInc, morphPos);
+    } else if (shapePos < 0.75f) {
+        return generateSaw(normalizedPhase, phaseInc, morphPos);
+    } else {
+        return generateSquare(normalizedPhase, phaseInc, duty);
     }
-
-    // Phase shift with branchless wrap
-    float shiftedPhase = normalizedPhase + 0.5f;
-    shiftedPhase -= (shiftedPhase >= 1.0f) ? 1.0f : 0.0f;
-
-    return generateTanhShaped(shiftedPhase, morphAmount, duty);
 }
 
 float BrainwaveOscillator::process(float sampleRate, float fmInput,
@@ -128,9 +146,13 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     constexpr float kPhaseScale = 4294967296.0f;
     const float nyquistLimit = sampleRate * 0.45f;
 
-    // Calculate base frequency (FREE or KEY mode)
-    // Reorder: KEY mode is more common, check it first
-    float freq = (mode_ == BrainwaveMode::KEY) ? noteFrequency_ : baseFrequency_;
+    // Calculate base frequency
+    // KEY mode: Use MIDI note frequency directly
+    // FREE mode: Use MIDI note frequency + user-defined frequency offset
+    float freq = noteFrequency_;
+    if (mode_ == BrainwaveMode::FREE) {
+        freq += baseFrequency_;
+    }
 
     // Apply pitch modulation - use std::pow for rock-solid pitch accuracy
     // pitchMod is in octaves: 1.0 = double frequency, -1.0 = half frequency
@@ -166,8 +188,11 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     float modulatedMorph = fastclamp(morphPosition_ + morphMod, 0.0f, 1.0f);
     float modulatedDuty = fastclamp(duty_ + dutyMod, 0.0f, 1.0f);
 
-    // Generate sample
-    float sample = generateSample(phaseAccumulator_, modulatedMorph, modulatedDuty);
+    // Calculate normalized phase increment for PolyBLEP (0.0 to 1.0 range)
+    float normalizedPhaseInc = phaseIncrementFloat / kPhaseScale;
+
+    // Generate sample with continuous shape morphing
+    float sample = generateSample(phaseAccumulator_, normalizedPhaseInc, shape_, modulatedMorph, modulatedDuty);
 
     // Branchless phase update for TZFM
     // If negative (signBit = 0xFFFFFFFF), negate the increment
