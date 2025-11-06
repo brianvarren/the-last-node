@@ -90,9 +90,7 @@ BrainwaveOscillator::BrainwaveOscillator()
     : mode_(BrainwaveMode::KEY)
     , baseFrequency_(440.0f)
     , noteFrequency_(440.0f)
-    , shape_(0.5f)  // Default to Saw (middle of range)
-    , morphPosition_(0.5f)
-    , duty_(0.5f)  // Default to 50% duty (symmetric square)
+    , shape_(0.5f)  // Default to Saw (0.4-0.6 range)
     , ratio_(1.0f)
     , offsetHz_(0.0f)
     , fmSensitivity_(0.5f)  // Default FM sensitivity
@@ -119,20 +117,31 @@ float BrainwaveOscillator::calculateEffectiveFrequency(float sampleRate) {
     return freq;
 }
 
-float BrainwaveOscillator::generateSample(uint32_t phase, float phaseInc, float shapePos, float morphPos, float duty) {
+float BrainwaveOscillator::generateSample(uint32_t phase, float phaseInc, float shapePos) {
     constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
     float normalizedPhase = static_cast<float>(phase) * kPhaseToFloat;
 
-    // Fast discrete shape selection (no crossfading for max performance)
-    // Shape regions: 0.0-0.25 (Sine), 0.25-0.5 (Tri), 0.5-0.75 (Saw), 0.75-1.0 (Square)
+    // 5-shape continuum: Sine → Triangle → Saw → Square → Pulse
+    // Shape regions: 0.0-0.2 (Sine), 0.2-0.4 (Tri), 0.4-0.6 (Saw), 0.6-0.8 (Square), 0.8-1.0 (Pulse)
 
-    if (shapePos < 0.25f) {
-        return generateSine(normalizedPhase, morphPos);
-    } else if (shapePos < 0.5f) {
-        return generateTriangle(normalizedPhase, phaseInc, morphPos);
-    } else if (shapePos < 0.75f) {
-        return generateSaw(normalizedPhase, phaseInc, morphPos);
+    if (shapePos < 0.2f) {
+        // Sine wave - use shapePos/0.2 for subtle waveshaping
+        float waveshape = shapePos / 0.2f;
+        return generateSine(normalizedPhase, waveshape);
+    } else if (shapePos < 0.4f) {
+        // Triangle - use normalized position for slope asymmetry
+        float asymmetry = (shapePos - 0.2f) / 0.2f;
+        return generateTriangle(normalizedPhase, phaseInc, asymmetry);
+    } else if (shapePos < 0.6f) {
+        // Sawtooth (no morph variation)
+        return generateSaw(normalizedPhase, phaseInc, 0.0f);
+    } else if (shapePos < 0.8f) {
+        // Square wave (50% duty)
+        return generateSquare(normalizedPhase, phaseInc, 0.5f);
     } else {
+        // Pulse - duty narrows from 50% to ~5% as shapePos goes 0.8 → 1.0
+        float pulseAmount = (shapePos - 0.8f) / 0.2f;  // 0.0 at 0.8, 1.0 at 1.0
+        float duty = 0.5f - 0.45f * pulseAmount;  // 0.5 at shape=0.8, 0.05 at shape=1.0
         return generateSquare(normalizedPhase, phaseInc, duty);
     }
 }
@@ -182,15 +191,15 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     float phaseIncrementFloat = (absFreq * kPhaseScale) / sampleRate;
     uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementFloat);
 
-    // Apply morph and duty modulation (single clamp instead of min/max)
-    float modulatedMorph = fastclamp(morphPosition_ + morphMod, 0.0f, 1.0f);
-    float modulatedDuty = fastclamp(duty_ + dutyMod, 0.0f, 1.0f);
+    // Morph and duty parameters no longer used (shape is now the single control)
+    (void)morphMod;
+    (void)dutyMod;
 
     // Calculate normalized phase increment for PolyBLEP (0.0 to 1.0 range)
     float normalizedPhaseInc = phaseIncrementFloat / kPhaseScale;
 
-    // Generate sample with continuous shape morphing
-    float sample = generateSample(phaseAccumulator_, normalizedPhaseInc, shape_, modulatedMorph, modulatedDuty);
+    // Generate sample with 5-shape continuum (shape is the only control)
+    float sample = generateSample(phaseAccumulator_, normalizedPhaseInc, shape_);
 
     // Branchless phase update for TZFM
     // If negative (signBit = 0xFFFFFFFF), negate the increment

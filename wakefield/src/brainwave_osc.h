@@ -26,17 +26,18 @@ public:
     void setOffset(float offsetHz) { offsetHz_ = offsetHz; }
     float getOffset() const { return offsetHz_; }
     
-    // Shape control (0.0 to 1.0: Sine → Triangle → Saw → Square)
+    // Shape control (0.0 to 1.0: Sine → Triangle → Saw → Square → Pulse)
+    // This is the only waveform control - morph and duty are deprecated
     void setShape(float shape) { shape_ = std::min(std::max(shape, 0.0f), 1.0f); }
     float getShape() const { return shape_; }
 
-    // Morph control (0.0 to 1.0, behavior adapts to current shape)
-    void setMorph(float morph) { morphPosition_ = morph; }
-    float getMorph() const { return morphPosition_; }
+    // Deprecated: Morph is now integrated into shape parameter
+    void setMorph(float morph) { (void)morph; }  // No-op for backward compatibility
+    float getMorph() const { return 0.0f; }
 
-    // Duty control (0.0 to 1.0, pulse width for square/pulse waves)
-    void setDuty(float duty) { duty_ = std::min(std::max(duty, 0.0f), 1.0f); }
-    float getDuty() const { return duty_; }
+    // Deprecated: Duty is now controlled by shape parameter (pulse region)
+    void setDuty(float duty) { (void)duty; }  // No-op for backward compatibility
+    float getDuty() const { return 0.5f; }
     
     // Note control (for KEY mode)
     void setNoteFrequency(float freq) { noteFrequency_ = freq; }
@@ -59,9 +60,7 @@ private:
     BrainwaveMode mode_;
     float baseFrequency_;      // User-controlled frequency or offset
     float noteFrequency_;      // MIDI note frequency (KEY mode)
-    float shape_;              // 0.0 to 1.0 (Sine → Triangle → Saw → Square)
-    float morphPosition_;      // 0.0 to 1.0, behavior adapts to shape
-    float duty_;               // 0.0 to 1.0, pulse width control
+    float shape_;              // 0.0 to 1.0 (Sine → Triangle → Saw → Square → Pulse)
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
     float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)
@@ -71,7 +70,7 @@ private:
 
     // Helper functions
     float calculateEffectiveFrequency(float sampleRate);
-    float generateSample(uint32_t phase, float phaseInc, float shapePos, float morphPos, float duty);
+    float generateSample(uint32_t phase, float phaseInc, float shapePos);
 };
 
 #endif // BRAINWAVE_OSC_H
