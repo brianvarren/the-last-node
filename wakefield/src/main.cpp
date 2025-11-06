@@ -174,8 +174,6 @@ void restartWithNewDevices(int audioDeviceId, int midiPort, unsigned int bufferS
 void applyMIDICCToParameter(int paramId, int ccValue) {
     if (!synthParams) return;
 
-    float normalized = std::clamp(static_cast<float>(ccValue) / 127.0f, 0.0f, 1.0f);
-
     const InlineParameter* parameter = ParameterRegistry::Lookup(paramId);
     if (!parameter) {
         return;
@@ -185,7 +183,63 @@ void applyMIDICCToParameter(int paramId, int ccValue) {
         return;
     }
 
-    float value = parameter->denormalize(normalized);
+    float ccNormalized = std::clamp(static_cast<float>(ccValue) / 127.0f, 0.0f, 1.0f);
+
+    // MIDI Pickup Mode: prevent parameter jumps when controller hasn't picked up current value
+    bool pickedUp = synthParams->parameterCCPickedUp[paramId].load();
+    int lastCCValue = synthParams->parameterCCLastValue[paramId].load();
+
+    if (!pickedUp && lastCCValue >= 0) {
+        // Get current parameter value to check if CC has picked it up
+        if (ui) {
+            int oscIndex = synthParams->parameterContextOsc[paramId].load();
+            int lfoIndex = synthParams->parameterContextLFO[paramId].load();
+            int envIndex = synthParams->parameterContextEnv[paramId].load();
+            int samplerIndex = synthParams->parameterContextSampler[paramId].load();
+            int chaosIndex = synthParams->parameterContextChaos[paramId].load();
+
+            // Temporarily set UI context indices to get the right parameter value
+            int savedOsc = ui->currentOscillatorIndex;
+            int savedLfo = ui->currentLFOIndex;
+            int savedEnv = ui->currentEnvelopeIndex;
+            int savedSampler = ui->currentSamplerIndex;
+            int savedChaos = ui->currentChaosIndex;
+
+            if (oscIndex >= 0) ui->currentOscillatorIndex = oscIndex;
+            if (lfoIndex >= 0) ui->currentLFOIndex = lfoIndex;
+            if (envIndex >= 0) ui->currentEnvelopeIndex = envIndex;
+            if (samplerIndex >= 0) ui->currentSamplerIndex = samplerIndex;
+            if (chaosIndex >= 0) ui->currentChaosIndex = chaosIndex;
+
+            float currentValue = ui->getParameterValue(paramId);
+            float currentNormalized = parameter->normalize(currentValue);
+
+            // Restore saved indices
+            ui->currentOscillatorIndex = savedOsc;
+            ui->currentLFOIndex = savedLfo;
+            ui->currentEnvelopeIndex = savedEnv;
+            ui->currentSamplerIndex = savedSampler;
+            ui->currentChaosIndex = savedChaos;
+
+            // Check if CC value is within pickup tolerance (3/127 ≈ 2.4%)
+            constexpr float pickupTolerance = 3.0f / 127.0f;
+            if (std::abs(ccNormalized - currentNormalized) <= pickupTolerance) {
+                // CC has picked up the current value - allow control
+                synthParams->parameterCCPickedUp[paramId] = true;
+                pickedUp = true;
+            } else {
+                // Not picked up yet - ignore this CC message
+                synthParams->parameterCCLastValue[paramId] = ccValue;
+                return;
+            }
+        }
+    }
+
+    // Store last CC value
+    synthParams->parameterCCLastValue[paramId] = ccValue;
+
+    // Apply the CC value to the parameter
+    float value = parameter->denormalize(ccNormalized);
 
     int oscIndex = synthParams->parameterContextOsc[paramId].load();
     int lfoIndex = synthParams->parameterContextLFO[paramId].load();
@@ -229,6 +283,10 @@ void onControlChange(int controller, int value) {
             synthParams->parameterCCMap[paramId] = controller;
             synthParams->midiLearnActive = false;
             synthParams->midiLearnParameterId = -1;
+
+            // Reset pickup state when learning a new CC mapping
+            synthParams->parameterCCLastValue[paramId] = -1;
+            synthParams->parameterCCPickedUp[paramId] = false;
 
             if (paramId == 32) {
                 synthParams->filterCutoffCC = controller;
@@ -511,12 +569,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         );
 
         // Update LFO parameters
-        // Get tempo from sequencer for LFO sync
-        float currentTempo = 120.0f;  // Default tempo
-        if (sequencer) {
-            currentTempo = sequencer->getTempo();
-        }
-
         for (int i = 0; i < 4; ++i) {
             synth->updateLFOParameters(
                 i,
@@ -527,7 +579,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
                 synthParams->getLfoDuty(i),
                 synthParams->getLfoFlip(i),
                 synthParams->getLfoResetOnNote(i),
-                currentTempo
+                sequencer ? sequencer->getTempo() : 120.0f
             );
         }
     }
@@ -546,8 +598,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
 
     // Generate audio from synth
     constexpr unsigned int nChannels = 2;
+    float currentTempo = sequencer ? sequencer->getTempo() : 120.0f;
     if (synth) {
-        synth->process(buffer, nFrames, nChannels);
+        synth->process(buffer, nFrames, nChannels, currentTempo);
     } else {
         std::fill(buffer, buffer + nFrames * nChannels, 0.0f);
     }

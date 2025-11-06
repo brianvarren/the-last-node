@@ -61,16 +61,14 @@ static inline __attribute__((always_inline)) float generateTriangle(float phase,
 
 // Generate sawtooth wave with PolyBLEP
 static inline __attribute__((always_inline)) float generateSaw(float phase, float phaseInc, float morph) {
-    // Morph controls ramp direction
-    // morph 0.0 = ramp down, morph 0.5 = mix, morph 1.0 = ramp up
-    float sawUp = 2.0f * phase - 1.0f;
-    sawUp -= polyblep(phase, phaseInc);
+    // Basic sawtooth - upward ramp
+    // Morph parameter unused for now (could control waveshaping later)
+    (void)morph;  // Suppress unused parameter warning
 
-    float sawDown = 1.0f - 2.0f * phase;
-    sawDown += polyblep(phase, phaseInc);
+    float saw = 2.0f * phase - 1.0f;
+    saw -= polyblep(phase, phaseInc);
 
-    // Crossfade between ramp directions
-    return (1.0f - morph) * sawDown + morph * sawUp;
+    return saw;
 }
 
 // Generate square/pulse wave with PolyBLEP
