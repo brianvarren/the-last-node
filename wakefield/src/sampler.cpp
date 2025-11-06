@@ -300,7 +300,8 @@ const char* Sampler::getSampleName() const {
     return "No Sample";
 }
 
-void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, float lengthMod) {
+void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, float lengthMod,
+                                      float sampleRate, float tempo, int syncMode) {
     if (!sample || sample->sampleCount < MIN_LOOP_LENGTH) {
         pendingStart = 0;
         pendingEnd = 0;
@@ -317,11 +318,50 @@ void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, 
     pendingStart = availableSpan > 0 ?
                    static_cast<uint32_t>(modulatedStart * availableSpan) : 0;
 
-    // Apply modulation to loop length (clamped to 0-1)
-    float modulatedLength = std::clamp(loopLengthNorm + lengthMod, 0.0f, 1.0f);
-    uint32_t loopLen = MIN_LOOP_LENGTH +
-                      (availableSpan > 0 ?
-                       static_cast<uint32_t>(modulatedLength * availableSpan) : 0);
+    uint32_t loopLen;
+
+    // Tempo sync quantization
+    if (syncMode > 0 && tempo > 0.1f && sampleRate > 0.0f) {
+        // Calculate samples per quarter note at source sample rate
+        // Use source rate since loop lengths are in source samples, not output samples
+        float sourceSampleRate = static_cast<float>(sample->sampleRate);
+        float samplesPerQuarterNote = (60.0f / tempo) * sourceSampleRate;
+
+        // Apply sync mode modifier
+        float syncMultiplier = 1.0f;
+        switch (syncMode) {
+            case 1: // ON (straight)
+                syncMultiplier = 1.0f;
+                break;
+            case 2: // TRIPLET (2/3 of a quarter note)
+                syncMultiplier = 2.0f / 3.0f;
+                break;
+            case 3: // DOTTED (1.5x quarter note)
+                syncMultiplier = 3.0f / 2.0f;
+                break;
+        }
+
+        // Calculate quantized loop length in source samples
+        float quantizedLoopLength = samplesPerQuarterNote * syncMultiplier;
+
+        // Use user's loop length control as a multiplier (0.0-1.0 maps to 0.25x-4x tempo)
+        // This allows user to select different subdivisions
+        float modulatedLength = std::clamp(loopLengthNorm + lengthMod, 0.0f, 1.0f);
+        float lengthMultiplier = 0.25f + modulatedLength * 3.75f; // Maps 0→0.25x, 1→4x
+        quantizedLoopLength *= lengthMultiplier;
+
+        loopLen = static_cast<uint32_t>(quantizedLoopLength);
+
+        // Clamp to minimum and maximum bounds
+        loopLen = std::max(loopLen, MIN_LOOP_LENGTH);
+        loopLen = std::min(loopLen, totalSamples - pendingStart);
+    } else {
+        // No sync: use user-controlled loop length as before
+        float modulatedLength = std::clamp(loopLengthNorm + lengthMod, 0.0f, 1.0f);
+        loopLen = MIN_LOOP_LENGTH +
+                  (availableSpan > 0 ?
+                   static_cast<uint32_t>(modulatedLength * availableSpan) : 0);
+    }
 
     pendingEnd = pendingStart + loopLen;
     if (pendingEnd > totalSamples) {
@@ -330,8 +370,9 @@ void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, 
     pendingLoopValid = true;
 }
 
-void Sampler::ensurePendingLoop(const SampleData* sample, float startMod, float lengthMod) {
-    calculateLoopBoundaries(sample, startMod, lengthMod);
+void Sampler::ensurePendingLoop(const SampleData* sample, float startMod, float lengthMod,
+                                float sampleRate, float tempo, int syncMode) {
+    calculateLoopBoundaries(sample, startMod, lengthMod, sampleRate, tempo, syncMode);
 }
 
 void Sampler::applyPendingLoopToVoice(SamplerVoice* voice) {
@@ -565,7 +606,8 @@ void Sampler::applyPhaseDriver(const SampleData* sample, float normalized) {
 float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                       float loopStartMod, float loopLengthMod,
                       float crossfadeMod, float levelMod, float levelOffset,
-                      float phaseDriver, int midiNote) {
+                      float phaseDriver, int midiNote,
+                      float tempo, int syncMode) {
     // Early exit if no sample loaded
     const SampleData* sample = currentSample.load(std::memory_order_acquire);
     if (!sample || !sample->samples ||
@@ -579,7 +621,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     }
 
     if (restartRequested) {
-        ensurePendingLoop(sample, loopStartMod, loopLengthMod);
+        ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode);
         crossfading = false;
         crossfadeSamplesRemaining = 0;
         crossfadeSamplesTotal = 0;
@@ -646,7 +688,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                                        xfadeLen, isReverse);
 
         if (inZone && !wasInZoneLastSample) {
-            ensurePendingLoop(sample, loopStartMod, loopLengthMod);
+            ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode);
             setupCrossfade(xfadeLen, xfadeSamples, isReverse);
         }
         wasInZoneLastSample = inZone;
@@ -665,7 +707,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
             }
 
             if (xfadeLen == 0) {
-                ensurePendingLoop(sample, loopStartMod, loopLengthMod);
+                ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode);
                 applyPendingLoopToVoice(primaryVoice);
             }
         }

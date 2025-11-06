@@ -328,7 +328,9 @@ float Voice::generateSample(unsigned int frameIndex) {
                                                smoothedSamplerLevelMod[i],
                                                cachedSamplerLevelMod[i],
                                                samplerPhaseDriver[i],
-                                               note);
+                                               note,
+                                               synth ? synth->currentTempo : 120.0f,
+                                               synth ? synth->getSamplerSyncMode(i) : 0);
         if (!std::isfinite(samplerOut)) {
             samplerOut = 0.0f;
         }

@@ -26,7 +26,7 @@ class Synth {
 public:
     Synth(float sampleRate);
     
-    void process(float* output, unsigned int nFrames, unsigned int nChannels);
+    void process(float* output, unsigned int nFrames, unsigned int nChannels, float tempo = 120.0f);
     
     void noteOn(int midiNote, int velocity);
     void noteOff(int midiNote);
@@ -355,6 +355,7 @@ public:
     // Sampler sync and note reset parameters
     int samplerSyncModes[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};  // 0=Off, 1=On, 2=Trip, 3=Dot
     bool samplerNoteResets[SAMPLERS_PER_VOICE] = {true, true, true, true};  // true=On, false=Off
+    float currentTempo = 120.0f;  // Current tempo for sampler sync
 
     // Last phase position for Note Reset (persists across voices)
     uint64_t samplerLastPhases[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};

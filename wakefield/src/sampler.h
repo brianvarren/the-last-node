@@ -42,11 +42,15 @@ public:
     //   crossfadeMod: Crossfade length modulation (-1 to +1)
     //   levelMod: Level modulation (-1 to +1)
     //   levelOffset: Additional mixer level offset (-1 to +1)
+    //   phaseDriver: Phase driver input (for external clock)
     //   midiNote: MIDI note number (0-127) for KEY mode pitch tracking
+    //   tempo: Current tempo in BPM (for sync)
+    //   syncMode: Sync mode (0=Off, 1=On, 2=Triplet, 3=Dotted)
     float process(float sampleRate, float fmInput, float pitchMod,
                   float loopStartMod, float loopLengthMod,
                   float crossfadeMod, float levelMod, float levelOffset,
-                  float phaseDriver, int midiNote = 60);
+                  float phaseDriver, int midiNote = 60,
+                  float tempo = 120.0f, int syncMode = 0);
 
     // Parameter setters
     void setSample(const SampleData* sample);
@@ -139,8 +143,10 @@ private:
     static const float XFADE_TABLE_SIN[XFADE_TABLE_SIZE];
 
     // Helper functions
-    void calculateLoopBoundaries(const SampleData* sample, float startMod, float lengthMod);
-    void ensurePendingLoop(const SampleData* sample, float startMod, float lengthMod);
+    void calculateLoopBoundaries(const SampleData* sample, float startMod, float lengthMod,
+                                float sampleRate, float tempo, int syncMode);
+    void ensurePendingLoop(const SampleData* sample, float startMod, float lengthMod,
+                          float sampleRate, float tempo, int syncMode);
     void applyPendingLoopToVoice(SamplerVoice* voice);
     bool wrapPhase(SamplerVoice* voice) const;
     int16_t getSample(const SampleData* sample, const SamplerVoice* voice, bool isReverse) const;

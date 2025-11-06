@@ -526,11 +526,14 @@ int Synth::getVoiceNote(int voiceIndex) const {
     return voices[voiceIndex].note;
 }
 
-void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels) {
+void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels, float tempo) {
     // Clear the output buffer first
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
         output[i] = 0.0f;
     }
+
+    // Store tempo for voice access (used by samplers for tempo sync)
+    currentTempo = tempo;
 
     const size_t frameSourceCount = static_cast<size_t>(nFrames) * kFMSourceCount;
     if (fmSourceBuffer.size() != frameSourceCount) {
@@ -1764,7 +1767,7 @@ void Synth::setSamplerSyncMode(int samplerIndex, int mode) {
     // Clamp sync mode to 0-3 (Off, On, Trip, Dot)
     samplerSyncModes[samplerIndex] = std::max(0, std::min(3, mode));
 
-    // TODO: Implement tempo sync functionality
+    // Tempo sync is implemented in sampler's calculateLoopBoundaries
 }
 
 void Synth::setSamplerNoteReset(int samplerIndex, bool enabled) {
