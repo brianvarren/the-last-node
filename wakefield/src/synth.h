@@ -177,7 +177,7 @@ public:
     float getVoiceEnvelopeValue(int voiceIndex, int envIndex) const;
     int getVoiceNote(int voiceIndex) const;
 
-    void setOscillatorState(int index, BrainwaveMode mode, int shape,
+    void setOscillatorState(int index, BrainwaveMode mode, float shape,
                             float baseFreq, float morph, float duty,
                             float ratio, float offsetHz, float amp, float level);
 

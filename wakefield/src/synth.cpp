@@ -166,7 +166,7 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
     }
 }
 
-void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
+void Synth::setOscillatorState(int index, BrainwaveMode mode, float shape,
                                float baseFreq, float morph, float duty,
                                float ratio, float offsetHz, float amp, float level) {
     if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
@@ -175,14 +175,11 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
 
     // No change detection - always update for real-time control
     // The oscillator setters are simple and cheap to call every frame
-    // Map old discrete shape (0=SAW, 1=PULSE) to new continuous shape
-    // 0 -> 0.5 (Saw: 0.4-0.6), 1 -> 0.9 (Pulse: 0.8-1.0)
-    float shapeFloat = (shape == 0) ? 0.5f : 0.9f;
 
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
         osc.setMode(mode);
-        osc.setShape(shapeFloat);
+        osc.setShape(shape);
         osc.setFrequency(baseFreq);
         // Morph and duty are deprecated - shape is now the single control
         // Keep setters for backward compatibility but they do nothing

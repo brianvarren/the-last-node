@@ -518,7 +518,7 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         // Update per-oscillator parameters (oscillator 1 uses smoothed values)
         for (int oscIndex = 0; oscIndex < OSCILLATORS_PER_VOICE; ++oscIndex) {
             BrainwaveMode mode = static_cast<BrainwaveMode>(synthParams->getOscMode(oscIndex));
-            int shape = synthParams->getOscShape(oscIndex);
+            float shape = synthParams->getOscShape(oscIndex);
             float baseFreq = (oscIndex == 0) ? smoothedOscillatorFreq : synthParams->getOscFrequency(oscIndex);
             float morph = (oscIndex == 0) ? smoothedOscillatorMorph : synthParams->getOscMorph(oscIndex);
             float duty = (oscIndex == 0) ? smoothedOscillatorDuty : synthParams->getOscDuty(oscIndex);
