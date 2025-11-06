@@ -681,9 +681,9 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
         float t = static_cast<float>(crossfadeSamplesTotal -
                                     crossfadeSamplesRemaining) /
                  static_cast<float>(crossfadeSamplesTotal);
-        // Map t (0.0-1.0) to table index (0-255)
-        int tableIndex = static_cast<int>(t * (XFADE_TABLE_SIZE - 1));
-        tableIndex = std::clamp(tableIndex, 0, XFADE_TABLE_SIZE - 1);
+        // Map t (0.0-1.0) to first half of table (0-127) for cos(0→π/2) and sin(0→π/2)
+        int tableIndex = static_cast<int>(t * ((XFADE_TABLE_SIZE / 2) - 1));
+        tableIndex = std::clamp(tableIndex, 0, (XFADE_TABLE_SIZE / 2) - 1);
         primaryVoice->amplitude = XFADE_TABLE_COS[tableIndex];
         secondaryVoice->amplitude = XFADE_TABLE_SIN[tableIndex];
 
