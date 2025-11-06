@@ -2296,6 +2296,38 @@ void UI::finishNumericInput() {
     numericInputBuffer.clear();
 }
 
+bool UI::handleMidiNoteForFrequencyInput(int midiNote) {
+    // Only consume if we're in numeric input mode editing the frequency parameter (ID 11)
+    // and the current oscillator is in FREE mode
+    if (!numericInputActive || selectedParameterId != 11) {
+        return false;
+    }
+
+    // Check if current oscillator is in FREE mode (mode 0)
+    if (!params || params->getOscMode(currentOscillatorIndex) != 0) {
+        return false;
+    }
+
+    // Clamp to valid MIDI range
+    int clamped = std::max(0, std::min(127, midiNote));
+
+    // Convert MIDI note to frequency
+    if (synth) {
+        float frequency = 440.0f * std::pow(2.0f, (clamped - 69) / 12.0f);
+
+        // Format frequency with appropriate precision
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2) << frequency;
+        numericInputBuffer = oss.str();
+
+        // Immediately apply the value
+        finishNumericInput();
+        return true;
+    }
+
+    return false;
+}
+
 void UI::startMidiLearn(int id) {
     InlineParameter* param = getParameter(id);
     if (param && param->supports_midi_learn) {

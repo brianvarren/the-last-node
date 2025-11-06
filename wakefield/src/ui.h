@@ -1256,6 +1256,9 @@ public:
     // Returns true if a MIDI note was consumed to fill the sequencer note/name popup
     bool handleMidiNoteForSequencerNumeric(int midiNote);
 
+    // Returns true if a MIDI note was consumed to fill the frequency input (FREE mode)
+    bool handleMidiNoteForFrequencyInput(int midiNote);
+
     // Baseline reset to last loaded/saved preset values
     void resetToBaseline();
 

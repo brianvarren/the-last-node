@@ -262,6 +262,10 @@ void onNoteOn(int note, int velocity) {
     if (ui && ui->handleMidiNoteForSequencerNumeric(note)) {
         return;
     }
+    // If the UI is waiting for a frequency input (FREE mode), consume this MIDI note
+    if (ui && ui->handleMidiNoteForFrequencyInput(note)) {
+        return;
+    }
     if (synth) {
         synth->noteOn(note, velocity);
     }
