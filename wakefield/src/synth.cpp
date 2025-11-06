@@ -175,12 +175,14 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shape,
 
     // No change detection - always update for real-time control
     // The oscillator setters are simple and cheap to call every frame
-    BrainwaveShape shapeEnum = (shape == 0) ? BrainwaveShape::SAW : BrainwaveShape::PULSE;
+    // Map old discrete shape (0=SAW, 1=PULSE) to new continuous shape
+    // 0 -> 0.625 (Saw region), 1 -> 0.875 (Square region)
+    float shapeFloat = (shape == 0) ? 0.625f : 0.875f;
 
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
         osc.setMode(mode);
-        osc.setShape(shapeEnum);
+        osc.setShape(shapeFloat);
         osc.setFrequency(baseFreq);
         osc.setMorph(morph);
         osc.setDuty(duty);

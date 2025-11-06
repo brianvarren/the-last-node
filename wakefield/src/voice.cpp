@@ -1,6 +1,10 @@
 #include "voice.h"
 #include "synth.h"  // For Synth::getOscillatorBaseLevel()
 #include "ui.h"    // For SynthParameters definition
+#include "voice_profiler.h"
+
+// Global profiler instance
+VoiceProfiler g_voiceProfiler;
 
 void Voice::resetFMHistory() {
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
@@ -182,6 +186,11 @@ float Voice::generateSample(unsigned int frameIndex) {
         envelopeValues[i] += alpha * (envelopeTargets[i] - envelopeValues[i]);
     }
 
+    //     g_voiceProfiler.timeSmoothing += g_voiceProfiler.elapsed_ns(t_start);
+
+    // === PROFILING: Oscillator FM ===
+    //     //     auto t_osc_fm = g_voiceProfiler.now();
+
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
     for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
         if (target >= cachedActiveOscCount) {
@@ -207,6 +216,11 @@ float Voice::generateSample(unsigned int frameIndex) {
         fmInputs[target] = totalFM * globalDepth;
     }
 
+    //     g_voiceProfiler.timeOscFM += g_voiceProfiler.elapsed_ns(t_osc_fm);
+
+    // === PROFILING: Oscillator Processing ===
+    //     //     auto t_osc_proc = g_voiceProfiler.now();
+
     float currentOutputs[OSCILLATORS_PER_VOICE];
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         if (i >= cachedActiveOscCount) {
@@ -224,6 +238,11 @@ float Voice::generateSample(unsigned int frameIndex) {
             currentOutputs[i] = 0.0f;
         }
     }
+
+    //     g_voiceProfiler.timeOscProcess += g_voiceProfiler.elapsed_ns(t_osc_proc);
+
+    // === PROFILING: Oscillator Gain Calculation ===
+    //     //     auto t_osc_gain = g_voiceProfiler.now();
 
     float mixedSample = 0.0f;
     float oscFinalGains[OSCILLATORS_PER_VOICE];
@@ -250,6 +269,11 @@ float Voice::generateSample(unsigned int frameIndex) {
         oscFinalGains[i] = finalGain;
     }
 
+    //     g_voiceProfiler.timeOscGainCalc += g_voiceProfiler.elapsed_ns(t_osc_gain);
+
+    // === PROFILING: Sampler FM ===
+    //     //     auto t_samp_fm = g_voiceProfiler.now();
+
     float samplerFMInputs[SAMPLERS_PER_VOICE] = {0.0f};
     for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
         if (target >= cachedActiveSamplerCount) {
@@ -275,6 +299,11 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
         samplerFMInputs[target] = totalFM * globalDepth;
     }
+
+    //     g_voiceProfiler.timeSamplerFM += g_voiceProfiler.elapsed_ns(t_samp_fm);
+
+    // === PROFILING: Sampler Processing ===
+    //     //     auto t_samp_proc = g_voiceProfiler.now();
 
     float currentSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f};
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
@@ -316,6 +345,11 @@ float Voice::generateSample(unsigned int frameIndex) {
         samplerFinalOutputs[i] = samplerOut * envelopeValues[0];
     }
 
+    //     g_voiceProfiler.timeSamplerProcess += g_voiceProfiler.elapsed_ns(t_samp_proc);
+
+    // === PROFILING: Mixing ===
+    //     //     auto t_mix = g_voiceProfiler.now();
+
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         if (i >= cachedActiveOscCount) continue;
         mixedSample += currentOutputs[i] * oscFinalGains[i];
@@ -328,6 +362,11 @@ float Voice::generateSample(unsigned int frameIndex) {
     if (!std::isfinite(mixedSample)) {
         mixedSample = 0.0f;
     }
+
+    //     g_voiceProfiler.timeMixing += g_voiceProfiler.elapsed_ns(t_mix);
+
+    // === PROFILING: History Update ===
+    //     //     auto t_history = g_voiceProfiler.now();
 
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         if (i >= cachedActiveOscCount) {
@@ -343,6 +382,8 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
         lastSamplerOutputs[i] = currentSamplerOutputs[i];
     }
+
+    //     g_voiceProfiler.timeHistoryUpdate += g_voiceProfiler.elapsed_ns(t_history);
 
     return mixedSample;
 }

@@ -3,6 +3,8 @@
 #include "clock.h"
 #include "sequencer.h"
 #include "fm_constants.h"
+#include "voice_profiler.h"
+#include "osc_profiler.h"
 
 #include <algorithm>
 #include <chrono>
@@ -223,6 +225,12 @@ int main(int argc, char** argv) {
     std::cout << "Tail buffer checksum: " << checksum << "\n";
     std::cout << "Profiling run complete. If built with -pg, run:\n"
               << "  gprof profile_runner gmon.out | less\n";
+
+    // Print detailed Voice::generateSample profiling
+    g_voiceProfiler.report();
+
+    // Print detailed BrainwaveOscillator::process profiling
+    g_oscProfiler.report();
 
     return 0;
 }
