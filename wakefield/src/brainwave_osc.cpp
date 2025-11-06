@@ -153,13 +153,10 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     constexpr float kPhaseScale = 4294967296.0f;
     const float nyquistLimit = sampleRate * 0.45f;
 
-    // Calculate base frequency
-    // KEY mode: Use MIDI note frequency directly
-    // FREE mode: Use MIDI note frequency + user-defined frequency offset
-    float freq = noteFrequency_;
-    if (mode_ == BrainwaveMode::FREE) {
-        freq += baseFrequency_;
-    }
+    // Calculate base frequency (FREE or KEY mode)
+    // KEY mode: Use MIDI note frequency
+    // FREE mode: Use absolute user-defined frequency
+    float freq = (mode_ == BrainwaveMode::KEY) ? noteFrequency_ : baseFrequency_;
 
     // Apply pitch modulation - use std::pow for rock-solid pitch accuracy
     // pitchMod is in octaves: 1.0 = double frequency, -1.0 = half frequency

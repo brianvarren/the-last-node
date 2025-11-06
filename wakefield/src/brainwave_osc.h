@@ -6,8 +6,8 @@
 
 // Brainwave oscillator modes
 enum class BrainwaveMode {
-    FREE = 0,  // MIDI note + frequency offset (allows detuning from MIDI)
-    KEY = 1    // MIDI note only (standard key-tracking)
+    FREE = 0,  // Free-running, user controls absolute frequency
+    KEY = 1    // Key-tracking, MIDI note controls frequency
 };
 
 class BrainwaveOscillator {
