@@ -19,6 +19,7 @@ struct Voice {
     int note;             // MIDI note number
     int velocity;         // MIDI velocity (0-127)
     uint64_t startTime;   // Voice start timestamp (for voice stealing priority)
+    int noteSource;       // Which source triggered this voice (NoteSource enum value)
     BrainwaveOscillator oscillators[OSCILLATORS_PER_VOICE]; // 4 oscillators per voice
     Sampler samplers[SAMPLERS_PER_VOICE]; // 4 samplers per voice
     Envelope envelopes[4];     // 4 per-voice envelopes (ENV1..ENV4)
@@ -105,6 +106,7 @@ struct Voice {
         , note(-1)
         , velocity(64)
         , startTime(0)
+        , noteSource(0)
         , envelopes{ Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate) }
         , sampleRate(sampleRate)
         , params(nullptr)

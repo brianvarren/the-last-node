@@ -253,6 +253,14 @@ float Voice::generateSample(unsigned int frameIndex) {
             currentOutputs[i] = 0.0f;
             continue;
         }
+        // Silence KEY mode oscillators unless their note source matches this voice's trigger source
+        if (oscillators[i].getMode() == BrainwaveMode::KEY && params) {
+            int oscNoteSource = params->getOscNoteSource(i);
+            if (oscNoteSource != noteSource) {
+                currentOutputs[i] = 0.0f;
+                continue;
+            }
+        }
         currentOutputs[i] = oscillators[i].process(sampleRate,
                                                    fmInputs[i],
                                                    smoothedPitchMod[i],

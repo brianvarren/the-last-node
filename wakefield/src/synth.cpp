@@ -345,6 +345,7 @@ void Synth::noteOn(int midiNote, int velocity) {
     voice.active = true;
     voice.note = midiNote;
     voice.velocity = velocity;
+    voice.noteSource = static_cast<int>(NoteSource::EXTERNAL_MIDI);
     voice.startTime = voiceCounter++;  // Assign timestamp for voice stealing priority
 
     float frequency = midiNoteToFrequency(midiNote);
@@ -439,9 +440,53 @@ void Synth::sequencerNoteOn(int trackIndex, int midiNote, int velocity, float ga
     // If no generators are listening to this track, skip voice allocation
     if (!anyListening) return;
 
-    // For now, just trigger a normal noteOn (all generators respond)
-    // TODO: Make this more selective based on noteSource settings
-    noteOn(midiNote, velocity);
+    // Allocate voice for this track
+    int voiceIndex = findFreeVoice();
+    Voice& voice = voices[voiceIndex];
+
+    bool isStealingVoice = voice.active;
+
+    voice.active = true;
+    voice.note = midiNote;
+    voice.velocity = velocity;
+    voice.noteSource = trackNoteSource;  // Set to the appropriate track
+    voice.startTime = voiceCounter++;
+
+    float frequency = midiNoteToFrequency(midiNote);
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        voice.oscillators[i].setNoteFrequency(frequency);
+        voice.oscillators[i].reset();
+        voice.pitchMod[i] = 0.0f;
+        voice.morphMod[i] = 0.0f;
+        voice.ratioMod[i] = 0.0f;
+        voice.offsetMod[i] = 0.0f;
+        voice.ampMod[i] = 0.0f;
+    }
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        voice.samplerPitchMod[i] = 0.0f;
+        voice.samplerLoopStartMod[i] = 0.0f;
+        voice.samplerLoopLengthMod[i] = 0.0f;
+        voice.samplerCrossfadeMod[i] = 0.0f;
+        voice.samplerLevelMod[i] = 0.0f;
+        voice.samplers[i].setKeyMode(samplerKeyModes[i]);
+        if (samplerKeyModes[i]) {
+            if (samplerNoteResets[i]) {
+                voice.samplers[i].requestRestart();
+            } else {
+                voice.samplers[i].restorePhase(samplerLastPhases[i]);
+                voice.samplers[i].requestRestart();
+            }
+        } else {
+            voice.samplers[i].stopPlayback();
+        }
+    }
+    voice.resetAmpControllers();
+    voice.resetFMHistory();
+
+    for (int ei = 0; ei < 4; ++ei) {
+        voice.envelopes[ei].noteOn(isStealingVoice);
+    }
+    voice.ampGateTarget = 1.0f;
 }
 
 void Synth::sequencerNoteOff(int trackIndex, int midiNote) {
@@ -510,6 +555,7 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
     voice.active = true;
     voice.note = 60;  // Arbitrary - FREE mode oscillators ignore this
     voice.velocity = 100;
+    voice.noteSource = static_cast<int>(NoteSource::NONE);
     voice.freeRunningOscIndex = oscIndex;  // Mark which oscillator spawned this voice
     voice.startTime = voiceCounter++;
 
