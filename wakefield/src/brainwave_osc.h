@@ -70,6 +70,8 @@ private:
     // Phase accumulator (32-bit for high precision)
     uint32_t phaseAccumulator_;
 
+    float pulseMorphState_;
+
 };
 
 #endif // BRAINWAVE_OSC_H

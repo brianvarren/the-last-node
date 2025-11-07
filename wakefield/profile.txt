@@ -1,0 +1,567 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 68.59      7.49     7.49  3559838     2.10     2.66  Voice::generateSample(unsigned int)
+  8.33      8.40     0.91 18037525     0.05     0.09  BrainwaveOscillator::process(float, float, float, float, float, float, float)
+  6.50      9.11     0.71 17613568     0.04     0.04  BrainwaveOscillator::generateSample(unsigned int, float, float)
+  6.41      9.81     0.70    10000    70.00    70.00  mydsp::compute(int, float**, float**)
+  4.03     10.25     0.44    10000    44.00   115.25  Synth::process(float*, unsigned int, unsigned int)
+  1.65     10.43     0.18 15474297     0.01     0.01  Envelope::process()
+  1.37     10.58     0.15 15027594     0.01     0.01  Sampler::process(float, float, float, float, float, float, float, float, float, int)
+  1.28     10.72     0.14                             _init
+  1.10     10.84     0.12                             std::thread::_State_impl<std::thread::_Invoker<std::tuple<Synth::process(float*, unsigned int, unsigned int)::{lambda(unsigned long, unsigned long)#1}, unsigned long, unsigned long> > >::_M_run()
+  0.46     10.89     0.05    10000     5.00     5.00  Synth::processChaos(unsigned int)
+  0.27     10.92     0.03   215367     0.14     0.14  Synth::processModulationMatrix(Voice const*)
+  0.00     10.92     0.00    80000     0.00     0.00  std::vector<float, std::allocator<float> >::reserve(unsigned long)
+  0.00     10.92     0.00    40000     0.00     0.00  LFO::generateSample(unsigned int)
+  0.00     10.92     0.00    40000     0.00     0.00  LFO::calculateFrequency(float)
+  0.00     10.92     0.00    40000     0.00     0.00  LFO::process(float, unsigned int)
+  0.00     10.92     0.00    40000     0.00     0.00  LFO::getPhase() const
+  0.00     10.92     0.00    20000     0.00     0.00  LFO::generateTanhShaped(float, float, float)
+  0.00     10.92     0.00    20000     0.00     0.00  LFO::generatePhaseDistorted(float, float)
+  0.00     10.92     0.00    10000     0.00    70.00  GreyholeReverb::process(float*, float*, int)
+  0.00     10.92     0.00    10000     0.00     0.00  Clock::advance(unsigned int)
+  0.00     10.92     0.00    10000     0.00     0.00  Synth::processLFOs(float, unsigned int)
+  0.00     10.92     0.00    10000     0.00     0.00  Synth::refreshSamplerPhaseDrivers()
+  0.00     10.92     0.00       72     0.00     0.00  Sampler::setKeyMode(bool)
+  0.00     10.92     0.00       68     0.00     0.00  Sampler::requestRestart()
+  0.00     10.92     0.00       68     0.00     0.00  Envelope::noteOn(bool)
+  0.00     10.92     0.00       36     0.00     0.00  Sampler::setLevel(float)
+  0.00     10.92     0.00       36     0.00     0.00  Sampler::Sampler()
+  0.00     10.92     0.00       32     0.00     0.00  BrainwaveOscillator::BrainwaveOscillator()
+  0.00     10.92     0.00       32     0.00     0.00  Envelope::rebuildBendTables()
+  0.00     10.92     0.00       32     0.00     0.00  Envelope::Envelope(float)
+  0.00     10.92     0.00       28     0.00     0.00  Sampler::Sampler(Sampler const&)
+  0.00     10.92     0.00       17     0.00     0.00  Synth::findFreeVoice()
+  0.00     10.92     0.00       17     0.00     0.00  Synth::noteOn(int, int)
+  0.00     10.92     0.00       17     0.00     0.00  Voice::resetFMHistory()
+  0.00     10.92     0.00       16     0.00     0.00  std::vector<float, std::allocator<float> >::_M_default_append(unsigned long)
+  0.00     10.92     0.00        8     0.00     0.00  GreyholeReverb::updateParameters()
+  0.00     10.92     0.00        8     0.00     0.00  Voice::Voice(float)
+  0.00     10.92     0.00        8     0.00     0.00  Voice* std::__uninitialized_copy<false>::__uninit_copy<Voice const*, Voice*>(Voice const*, Voice const*, Voice*)
+  0.00     10.92     0.00        4     0.00     0.00  Ladder8PoleZdf::setSampleRate(float)
+  0.00     10.92     0.00        4     0.00     0.00  LadderDiodeZdf::setSampleRate(float)
+  0.00     10.92     0.00        4     0.00     0.00  LFO::LFO()
+  0.00     10.92     0.00        4     0.00     0.00  Synth::updateLFOParameters(int, float, int, int, float, float, bool, bool, float)
+  0.00     10.92     0.00        4     0.00     0.00  void std::vector<Voice, std::allocator<Voice> >::_M_realloc_insert<float&>(__gnu_cxx::__normal_iterator<Voice*, std::vector<Voice, std::allocator<Voice> > >, float&)
+  0.00     10.92     0.00        2     0.00     0.00  Bandpass2PoleZdf::Bandpass2PoleZdf(float)
+  0.00     10.92     0.00        2     0.00     0.00  LadderBandpassZdf::setSampleRate(float)
+  0.00     10.92     0.00        2     0.00     0.00  LadderBandpassZdf::LadderBandpassZdf(float)
+  0.00     10.92     0.00        2     0.00     0.00  Ladder8PoleBandpassZdf::Ladder8PoleBandpassZdf(float)
+  0.00     10.92     0.00        2     0.00     0.00  unsigned long __gnu_cxx::__stoa<unsigned long, unsigned long, char, int>(unsigned long (*)(char const*, char**, int), char const*, char const*, unsigned long*, int)
+  0.00     10.92     0.00        2     0.00     0.00  std::vector<int, std::allocator<int> >::reserve(unsigned long)
+  0.00     10.92     0.00        1     0.00     0.00  Compressor::setRelease(float)
+  0.00     10.92     0.00        1     0.00     0.00  Compressor::setAttack(float)
+  0.00     10.92     0.00        1     0.00     0.00  Compressor::Compressor(float)
+  0.00     10.92     0.00        1     0.00     0.00  SampleBank::clear()
+  0.00     10.92     0.00        1     0.00     0.00  SampleBank::SampleBank()
+  0.00     10.92     0.00        1     0.00     0.00  SampleBank::~SampleBank()
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setDamping(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setModFreq(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setModDepth(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setDelayTime(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setDiffusion(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setMix(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setSize(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::setDecay(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::GreyholeReverb(float)
+  0.00     10.92     0.00        1     0.00     0.00  GreyholeReverb::~GreyholeReverb()
+  0.00     10.92     0.00        1     0.00     0.00  Clock::Clock(float)
+  0.00     10.92     0.00        1     0.00     0.00  Synth::updateFilterParameters(int, float, float, float, float, float, float, float, float)
+  0.00     10.92     0.00        1     0.00     0.00  Synth::updateReverbParameters(float, float, float, float, float, float, float, float)
+  0.00     10.92     0.00        1     0.00     0.00  Synth::setParams(SynthParameters*)
+  0.00     10.92     0.00        1     0.00     0.00  Synth::Synth(float)
+  0.00     10.92     0.00        1     0.00     0.00  Synth::~Synth()
+  0.00     10.92     0.00        1     0.00     0.00  mydsp::instanceClear()
+  0.00     10.92     0.00        1     0.00     0.00  mydsp::buildUserInterface(GreyholeDSPUI*)
+  0.00     10.92     0.00        1     0.00     0.00  mydsp::~mydsp()
+  0.00     10.92     0.00        1     0.00     0.00  UIUtils::ComputeColumnStarts(std::vector<int, std::allocator<int> > const&)
+  0.00     10.92     0.00        1     0.00     0.00  UIUtils::ComputeColumnBoundaries(std::vector<int, std::allocator<int> > const&)
+  0.00     10.92     0.00        1     0.00     0.00  std::_Vector_base<float, std::allocator<float> >::~_Vector_base()
+  0.00     10.92     0.00        1     0.00     0.00  std::vector<float, std::allocator<float> >::_M_fill_assign(unsigned long, float const&)
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2022 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 4 byte(s) for 0.09% of 10.92 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     87.7    0.12    9.46                 std::thread::_State_impl<std::thread::_Invoker<std::tuple<Synth::process(float*, unsigned int, unsigned int)::{lambda(unsigned long, unsigned long)#1}, unsigned long, unsigned long> > >::_M_run() [1]
+                7.49    1.97 3559838/3559838     Voice::generateSample(unsigned int) [2]
+-----------------------------------------------
+                7.49    1.97 3559838/3559838     std::thread::_State_impl<std::thread::_Invoker<std::tuple<Synth::process(float*, unsigned int, unsigned int)::{lambda(unsigned long, unsigned long)#1}, unsigned long, unsigned long> > >::_M_run() [1]
+[2]     86.6    7.49    1.97 3559838         Voice::generateSample(unsigned int) [2]
+                0.91    0.71 18037525/18037525     BrainwaveOscillator::process(float, float, float, float, float, float, float) [3]
+                0.18    0.00 15474297/15474297     Envelope::process() [9]
+                0.15    0.00 15027594/15027594     Sampler::process(float, float, float, float, float, float, float, float, float, int) [10]
+                0.02    0.00  125367/215367      Synth::processModulationMatrix(Voice const*) [13]
+-----------------------------------------------
+                0.91    0.71 18037525/18037525     Voice::generateSample(unsigned int) [2]
+[3]     14.8    0.91    0.71 18037525         BrainwaveOscillator::process(float, float, float, float, float, float, float) [3]
+                0.71    0.00 17613568/17613568     BrainwaveOscillator::generateSample(unsigned int, float, float) [6]
+-----------------------------------------------
+                                                 <spontaneous>
+[4]     11.0    0.00    1.20                 main [4]
+                0.44    0.71   10000/10000       Synth::process(float*, unsigned int, unsigned int) [5]
+                0.05    0.00   10000/10000       Synth::processChaos(unsigned int) [12]
+                0.00    0.00   10000/10000       Synth::processLFOs(float, unsigned int) [28]
+                0.00    0.00   10000/10000       Clock::advance(unsigned int) [27]
+                0.00    0.00      17/68          Envelope::noteOn(bool) [32]
+                0.00    0.00      17/17          Synth::noteOn(int, int) [40]
+                0.00    0.00       4/4           Synth::updateLFOParameters(int, float, int, int, float, float, bool, bool, float) [49]
+                0.00    0.00       2/2           unsigned long __gnu_cxx::__stoa<unsigned long, unsigned long, char, int>(unsigned long (*)(char const*, char**, int), char const*, char const*, unsigned long*, int) [55]
+                0.00    0.00       1/1           Synth::Synth(float) [77]
+                0.00    0.00       1/1           Synth::setParams(SynthParameters*) [76]
+                0.00    0.00       1/1           Clock::Clock(float) [73]
+                0.00    0.00       1/1           Synth::updateFilterParameters(int, float, float, float, float, float, float, float, float) [74]
+                0.00    0.00       1/8           GreyholeReverb::updateParameters() [43]
+                0.00    0.00       1/1           GreyholeReverb::setModFreq(float) [64]
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+                0.00    0.00       1/1           std::_Vector_base<float, std::allocator<float> >::~_Vector_base() [84]
+                0.00    0.00       1/1           Synth::~Synth() [78]
+-----------------------------------------------
+                0.44    0.71   10000/10000       main [4]
+[5]     10.6    0.44    0.71   10000         Synth::process(float*, unsigned int, unsigned int) [5]
+                0.00    0.70   10000/10000       GreyholeReverb::process(float*, float*, int) [7]
+                0.01    0.00   90000/215367      Synth::processModulationMatrix(Voice const*) [13]
+                0.00    0.00   10000/10000       Synth::refreshSamplerPhaseDrivers() [29]
+                0.00    0.00      16/16          std::vector<float, std::allocator<float> >::_M_default_append(unsigned long) [42]
+                0.00    0.00       1/1           std::vector<float, std::allocator<float> >::_M_fill_assign(unsigned long, float const&) [85]
+-----------------------------------------------
+                0.71    0.00 17613568/17613568     BrainwaveOscillator::process(float, float, float, float, float, float, float) [3]
+[6]      6.5    0.71    0.00 17613568         BrainwaveOscillator::generateSample(unsigned int, float, float) [6]
+-----------------------------------------------
+                0.00    0.70   10000/10000       Synth::process(float*, unsigned int, unsigned int) [5]
+[7]      6.4    0.00    0.70   10000         GreyholeReverb::process(float*, float*, int) [7]
+                0.70    0.00   10000/10000       mydsp::compute(int, float**, float**) [8]
+-----------------------------------------------
+                0.70    0.00   10000/10000       GreyholeReverb::process(float*, float*, int) [7]
+[8]      6.4    0.70    0.00   10000         mydsp::compute(int, float**, float**) [8]
+-----------------------------------------------
+                0.18    0.00 15474297/15474297     Voice::generateSample(unsigned int) [2]
+[9]      1.6    0.18    0.00 15474297         Envelope::process() [9]
+-----------------------------------------------
+                0.15    0.00 15027594/15027594     Voice::generateSample(unsigned int) [2]
+[10]     1.4    0.15    0.00 15027594         Sampler::process(float, float, float, float, float, float, float, float, float, int) [10]
+-----------------------------------------------
+                                                 <spontaneous>
+[11]     1.3    0.14    0.00                 _init [11]
+-----------------------------------------------
+                0.05    0.00   10000/10000       main [4]
+[12]     0.5    0.05    0.00   10000         Synth::processChaos(unsigned int) [12]
+                0.00    0.00   80000/80000       std::vector<float, std::allocator<float> >::reserve(unsigned long) [20]
+-----------------------------------------------
+                0.01    0.00   90000/215367      Synth::process(float*, unsigned int, unsigned int) [5]
+                0.02    0.00  125367/215367      Voice::generateSample(unsigned int) [2]
+[13]     0.3    0.03    0.00  215367         Synth::processModulationMatrix(Voice const*) [13]
+-----------------------------------------------
+                0.00    0.00   80000/80000       Synth::processChaos(unsigned int) [12]
+[20]     0.0    0.00    0.00   80000         std::vector<float, std::allocator<float> >::reserve(unsigned long) [20]
+-----------------------------------------------
+                0.00    0.00   40000/40000       LFO::process(float, unsigned int) [23]
+[21]     0.0    0.00    0.00   40000         LFO::generateSample(unsigned int) [21]
+                0.00    0.00   20000/20000       LFO::generatePhaseDistorted(float, float) [26]
+                0.00    0.00   20000/20000       LFO::generateTanhShaped(float, float, float) [25]
+-----------------------------------------------
+                0.00    0.00   40000/40000       LFO::process(float, unsigned int) [23]
+[22]     0.0    0.00    0.00   40000         LFO::calculateFrequency(float) [22]
+-----------------------------------------------
+                0.00    0.00   40000/40000       Synth::processLFOs(float, unsigned int) [28]
+[23]     0.0    0.00    0.00   40000         LFO::process(float, unsigned int) [23]
+                0.00    0.00   40000/40000       LFO::calculateFrequency(float) [22]
+                0.00    0.00   40000/40000       LFO::generateSample(unsigned int) [21]
+-----------------------------------------------
+                0.00    0.00   40000/40000       Synth::processLFOs(float, unsigned int) [28]
+[24]     0.0    0.00    0.00   40000         LFO::getPhase() const [24]
+-----------------------------------------------
+                0.00    0.00   20000/20000       LFO::generateSample(unsigned int) [21]
+[25]     0.0    0.00    0.00   20000         LFO::generateTanhShaped(float, float, float) [25]
+-----------------------------------------------
+                0.00    0.00   20000/20000       LFO::generateSample(unsigned int) [21]
+[26]     0.0    0.00    0.00   20000         LFO::generatePhaseDistorted(float, float) [26]
+-----------------------------------------------
+                0.00    0.00   10000/10000       main [4]
+[27]     0.0    0.00    0.00   10000         Clock::advance(unsigned int) [27]
+-----------------------------------------------
+                0.00    0.00   10000/10000       main [4]
+[28]     0.0    0.00    0.00   10000         Synth::processLFOs(float, unsigned int) [28]
+                0.00    0.00   40000/40000       LFO::process(float, unsigned int) [23]
+                0.00    0.00   40000/40000       LFO::getPhase() const [24]
+-----------------------------------------------
+                0.00    0.00   10000/10000       Synth::process(float*, unsigned int, unsigned int) [5]
+[29]     0.0    0.00    0.00   10000         Synth::refreshSamplerPhaseDrivers() [29]
+-----------------------------------------------
+                0.00    0.00       4/72          Synth::Synth(float) [77]
+                0.00    0.00      68/72          Synth::noteOn(int, int) [40]
+[30]     0.0    0.00    0.00      72         Sampler::setKeyMode(bool) [30]
+-----------------------------------------------
+                0.00    0.00      68/68          Synth::noteOn(int, int) [40]
+[31]     0.0    0.00    0.00      68         Sampler::requestRestart() [31]
+-----------------------------------------------
+                0.00    0.00      17/68          main [4]
+                0.00    0.00      51/68          Synth::noteOn(int, int) [40]
+[32]     0.0    0.00    0.00      68         Envelope::noteOn(bool) [32]
+-----------------------------------------------
+                0.00    0.00      36/36          Synth::Synth(float) [77]
+[33]     0.0    0.00    0.00      36         Sampler::setLevel(float) [33]
+-----------------------------------------------
+                0.00    0.00       4/36          Synth::Synth(float) [77]
+                0.00    0.00      32/36          Voice::Voice(float) [44]
+[34]     0.0    0.00    0.00      36         Sampler::Sampler() [34]
+-----------------------------------------------
+                0.00    0.00      32/32          Voice::Voice(float) [44]
+[35]     0.0    0.00    0.00      32         BrainwaveOscillator::BrainwaveOscillator() [35]
+-----------------------------------------------
+                0.00    0.00      32/32          Voice::Voice(float) [44]
+[36]     0.0    0.00    0.00      32         Envelope::rebuildBendTables() [36]
+-----------------------------------------------
+                0.00    0.00      32/32          Voice::Voice(float) [44]
+[37]     0.0    0.00    0.00      32         Envelope::Envelope(float) [37]
+-----------------------------------------------
+                0.00    0.00      28/28          Voice* std::__uninitialized_copy<false>::__uninit_copy<Voice const*, Voice*>(Voice const*, Voice const*, Voice*) [45]
+[38]     0.0    0.00    0.00      28         Sampler::Sampler(Sampler const&) [38]
+-----------------------------------------------
+                0.00    0.00      17/17          Synth::noteOn(int, int) [40]
+[39]     0.0    0.00    0.00      17         Synth::findFreeVoice() [39]
+-----------------------------------------------
+                0.00    0.00      17/17          main [4]
+[40]     0.0    0.00    0.00      17         Synth::noteOn(int, int) [40]
+                0.00    0.00      68/72          Sampler::setKeyMode(bool) [30]
+                0.00    0.00      68/68          Sampler::requestRestart() [31]
+                0.00    0.00      51/68          Envelope::noteOn(bool) [32]
+                0.00    0.00      17/17          Synth::findFreeVoice() [39]
+                0.00    0.00      17/17          Voice::resetFMHistory() [41]
+-----------------------------------------------
+                0.00    0.00      17/17          Synth::noteOn(int, int) [40]
+[41]     0.0    0.00    0.00      17         Voice::resetFMHistory() [41]
+-----------------------------------------------
+                0.00    0.00      16/16          Synth::process(float*, unsigned int, unsigned int) [5]
+[42]     0.0    0.00    0.00      16         std::vector<float, std::allocator<float> >::_M_default_append(unsigned long) [42]
+-----------------------------------------------
+                0.00    0.00       1/8           main [4]
+                0.00    0.00       1/8           GreyholeReverb::GreyholeReverb(float) [71]
+                0.00    0.00       6/8           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[43]     0.0    0.00    0.00       8         GreyholeReverb::updateParameters() [43]
+                0.00    0.00       1/1           mydsp::buildUserInterface(GreyholeDSPUI*) [80]
+-----------------------------------------------
+                0.00    0.00       4/8           Synth::Synth(float) [77]
+                0.00    0.00       4/8           void std::vector<Voice, std::allocator<Voice> >::_M_realloc_insert<float&>(__gnu_cxx::__normal_iterator<Voice*, std::vector<Voice, std::allocator<Voice> > >, float&) [50]
+[44]     0.0    0.00    0.00       8         Voice::Voice(float) [44]
+                0.00    0.00      32/32          BrainwaveOscillator::BrainwaveOscillator() [35]
+                0.00    0.00      32/36          Sampler::Sampler() [34]
+                0.00    0.00      32/32          Envelope::rebuildBendTables() [36]
+                0.00    0.00      32/32          Envelope::Envelope(float) [37]
+-----------------------------------------------
+                0.00    0.00       8/8           void std::vector<Voice, std::allocator<Voice> >::_M_realloc_insert<float&>(__gnu_cxx::__normal_iterator<Voice*, std::vector<Voice, std::allocator<Voice> > >, float&) [50]
+[45]     0.0    0.00    0.00       8         Voice* std::__uninitialized_copy<false>::__uninit_copy<Voice const*, Voice*>(Voice const*, Voice const*, Voice*) [45]
+                0.00    0.00      28/28          Sampler::Sampler(Sampler const&) [38]
+-----------------------------------------------
+                0.00    0.00       4/4           Synth::Synth(float) [77]
+[46]     0.0    0.00    0.00       4         Ladder8PoleZdf::setSampleRate(float) [46]
+-----------------------------------------------
+                0.00    0.00       4/4           Synth::Synth(float) [77]
+[47]     0.0    0.00    0.00       4         LadderDiodeZdf::setSampleRate(float) [47]
+-----------------------------------------------
+                0.00    0.00       4/4           Synth::Synth(float) [77]
+[48]     0.0    0.00    0.00       4         LFO::LFO() [48]
+-----------------------------------------------
+                0.00    0.00       4/4           main [4]
+[49]     0.0    0.00    0.00       4         Synth::updateLFOParameters(int, float, int, int, float, float, bool, bool, float) [49]
+-----------------------------------------------
+                0.00    0.00       4/4           Synth::Synth(float) [77]
+[50]     0.0    0.00    0.00       4         void std::vector<Voice, std::allocator<Voice> >::_M_realloc_insert<float&>(__gnu_cxx::__normal_iterator<Voice*, std::vector<Voice, std::allocator<Voice> > >, float&) [50]
+                0.00    0.00       8/8           Voice* std::__uninitialized_copy<false>::__uninit_copy<Voice const*, Voice*>(Voice const*, Voice const*, Voice*) [45]
+                0.00    0.00       4/8           Voice::Voice(float) [44]
+-----------------------------------------------
+                0.00    0.00       2/2           Synth::Synth(float) [77]
+[51]     0.0    0.00    0.00       2         Bandpass2PoleZdf::Bandpass2PoleZdf(float) [51]
+-----------------------------------------------
+                0.00    0.00       2/2           Synth::Synth(float) [77]
+[52]     0.0    0.00    0.00       2         LadderBandpassZdf::setSampleRate(float) [52]
+-----------------------------------------------
+                0.00    0.00       2/2           Synth::Synth(float) [77]
+[53]     0.0    0.00    0.00       2         LadderBandpassZdf::LadderBandpassZdf(float) [53]
+-----------------------------------------------
+                0.00    0.00       2/2           Synth::Synth(float) [77]
+[54]     0.0    0.00    0.00       2         Ladder8PoleBandpassZdf::Ladder8PoleBandpassZdf(float) [54]
+-----------------------------------------------
+                0.00    0.00       2/2           main [4]
+[55]     0.0    0.00    0.00       2         unsigned long __gnu_cxx::__stoa<unsigned long, unsigned long, char, int>(unsigned long (*)(char const*, char**, int), char const*, char const*, unsigned long*, int) [55]
+-----------------------------------------------
+                0.00    0.00       1/2           UIUtils::ComputeColumnStarts(std::vector<int, std::allocator<int> > const&) [82]
+                0.00    0.00       1/2           UIUtils::ComputeColumnBoundaries(std::vector<int, std::allocator<int> > const&) [83]
+[56]     0.0    0.00    0.00       2         std::vector<int, std::allocator<int> >::reserve(unsigned long) [56]
+-----------------------------------------------
+                0.00    0.00       1/1           Compressor::Compressor(float) [59]
+[57]     0.0    0.00    0.00       1         Compressor::setRelease(float) [57]
+-----------------------------------------------
+                0.00    0.00       1/1           Compressor::Compressor(float) [59]
+[58]     0.0    0.00    0.00       1         Compressor::setAttack(float) [58]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::Synth(float) [77]
+[59]     0.0    0.00    0.00       1         Compressor::Compressor(float) [59]
+                0.00    0.00       1/1           Compressor::setAttack(float) [58]
+                0.00    0.00       1/1           Compressor::setRelease(float) [57]
+-----------------------------------------------
+                0.00    0.00       1/1           SampleBank::~SampleBank() [62]
+[60]     0.0    0.00    0.00       1         SampleBank::clear() [60]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::Synth(float) [77]
+[61]     0.0    0.00    0.00       1         SampleBank::SampleBank() [61]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::~Synth() [78]
+[62]     0.0    0.00    0.00       1         SampleBank::~SampleBank() [62]
+                0.00    0.00       1/1           SampleBank::clear() [60]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[63]     0.0    0.00    0.00       1         GreyholeReverb::setDamping(float) [63]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[64]     0.0    0.00    0.00       1         GreyholeReverb::setModFreq(float) [64]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[65]     0.0    0.00    0.00       1         GreyholeReverb::setModDepth(float) [65]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[66]     0.0    0.00    0.00       1         GreyholeReverb::setDelayTime(float) [66]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[67]     0.0    0.00    0.00       1         GreyholeReverb::setDiffusion(float) [67]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[68]     0.0    0.00    0.00       1         GreyholeReverb::setMix(float) [68]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[69]     0.0    0.00    0.00       1         GreyholeReverb::setSize(float) [69]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+[70]     0.0    0.00    0.00       1         GreyholeReverb::setDecay(float) [70]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::Synth(float) [77]
+[71]     0.0    0.00    0.00       1         GreyholeReverb::GreyholeReverb(float) [71]
+                0.00    0.00       1/1           mydsp::instanceClear() [79]
+                0.00    0.00       1/8           GreyholeReverb::updateParameters() [43]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::~Synth() [78]
+[72]     0.0    0.00    0.00       1         GreyholeReverb::~GreyholeReverb() [72]
+                0.00    0.00       1/1           mydsp::~mydsp() [81]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[73]     0.0    0.00    0.00       1         Clock::Clock(float) [73]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[74]     0.0    0.00    0.00       1         Synth::updateFilterParameters(int, float, float, float, float, float, float, float, float) [74]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[75]     0.0    0.00    0.00       1         Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [75]
+                0.00    0.00       6/8           GreyholeReverb::updateParameters() [43]
+                0.00    0.00       1/1           GreyholeReverb::setDelayTime(float) [66]
+                0.00    0.00       1/1           GreyholeReverb::setSize(float) [69]
+                0.00    0.00       1/1           GreyholeReverb::setDamping(float) [63]
+                0.00    0.00       1/1           GreyholeReverb::setMix(float) [68]
+                0.00    0.00       1/1           GreyholeReverb::setDecay(float) [70]
+                0.00    0.00       1/1           GreyholeReverb::setDiffusion(float) [67]
+                0.00    0.00       1/1           GreyholeReverb::setModDepth(float) [65]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[76]     0.0    0.00    0.00       1         Synth::setParams(SynthParameters*) [76]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[77]     0.0    0.00    0.00       1         Synth::Synth(float) [77]
+                0.00    0.00      36/36          Sampler::setLevel(float) [33]
+                0.00    0.00       4/4           LFO::LFO() [48]
+                0.00    0.00       4/4           Ladder8PoleZdf::setSampleRate(float) [46]
+                0.00    0.00       4/4           LadderDiodeZdf::setSampleRate(float) [47]
+                0.00    0.00       4/36          Sampler::Sampler() [34]
+                0.00    0.00       4/8           Voice::Voice(float) [44]
+                0.00    0.00       4/4           void std::vector<Voice, std::allocator<Voice> >::_M_realloc_insert<float&>(__gnu_cxx::__normal_iterator<Voice*, std::vector<Voice, std::allocator<Voice> > >, float&) [50]
+                0.00    0.00       4/72          Sampler::setKeyMode(bool) [30]
+                0.00    0.00       2/2           LadderBandpassZdf::LadderBandpassZdf(float) [53]
+                0.00    0.00       2/2           Ladder8PoleBandpassZdf::Ladder8PoleBandpassZdf(float) [54]
+                0.00    0.00       2/2           Bandpass2PoleZdf::Bandpass2PoleZdf(float) [51]
+                0.00    0.00       2/2           LadderBandpassZdf::setSampleRate(float) [52]
+                0.00    0.00       1/1           GreyholeReverb::GreyholeReverb(float) [71]
+                0.00    0.00       1/1           Compressor::Compressor(float) [59]
+                0.00    0.00       1/1           SampleBank::SampleBank() [61]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[78]     0.0    0.00    0.00       1         Synth::~Synth() [78]
+                0.00    0.00       1/1           SampleBank::~SampleBank() [62]
+                0.00    0.00       1/1           GreyholeReverb::~GreyholeReverb() [72]
+-----------------------------------------------
+                0.00    0.00       1/1           GreyholeReverb::GreyholeReverb(float) [71]
+[79]     0.0    0.00    0.00       1         mydsp::instanceClear() [79]
+-----------------------------------------------
+                0.00    0.00       1/1           GreyholeReverb::updateParameters() [43]
+[80]     0.0    0.00    0.00       1         mydsp::buildUserInterface(GreyholeDSPUI*) [80]
+-----------------------------------------------
+                0.00    0.00       1/1           GreyholeReverb::~GreyholeReverb() [72]
+[81]     0.0    0.00    0.00       1         mydsp::~mydsp() [81]
+-----------------------------------------------
+                0.00    0.00       1/1           _GLOBAL__sub_I__ZN7UIUtils11kScaleOrderE [93]
+[82]     0.0    0.00    0.00       1         UIUtils::ComputeColumnStarts(std::vector<int, std::allocator<int> > const&) [82]
+                0.00    0.00       1/2           std::vector<int, std::allocator<int> >::reserve(unsigned long) [56]
+-----------------------------------------------
+                0.00    0.00       1/1           _GLOBAL__sub_I__ZN7UIUtils11kScaleOrderE [93]
+[83]     0.0    0.00    0.00       1         UIUtils::ComputeColumnBoundaries(std::vector<int, std::allocator<int> > const&) [83]
+                0.00    0.00       1/2           std::vector<int, std::allocator<int> >::reserve(unsigned long) [56]
+-----------------------------------------------
+                0.00    0.00       1/1           main [4]
+[84]     0.0    0.00    0.00       1         std::_Vector_base<float, std::allocator<float> >::~_Vector_base() [84]
+-----------------------------------------------
+                0.00    0.00       1/1           Synth::process(float*, unsigned int, unsigned int) [5]
+[85]     0.0    0.00    0.00       1         std::vector<float, std::allocator<float> >::_M_fill_assign(unsigned long, float const&) [85]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2022 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+  [57] Compressor::setRelease(float) [54] Ladder8PoleBandpassZdf::Ladder8PoleBandpassZdf(float) [80] mydsp::buildUserInterface(GreyholeDSPUI*)
+  [58] Compressor::setAttack(float) [21] LFO::generateSample(unsigned int) [8] mydsp::compute(int, float**, float**)
+  [59] Compressor::Compressor(float) [22] LFO::calculateFrequency(float) [81] mydsp::~mydsp()
+  [60] SampleBank::clear()    [25] LFO::generateTanhShaped(float, float, float) [30] Sampler::setKeyMode(bool)
+  [61] SampleBank::SampleBank() [26] LFO::generatePhaseDistorted(float, float) [31] Sampler::requestRestart()
+  [62] SampleBank::~SampleBank() [23] LFO::process(float, unsigned int) [10] Sampler::process(float, float, float, float, float, float, float, float, float, int)
+  [63] GreyholeReverb::setDamping(float) [48] LFO::LFO()  [33] Sampler::setLevel(float)
+  [64] GreyholeReverb::setModFreq(float) [27] Clock::advance(unsigned int) [34] Sampler::Sampler()
+  [65] GreyholeReverb::setModDepth(float) [73] Clock::Clock(float) [38] Sampler::Sampler(Sampler const&)
+  [66] GreyholeReverb::setDelayTime(float) [28] Synth::processLFOs(float, unsigned int) [82] UIUtils::ComputeColumnStarts(std::vector<int, std::allocator<int> > const&)
+  [67] GreyholeReverb::setDiffusion(float) [12] Synth::processChaos(unsigned int) [83] UIUtils::ComputeColumnBoundaries(std::vector<int, std::allocator<int> > const&)
+  [43] GreyholeReverb::updateParameters() [39] Synth::findFreeVoice() [36] Envelope::rebuildBendTables()
+  [68] GreyholeReverb::setMix(float) [49] Synth::updateLFOParameters(int, float, int, int, float, float, bool, bool, float) [32] Envelope::noteOn(bool)
+   [7] GreyholeReverb::process(float*, float*, int) [74] Synth::updateFilterParameters(int, float, float, float, float, float, float, float, float) [9] Envelope::process()
+  [69] GreyholeReverb::setSize(float) [75] Synth::updateReverbParameters(float, float, float, float, float, float, float, float) [37] Envelope::Envelope(float)
+  [70] GreyholeReverb::setDecay(float) [13] Synth::processModulationMatrix(Voice const*) [55] unsigned long __gnu_cxx::__stoa<unsigned long, unsigned long, char, int>(unsigned long (*)(char const*, char**, int), char const*, char const*, unsigned long*, int)
+  [71] GreyholeReverb::GreyholeReverb(float) [29] Synth::refreshSamplerPhaseDrivers() [24] LFO::getPhase() const
+  [72] GreyholeReverb::~GreyholeReverb() [40] Synth::noteOn(int, int) [84] std::_Vector_base<float, std::allocator<float> >::~_Vector_base()
+  [46] Ladder8PoleZdf::setSampleRate(float) [5] Synth::process(float*, unsigned int, unsigned int) [45] Voice* std::__uninitialized_copy<false>::__uninit_copy<Voice const*, Voice*>(Voice const*, Voice const*, Voice*)
+  [47] LadderDiodeZdf::setSampleRate(float) [76] Synth::setParams(SynthParameters*) [1] std::thread::_State_impl<std::thread::_Invoker<std::tuple<Synth::process(float*, unsigned int, unsigned int)::{lambda(unsigned long, unsigned long)#1}, unsigned long, unsigned long> > >::_M_run() (std_thread.h)
+  [51] Bandpass2PoleZdf::Bandpass2PoleZdf(float) [77] Synth::Synth(float) [50] void std::vector<Voice, std::allocator<Voice> >::_M_realloc_insert<float&>(__gnu_cxx::__normal_iterator<Voice*, std::vector<Voice, std::allocator<Voice> > >, float&)
+  [52] LadderBandpassZdf::setSampleRate(float) [78] Synth::~Synth() [85] std::vector<float, std::allocator<float> >::_M_fill_assign(unsigned long, float const&)
+  [53] LadderBandpassZdf::LadderBandpassZdf(float) [2] Voice::generateSample(unsigned int) [42] std::vector<float, std::allocator<float> >::_M_default_append(unsigned long)
+   [6] BrainwaveOscillator::generateSample(unsigned int, float, float) [41] Voice::resetFMHistory() [20] std::vector<float, std::allocator<float> >::reserve(unsigned long)
+   [3] BrainwaveOscillator::process(float, float, float, float, float, float, float) [44] Voice::Voice(float) [56] std::vector<int, std::allocator<int> >::reserve(unsigned long)
+  [35] BrainwaveOscillator::BrainwaveOscillator() [79] mydsp::instanceClear() [11] _init

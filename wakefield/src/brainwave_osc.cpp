@@ -16,6 +16,8 @@ constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
 constexpr float kMinPivot = 0.0001f;
 constexpr float kMaxPivot = 0.9999f;
 constexpr float kMaxBeta = 80.0f;
+constexpr float kPulseMorphCurve = 5.0f;
+constexpr float kPulseMorphSmoothTime = 0.003f; // ~3ms
 
 inline float lookupTanhGain(float morph) {
     float clamped = fastclamp(morph, 0.0f, 1.0f);
@@ -70,6 +72,13 @@ inline float generateTanhSquare(float phase, float morph) {
 
 } // namespace
 
+static inline float mapPulseMorph(float morph) {
+    float clamped = fastclamp(morph, 0.0f, 1.0f);
+    const float denom = 1.0f - std::exp(-kPulseMorphCurve);
+    if (denom <= 0.0f) return clamped;
+    return (1.0f - std::exp(-kPulseMorphCurve * clamped)) / denom;
+}
+
 BrainwaveOscillator::BrainwaveOscillator()
     : mode_(BrainwaveMode::KEY)
     , baseFrequency_(440.0f)
@@ -79,7 +88,8 @@ BrainwaveOscillator::BrainwaveOscillator()
     , offsetHz_(0.0f)
     , fmSensitivity_(0.5f)
     , phaseAccumulator_(0)
-    , morph_(0.5f) {
+    , morph_(0.5f)
+    , pulseMorphState_(mapPulseMorph(0.5f)) {
 }
 
 void BrainwaveOscillator::setShape(int shapeIndex) {
@@ -89,6 +99,7 @@ void BrainwaveOscillator::setShape(int shapeIndex) {
 
 void BrainwaveOscillator::setMorph(float morph) {
     morph_ = fastclamp(morph, 0.0f, 1.0f);
+    pulseMorphState_ = mapPulseMorph(morph_);
 }
 
 float BrainwaveOscillator::process(float sampleRate, float fmInput,
@@ -114,10 +125,17 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementFloat);
 
     float normalizedPhase = static_cast<float>(phaseAccumulator_) * kPhaseToFloat;
-    float morphValue = fastclamp(morph_ + morphMod, 0.0f, 1.0f);
-    float sample = (shape_ == BrainwaveShape::SAW)
-        ? generatePhaseDistorted(normalizedPhase, morphValue)
-        : generateTanhSquare(normalizedPhase, morphValue);
+    float morphLinear = fastclamp(morph_ + morphMod, 0.0f, 1.0f);
+
+    float sample;
+    if (shape_ == BrainwaveShape::SAW) {
+        sample = generatePhaseDistorted(normalizedPhase, morphLinear);
+    } else {
+        float pulseTarget = mapPulseMorph(morphLinear);
+        float alpha = 1.0f - std::exp(-1.0f / (std::max(sampleRate, 1.0f) * kPulseMorphSmoothTime));
+        pulseMorphState_ += alpha * (pulseTarget - pulseMorphState_);
+        sample = generateTanhSquare(normalizedPhase, pulseMorphState_);
+    }
 
     int32_t signedIncrement = static_cast<int32_t>(phaseIncrement) ^ signBit;
     signedIncrement -= signBit;

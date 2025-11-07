@@ -22,7 +22,7 @@ public:
     void setPeriod(float period) { period_ = period; }
     void setSyncMode(LFOSyncMode mode) { syncMode_ = mode; }
     void setShape(int shape) { shape_ = shape; }
-    void setMorph(float morph) { morphPosition_ = morph; }
+    void setMorph(float morph);
     void setDuty(float duty) { duty_ = std::min(std::max(duty, 0.0f), 1.0f); }
     void setFlip(bool flip) { flipPolarity_ = flip; }
 
@@ -58,6 +58,7 @@ private:
     int shape_;               // 0=phase-distorted, 1=tanh-shaped
     float tempo_;             // Tempo in BPM (for synced mode)
     float morphPosition_;     // 0.0 to 1.0 (waveform shape)
+    float pulseMorphState_;   // Smoothed, mapped morph for tanh pulse
     float duty_;              // 0.0 to 1.0, pulse width control
     bool flipPolarity_;       // Invert waveform polarity
     bool resetOnNote_;        // Reset phase on note-on

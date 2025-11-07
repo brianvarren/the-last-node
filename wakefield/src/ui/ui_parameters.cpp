@@ -2187,16 +2187,18 @@ void UI::adjustParameter(int id, bool increase, bool fine) {
             int enumValue = static_cast<int>(currentValue);
             int minEnum = static_cast<int>(param->min_val);
             int maxEnum = static_cast<int>(param->max_val);
-            int range = maxEnum - minEnum + 1;
+            bool clampBounds = (id == 13 || id == 80);
 
             if (increase) {
-                enumValue++;
-                if (enumValue > maxEnum) {
+                if (enumValue < maxEnum) {
+                    enumValue++;
+                } else if (!clampBounds) {
                     enumValue = minEnum;  // Wrap to beginning
                 }
             } else {
-                enumValue--;
-                if (enumValue < minEnum) {
+                if (enumValue > minEnum) {
+                    enumValue--;
+                } else if (!clampBounds) {
                     enumValue = maxEnum;  // Wrap to end
                 }
             }
