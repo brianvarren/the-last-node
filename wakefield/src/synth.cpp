@@ -68,6 +68,13 @@ Synth::Synth(float sampleRate)
         chaos[i].setSampleRate(sampleRate);
     }
 
+    std::fill(std::begin(globalOscOutputs), std::end(globalOscOutputs), 0.0f);
+    std::fill(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), 0.0f);
+    std::fill(std::begin(globalFmInputs), std::end(globalFmInputs), 0.0f);
+    std::fill(std::begin(globalSamplerFmInputs), std::end(globalSamplerFmInputs), 0.0f);
+    std::fill(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), 0.0f);
+    std::fill(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), 0.0f);
+
     compressor.setAutoMakeup(false);
     compressor.setManualMakeup(12.0f);
 }
@@ -659,6 +666,63 @@ int Synth::getVoiceNote(int voiceIndex) const {
     return voices[voiceIndex].note;
 }
 
+void Synth::calculateGlobalFmInputs() {
+    std::fill(std::begin(globalFmInputs), std::end(globalFmInputs), 0.0f);
+    std::fill(std::begin(globalSamplerFmInputs), std::end(globalSamplerFmInputs), 0.0f);
+
+    float globalDepth = 1.0f;
+    if (params) {
+        globalDepth = params->fmGlobalDepth.load();
+    }
+    globalDepth = std::clamp(globalDepth + lastGlobalModOutputs.fmGlobalDepth, 0.0f, 1.0f);
+
+    auto resolveDepth = [&](int target, int source) -> float {
+        float baseDepth = 0.0f;
+        if (params) {
+            baseDepth = params->getFMDepth(target, source);
+        }
+        float modDepth = lastGlobalModOutputs.fmDepth[target][source];
+        return std::clamp(baseDepth + modDepth, -0.99f, 0.99f);
+    };
+
+    for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
+        float totalFM = 0.0f;
+        for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+            float depth = resolveDepth(target, source);
+            if (depth != 0.0f) {
+                totalFM += globalOscOutputsPrev[source] * (depth * 100.0f);
+            }
+        }
+        for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+            int sourceIdx = kFMOscillatorTargetCount + source;
+            float depth = resolveDepth(target, sourceIdx);
+            if (depth != 0.0f) {
+                totalFM += globalSamplerOutputsPrev[source] * (depth * 100.0f);
+            }
+        }
+        globalFmInputs[target] = totalFM * globalDepth;
+    }
+
+    for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
+        int targetIdx = kFMOscillatorTargetCount + target;
+        float totalFM = 0.0f;
+        for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+            float depth = resolveDepth(targetIdx, source);
+            if (depth != 0.0f) {
+                totalFM += globalOscOutputsPrev[source] * (depth * 100.0f);
+            }
+        }
+        for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+            int sourceIdx = kFMOscillatorTargetCount + source;
+            float depth = resolveDepth(targetIdx, sourceIdx);
+            if (depth != 0.0f) {
+                totalFM += globalSamplerOutputsPrev[source] * (depth * 100.0f);
+            }
+        }
+        globalSamplerFmInputs[target] = totalFM * globalDepth;
+    }
+}
+
 void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels, float tempo) {
     // Clear the output buffer first
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
@@ -686,16 +750,22 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
     constexpr float kVoiceHeadroomGain = 0.35f;  // tuned for 8 voices with internal source normalization
     float voiceGain = kVoiceHeadroomGain;
 
-        // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
-        for (int v = 0; v < MAX_VOICES; ++v) {
-            if (!voices[v].active) {
-                continue;
-            }
+    // Prepare global FM buffers for this frame
+    std::fill(std::begin(globalOscOutputs), std::end(globalOscOutputs), 0.0f);
+    std::fill(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), 0.0f);
+    calculateGlobalFmInputs();
 
-            Voice& voice = voices[v];
-            voice.currentBufferSize = nFrames;  // Store for audio-rate interpolation
+    // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
+    for (int v = 0; v < MAX_VOICES; ++v) {
+        Voice& voice = voices[v];
+        if (!voice.active) {
+            voice.clearGlobalFmInputs();
+            continue;
+        }
 
-            ModulationOutputs modOutputs = processModulationMatrix(&voice);
+        voice.currentBufferSize = nFrames;  // Store for audio-rate interpolation
+
+        ModulationOutputs modOutputs = processModulationMatrix(&voice);
 
         // Set modulation values for all oscillators (in octaves for pitch)
         // One-pole smoothing handles zipper prevention automatically
@@ -708,7 +778,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         voice.morphMod[1] = modOutputs.osc2Morph;
         voice.morphMod[2] = modOutputs.osc3Morph;
         voice.morphMod[3] = modOutputs.osc4Morph;
-
 
         voice.ratioMod[0] = modOutputs.osc1Ratio;
         voice.ratioMod[1] = modOutputs.osc2Ratio;
@@ -750,33 +819,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         voice.samplerLevelMod[2] = modOutputs.samp3Amp;
         voice.samplerLevelMod[3] = modOutputs.samp4Amp;
 
-        // FM global depth modulation
-        voice.fmGlobalDepthMod = modOutputs.fmGlobalDepth;
-
-        // Pre-compute final FM depths once per buffer: base + global mod
-        // This eliminates 2.6 billion per-sample function calls (getFMDepthMod, getFMDepth)
-        // Store previous buffer's values for audio-rate interpolation to prevent zippering
-        if (params) {
-            for (int target = 0; target < kFMTargetCount; ++target) {
-                for (int source = 0; source < kFMSourceCount; ++source) {
-                    // Base depth (static parameter)
-                    float baseDepth = params->getFMDepth(target, source);
-                    // Global modulation (computed per buffer)
-                    float globalMod = lastGlobalModOutputs.fmDepth[target][source];
-                    // Final depth = base + global modulation, clamped
-                    voice.fmDepthMod[target][source] = std::clamp(
-                        baseDepth + globalMod, -0.99f, 0.99f);
-                }
-            }
-        } else {
-            // No params: zero out FM depths
-            for (int target = 0; target < kFMTargetCount; ++target) {
-                for (int source = 0; source < kFMSourceCount; ++source) {
-                    voice.fmDepthMod[target][source] = 0.0f;
-                }
-            }
-        }
-
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             if (samplerPhaseSource[i] != kClockModSourceIndex) {
                 voice.samplerPhaseDriver[i] = normalizePhaseForDriver(modOutputs.samplerPhase[i], samplerPhaseType[i]);
@@ -787,7 +829,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
 
         // Cache oscillator and sampler levels to avoid per-sample function calls
         // These are computed once per buffer instead of millions of times per sample
-        // Previous values already saved above
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             float baseLevel = oscillatorBaseLevels[i];
             float offset = modOutputs.mixerOscLevel[i];
@@ -804,6 +845,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
             voice.samplerAmpControllerActive[i] = modOutputs.samplerAmpControllerActive[i];
             voice.samplerAmpControllerValue[i] = std::clamp(modOutputs.samplerAmpController[i], 0.0f, 1.0f);
         }
+
+        voice.setGlobalFmInputs(globalFmInputs, globalSamplerFmInputs);
     }
 
     // Parallel voice processing: generate into per-voice buffers
@@ -815,11 +858,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
 
     for (int v : activeVoices) {
         auto &buf = voiceBuffers[v];
-        auto &trace = voiceFmTraces[v];
         buf.resize(static_cast<size_t>(nFrames) * nChannels);
-        trace.resize(static_cast<size_t>(nFrames) * kFMSourceCount);
         std::fill(buf.begin(), buf.end(), 0.0f);
-        std::fill(trace.begin(), trace.end(), 0.0f);
     }
 
     unsigned int hwc = std::thread::hardware_concurrency();
@@ -831,19 +871,12 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
             int v = activeVoices[idx];
             Voice &voice = voices[v];
             float *buf = voiceBuffers[v].data();
-            float *trace = voiceFmTraces[v].data();
             for (unsigned int i = 0; i < nFrames; ++i) {
                 float sample = voice.generateSample(i);
                 // write voice-local buffer (mono to all channels)
                 for (unsigned int ch = 0; ch < nChannels; ++ch) {
                     buf[static_cast<size_t>(i) * nChannels + ch] = sample;
                 }
-                // capture FM sources per frame (oscillators + samplers)
-                float *frameTrace = trace + static_cast<size_t>(i) * kFMSourceCount;
-                const float *osc = voice.getLastOscOutputs();
-                for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) frameTrace[o] = osc[o];
-                const float *samp = voice.getLastSamplerOutputs();
-                for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) frameTrace[kFMOscillatorTargetCount + s] = samp[s];
             }
         }
     };
@@ -864,30 +897,21 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         for (auto &th : threads) th.join();
     }
 
-    // After parallel stage: accumulate FM sources and mix with gains; write UI waveform
-    // First, accumulate fmSourceBuffer from per-voice traces
-    for (unsigned int i = 0; i < nFrames; ++i) {
-        float *frameSources = fmSourceBuffer.data() + static_cast<size_t>(i) * kFMSourceCount;
-        for (int v : activeVoices) {
-            const float *frameTrace = voiceFmTraces[v].data() + static_cast<size_t>(i) * kFMSourceCount;
-            for (int s = 0; s < kFMSourceCount; ++s) {
-                frameSources[s] += frameTrace[s];
-            }
-        }
-    }
-
-    // UI waveform from the first active voice (if any)
+    // Write UI waveform using the first active voice's audio buffer (if any)
     if (ui && !activeVoices.empty()) {
         int v0 = activeVoices.front();
+        const float *buf = voiceBuffers[v0].data();
         for (unsigned int i = 0; i < nFrames; ++i) {
-            const float *frameTrace = voiceFmTraces[v0].data() + static_cast<size_t>(i) * kFMSourceCount;
-            float displaySample = 0.0f;
-            for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
-                if (frameTrace[o] != 0.0f) { displaySample = frameTrace[o]; break; }
-            }
+            float displaySample = buf[static_cast<size_t>(i) * nChannels];
             ui->writeToWaveformBuffer(displaySample);
         }
     }
+
+    for (int v : activeVoices) {
+        voices[v].contributeToGlobalFm(globalOscOutputs, globalSamplerOutputs);
+    }
+    std::copy(std::begin(globalOscOutputs), std::end(globalOscOutputs), std::begin(globalOscOutputsPrev));
+    std::copy(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), std::begin(globalSamplerOutputsPrev));
 
     // Mix per-voice buffers into final output with gains
     for (unsigned int i = 0; i < nFrames; ++i) {
@@ -2231,6 +2255,12 @@ void Synth::resetAudioState() {
     }
     std::fill(fmSourceBuffer.begin(), fmSourceBuffer.end(), 0.0f);
     std::fill(fmSourceBufferPrev.begin(), fmSourceBufferPrev.end(), 0.0f);
+    std::fill(std::begin(globalOscOutputs), std::end(globalOscOutputs), 0.0f);
+    std::fill(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), 0.0f);
+    std::fill(std::begin(globalFmInputs), std::end(globalFmInputs), 0.0f);
+    std::fill(std::begin(globalSamplerFmInputs), std::end(globalSamplerFmInputs), 0.0f);
+    std::fill(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), 0.0f);
+    std::fill(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), 0.0f);
     for (int i = 0; i < 4; ++i) {
         chaosBufferX[i].clear();
         chaosBufferY[i].clear();
