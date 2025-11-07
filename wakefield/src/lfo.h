@@ -58,7 +58,7 @@ private:
     int shape_;               // 0=phase-distorted, 1=tanh-shaped
     float tempo_;             // Tempo in BPM (for synced mode)
     float morphPosition_;     // 0.0 to 1.0 (waveform shape)
-    float pulseMorphState_;   // Smoothed, mapped morph for tanh pulse
+    float morphState_;
     float duty_;              // 0.0 to 1.0, pulse width control
     bool flipPolarity_;       // Invert waveform polarity
     bool resetOnNote_;        // Reset phase on note-on

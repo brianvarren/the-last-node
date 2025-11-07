@@ -63,14 +63,13 @@ private:
     float noteFrequency_;      // MIDI note frequency (KEY mode)
     BrainwaveShape shape_;
     float morph_;
+    float morphState_;
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
     float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)
 
     // Phase accumulator (32-bit for high precision)
     uint32_t phaseAccumulator_;
-
-    float pulseMorphState_;
 
 };
 

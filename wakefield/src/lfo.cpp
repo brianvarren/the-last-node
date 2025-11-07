@@ -31,7 +31,6 @@ inline float mapPulseMorph(float morph) {
 
 } // namespace
 
-// Phase distortion saw (same as brainwave osc)
 float LFO::generatePhaseDistorted(float phase, float morph) {
     float clamped = fastclamp(morph, 0.0f, 1.0f);
     bool mirror = false;
@@ -60,7 +59,6 @@ float LFO::generatePhaseDistorted(float phase, float morph) {
     return -fastcos(shapedPhase * kTwoPi);
 }
 
-// Tanh-shaped pulse (same as brainwave osc)
 float LFO::generateTanhShaped(float phase, float morph, float duty) {
     float edge = fastclamp(morph, 0.0f, 1.0f);
     if (edge < 1e-4f) {
@@ -81,12 +79,12 @@ LFO::LFO()
     , shape_(0)
     , tempo_(120.0f)
     , morphPosition_(0.5f)
+    , morphState_(0.5f)
     , duty_(0.5f)
     , flipPolarity_(false)
     , resetOnNote_(false)
     , phaseAccumulator_(0)
-    , currentOutput_(0.0f)
-    , pulseMorphState_(mapPulseMorph(0.5f)) {
+    , currentOutput_(0.0f) {
 }
 
 float LFO::calculateFrequency(float sampleRate) {
@@ -108,11 +106,12 @@ float LFO::generateSample(uint32_t phase) {
 
     float sample;
     if (shape_ == 0) {
-        sample = generatePhaseDistorted(floatPhase, morphPosition_);
+        sample = generatePhaseDistorted(floatPhase, morphState_);
     } else {
         float shiftedPhase = floatPhase + 0.5f;
         if (shiftedPhase >= 1.0f) shiftedPhase -= 1.0f;
-        sample = generateTanhShaped(shiftedPhase, pulseMorphState_, duty_);
+        float pulseControl = mapPulseMorph(morphState_);
+        sample = generateTanhShaped(shiftedPhase, pulseControl, duty_);
     }
 
     if (flipPolarity_) sample = -sample;
@@ -124,13 +123,10 @@ float LFO::process(float sampleRate, unsigned int nFrames) {
     double phaseIncrementDouble = (frequency / sampleRate) * 4294967296.0;
     uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementDouble);
 
-    if (shape_ == 1) {
-        float dt = (sampleRate > 0.0f) ? (static_cast<float>(nFrames) / sampleRate) : 0.0f;
-        float alpha = 1.0f - std::exp(-dt / kPulseMorphSmoothTime);
-        alpha = std::clamp(alpha, 0.0f, 1.0f);
-        float target = mapPulseMorph(morphPosition_);
-        pulseMorphState_ += alpha * (target - pulseMorphState_);
-    }
+    float dt = (sampleRate > 0.0f) ? (static_cast<float>(nFrames) / sampleRate) : 0.0f;
+    float alpha = 1.0f - std::exp(-dt / kPulseMorphSmoothTime);
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    morphState_ += alpha * (std::clamp(morphPosition_, 0.0f, 1.0f) - morphState_);
 
     currentOutput_ = generateSample(phaseAccumulator_);
     phaseAccumulator_ += phaseIncrement * nFrames;
@@ -140,7 +136,7 @@ float LFO::process(float sampleRate, unsigned int nFrames) {
 void LFO::reset() {
     phaseAccumulator_ = 0;
     currentOutput_ = 0.0f;
-    pulseMorphState_ = mapPulseMorph(morphPosition_);
+    morphState_ = morphPosition_;
 }
 
 float LFO::getPhase() const {
@@ -149,5 +145,4 @@ float LFO::getPhase() const {
 
 void LFO::setMorph(float morph) {
     morphPosition_ = std::clamp(morph, 0.0f, 1.0f);
-    pulseMorphState_ = mapPulseMorph(morphPosition_);
 }

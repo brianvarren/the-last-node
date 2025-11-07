@@ -82,12 +82,12 @@ BrainwaveOscillator::BrainwaveOscillator()
     , baseFrequency_(440.0f)
     , noteFrequency_(440.0f)
     , shape_(BrainwaveShape::SAW)
+    , morph_(0.5f)
+    , morphState_(0.5f)
     , ratio_(1.0f)
     , offsetHz_(0.0f)
     , fmSensitivity_(0.5f)
-    , phaseAccumulator_(0)
-    , morph_(0.5f)
-    , pulseMorphState_(mapPulseMorph(0.5f)) {
+    , phaseAccumulator_(0) {
 }
 
 void BrainwaveOscillator::setShape(int shapeIndex) {
@@ -97,7 +97,7 @@ void BrainwaveOscillator::setShape(int shapeIndex) {
 
 void BrainwaveOscillator::setMorph(float morph) {
     morph_ = fastclamp(morph, 0.0f, 1.0f);
-    pulseMorphState_ = mapPulseMorph(morph_);
+    morphState_ = morph_;
 }
 
 float BrainwaveOscillator::process(float sampleRate, float fmInput,
@@ -123,16 +123,16 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
     uint32_t phaseIncrement = static_cast<uint32_t>(phaseIncrementFloat);
 
     float normalizedPhase = static_cast<float>(phaseAccumulator_) * kPhaseToFloat;
-    float morphLinear = fastclamp(morph_ + morphMod, 0.0f, 1.0f);
+    float morphTarget = fastclamp(morph_ + morphMod, 0.0f, 1.0f);
+    float alpha = 1.0f - std::exp(-1.0f / (std::max(sampleRate, 1.0f) * kPulseMorphSmoothTime));
+    morphState_ += alpha * (morphTarget - morphState_);
 
     float sample;
     if (shape_ == BrainwaveShape::SAW) {
-        sample = generatePhaseDistorted(normalizedPhase, morphLinear);
+        sample = generatePhaseDistorted(normalizedPhase, morphState_);
     } else {
-        float pulseTarget = mapPulseMorph(morphLinear);
-        float alpha = 1.0f - std::exp(-1.0f / (std::max(sampleRate, 1.0f) * kPulseMorphSmoothTime));
-        pulseMorphState_ += alpha * (pulseTarget - pulseMorphState_);
-        sample = generateTanhSquare(normalizedPhase, pulseMorphState_);
+        float pulseControl = mapPulseMorph(morphState_);
+        sample = generateTanhSquare(normalizedPhase, pulseControl);
     }
 
     int32_t signedIncrement = static_cast<int32_t>(phaseIncrement) ^ signBit;
