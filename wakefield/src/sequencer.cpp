@@ -147,7 +147,9 @@ void Sequencer::triggerTrackStep(size_t trackIndex, int step) {
         return;  // Skip this trigger
     }
 
-    synth->noteOn(patternStep.midiNote, patternStep.velocity);
+    // Trigger note via sequencer routing (updates per-track state and triggers voices)
+    synth->sequencerNoteOn(static_cast<int>(trackIndex), patternStep.midiNote,
+                           patternStep.velocity, patternStep.gateLength, patternStep.probability);
 
     ActiveNote activeNote{};
     activeNote.midiNote = patternStep.midiNote;

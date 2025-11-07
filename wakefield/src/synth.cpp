@@ -86,13 +86,12 @@ int Synth::findFreeVoice() {
     }
 
     // All voices are active - need to steal one
-    // Priority 2: Steal voice already in RELEASE stage (fading out)
+    // Priority 2: Steal voice already releasing (gate headed toward off)
     int releaseVoiceIndex = -1;
     uint64_t oldestReleaseTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].envelopes[0].getStage() == EnvelopeStage::RELEASE) {
-            // Prefer the oldest voice in release
+        if (voices[i].isGateReleasing()) {
             if (voices[i].startTime < oldestReleaseTime) {
                 oldestReleaseTime = voices[i].startTime;
                 releaseVoiceIndex = i;
@@ -104,12 +103,12 @@ int Synth::findFreeVoice() {
         return releaseVoiceIndex;
     }
 
-    // Priority 3: Steal oldest voice in SUSTAIN stage
+    // Priority 3: Steal oldest active voice (still held)
     int oldestVoiceIndex = -1;
     uint64_t oldestTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].envelopes[0].getStage() == EnvelopeStage::SUSTAIN) {
+        if (!voices[i].isGateReleasing()) {
             if (voices[i].startTime < oldestTime) {
                 oldestTime = voices[i].startTime;
                 oldestVoiceIndex = i;
@@ -121,13 +120,12 @@ int Synth::findFreeVoice() {
         return oldestVoiceIndex;
     }
 
-    // Priority 4: Steal voice with lowest envelope level (quietest)
-    // This handles ATTACK and DECAY stages
+    // Priority 4: Steal voice with lowest current amplitude level
     int quietestVoiceIndex = 0;
-    float lowestLevel = voices[0].getEnvelopeValue();
+    float lowestLevel = voices[0].getCurrentAmpLevel();
 
     for (int i = 1; i < MAX_VOICES; ++i) {
-        float level = voices[i].getEnvelopeValue();
+        float level = voices[i].getCurrentAmpLevel();
         if (level < lowestLevel) {
             lowestLevel = level;
             quietestVoiceIndex = i;
@@ -166,8 +164,8 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
     }
 }
 
-void Synth::setOscillatorState(int index, BrainwaveMode mode, float shape,
-                               float baseFreq, float morph, float duty,
+void Synth::setOscillatorState(int index, BrainwaveMode mode, int shapeIndex,
+                               float baseFreq, float morph,
                                float ratio, float offsetHz, float amp, float level) {
     if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
         return;
@@ -179,12 +177,9 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, float shape,
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
         osc.setMode(mode);
-        osc.setShape(shape);
+        osc.setShape(shapeIndex);
         osc.setFrequency(baseFreq);
-        // Morph and duty are deprecated - shape is now the single control
-        // Keep setters for backward compatibility but they do nothing
         osc.setMorph(morph);
-        osc.setDuty(duty);
         osc.setRatio(ratio);
         osc.setOffset(offsetHz);
     }
@@ -354,7 +349,6 @@ void Synth::noteOn(int midiNote, int velocity) {
         voice.oscillators[i].reset();  // Reset phase for new note
         voice.pitchMod[i] = 0.0f;
         voice.morphMod[i] = 0.0f;
-        voice.dutyMod[i] = 0.0f;
         voice.ratioMod[i] = 0.0f;
         voice.offsetMod[i] = 0.0f;
         voice.ampMod[i] = 0.0f;
@@ -362,7 +356,7 @@ void Synth::noteOn(int midiNote, int velocity) {
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         voice.samplerPitchMod[i] = 0.0f;
         voice.samplerLoopStartMod[i] = 0.0f;
-       voice.samplerLoopLengthMod[i] = 0.0f;
+        voice.samplerLoopLengthMod[i] = 0.0f;
         voice.samplerCrossfadeMod[i] = 0.0f;
         voice.samplerLevelMod[i] = 0.0f;
         voice.samplers[i].setKeyMode(samplerKeyModes[i]);
@@ -379,12 +373,17 @@ void Synth::noteOn(int midiNote, int velocity) {
             voice.samplers[i].stopPlayback();
         }
     }
+    voice.resetAmpControllers();
     voice.resetFMHistory();
 
     // Trigger envelope attack on all envelopes
     // If stealing an active voice, start from current level to avoid discontinuity clicks
     for (int ei = 0; ei < 4; ++ei) {
         voice.envelopes[ei].noteOn(isStealingVoice);
+    }
+    voice.ampGateTarget = 1.0f;
+    if (!isStealingVoice) {
+        voice.ampGateValue = 0.0f;
     }
 }
 
@@ -395,10 +394,59 @@ void Synth::noteOff(int midiNote) {
             for (int ei = 0; ei < 4; ++ei) {
                 voices[i].envelopes[ei].noteOff();  // Trigger release
             }
+            voices[i].ampGateTarget = 0.0f;
         }
     }
 
     fmSourceBufferPrev = fmSourceBuffer;
+}
+
+void Synth::sequencerNoteOn(int trackIndex, int midiNote, int velocity, float gatePercent, float probability) {
+    if (trackIndex < 0 || trackIndex >= 4 || !params) return;
+
+    // Update track state for modulation sources
+    trackState[trackIndex].note = midiNote;
+    trackState[trackIndex].velocity = velocity;
+    trackState[trackIndex].gatePercent = gatePercent;
+    trackState[trackIndex].probability = probability;
+    trackState[trackIndex].active = true;
+
+    // Determine the NoteSource value for this track (TRACK_1 = 2, TRACK_2 = 3, etc.)
+    int trackNoteSource = static_cast<int>(NoteSource::TRACK_1) + trackIndex;
+
+    // Check if any oscillators or samplers are listening to this track
+    bool anyListening = false;
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (params->getOscNoteSource(i) == trackNoteSource) {
+            anyListening = true;
+            break;
+        }
+    }
+    if (!anyListening) {
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            if (params->getSamplerNoteSource(i) == trackNoteSource) {
+                anyListening = true;
+                break;
+            }
+        }
+    }
+
+    // If no generators are listening to this track, skip voice allocation
+    if (!anyListening) return;
+
+    // For now, just trigger a normal noteOn (all generators respond)
+    // TODO: Make this more selective based on noteSource settings
+    noteOn(midiNote, velocity);
+}
+
+void Synth::sequencerNoteOff(int trackIndex, int midiNote) {
+    if (trackIndex < 0 || trackIndex >= 4) return;
+
+    // Mark track as inactive
+    trackState[trackIndex].active = false;
+
+    // Trigger note off for this MIDI note
+    noteOff(midiNote);
 }
 
 void Synth::spawnFreeRunningVoice() {
@@ -431,7 +479,6 @@ void Synth::spawnFreeRunningVoice() {
         voice.oscillators[i].reset();  // Reset phase
         voice.pitchMod[i] = 0.0f;
         voice.morphMod[i] = 0.0f;
-        voice.dutyMod[i] = 0.0f;
         voice.ratioMod[i] = 0.0f;
         voice.offsetMod[i] = 0.0f;
         voice.ampMod[i] = 0.0f;
@@ -575,10 +622,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         voice.morphMod[2] = modOutputs.osc3Morph;
         voice.morphMod[3] = modOutputs.osc4Morph;
 
-        voice.dutyMod[0] = modOutputs.osc1Duty;
-        voice.dutyMod[1] = modOutputs.osc2Duty;
-        voice.dutyMod[2] = modOutputs.osc3Duty;
-        voice.dutyMod[3] = modOutputs.osc4Duty;
 
         voice.ratioMod[0] = modOutputs.osc1Ratio;
         voice.ratioMod[1] = modOutputs.osc2Ratio;
@@ -665,6 +708,14 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         }
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             voice.cachedSamplerLevelMod[i] = modOutputs.mixerSamplerLevel[i];
+        }
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            voice.oscAmpControllerActive[i] = modOutputs.oscAmpControllerActive[i];
+            voice.oscAmpControllerValue[i] = std::clamp(modOutputs.oscAmpController[i], 0.0f, 1.0f);
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            voice.samplerAmpControllerActive[i] = modOutputs.samplerAmpControllerActive[i];
+            voice.samplerAmpControllerValue[i] = std::clamp(modOutputs.samplerAmpController[i], 0.0f, 1.0f);
         }
     }
 
@@ -1345,6 +1396,10 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     // 8: MIDI Note, 9: Velocity, 10: Aftertouch, 11: Mod Wheel, 12: Pitch Bend
     // 13: Clock
     // 14-21: Chaos 1-4 X/Y pairs (14=C1X, 15=C1Y, 16=C2X, 17=C2Y, etc.)
+    // 22-25: Track 1-4 Note
+    // 26-29: Track 1-4 Velocity
+    // 30-33: Track 1-4 Gate %
+    // 34-37: Track 1-4 Probability
 
     if (sourceIndex >= 0 && sourceIndex <= 3) {
         // LFO 1-4
@@ -1417,6 +1472,31 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
         } else {
             return getChaosOutput(chaosIndex);
         }
+    } else if (sourceIndex >= 22 && sourceIndex <= 25) {
+        // Track 1-4 Note (0-127 mapped to -1 to +1, with 64 as center)
+        int trackIdx = sourceIndex - 22;  // 0..3
+        if (trackState[trackIdx].active) {
+            return (trackState[trackIdx].note - 64.0f) / 64.0f;
+        }
+        return 0.0f;
+    } else if (sourceIndex >= 26 && sourceIndex <= 29) {
+        // Track 1-4 Velocity (0-127 mapped to 0 to +1)
+        int trackIdx = sourceIndex - 26;  // 0..3
+        if (trackState[trackIdx].active) {
+            return trackState[trackIdx].velocity / 127.0f;
+        }
+        return 0.0f;
+    } else if (sourceIndex >= 30 && sourceIndex <= 33) {
+        // Track 1-4 Gate % (0.0-1.0)
+        int trackIdx = sourceIndex - 30;  // 0..3
+        if (trackState[trackIdx].active) {
+            return trackState[trackIdx].gatePercent * 2.0f - 1.0f;  // Map 0-1 to -1 to +1
+        }
+        return -1.0f;  // Default to -1 when inactive
+    } else if (sourceIndex >= 34 && sourceIndex <= 37) {
+        // Track 1-4 Probability (0.0-1.0)
+        int trackIdx = sourceIndex - 34;  // 0..3
+        return trackState[trackIdx].probability * 2.0f - 1.0f;  // Map 0-1 to -1 to +1
     }
 
     return 0.0f;
@@ -1492,27 +1572,24 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
 
         // Apply to destination
         // Destination indices from ui_mod_data:
-        // 0-5: OSC 1 Pitch/Morph/Duty/Ratio/Offset/Amp
-        // 6-11: OSC 2 Pitch/Morph/Duty/Ratio/Offset/Amp
-        // 12-17: OSC 3 Pitch/Morph/Duty/Ratio/Offset/Amp
-        // 18-23: OSC 4 Pitch/Morph/Duty/Ratio/Offset/Amp
-        // 24-30: Filter Cutoff/Resonance/Drive/Width/NotchFeedback/Spread/DryWet
-        // 31-32: Reverb Mix/Size
-        // 33-37: SAMP 1 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 38-42: SAMP 2 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 43-47: SAMP 3 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 48-52: SAMP 4 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 53-64: LFO 1-4 Rate/Morph/Duty
-        // 65: Mixer Master Volume
-        // 66-69: Mixer Oscillator Levels
-        // 70-73: Mixer Sampler Levels
-        // 74-77: Sequencer Track 1-4 Phase Drivers
-        // 78-81: Sampler 1-4 Phase Drivers
-        // 82: FM Global Depth
+        // 0-4: OSC 1 Pitch/Morph/Ratio/Offset/Amp
+        // 5-9: OSC 2 Pitch/Morph/Ratio/Offset/Amp
+        // 10-14: OSC 3 Pitch/Morph/Ratio/Offset/Amp
+        // 15-19: OSC 4 Pitch/Morph/Ratio/Offset/Amp
+        // 20-26: Filter Cutoff/Resonance/Drive/Width/NotchFeedback/Spread/DryWet
+        // 27-28: Reverb Mix/Size
+        // 29-48: SAMP 1-4 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 49-60: LFO 1-4 Rate/Morph/Duty
+        // 61: Mixer Master Volume
+        // 62-65: Mixer Oscillator Levels
+        // 66-69: Mixer Sampler Levels
+        // 70-73: Sequencer Track 1-4 Phase Drivers
+        // 74-77: Sampler 1-4 Phase Drivers
+        // 78: FM Global Depth
         // 83- (83 + kFMTargetCount*kFMSourceCount - 1): Individual FM depths
         // Remaining: Chaos parameters (Clock/U/Level)
 
-        const int fmGlobalIndex = 82;
+        const int fmGlobalIndex = 78;
         const int fmCellStart = fmGlobalIndex + 1;
         const int fmCellEnd = fmCellStart + kFMTargetCount * kFMSourceCount;
         const int chaosBase = fmCellEnd;
@@ -1558,102 +1635,162 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             // OSC 1
             case 0: outputs.osc1Pitch += modValue; break;
             case 1: outputs.osc1Morph += modValue; break;
-            case 2: outputs.osc1Duty += modValue; break;
-            case 3: outputs.osc1Ratio += modValue; break;
-            case 4: outputs.osc1Offset += modValue; break;
-            case 5: outputs.osc1Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
+            case 2: outputs.osc1Ratio += modValue; break;
+            case 3: outputs.osc1Offset += modValue; break;
+            case 4:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.oscAmpControllerActive[0] = true;
+                    outputs.oscAmpController[0] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.osc1Amp += adjustAmpMod(modValue);
+                break;
             // OSC 2
-            case 6: outputs.osc2Pitch += modValue; break;
-            case 7: outputs.osc2Morph += modValue; break;
-            case 8: outputs.osc2Duty += modValue; break;
-            case 9: outputs.osc2Ratio += modValue; break;
-            case 10: outputs.osc2Offset += modValue; break;
-            case 11: outputs.osc2Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
+            case 5: outputs.osc2Pitch += modValue; break;
+            case 6: outputs.osc2Morph += modValue; break;
+            case 7: outputs.osc2Ratio += modValue; break;
+            case 8: outputs.osc2Offset += modValue; break;
+            case 9:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.oscAmpControllerActive[1] = true;
+                    outputs.oscAmpController[1] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.osc2Amp += adjustAmpMod(modValue);
+                break;
             // OSC 3
-            case 12: outputs.osc3Pitch += modValue; break;
-            case 13: outputs.osc3Morph += modValue; break;
-            case 14: outputs.osc3Duty += modValue; break;
-            case 15: outputs.osc3Ratio += modValue; break;
-            case 16: outputs.osc3Offset += modValue; break;
-            case 17: outputs.osc3Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
+            case 10: outputs.osc3Pitch += modValue; break;
+            case 11: outputs.osc3Morph += modValue; break;
+            case 12: outputs.osc3Ratio += modValue; break;
+            case 13: outputs.osc3Offset += modValue; break;
+            case 14:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.oscAmpControllerActive[2] = true;
+                    outputs.oscAmpController[2] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.osc3Amp += adjustAmpMod(modValue);
+                break;
             // OSC 4
-            case 18: outputs.osc4Pitch += modValue; break;
-            case 19: outputs.osc4Morph += modValue; break;
-            case 20: outputs.osc4Duty += modValue; break;
-            case 21: outputs.osc4Ratio += modValue; break;
-            case 22: outputs.osc4Offset += modValue; break;
-            case 23: outputs.osc4Amp += adjustAmpMod(modValue); break;  // Changed from Level to Amp
+            case 15: outputs.osc4Pitch += modValue; break;
+            case 16: outputs.osc4Morph += modValue; break;
+            case 17: outputs.osc4Ratio += modValue; break;
+            case 18: outputs.osc4Offset += modValue; break;
+            case 19:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.oscAmpControllerActive[3] = true;
+                    outputs.oscAmpController[3] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.osc4Amp += adjustAmpMod(modValue);
+                break;
             // Filter
-            case 24: outputs.filterCutoff += modValue; break;
-            case 25: outputs.filterResonance += modValue; break;
-            case 26: outputs.filterDrive += modValue; break;
-            case 27: outputs.filterWidth += modValue; break;
-            case 28: outputs.filterNotchFeedback += modValue; break;
-            case 29: outputs.filterSpread += modValue; break;
-            case 30: outputs.filterDryWet += modValue; break;
+            case 20: outputs.filterCutoff += modValue; break;
+            case 21: outputs.filterResonance += modValue; break;
+            case 22: outputs.filterDrive += modValue; break;
+            case 23: outputs.filterWidth += modValue; break;
+            case 24: outputs.filterNotchFeedback += modValue; break;
+            case 25: outputs.filterSpread += modValue; break;
+            case 26: outputs.filterDryWet += modValue; break;
             // Reverb
-            case 31: outputs.reverbMix += modValue; break;
-            case 32: outputs.reverbSize += modValue; break;
+            case 27: outputs.reverbMix += modValue; break;
+            case 28: outputs.reverbSize += modValue; break;
             // SAMP 1
-            case 33: outputs.samp1Pitch += modValue; break;
-            case 34: outputs.samp1LoopStart += modValue; break;
-            case 35: outputs.samp1LoopLength += modValue; break;
-            case 36: outputs.samp1Crossfade += modValue; break;
-            case 37: outputs.samp1Amp += adjustAmpMod(modValue); break;
+            case 29: outputs.samp1Pitch += modValue; break;
+            case 30: outputs.samp1LoopStart += modValue; break;
+            case 31: outputs.samp1LoopLength += modValue; break;
+            case 32: outputs.samp1Crossfade += modValue; break;
+            case 33:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.samplerAmpControllerActive[0] = true;
+                    outputs.samplerAmpController[0] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.samp1Amp += adjustAmpMod(modValue);
+                break;
             // SAMP 2
-            case 38: outputs.samp2Pitch += modValue; break;
-            case 39: outputs.samp2LoopStart += modValue; break;
-            case 40: outputs.samp2LoopLength += modValue; break;
-            case 41: outputs.samp2Crossfade += modValue; break;
-            case 42: outputs.samp2Amp += adjustAmpMod(modValue); break;
+            case 34: outputs.samp2Pitch += modValue; break;
+            case 35: outputs.samp2LoopStart += modValue; break;
+            case 36: outputs.samp2LoopLength += modValue; break;
+            case 37: outputs.samp2Crossfade += modValue; break;
+            case 38:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.samplerAmpControllerActive[1] = true;
+                    outputs.samplerAmpController[1] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.samp2Amp += adjustAmpMod(modValue);
+                break;
             // SAMP 3
-            case 43: outputs.samp3Pitch += modValue; break;
-            case 44: outputs.samp3LoopStart += modValue; break;
-            case 45: outputs.samp3LoopLength += modValue; break;
-            case 46: outputs.samp3Crossfade += modValue; break;
-            case 47: outputs.samp3Amp += adjustAmpMod(modValue); break;
+            case 39: outputs.samp3Pitch += modValue; break;
+            case 40: outputs.samp3LoopStart += modValue; break;
+            case 41: outputs.samp3LoopLength += modValue; break;
+            case 42: outputs.samp3Crossfade += modValue; break;
+            case 43:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.samplerAmpControllerActive[2] = true;
+                    outputs.samplerAmpController[2] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.samp3Amp += adjustAmpMod(modValue);
+                break;
             // SAMP 4
-            case 48: outputs.samp4Pitch += modValue; break;
-            case 49: outputs.samp4LoopStart += modValue; break;
-            case 50: outputs.samp4LoopLength += modValue; break;
-            case 51: outputs.samp4Crossfade += modValue; break;
-            case 52: outputs.samp4Amp += adjustAmpMod(modValue); break;
+            case 44: outputs.samp4Pitch += modValue; break;
+            case 45: outputs.samp4LoopStart += modValue; break;
+            case 46: outputs.samp4LoopLength += modValue; break;
+            case 47: outputs.samp4Crossfade += modValue; break;
+            case 48:
+                if (slot.source >= 4 && slot.source <= 7) {
+                    if (!voiceContext) continue;
+                    outputs.samplerAmpControllerActive[3] = true;
+                    outputs.samplerAmpController[3] = std::clamp(modValue, 0.0f, 1.0f);
+                    continue;
+                }
+                outputs.samp4Amp += adjustAmpMod(modValue);
+                break;
             // LFO 1
-            case 53: outputs.lfoPeriod[0] += modValue; break;
-            case 54: outputs.lfoMorph[0] += modValue; break;
-            case 55: outputs.lfoDuty[0] += modValue; break;
+            case 49: outputs.lfoPeriod[0] += modValue; break;
+            case 50: outputs.lfoMorph[0] += modValue; break;
+            case 51: outputs.lfoDuty[0] += modValue; break;
             // LFO 2
-            case 56: outputs.lfoPeriod[1] += modValue; break;
-            case 57: outputs.lfoMorph[1] += modValue; break;
-            case 58: outputs.lfoDuty[1] += modValue; break;
+            case 52: outputs.lfoPeriod[1] += modValue; break;
+            case 53: outputs.lfoMorph[1] += modValue; break;
+            case 54: outputs.lfoDuty[1] += modValue; break;
             // LFO 3
-            case 59: outputs.lfoPeriod[2] += modValue; break;
-            case 60: outputs.lfoMorph[2] += modValue; break;
-            case 61: outputs.lfoDuty[2] += modValue; break;
+            case 55: outputs.lfoPeriod[2] += modValue; break;
+            case 56: outputs.lfoMorph[2] += modValue; break;
+            case 57: outputs.lfoDuty[2] += modValue; break;
             // LFO 4
-            case 62: outputs.lfoPeriod[3] += modValue; break;
-            case 63: outputs.lfoMorph[3] += modValue; break;
-            case 64: outputs.lfoDuty[3] += modValue; break;
+            case 58: outputs.lfoPeriod[3] += modValue; break;
+            case 59: outputs.lfoMorph[3] += modValue; break;
+            case 60: outputs.lfoDuty[3] += modValue; break;
             // Mixer
-            case 65: outputs.mixerMasterVolume += modValue; break;
-            case 66: outputs.mixerOscLevel[0] += modValue; break;
-            case 67: outputs.mixerOscLevel[1] += modValue; break;
-            case 68: outputs.mixerOscLevel[2] += modValue; break;
-            case 69: outputs.mixerOscLevel[3] += modValue; break;
-            case 70: outputs.mixerSamplerLevel[0] += modValue; break;
-            case 71: outputs.mixerSamplerLevel[1] += modValue; break;
-            case 72: outputs.mixerSamplerLevel[2] += modValue; break;
-            case 73: outputs.mixerSamplerLevel[3] += modValue; break;
+            case 61: outputs.mixerMasterVolume += modValue; break;
+            case 62: outputs.mixerOscLevel[0] += modValue; break;
+            case 63: outputs.mixerOscLevel[1] += modValue; break;
+            case 64: outputs.mixerOscLevel[2] += modValue; break;
+            case 65: outputs.mixerOscLevel[3] += modValue; break;
+            case 66: outputs.mixerSamplerLevel[0] += modValue; break;
+            case 67: outputs.mixerSamplerLevel[1] += modValue; break;
+            case 68: outputs.mixerSamplerLevel[2] += modValue; break;
+            case 69: outputs.mixerSamplerLevel[3] += modValue; break;
             // Sequencer phase drivers
-            case 74: outputs.sequencerPhase[0] += modValue; break;
-            case 75: outputs.sequencerPhase[1] += modValue; break;
-            case 76: outputs.sequencerPhase[2] += modValue; break;
-            case 77: outputs.sequencerPhase[3] += modValue; break;
+            case 70: outputs.sequencerPhase[0] += modValue; break;
+            case 71: outputs.sequencerPhase[1] += modValue; break;
+            case 72: outputs.sequencerPhase[2] += modValue; break;
+            case 73: outputs.sequencerPhase[3] += modValue; break;
             // Sampler phase drivers
-            case 78: outputs.samplerPhase[0] += modValue; break;
-            case 79: outputs.samplerPhase[1] += modValue; break;
-            case 80: outputs.samplerPhase[2] += modValue; break;
-            case 81: outputs.samplerPhase[3] += modValue; break;
+            case 74: outputs.samplerPhase[0] += modValue; break;
+            case 75: outputs.samplerPhase[1] += modValue; break;
+            case 76: outputs.samplerPhase[2] += modValue; break;
+            case 77: outputs.samplerPhase[3] += modValue; break;
         }
     }
 

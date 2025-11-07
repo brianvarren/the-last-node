@@ -38,6 +38,9 @@ void Voice::forceSilence() {
         cachedChaosSolo[i] = false;
     }
     resetFMHistory();
+    resetAmpControllers();
+    ampGateValue = 0.0f;
+    ampGateTarget = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Critical (smoothed)
         pitchMod[i] = 0.0f;
@@ -48,7 +51,6 @@ void Voice::forceSilence() {
         smoothedOscLevel[i] = 0.0f;
         // Non-critical (direct)
         morphMod[i] = 0.0f;
-        dutyMod[i] = 0.0f;
         ratioMod[i] = 0.0f;
         offsetMod[i] = 0.0f;
     }
@@ -74,6 +76,9 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
         return 0.0f;
     }
+
+    ampGateValue += kAmpGateSmoothingAlpha * (ampGateTarget - ampGateValue);
+    ampGateValue = std::clamp(ampGateValue, 0.0f, 1.0f);
 
     if (frameIndex == 0) {
         cachedActiveOscCount = OSCILLATORS_PER_VOICE;
@@ -140,8 +145,22 @@ float Voice::generateSample(unsigned int frameIndex) {
         for (int i = 0; i < 4; ++i) {
             envelopeTargets[i] = envelopes[i].processBlock(blockSize);
         }
+        cachedFmGlobalDepthBase = params ? params->fmGlobalDepth.load() : 0.0f;
+    }
 
-        if (!envelopes[0].isActive()) {
+    if (ampGateTarget <= 0.0f && ampGateValue < kAmpGateSilenceThreshold) {
+        bool controllersAudible = false;
+        for (int i = 0; i < OSCILLATORS_PER_VOICE && !controllersAudible; ++i) {
+            if (oscAmpControllerActive[i] && oscAmpControllerValue[i] > kAmpGateSilenceThreshold) {
+                controllersAudible = true;
+            }
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE && !controllersAudible; ++i) {
+            if (samplerAmpControllerActive[i] && samplerAmpControllerValue[i] > kAmpGateSilenceThreshold) {
+                controllersAudible = true;
+            }
+        }
+        if (!controllersAudible) {
             if (synth) {
                 for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
                     synth->saveSamplerPhase(i, samplers[i].getCurrentPhase());
@@ -153,10 +172,11 @@ float Voice::generateSample(unsigned int frameIndex) {
                 envelopeTargets[i] = 0.0f;
             }
             resetFMHistory();
+            resetAmpControllers();
+            ampGateValue = 0.0f;
+            ampGateTarget = 0.0f;
             return 0.0f;
         }
-
-        cachedFmGlobalDepthBase = params ? params->fmGlobalDepth.load() : 0.0f;
     }
 
     constexpr float alpha = kSmoothingAlpha;
@@ -231,7 +251,6 @@ float Voice::generateSample(unsigned int frameIndex) {
                                                    fmInputs[i],
                                                    smoothedPitchMod[i],
                                                    morphMod[i],
-                                                   dutyMod[i],
                                                    ratioMod[i],
                                                    offsetMod[i]);
         if (!std::isfinite(currentOutputs[i])) {
@@ -265,7 +284,8 @@ float Voice::generateSample(unsigned int frameIndex) {
             finalGain = 0.0f;
         }
 
-        finalGain *= envelopeValues[0];
+        float ampControl = oscAmpControllerActive[i] ? oscAmpControllerValue[i] : ampGateValue;
+        finalGain *= std::clamp(ampControl, 0.0f, 1.0f);
         oscFinalGains[i] = finalGain;
     }
 
@@ -344,7 +364,8 @@ float Voice::generateSample(unsigned int frameIndex) {
             samplerOut = 0.0f;
         }
 
-        samplerFinalOutputs[i] = samplerOut * envelopeValues[0];
+        float samplerControl = samplerAmpControllerActive[i] ? samplerAmpControllerValue[i] : ampGateValue;
+        samplerFinalOutputs[i] = samplerOut * std::clamp(samplerControl, 0.0f, 1.0f);
     }
 
     //     g_voiceProfiler.timeSamplerProcess += g_voiceProfiler.elapsed_ns(t_samp_proc);

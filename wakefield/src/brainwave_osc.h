@@ -10,6 +10,12 @@ enum class BrainwaveMode {
     KEY = 1    // Key-tracking, MIDI note controls frequency
 };
 
+// Discrete oscillator shapes (fast switch without crossfades)
+enum class BrainwaveShape {
+    SAW = 0,
+    PULSE = 1
+};
+
 class BrainwaveOscillator {
 public:
     BrainwaveOscillator();
@@ -26,18 +32,13 @@ public:
     void setOffset(float offsetHz) { offsetHz_ = offsetHz; }
     float getOffset() const { return offsetHz_; }
     
-    // Shape control (0.0 to 1.0: Sine → Triangle → Saw → Square → Pulse)
-    // This is the only waveform control - morph and duty are deprecated
-    void setShape(float shape) { shape_ = std::min(std::max(shape, 0.0f), 1.0f); }
-    float getShape() const { return shape_; }
+    // Discrete shape control
+    void setShape(int shapeIndex);
+    BrainwaveShape getShape() const { return shape_; }
 
-    // Deprecated: Morph is now integrated into shape parameter
-    void setMorph(float morph) { (void)morph; }  // No-op for backward compatibility
-    float getMorph() const { return 0.0f; }
-
-    // Deprecated: Duty is now controlled by shape parameter (pulse region)
-    void setDuty(float duty) { (void)duty; }  // No-op for backward compatibility
-    float getDuty() const { return 0.5f; }
+    // Morph control (phase distortion / tanh hardness)
+    void setMorph(float morph);
+    float getMorph() const { return morph_; }
     
     // Note control (for KEY mode)
     void setNoteFrequency(float freq) { noteFrequency_ = freq; }
@@ -50,7 +51,7 @@ public:
     // Generate one sample and advance phase (with optional FM input and modulation offsets)
     // Note: Level is NOT applied here - it's handled at mixing stage in voice
     float process(float sampleRate, float fmInput = 0.0f,
-                  float pitchMod = 0.0f, float morphMod = 0.0f, float dutyMod = 0.0f,
+                  float pitchMod = 0.0f, float morphMod = 0.0f,
                   float ratioMod = 0.0f, float offsetMod = 0.0f);
 
     // Reset phase
@@ -60,7 +61,8 @@ private:
     BrainwaveMode mode_;
     float baseFrequency_;      // User-controlled frequency or offset
     float noteFrequency_;      // MIDI note frequency (KEY mode)
-    float shape_;              // 0.0 to 1.0 (Sine → Triangle → Saw → Square → Pulse)
+    BrainwaveShape shape_;
+    float morph_;
     float ratio_;              // Frequency multiplier
     float offsetHz_;           // Frequency offset in Hz
     float fmSensitivity_;      // FM depth sensitivity (0-1, default 0.5)
@@ -68,9 +70,6 @@ private:
     // Phase accumulator (32-bit for high precision)
     uint32_t phaseAccumulator_;
 
-    // Helper functions
-    float calculateEffectiveFrequency(float sampleRate);
-    float generateSample(uint32_t phase, float phaseInc, float shapePos);
 };
 
 #endif // BRAINWAVE_OSC_H

@@ -107,8 +107,8 @@ CONTROLS:
 PARAMETERS:
   Mode       - FREE (manual freq) or KEY (MIDI tracking)
   Frequency  - Base frequency or offset (20-2000 Hz)
-  Morph      - Wavetable position (0-255 frames)
-  Duty       - Pulse width for PWM synthesis
+  Shape      - Saw (phase distortion) or Pulse (tanh shaper)
+  Morph      - PD skew / tanh hardness (0-1)
   Octave     - Octave shift (-3 to +3)
   LFO Enable - Enable modulation LFO
   LFO Speed  - LFO rate (0-9, slow to fast)
@@ -118,8 +118,9 @@ The Oscillator page controls audio-rate oscillators that generate sound.
 Each voice has 4 oscillators that can be mixed together. In FREE mode,
 you control the frequency directly. In KEY mode, it tracks MIDI notes.
 
-The Morph parameter controls waveform shape using phase distortion and
-tanh-shaped synthesis. Duty controls pulse width for PWM-like effects.
+Shape selects between a Casio-style phase distorted saw and a tanh-shaped
+square. Morph controls the PD skew (left/right saw tilt with a sine at 0.5)
+or the tanh hardness (sine → square).
 )";
             break;
 
@@ -142,8 +143,8 @@ CONTROLS:
 PARAMETERS:
   Period     - LFO cycle time (0.1s - 30min) with semantic input
   Sync       - Tempo sync mode (off/on/trip/dot)
-  Morph      - Waveform shape (same as oscillator)
-  Duty       - Pulse width (same as oscillator)
+  Morph      - Phase distortion / pulse shaping
+  Duty       - Pulse width (LFO-only)
   Flip       - Polarity inversion
   Note Reset - Restart phase on note-on
 
@@ -233,7 +234,7 @@ SOURCES:
   Chaos 1-4   - Chaos generators (X and Y outputs)
 
 DESTINATIONS:
-  Oscillators - Pitch, Morph, Duty, Ratio, Offset, Amp
+  Oscillators - Pitch, Morph, Ratio, Offset, Amp
   Samplers    - Pitch, Loop Start, Loop Length, Crossfade, Level
   Filter      - Cutoff, Resonance
   Reverb      - Mix, Size

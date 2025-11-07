@@ -22,6 +22,16 @@ class Clock; // Forward declaration
 constexpr int MAX_VOICES = 8;
 // Note: OSCILLATORS_PER_VOICE and SAMPLERS_PER_VOICE are defined in voice.h
 
+// Note source for oscillators and samplers
+enum class NoteSource {
+    NONE = 0,           // Free running, no note triggering
+    EXTERNAL_MIDI = 1,  // Responds to external MIDI input
+    TRACK_1 = 2,        // Sequencer track 1
+    TRACK_2 = 3,        // Sequencer track 2
+    TRACK_3 = 4,        // Sequencer track 3
+    TRACK_4 = 5         // Sequencer track 4
+};
+
 class Synth {
 public:
     Synth(float sampleRate);
@@ -30,7 +40,11 @@ public:
     
     void noteOn(int midiNote, int velocity);
     void noteOff(int midiNote);
-    
+
+    // Sequencer track triggering (updates per-track state and triggers voices)
+    void sequencerNoteOn(int trackIndex, int midiNote, int velocity, float gatePercent, float probability);
+    void sequencerNoteOff(int trackIndex, int midiNote);
+
     void updateEnvelopeParameters(float attack, float decay, float sustain, float release);
     void setMasterVolume(float volume) { masterVolume = volume; }
     
@@ -96,10 +110,6 @@ public:
         float osc2Morph = 0.0f;
         float osc3Morph = 0.0f;
         float osc4Morph = 0.0f;
-        float osc1Duty = 0.0f;
-        float osc2Duty = 0.0f;
-        float osc3Duty = 0.0f;
-        float osc4Duty = 0.0f;
         float osc1Ratio = 0.0f;
         float osc2Ratio = 0.0f;
         float osc3Ratio = 0.0f;
@@ -112,6 +122,8 @@ public:
         float osc2Amp = 0.0f;  // Renamed from osc2Level
         float osc3Amp = 0.0f;  // Renamed from osc3Level
         float osc4Amp = 0.0f;  // Renamed from osc4Level
+        float oscAmpController[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+        bool oscAmpControllerActive[OSCILLATORS_PER_VOICE] = {false, false, false, false};
         float filterCutoff = 0.0f;
         float filterResonance = 0.0f;
         float filterDrive = 0.0f;
@@ -145,6 +157,8 @@ public:
         float samp4LoopLength = 0.0f;
         float samp4Crossfade = 0.0f;
         float samp4Amp = 0.0f;
+        float samplerAmpController[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+        bool samplerAmpControllerActive[SAMPLERS_PER_VOICE] = {false, false, false, false};
         // LFO modulation
         float lfoPeriod[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float lfoMorph[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -177,9 +191,9 @@ public:
     float getVoiceEnvelopeValue(int voiceIndex, int envIndex) const;
     int getVoiceNote(int voiceIndex) const;
 
-    void setOscillatorState(int index, BrainwaveMode mode, float shape,
-                            float baseFreq, float morph, float duty,
-                            float ratio, float offsetHz, float amp, float level);
+    void setOscillatorState(int index, BrainwaveMode mode, int shapeIndex,
+                               float baseFreq, float morph,
+                               float ratio, float offsetHz, float amp, float level);
 
     // Get oscillator base amp (for voice mixing with modulation)
     float getOscillatorBaseAmp(int index) const {
@@ -271,6 +285,16 @@ private:
     bool chaosDiffMode = false;
     float chaosLastX[4] = {0.0f,0.0f,0.0f,0.0f};
     float chaosLastY[4] = {0.0f,0.0f,0.0f,0.0f};
+
+    // Per-track sequencer state (for modulation sources and routing)
+    struct SequencerTrackState {
+        int note = 60;          // Current MIDI note (60 = middle C)
+        int velocity = 100;     // Current velocity (0-127)
+        float gatePercent = 0.5f;  // Gate length as percentage (0.0-1.0)
+        float probability = 1.0f;  // Probability (0.0-1.0)
+        bool active = false;    // Is a note currently active on this track?
+    };
+    SequencerTrackState trackState[4];  // State for tracks 1-4
 
 public:
     void setChaosDiffMode(bool enabled) { chaosDiffMode = enabled; }

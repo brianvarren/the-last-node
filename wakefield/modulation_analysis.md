@@ -59,7 +59,7 @@ Current sources (13 total):
 Destinations are organized by module with parameters:
 
 ```cpp
-{"Oscillator 1-4", {Pitch, Morph, Duty, Ratio, Offset, Amp}}  // 24 destinations (0-23)
+{"Oscillator 1-4", {Pitch, Morph, Ratio, Offset, Amp}}  // 20 destinations (0-19)
 {"Filter", {Cutoff, Resonance, Drive, Width, Notch FB, Spread, Dry/Wet}}  // 7 destinations (24-30)
 {"Reverb", {Mix, Size}}  // 2 destinations (31-32)
 {"Sampler 1-4", {Pitch, Loop Start, Loop Length, Crossfade, Level}}  // 20 destinations (33-52)
@@ -69,29 +69,30 @@ Destinations are organized by module with parameters:
 {"FM", {Global Depth}}  // 1 destination (82)
 ```
 
-**TOTAL CURRENT:** 83 destinations (0-82)
+**TOTAL CURRENT:** 79 destinations (0-78)
 
 ### 2.2 Destination Application in Synth
 **File:** `/srv/storage/Dropbox/_brian-varren/the-last-node/wakefield/src/synth.cpp` (Lines 1071-1173)
 
 The `processModulationMatrix()` method applies modulation using a switch statement:
-- Cases 0-5: OSC 1 parameters
-- Cases 6-11: OSC 2 parameters
-- Cases 12-17: OSC 3 parameters
-- Cases 18-23: OSC 4 parameters
-- Cases 24-30: Filter parameters
-- Cases 31-32: Reverb parameters
-- Cases 33-37: Sampler 1 parameters
-- Cases 38-42: Sampler 2 parameters
-- Cases 43-47: Sampler 3 parameters
-- Cases 48-52: Sampler 4 parameters
-- Cases 53-55: LFO 1 parameters
-- Cases 56-58: LFO 2 parameters
-- Cases 59-61: LFO 3 parameters
-- Cases 62-64: LFO 4 parameters
-- Cases 65-73: Mixer parameters
-- Cases 74-81: Clock targets (sequencer and sampler phase)
-- Case 82: FM Global Depth
+- Cases 0-4: OSC 1 parameters
+- Cases 5-9: OSC 2 parameters
+- Cases 10-14: OSC 3 parameters
+- Cases 15-19: OSC 4 parameters
+- Cases 20-26: Filter parameters
+- Cases 27-28: Reverb parameters
+- Cases 29-33: Sampler 1 parameters
+- Cases 34-38: Sampler 2 parameters
+- Cases 39-43: Sampler 3 parameters
+- Cases 44-48: Sampler 4 parameters
+- Cases 49-51: LFO 1 parameters
+- Cases 52-54: LFO 2 parameters
+- Cases 55-57: LFO 3 parameters
+- Cases 58-60: LFO 4 parameters
+- Cases 61-69: Mixer parameters
+- Cases 70-73: Sequencer phases
+- Cases 74-77: Sampler phase drivers
+- Case 78: FM Global Depth
 
 ---
 
@@ -174,12 +175,11 @@ CHAOS 4 (101-106):
 
 ### 4.2 Implementation Pattern
 
-Looking at oscillators (6 destinations per OSC) in `ui_mod_data.cpp`:
+Looking at oscillators (5 destinations per OSC) in `ui_mod_data.cpp`:
 ```cpp
 {"Oscillator 1", {
     {"Pitch", "O1:Pitch"},
     {"Morph", "O1:Morph"},
-    {"Duty", "O1:Duty"},
     {"Ratio", "O1:Ratio"},
     {"Offset", "O1:Offset"},
     {"Amp", "O1:Amp"}
@@ -539,4 +539,3 @@ void setChaosLevel(int index, float level);
    - Chaos parameters (350-355) need to be modulation destinations
    - Chaos mixer levels (410-413) need MIDI CC support
    - FAST/DIFF modes should support modulation since they're randomizable
-

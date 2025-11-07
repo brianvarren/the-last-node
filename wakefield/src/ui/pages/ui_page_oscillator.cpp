@@ -4,99 +4,79 @@
 #include <string>
 #include <vector>
 
+#include "../../tanh_gain_lut.h"
+
 namespace {
 
-// PolyBLEP anti-aliasing (simplified for preview - no phaseInc needed for visual)
-static inline float polyblep_preview(float phase) {
-    // For preview purposes, assume small phase increment (high sample rate visual)
-    const float phaseInc = 0.01f;
-    if (phase < phaseInc) {
-        float t = phase / phaseInc;
-        return t + t - t * t - 1.0f;
-    } else if (phase > 1.0f - phaseInc) {
-        float t = (phase - 1.0f) / phaseInc;
-        return t * t + t + t + 1.0f;
+constexpr float kTwoPi = 2.0f * static_cast<float>(M_PI);
+constexpr float kMinPivot = 0.0001f;
+constexpr float kMaxPivot = 0.9999f;
+constexpr float kMaxBeta = 80.0f;
+constexpr int kShapeSaw = 0;
+constexpr int kShapePulse = 1;
+
+inline float lookupTanhGain(float morph) {
+    float clamped = std::clamp(morph, 0.0f, 1.0f);
+    float position = clamped * static_cast<float>(kTanhGainLUTSize - 1);
+    int index = static_cast<int>(position);
+    int next = std::min(index + 1, kTanhGainLUTSize - 1);
+    float frac = position - static_cast<float>(index);
+    float a = kTanhGainLUT[index];
+    float b = kTanhGainLUT[next];
+    return a + (b - a) * frac;
+}
+
+float computePhaseDistorted(float phase, float morph) {
+    float clamped = std::clamp(morph, 0.0f, 1.0f);
+    bool mirror = false;
+    float morphAmount = clamped;
+
+    if (clamped < 0.5f) {
+        mirror = true;
+        morphAmount = 1.0f - clamped * 2.0f;
+        morphAmount = 0.5f + morphAmount * 0.5f;
     }
-    return 0.0f;
-}
 
-// Generate sine wave (matches brainwave_osc.cpp)
-static inline float generateSine(float phase, float morph) {
-    const float kTwoPi = 2.0f * static_cast<float>(M_PI);
-    float sine = std::sin(kTwoPi * phase);
-    // Apply soft waveshaping when morph > 0
-    float shaped = sine + 0.3f * morph * sine * sine * sine;
-    return std::min(std::max(shaped, -1.0f), 1.0f);
-}
+    float t = (morphAmount - 0.5f) * 2.0f;
+    float pivot = 0.5f + 0.4999f * t;
+    pivot = std::clamp(pivot, kMinPivot, kMaxPivot);
 
-// Generate triangle wave with PolyBLEP (matches brainwave_osc.cpp)
-static inline float generateTriangle(float phase, float morph) {
-    float pivot = 0.5f * (1.0f - morph) + morph * morph;
-    float tri;
-    if (phase < pivot) {
-        tri = phase / pivot;
+    float workingPhase = mirror ? (1.0f - phase) : phase;
+    float shapedPhase;
+    if (workingPhase <= pivot) {
+        float denom = std::max(2.0f * pivot, kMinPivot);
+        shapedPhase = workingPhase / denom;
     } else {
-        tri = 1.0f - (phase - pivot) / (1.0f - pivot);
+        float denom = std::max(1.0f - pivot, kMinPivot);
+        shapedPhase = 0.5f * (1.0f + ((workingPhase - pivot) / denom));
     }
-    tri = 2.0f * tri - 1.0f;
 
-    float correction = 0.0f;
-    if (phase < 0.01f || phase > 0.99f) {
-        correction = polyblep_preview(phase);
-    }
-    return tri - 0.5f * correction;
+    return -std::cos(shapedPhase * kTwoPi);
 }
 
-// Generate sawtooth wave with PolyBLEP (matches brainwave_osc.cpp)
-static inline float generateSaw(float phase) {
-    float saw = 2.0f * phase - 1.0f;
-    saw -= polyblep_preview(phase);
-    return saw;
-}
-
-// Generate square/pulse wave with PolyBLEP (matches brainwave_osc.cpp)
-static inline float generateSquare(float phase, float duty) {
-    float square = (phase < duty) ? 1.0f : -1.0f;
-    square += polyblep_preview(phase);
-
-    float phaseShifted = phase + (1.0f - duty);
-    if (phaseShifted >= 1.0f) phaseShifted -= 1.0f;
-    square -= polyblep_preview(phaseShifted);
-
-    return square;
-}
-
-// Generate waveform based on shape parameter (0.0-1.0)
-// Matches the actual BrainwaveOscillator::generateSample implementation
-float computeWaveSample(float phase, float shapePos) {
-    // 5-shape continuum: Sine → Triangle → Saw → Square → Pulse
-    if (shapePos < 0.2f) {
-        // Sine wave - use shapePos/0.2 for subtle waveshaping
-        float waveshape = shapePos / 0.2f;
-        return generateSine(phase, waveshape);
-    } else if (shapePos < 0.4f) {
-        // Triangle - use normalized position for slope asymmetry
-        float asymmetry = (shapePos - 0.2f) / 0.2f;
-        return generateTriangle(phase, asymmetry);
-    } else if (shapePos < 0.6f) {
-        // Sawtooth
-        return generateSaw(phase);
-    } else if (shapePos < 0.8f) {
-        // Square wave (50% duty)
-        return generateSquare(phase, 0.5f);
-    } else {
-        // Pulse - duty narrows from 50% to ~5% as shapePos goes 0.8 → 1.0
-        float pulseAmount = (shapePos - 0.8f) / 0.2f;
-        float duty = 0.5f - 0.45f * pulseAmount;
-        return generateSquare(phase, duty);
+float computeTanhSquare(float phase, float morph) {
+    float edge = std::clamp(morph, 0.0f, 1.0f);
+    if (edge <= 1e-6f) {
+        return std::sin(kTwoPi * phase);
     }
+
+    float beta = 1.0f + edge * kMaxBeta;
+    float sample = std::tanh(beta * std::sin(kTwoPi * phase));
+    return sample * lookupTanhGain(edge);
+}
+
+float computeWaveSample(float phase, int shape, float morph) {
+    if (shape == kShapeSaw) {
+        return computePhaseDistorted(phase, morph);
+    }
+    return computeTanhSquare(phase, morph);
 }
 
 } // namespace
 
 void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int plotWidth) {
-    float shape = params->getOscShape(currentOscillatorIndex);
-    shape = std::min(std::max(shape, 0.0f), 1.0f);
+    int shape = params->getOscShape(currentOscillatorIndex);
+    float morph = std::clamp(params->getOscMorph(currentOscillatorIndex), 0.0f, 1.0f);
 
     int width = std::max(16, plotWidth);
     int height = std::max(6, plotHeight);
@@ -118,7 +98,7 @@ void UI::drawOscillatorWavePreview(int topRow, int leftCol, int plotHeight, int 
     int prevCol = -1;
     for (int x = 0; x < width; ++x) {
         float phase = (width == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(width - 1);
-        float sample = computeWaveSample(phase, shape);
+        float sample = computeWaveSample(phase, shape, morph);
         sample = std::min(std::max(sample, -1.0f), 1.0f);
         float normalized = (-sample + 1.0f) * 0.5f;
         int row = static_cast<int>(std::round(normalized * (height - 1)));

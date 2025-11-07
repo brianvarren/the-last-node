@@ -131,10 +131,10 @@ ModulationSlot[16] → processModulationMatrix()
 
 Example: Oscillator 1
 ```
-UI: {"Oscillator 1", {Pitch, Morph, Duty, Ratio, Offset, Amp}}
-Destinations: 0-5
-Outputs struct: osc1Pitch, osc1Morph, osc1Duty, osc1Ratio, osc1Offset, osc1Amp
-Synth apply: Case 0-5 in switch statement
+UI: {"Oscillator 1", {Pitch, Morph, Ratio, Offset, Amp}}
+Destinations: 0-4
+Outputs struct: osc1Pitch, osc1Morph, osc1Ratio, osc1Offset, osc1Amp
+Synth apply: Case 0-4 in switch statement
 ```
 
 For Chaos, we want:

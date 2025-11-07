@@ -56,7 +56,7 @@ struct OscProfiler {
                (double)timePhaseInc / totalCalls,
                100.0 * timePhaseInc / totalTime);
         printf("%-20s %12.3f %9.1f ns %7.1f%%\n",
-               "Morph/Duty Mod", timeModulation / 1e6,
+               "Morph Mod", timeModulation / 1e6,
                (double)timeModulation / totalCalls,
                100.0 * timeModulation / totalTime);
         printf("%-20s %12.3f %9.1f ns %7.1f%%\n",

@@ -4,6 +4,11 @@
 #include <algorithm>
 
 void UI::drawParameterList(int startRow, int startCol, const std::vector<int>& paramIds) {
+    if (!paramIds.empty()) {
+        if (std::find(paramIds.begin(), paramIds.end(), selectedParameterId) == paramIds.end()) {
+            selectedParameterId = paramIds.front();
+        }
+    }
     int row = startRow;
     int col = startCol;
 

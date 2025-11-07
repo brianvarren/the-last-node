@@ -355,7 +355,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
     static ParameterSmoother masterVolumeSmoother;
     static ParameterSmoother oscillatorFreqSmoother;
     static ParameterSmoother oscillatorMorphSmoother;
-    static ParameterSmoother oscillatorDutySmoother;
     static ParameterSmoother reverbDelayTimeSmoother;
     static ParameterSmoother reverbSizeSmoother;
     static ParameterSmoother reverbDampingSmoother;
@@ -436,7 +435,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             masterVolumeSmoother.reset(synthParams->masterVolume.load());
             oscillatorFreqSmoother.reset(synthParams->osc1Freq.load());
             oscillatorMorphSmoother.reset(synthParams->osc1Morph.load());
-            oscillatorDutySmoother.reset(synthParams->osc1Duty.load());
             reverbDelayTimeSmoother.reset(synthParams->reverbDelayTime.load());
             reverbSizeSmoother.reset(synthParams->reverbSize.load());
             reverbDampingSmoother.reset(synthParams->reverbDamping.load());
@@ -464,7 +462,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         masterVolumeSmoother.setTarget(synthParams->masterVolume.load());
         oscillatorFreqSmoother.setTarget(synthParams->osc1Freq.load());
         oscillatorMorphSmoother.setTarget(synthParams->osc1Morph.load());
-        oscillatorDutySmoother.setTarget(synthParams->osc1Duty.load());
         reverbDelayTimeSmoother.setTarget(synthParams->reverbDelayTime.load());
         reverbSizeSmoother.setTarget(synthParams->reverbSize.load());
         reverbDampingSmoother.setTarget(synthParams->reverbDamping.load());
@@ -492,7 +489,6 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         float smoothedMasterVolume = masterVolumeSmoother.process();
         float smoothedOscillatorFreq = oscillatorFreqSmoother.process();
         float smoothedOscillatorMorph = oscillatorMorphSmoother.process();
-        float smoothedOscillatorDuty = oscillatorDutySmoother.process();
         float smoothedReverbDelayTime = reverbDelayTimeSmoother.process();
         float smoothedReverbSize = reverbSizeSmoother.process();
         float smoothedReverbDamping = reverbDampingSmoother.process();
@@ -522,10 +518,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         // Update per-oscillator parameters (oscillator 1 uses smoothed values)
         for (int oscIndex = 0; oscIndex < OSCILLATORS_PER_VOICE; ++oscIndex) {
             BrainwaveMode mode = static_cast<BrainwaveMode>(synthParams->getOscMode(oscIndex));
-            float shape = synthParams->getOscShape(oscIndex);
+            int shapeIndex = synthParams->getOscShape(oscIndex);
             float baseFreq = (oscIndex == 0) ? smoothedOscillatorFreq : synthParams->getOscFrequency(oscIndex);
             float morph = (oscIndex == 0) ? smoothedOscillatorMorph : synthParams->getOscMorph(oscIndex);
-            float duty = (oscIndex == 0) ? smoothedOscillatorDuty : synthParams->getOscDuty(oscIndex);
             float ratio = synthParams->getOscRatio(oscIndex);
             float offset = synthParams->getOscOffset(oscIndex);
             float amp = synthParams->getOscAmp(oscIndex);
@@ -534,10 +529,9 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
             synth->setOscillatorState(
                 oscIndex,
                 mode,
-                shape,
+                shapeIndex,
                 baseFreq,
                 morph,
-                duty,
                 ratio,
                 offset,
                 amp,

@@ -215,11 +215,11 @@ struct SynthParameters {
     
     // Oscillator parameters - 4 independent oscillators per voice
     // Oscillator 1 (index 0)
-    std::atomic<int> osc1Mode{1};              // 0=FREE, 1=KEY
+    std::atomic<int> osc1Mode{1};              // 0=FREE, 1=KEY (deprecated, use osc1NoteSource)
+    std::atomic<int> osc1NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc1Freq{440.0f};       // Base frequency (20-2000 Hz)
-    std::atomic<float> osc1Morph{0.5f};        // Waveform morph (deprecated, unused)
-    std::atomic<float> osc1Shape{0.5f};        // Shape continuum: 0.0-0.2 (Sine), 0.2-0.4 (Tri), 0.4-0.6 (Saw), 0.6-0.8 (Square), 0.8-1.0 (Pulse)
-    std::atomic<float> osc1Duty{0.5f};         // Pulse width (deprecated, unused)
+    std::atomic<float> osc1Morph{0.5f};        // Phase distortion amount (0-1)
+    std::atomic<int> osc1Shape{0};             // 0=Saw, 1=Pulse
     std::atomic<float> osc1Ratio{1.0f};        // FM8-style frequency ratio (0.125-16.0)
     std::atomic<float> osc1Offset{0.0f};       // FM8-style frequency offset Hz (-1000-1000)
     std::atomic<float> osc1Amp{1.0f};          // Amplitude (modulation target, 0.0-1.0)
@@ -227,10 +227,10 @@ struct SynthParameters {
 
     // Oscillator 2 (index 1)
     std::atomic<int> osc2Mode{1};
+    std::atomic<int> osc2NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc2Freq{440.0f};
-    std::atomic<float> osc2Morph{0.5f};        // Deprecated, unused
-    std::atomic<float> osc2Shape{0.5f};
-    std::atomic<float> osc2Duty{0.5f};         // Deprecated, unused
+    std::atomic<float> osc2Morph{0.5f};
+    std::atomic<int> osc2Shape{0};
     std::atomic<float> osc2Ratio{1.0f};
     std::atomic<float> osc2Offset{0.0f};
     std::atomic<float> osc2Amp{1.0f};
@@ -238,10 +238,10 @@ struct SynthParameters {
 
     // Oscillator 3 (index 2)
     std::atomic<int> osc3Mode{1};
+    std::atomic<int> osc3NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc3Freq{440.0f};
-    std::atomic<float> osc3Morph{0.5f};        // Deprecated, unused
-    std::atomic<float> osc3Shape{0.5f};
-    std::atomic<float> osc3Duty{0.5f};         // Deprecated, unused
+    std::atomic<float> osc3Morph{0.5f};
+    std::atomic<int> osc3Shape{0};
     std::atomic<float> osc3Ratio{1.0f};
     std::atomic<float> osc3Offset{0.0f};
     std::atomic<float> osc3Amp{1.0f};
@@ -249,14 +249,20 @@ struct SynthParameters {
 
     // Oscillator 4 (index 3)
     std::atomic<int> osc4Mode{1};
+    std::atomic<int> osc4NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc4Freq{440.0f};
-    std::atomic<float> osc4Morph{0.5f};        // Deprecated, unused
-    std::atomic<float> osc4Shape{0.5f};
-    std::atomic<float> osc4Duty{0.5f};         // Deprecated, unused
+    std::atomic<float> osc4Morph{0.5f};
+    std::atomic<int> osc4Shape{0};
     std::atomic<float> osc4Ratio{1.0f};
     std::atomic<float> osc4Offset{0.0f};
     std::atomic<float> osc4Amp{1.0f};
     std::atomic<float> osc4Level{0.8f};
+
+    // Sampler note source routing (4 samplers)
+    std::atomic<int> sampler1NoteSource{1};    // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
+    std::atomic<int> sampler2NoteSource{1};
+    std::atomic<int> sampler3NoteSource{1};
+    std::atomic<int> sampler4NoteSource{1};
 
     // Mixer mute/solo state (4 OSC + 4 SAMP + 4 CHAOS = 12 channels)
     std::atomic<bool> oscMuted[4]{false, true, true, true};     // OSC 1 unmuted, others muted by default
@@ -445,7 +451,47 @@ struct SynthParameters {
         }
     }
 
-    float getOscShape(int index) const {
+    int getOscNoteSource(int index) const {
+        switch (index) {
+            case 0: return osc1NoteSource.load();
+            case 1: return osc2NoteSource.load();
+            case 2: return osc3NoteSource.load();
+            case 3: return osc4NoteSource.load();
+            default: return osc1NoteSource.load();
+        }
+    }
+
+    void setOscNoteSource(int index, int value) {
+        switch (index) {
+            case 0: osc1NoteSource = value; break;
+            case 1: osc2NoteSource = value; break;
+            case 2: osc3NoteSource = value; break;
+            case 3: osc4NoteSource = value; break;
+            default: osc1NoteSource = value; break;
+        }
+    }
+
+    int getSamplerNoteSource(int index) const {
+        switch (index) {
+            case 0: return sampler1NoteSource.load();
+            case 1: return sampler2NoteSource.load();
+            case 2: return sampler3NoteSource.load();
+            case 3: return sampler4NoteSource.load();
+            default: return sampler1NoteSource.load();
+        }
+    }
+
+    void setSamplerNoteSource(int index, int value) {
+        switch (index) {
+            case 0: sampler1NoteSource = value; break;
+            case 1: sampler2NoteSource = value; break;
+            case 2: sampler3NoteSource = value; break;
+            case 3: sampler4NoteSource = value; break;
+            default: sampler1NoteSource = value; break;
+        }
+    }
+
+    int getOscShape(int index) const {
         switch (index) {
             case 0: return osc1Shape.load();
             case 1: return osc2Shape.load();
@@ -455,13 +501,14 @@ struct SynthParameters {
         }
     }
 
-    void setOscShape(int index, float value) {
+    void setOscShape(int index, int value) {
+        int clamped = std::clamp(value, 0, 1);
         switch (index) {
-            case 0: osc1Shape = value; break;
-            case 1: osc2Shape = value; break;
-            case 2: osc3Shape = value; break;
-            case 3: osc4Shape = value; break;
-            default: osc1Shape = value; break;
+            case 0: osc1Shape = clamped; break;
+            case 1: osc2Shape = clamped; break;
+            case 2: osc3Shape = clamped; break;
+            case 3: osc4Shape = clamped; break;
+            default: osc1Shape = clamped; break;
         }
     }
 
@@ -502,26 +549,6 @@ struct SynthParameters {
             case 2: osc3Morph = value; break;
             case 3: osc4Morph = value; break;
             default: osc1Morph = value; break;
-        }
-    }
-
-    float getOscDuty(int index) const {
-        switch (index) {
-            case 0: return osc1Duty.load();
-            case 1: return osc2Duty.load();
-            case 2: return osc3Duty.load();
-            case 3: return osc4Duty.load();
-            default: return osc1Duty.load();
-        }
-    }
-
-    void setOscDuty(int index, float value) {
-        switch (index) {
-            case 0: osc1Duty = value; break;
-            case 1: osc2Duty = value; break;
-            case 2: osc3Duty = value; break;
-            case 3: osc4Duty = value; break;
-            default: osc1Duty = value; break;
         }
     }
 

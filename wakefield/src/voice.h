@@ -1,6 +1,7 @@
 #ifndef VOICE_H
 #define VOICE_H
 
+#include <algorithm>
 #include "fm_constants.h"
 #include "envelope.h"
 #include "brainwave_osc.h"
@@ -38,7 +39,6 @@ struct Voice {
 
     // Non-critical: Direct block-rate (no smoothing needed)
     float morphMod[OSCILLATORS_PER_VOICE];
-    float dutyMod[OSCILLATORS_PER_VOICE];
     float ratioMod[OSCILLATORS_PER_VOICE];
     float offsetMod[OSCILLATORS_PER_VOICE];
 
@@ -73,6 +73,8 @@ struct Voice {
     // alpha = 0.02 settles in ~100 samples @ 48kHz (~2ms)
     // Smaller alpha = slower/smoother, Larger alpha = faster/choppier
     static constexpr float kSmoothingAlpha = 0.02f;
+    static constexpr float kAmpGateSmoothingAlpha = 0.05f;
+    static constexpr float kAmpGateSilenceThreshold = 1e-4f;
 
     // FM depth smoothing uses faster alpha for more responsive/musical control
     // alpha = 0.05 settles in ~40 samples @ 48kHz (~0.8ms)
@@ -90,6 +92,12 @@ struct Voice {
 
     float envelopeTargets[4]{};
     float cachedFmGlobalDepthBase = 0.0f;
+    float oscAmpControllerValue[OSCILLATORS_PER_VOICE]{};
+    bool oscAmpControllerActive[OSCILLATORS_PER_VOICE]{};
+    float samplerAmpControllerValue[SAMPLERS_PER_VOICE]{};
+    bool samplerAmpControllerActive[SAMPLERS_PER_VOICE]{};
+    float ampGateValue = 0.0f;
+    float ampGateTarget = 0.0f;
 
     Voice(float sampleRate)
         : active(false)
@@ -112,7 +120,6 @@ struct Voice {
             smoothedOscLevel[i] = 0.0f;
             // Non-critical (direct)
             morphMod[i] = 0.0f;
-            dutyMod[i] = 0.0f;
             ratioMod[i] = 0.0f;
             offsetMod[i] = 0.0f;
         }
@@ -140,6 +147,9 @@ struct Voice {
         }
         currentBufferSize = 256;  // Default buffer size
         for (int i = 0; i < 4; ++i) envelopeValues[i] = 0.0f;
+        resetAmpControllers();
+        ampGateValue = 0.0f;
+        ampGateTarget = 0.0f;
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)
@@ -157,6 +167,31 @@ struct Voice {
     float getEnvelopeValue(int index) const {
         int idx = (index < 0) ? 0 : (index > 3 ? 0 : index);
         return envelopeValues[idx];
+    }
+    bool isGateReleasing() const { return ampGateTarget <= 0.0f; }
+    float getCurrentAmpLevel() const {
+        float level = ampGateValue;
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            if (oscAmpControllerActive[i]) {
+                level = std::max(level, oscAmpControllerValue[i]);
+            }
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            if (samplerAmpControllerActive[i]) {
+                level = std::max(level, samplerAmpControllerValue[i]);
+            }
+        }
+        return level;
+    }
+    void resetAmpControllers() {
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            oscAmpControllerValue[i] = 0.0f;
+            oscAmpControllerActive[i] = false;
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            samplerAmpControllerValue[i] = 0.0f;
+            samplerAmpControllerActive[i] = false;
+        }
     }
 
     const float* getLastOscOutputs() const { return lastOscOutputs; }

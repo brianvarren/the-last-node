@@ -21,7 +21,11 @@ const std::vector<ModOption>& buildSources() {
         {"Chaos 1 X", "C1X"}, {"Chaos 1 Y", "C1Y"},
         {"Chaos 2 X", "C2X"}, {"Chaos 2 Y", "C2Y"},
         {"Chaos 3 X", "C3X"}, {"Chaos 3 Y", "C3Y"},
-        {"Chaos 4 X", "C4X"}, {"Chaos 4 Y", "C4Y"}
+        {"Chaos 4 X", "C4X"}, {"Chaos 4 Y", "C4Y"},
+        {"Track 1 Note", "T1:N"}, {"Track 2 Note", "T2:N"}, {"Track 3 Note", "T3:N"}, {"Track 4 Note", "T4:N"},
+        {"Track 1 Velocity", "T1:V"}, {"Track 2 Velocity", "T2:V"}, {"Track 3 Velocity", "T3:V"}, {"Track 4 Velocity", "T4:V"},
+        {"Track 1 Gate %", "T1:G"}, {"Track 2 Gate %", "T2:G"}, {"Track 3 Gate %", "T3:G"}, {"Track 4 Gate %", "T4:G"},
+        {"Track 1 Prob %", "T1:P"}, {"Track 2 Prob %", "T2:P"}, {"Track 3 Prob %", "T3:P"}, {"Track 4 Prob %", "T4:P"}
     };
     return sources;
 }
@@ -87,19 +91,19 @@ const std::vector<ModOption>& buildFMOptions() {
 const std::vector<ModuleData>& buildDestinationModules() {
     static const std::vector<ModuleData> modules = {
         {"Oscillator 1", {
-            {"Pitch", "O1:Pitch"}, {"Morph", "O1:Morph"}, {"Duty", "O1:Duty"},
+            {"Pitch", "O1:Pitch"}, {"Morph", "O1:Morph"},
             {"Ratio", "O1:Ratio"}, {"Offset", "O1:Offset"}, {"Amp", "O1:Amp"}
         }},
         {"Oscillator 2", {
-            {"Pitch", "O2:Pitch"}, {"Morph", "O2:Morph"}, {"Duty", "O2:Duty"},
+            {"Pitch", "O2:Pitch"}, {"Morph", "O2:Morph"},
             {"Ratio", "O2:Ratio"}, {"Offset", "O2:Offset"}, {"Amp", "O2:Amp"}
         }},
         {"Oscillator 3", {
-            {"Pitch", "O3:Pitch"}, {"Morph", "O3:Morph"}, {"Duty", "O3:Duty"},
+            {"Pitch", "O3:Pitch"}, {"Morph", "O3:Morph"},
             {"Ratio", "O3:Ratio"}, {"Offset", "O3:Offset"}, {"Amp", "O3:Amp"}
         }},
         {"Oscillator 4", {
-            {"Pitch", "O4:Pitch"}, {"Morph", "O4:Morph"}, {"Duty", "O4:Duty"},
+            {"Pitch", "O4:Pitch"}, {"Morph", "O4:Morph"},
             {"Ratio", "O4:Ratio"}, {"Offset", "O4:Offset"}, {"Amp", "O4:Amp"}
         }},
         {"Filter", {
