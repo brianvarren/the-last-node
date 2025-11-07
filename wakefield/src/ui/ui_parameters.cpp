@@ -1882,6 +1882,7 @@ void UI::setParameterValue(int id, float value) {
     switch (id) {
         case 6: params->masterVolume = value; break;
         case 10: params->setOscMode(oscIndex, static_cast<int>(value)); break;
+        case 13: params->setOscNoteSource(oscIndex, static_cast<int>(value)); break;
         case 19: params->setOscShape(oscIndex, static_cast<int>(value)); break;
         case 11: params->setOscFrequency(oscIndex, value); break;
         case 12: params->setOscMorph(oscIndex, value); break;
@@ -1900,8 +1901,9 @@ void UI::setParameterValue(int id, float value) {
         case 411: params->setChaosLevel(1, value); break;   // CHAOS 2 Level (mixer)
         case 412: params->setChaosLevel(2, value); break;   // CHAOS 3 Level (mixer)
         case 413: params->setChaosLevel(3, value); break;   // CHAOS 4 Level (mixer)
-        // SAMPLER page parameters (60-69)
+        // SAMPLER page parameters (60-69, plus 80 for Note Source)
         case 69: break;  // Sample name selector (special: no-op, handled by Enter key)
+        case 80: params->setSamplerNoteSource(samplerIndex, static_cast<int>(value)); break;
         case 60: synth->setSamplerKeyMode(samplerIndex, value < 0.5f); break;
         case 68: synth->setSamplerPlaybackMode(samplerIndex, static_cast<PlaybackMode>(static_cast<int>(value))); break;
         case 61: synth->setSamplerLoopStart(samplerIndex, value / 100.0f); break;
