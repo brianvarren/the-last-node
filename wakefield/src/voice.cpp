@@ -49,8 +49,8 @@ void Voice::forceSilence() {
         smoothedAmpMod[i] = 0.0f;
         cachedOscLevel[i] = 0.0f;
         smoothedOscLevel[i] = 0.0f;
-        // Non-critical (direct)
         morphMod[i] = 0.0f;
+        // Non-critical (direct)
         ratioMod[i] = 0.0f;
         offsetMod[i] = 0.0f;
     }
