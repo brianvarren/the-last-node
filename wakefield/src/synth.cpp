@@ -396,7 +396,7 @@ void Synth::noteOn(int midiNote, int velocity) {
 void Synth::noteOff(int midiNote) {
     // Find all voices playing this note and trigger their release
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].active && voices[i].note == midiNote) {
+        if (voices[i].active && voices[i].note == midiNote && voices[i].freeRunningOscIndex < 0) {
             for (int ei = 0; ei < 4; ++ei) {
                 voices[i].envelopes[ei].noteOff();  // Trigger release
             }
