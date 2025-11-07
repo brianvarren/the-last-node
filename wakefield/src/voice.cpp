@@ -51,7 +51,7 @@ void Voice::forceSilence() {
         smoothedOscLevel[i] = 0.0f;
         // Non-critical (direct)
         morphMod[i] = 0.0f;
-        smoothedMorphMod[i] = 0.0f;
+        prevMorphMod[i] = 0.0f;
         ratioMod[i] = 0.0f;
         offsetMod[i] = 0.0f;
     }
@@ -187,7 +187,6 @@ float Voice::generateSample(unsigned int frameIndex) {
         smoothedPitchMod[i] += alpha * (pitchMod[i] - smoothedPitchMod[i]);
         smoothedAmpMod[i] += alpha * (ampMod[i] - smoothedAmpMod[i]);
         smoothedOscLevel[i] += alpha * (cachedOscLevel[i] - smoothedOscLevel[i]);
-        smoothedMorphMod[i] += alpha * (morphMod[i] - smoothedMorphMod[i]);
     }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         smoothedSamplerPitchMod[i] += alpha * (samplerPitchMod[i] - smoothedSamplerPitchMod[i]);
@@ -249,10 +248,16 @@ float Voice::generateSample(unsigned int frameIndex) {
             currentOutputs[i] = 0.0f;
             continue;
         }
+        float morphInterp = morphMod[i];
+        if (currentBufferSize > 1) {
+            float t = static_cast<float>(frameIndex) / static_cast<float>(currentBufferSize - 1);
+            morphInterp = prevMorphMod[i] + t * (morphMod[i] - prevMorphMod[i]);
+        }
+
         currentOutputs[i] = oscillators[i].process(sampleRate,
                                                    fmInputs[i],
                                                    smoothedPitchMod[i],
-                                                   smoothedMorphMod[i],
+                                                   morphInterp,
                                                    ratioMod[i],
                                                    offsetMod[i]);
         if (!std::isfinite(currentOutputs[i])) {
