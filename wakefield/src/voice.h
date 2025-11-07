@@ -26,10 +26,6 @@ struct Voice {
     SynthParameters* params;  // Pointer to FM matrix and other params
     Synth* synth;          // Pointer to synth for base level access
 
-    // Global FM inputs provided by Synth (nullptr until updated each buffer)
-    const float* globalFmInputs;
-    const float* globalSamplerFmInputs;
-
     // Oscillator modulation storage (set once per buffer by Synth::process)
     // CRITICAL params use one-pole smoothing (target + smoothed state)
     // NON-CRITICAL params use direct block-rate values (no smoothing)
@@ -60,6 +56,14 @@ struct Voice {
     float samplerCrossfadeMod[SAMPLERS_PER_VOICE];
     float samplerPhaseDriver[SAMPLERS_PER_VOICE];
 
+    // FM global depth modulation (critical if envelope-modulated)
+    float fmGlobalDepthMod;
+    float smoothedFmGlobalDepthMod;
+
+    // FM depth matrix - smoothed for musical UI control
+    float fmDepthMod[kFMTargetCount][kFMSourceCount];
+    float smoothedFmDepthMod[kFMTargetCount][kFMSourceCount];
+
     // Cached sampler level modulation (non-critical)
     float cachedSamplerLevelMod[SAMPLERS_PER_VOICE];
     
@@ -73,6 +77,10 @@ struct Voice {
     static constexpr float kAmpGateSmoothingAlpha = 0.05f;
     static constexpr float kAmpGateSilenceThreshold = 1e-4f;
 
+    // FM depth smoothing uses faster alpha for more responsive/musical control
+    // alpha = 0.05 settles in ~40 samples @ 48kHz (~0.8ms)
+    static constexpr float kFmDepthSmoothingAlpha = 0.05f;
+
     // Block-level caches to avoid per-sample atomics
     int cachedActiveOscCount = OSCILLATORS_PER_VOICE;
     int cachedActiveSamplerCount = SAMPLERS_PER_VOICE;
@@ -84,6 +92,7 @@ struct Voice {
     bool cachedChaosSolo[4]{};
 
     float envelopeTargets[4]{};
+    float cachedFmGlobalDepthBase = 0.0f;
     float oscAmpControllerValue[OSCILLATORS_PER_VOICE]{};
     bool oscAmpControllerActive[OSCILLATORS_PER_VOICE]{};
     float samplerAmpControllerValue[SAMPLERS_PER_VOICE]{};
@@ -100,8 +109,6 @@ struct Voice {
         , noteSource(0)
         , envelopes{ Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate) }
         , sampleRate(sampleRate)
-        , globalFmInputs(nullptr)
-        , globalSamplerFmInputs(nullptr)
         , params(nullptr)
         , synth(nullptr)
         {
@@ -132,6 +139,14 @@ struct Voice {
             samplerCrossfadeMod[i] = 0.0f;
             samplerPhaseDriver[i] = -1.0f;
             cachedSamplerLevelMod[i] = 0.0f;
+        }
+        fmGlobalDepthMod = 0.0f;
+        smoothedFmGlobalDepthMod = 0.0f;
+        for (int t = 0; t < kFMTargetCount; ++t) {
+            for (int s = 0; s < kFMSourceCount; ++s) {
+                fmDepthMod[t][s] = 0.0f;
+                smoothedFmDepthMod[t][s] = 0.0f;
+            }
         }
         currentBufferSize = 256;  // Default buffer size
         for (int i = 0; i < 4; ++i) envelopeValues[i] = 0.0f;
@@ -185,28 +200,6 @@ struct Voice {
 
     const float* getLastOscOutputs() const { return lastOscOutputs; }
     const float* getLastSamplerOutputs() const { return lastSamplerOutputs; }
-
-    void setGlobalFmInputs(const float* oscFm, const float* samplerFm) {
-        globalFmInputs = oscFm;
-        globalSamplerFmInputs = samplerFm;
-    }
-
-    void clearGlobalFmInputs() {
-        globalFmInputs = nullptr;
-        globalSamplerFmInputs = nullptr;
-    }
-
-    void contributeToGlobalFm(float* globalOsc, float* globalSampler) const {
-        if (!globalOsc || !globalSampler) {
-            return;
-        }
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            globalOsc[i] += lastOscOutputs[i];
-        }
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            globalSampler[i] += lastSamplerOutputs[i];
-        }
-    }
 
 private:
     float sampleRate;

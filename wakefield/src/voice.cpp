@@ -18,7 +18,6 @@ void Voice::resetFMHistory() {
 void Voice::forceSilence() {
     active = false;
     freeRunningOscIndex = -1;
-    clearGlobalFmInputs();
     for (int i = 0; i < 4; ++i) {
         envelopes[i].reset();
         envelopeValues[i] = 0.0f;
@@ -27,6 +26,7 @@ void Voice::forceSilence() {
     cachedAnySolo = false;
     cachedActiveOscCount = OSCILLATORS_PER_VOICE;
     cachedActiveSamplerCount = SAMPLERS_PER_VOICE;
+    cachedFmGlobalDepthBase = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         cachedOscSolo[i] = false;
         cachedOscMuted[i] = false;
@@ -146,6 +146,7 @@ float Voice::generateSample(unsigned int frameIndex) {
         for (int i = 0; i < 4; ++i) {
             envelopeTargets[i] = envelopes[i].processBlock(blockSize);
         }
+        cachedFmGlobalDepthBase = params ? params->fmGlobalDepth.load() : 0.0f;
     }
 
     if (ampGateTarget <= 0.0f && ampGateValue < kAmpGateSilenceThreshold) {
@@ -180,6 +181,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     }
 
     constexpr float alpha = kSmoothingAlpha;
+    constexpr float fmAlpha = kFmDepthSmoothingAlpha;
 
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         smoothedPitchMod[i] += alpha * (pitchMod[i] - smoothedPitchMod[i]);
@@ -189,6 +191,16 @@ float Voice::generateSample(unsigned int frameIndex) {
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         smoothedSamplerPitchMod[i] += alpha * (samplerPitchMod[i] - smoothedSamplerPitchMod[i]);
         smoothedSamplerLevelMod[i] += alpha * (samplerLevelMod[i] - smoothedSamplerLevelMod[i]);
+    }
+
+    smoothedFmGlobalDepthMod += alpha * (fmGlobalDepthMod - smoothedFmGlobalDepthMod);
+    float globalDepth = std::clamp(cachedFmGlobalDepthBase + smoothedFmGlobalDepthMod, 0.0f, 1.0f);
+
+    // Smooth FM depth matrix for musical UI control
+    for (int t = 0; t < kFMTargetCount; ++t) {
+        for (int s = 0; s < kFMSourceCount; ++s) {
+            smoothedFmDepthMod[t][s] += fmAlpha * (fmDepthMod[t][s] - smoothedFmDepthMod[t][s]);
+        }
     }
 
     for (int i = 0; i < 4; ++i) {
@@ -201,10 +213,28 @@ float Voice::generateSample(unsigned int frameIndex) {
     //     //     auto t_osc_fm = g_voiceProfiler.now();
 
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
-    if (globalFmInputs) {
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            fmInputs[i] = globalFmInputs[i];
+    for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
+        if (target >= cachedActiveOscCount) {
+            fmInputs[target] = 0.0f;
+            continue;
         }
+        float totalFM = 0.0f;
+        for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+            if (source >= cachedActiveOscCount) continue;
+            float depth = smoothedFmDepthMod[target][source];
+            if (depth != 0.0f) {
+                totalFM += lastOscOutputs[source] * (depth * 100.0f);
+            }
+        }
+        for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+            if (source >= cachedActiveSamplerCount) continue;
+            int sourceIdx = kFMOscillatorTargetCount + source;
+            float depth = smoothedFmDepthMod[target][sourceIdx];
+            if (depth != 0.0f) {
+                totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
+            }
+        }
+        fmInputs[target] = totalFM * globalDepth;
     }
 
     //     g_voiceProfiler.timeOscFM += g_voiceProfiler.elapsed_ns(t_osc_fm);
@@ -287,10 +317,29 @@ float Voice::generateSample(unsigned int frameIndex) {
     //     //     auto t_samp_fm = g_voiceProfiler.now();
 
     float samplerFMInputs[SAMPLERS_PER_VOICE] = {0.0f};
-    if (globalSamplerFmInputs) {
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            samplerFMInputs[i] = globalSamplerFmInputs[i];
+    for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
+        if (target >= cachedActiveSamplerCount) {
+            samplerFMInputs[target] = 0.0f;
+            continue;
         }
+        int targetIndex = kFMOscillatorTargetCount + target;
+        float totalFM = 0.0f;
+        for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+            if (source >= cachedActiveOscCount) continue;
+            float depth = smoothedFmDepthMod[targetIndex][source];
+            if (depth != 0.0f) {
+                totalFM += lastOscOutputs[source] * (depth * 100.0f);
+            }
+        }
+        for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+            if (source >= cachedActiveSamplerCount) continue;
+            int sourceIdx = kFMOscillatorTargetCount + source;
+            float depth = smoothedFmDepthMod[targetIndex][sourceIdx];
+            if (depth != 0.0f) {
+                totalFM += lastSamplerOutputs[source] * (depth * 100.0f);
+            }
+        }
+        samplerFMInputs[target] = totalFM * globalDepth;
     }
 
     //     g_voiceProfiler.timeSamplerFM += g_voiceProfiler.elapsed_ns(t_samp_fm);
