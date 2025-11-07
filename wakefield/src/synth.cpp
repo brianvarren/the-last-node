@@ -191,10 +191,6 @@ void Synth::setOscillatorState(int index, int shapeIndex,
             resolvedMode = BrainwaveMode::FREE;
         }
     }
-    bool wasFree = oscillatorNoteSourceFree[index];
-    bool isFree = (resolvedMode == BrainwaveMode::FREE);
-    oscillatorNoteSourceFree[index] = isFree;
-
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
         osc.setMode(resolvedMode);
@@ -208,12 +204,6 @@ void Synth::setOscillatorState(int index, int shapeIndex,
     // Store base amp and level at control rate (used in voice mixing)
     oscillatorBaseAmps[index] = amp;
     oscillatorBaseLevels[index] = level;
-
-    if (isFree && !wasFree) {
-        spawnFreeRunningVoice(index);
-    } else if (!isFree && wasFree) {
-        killFreeRunningVoice(index);
-    }
 }
 
 void Synth::updateReverbParameters(float delayTime, float size, float damping, float mix, float decay,
