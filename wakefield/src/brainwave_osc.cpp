@@ -16,7 +16,7 @@ constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
 constexpr float kMinPivot = 0.0001f;
 constexpr float kMaxPivot = 0.9999f;
 constexpr float kMaxBeta = 80.0f;
-constexpr float kPulseMorphCurve = 5.0f;
+constexpr float kPulseMorphLogBase = 9.0f;
 constexpr float kPulseMorphSmoothTime = 0.003f; // ~3ms
 
 inline float lookupTanhGain(float morph) {
@@ -74,9 +74,10 @@ inline float generateTanhSquare(float phase, float morph) {
 
 static inline float mapPulseMorph(float morph) {
     float clamped = fastclamp(morph, 0.0f, 1.0f);
-    const float denom = 1.0f - std::exp(-kPulseMorphCurve);
-    if (denom <= 0.0f) return clamped;
-    return (1.0f - std::exp(-kPulseMorphCurve * clamped)) / denom;
+    constexpr float kBase = kPulseMorphLogBase;
+    constexpr float kScale = 1.0f / std::log(kBase);
+    float mapped = std::log(1.0f + (kBase - 1.0f) * clamped) * kScale;
+    return fastclamp(mapped, 0.0f, 1.0f);
 }
 
 BrainwaveOscillator::BrainwaveOscillator()
