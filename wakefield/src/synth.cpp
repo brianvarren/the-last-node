@@ -514,6 +514,10 @@ void Synth::spawnFreeRunningVoice() {
         voice.envelopes[ei].noteOn();
     }
 
+    // Keep the amp gate fully open so the voice drones without MIDI input
+    voice.ampGateTarget = 1.0f;
+    voice.ampGateValue = 1.0f;
+
     // Mark as free-running voice
     freeRunningVoiceActive = true;
     freeRunningVoiceIndex = voiceIndex;
@@ -531,6 +535,7 @@ void Synth::killFreeRunningVoice() {
     for (int ei = 0; ei < 4; ++ei) {
         voice.envelopes[ei].noteOff();
     }
+    voice.ampGateTarget = 0.0f;
     voice.resetFMHistory();
 
     // Stop all samplers
