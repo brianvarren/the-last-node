@@ -191,6 +191,11 @@ void Synth::setOscillatorState(int index, int shapeIndex,
             resolvedMode = BrainwaveMode::FREE;
         }
     }
+
+    bool wasFree = oscillatorNoteSourceFree[index];
+    bool isFree = (resolvedMode == BrainwaveMode::FREE);
+    oscillatorNoteSourceFree[index] = isFree;
+
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
         osc.setMode(resolvedMode);
@@ -204,6 +209,13 @@ void Synth::setOscillatorState(int index, int shapeIndex,
     // Store base amp and level at control rate (used in voice mixing)
     oscillatorBaseAmps[index] = amp;
     oscillatorBaseLevels[index] = level;
+
+    // Spawn/kill free-running voice when note source changes to/from "None"
+    if (isFree && !wasFree) {
+        spawnFreeRunningVoice(index);
+    } else if (!isFree && wasFree) {
+        killFreeRunningVoice(index);
+    }
 }
 
 void Synth::updateReverbParameters(float delayTime, float size, float damping, float mix, float decay,
@@ -496,15 +508,13 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
     Voice& voice = voices[voiceIndex];
     voice.forceSilence();
     voice.active = true;
-    voice.note = 60;
+    voice.note = 60;  // Arbitrary - FREE mode oscillators ignore this
     voice.velocity = 100;
     voice.freeRunningOscIndex = oscIndex;  // Mark which oscillator spawned this voice
     voice.startTime = voiceCounter++;
 
-    float frequency = midiNoteToFrequency(60);
+    // Reset modulation for clean start
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        voice.oscillators[i].setNoteFrequency(frequency);
-        voice.oscillators[i].reset();
         voice.pitchMod[i] = 0.0f;
         voice.morphMod[i] = 0.0f;
         voice.ratioMod[i] = 0.0f;
