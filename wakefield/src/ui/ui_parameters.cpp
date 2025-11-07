@@ -88,7 +88,7 @@ void UI::initializeParameters() {
     // ============================================================================
     // OSCILLATOR PAGE - MOSTLY RANDOMIZABLE (except mode)
     // ============================================================================
-    parameters.push_back({13, ParamType::ENUM, "Note Source", "", 0, 5, {"None", "Ext MIDI", "Track 1", "Track 2", "Track 3", "Track 4"}, true, static_cast<int>(UIPage::OSCILLATOR), false});  // IMMUNE
+    parameters.push_back({13, ParamType::ENUM, "Note Source", "", 0, 5, {"Free", "Ext MIDI", "Track 1", "Track 2", "Track 3", "Track 4"}, true, static_cast<int>(UIPage::OSCILLATOR), false});  // IMMUNE
     parameters.push_back({19, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true, ParamCurve::Logarithmic});
     parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
@@ -157,7 +157,7 @@ void UI::initializeParameters() {
     // ============================================================================
     parameters.push_back({69, ParamType::ENUM, "Sample", "", 0, 0, {}, false, static_cast<int>(UIPage::SAMPLER), false});  // IMMUNE (special)
     parameters.push_back({60, ParamType::ENUM, "Key Mode", "", 0, 1, {"KEY", "FREE"}, true, static_cast<int>(UIPage::SAMPLER), false});  // IMMUNE (deprecated, use Note Source)
-    parameters.push_back({80, ParamType::ENUM, "Note Source", "", 0, 5, {"None", "Ext MIDI", "Track 1", "Track 2", "Track 3", "Track 4"}, true, static_cast<int>(UIPage::SAMPLER), false});  // IMMUNE
+    parameters.push_back({80, ParamType::ENUM, "Note Source", "", 0, 5, {"Free", "Ext MIDI", "Track 1", "Track 2", "Track 3", "Track 4"}, true, static_cast<int>(UIPage::SAMPLER), false});  // IMMUNE
     parameters.push_back({68, ParamType::ENUM, "Direction", "", 0, 2, {"Forward", "Reverse", "Ping-Pong"}, true, static_cast<int>(UIPage::SAMPLER), true});
     parameters.push_back({61, ParamType::FLOAT, "Loop Start", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
     parameters.push_back({62, ParamType::FLOAT, "Loop Length", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
@@ -2311,8 +2311,8 @@ bool UI::handleMidiNoteForFrequencyInput(int midiNote) {
         return false;
     }
 
-    // Check if current oscillator uses Note Source = None (free running mode)
-    if (!params || params->getOscNoteSource(currentOscillatorIndex) != static_cast<int>(NoteSource::NONE)) {
+    // Check if current oscillator uses Note Source = Free (free running mode)
+    if (!params || params->getOscNoteSource(currentOscillatorIndex) != static_cast<int>(NoteSource::FREE)) {
         return false;
     }
 

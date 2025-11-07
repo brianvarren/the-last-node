@@ -24,7 +24,7 @@ constexpr int MAX_VOICES = 8;
 
 // Note source for oscillators and samplers
 enum class NoteSource {
-    NONE = 0,           // Free running, no note triggering
+    FREE = 0,           // Free running, no note triggering
     EXTERNAL_MIDI = 1,  // Responds to external MIDI input
     TRACK_1 = 2,        // Sequencer track 1
     TRACK_2 = 3,        // Sequencer track 2

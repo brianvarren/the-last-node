@@ -187,7 +187,7 @@ void Synth::setOscillatorState(int index, int shapeIndex,
     BrainwaveMode resolvedMode = BrainwaveMode::KEY;
     if (params) {
         int noteSource = params->getOscNoteSource(index);
-        if (noteSource == static_cast<int>(NoteSource::NONE)) {
+        if (noteSource == static_cast<int>(NoteSource::FREE)) {
             resolvedMode = BrainwaveMode::FREE;
         }
     }
@@ -555,7 +555,7 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
     voice.active = true;
     voice.note = 60;  // Arbitrary - FREE mode oscillators ignore this
     voice.velocity = 100;
-    voice.noteSource = static_cast<int>(NoteSource::NONE);
+    voice.noteSource = static_cast<int>(NoteSource::FREE);
     voice.freeRunningOscIndex = oscIndex;  // Mark which oscillator spawned this voice
     voice.startTime = voiceCounter++;
 

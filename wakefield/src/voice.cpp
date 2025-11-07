@@ -248,8 +248,20 @@ float Voice::generateSample(unsigned int frameIndex) {
             currentOutputs[i] = 0.0f;
             continue;
         }
-
-        // Always process the oscillator (for FM routing)
+        // Skip oscillators that shouldn't be active in this voice
+        // Silence FREE mode oscillators unless this is their dedicated voice
+        if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex != i) {
+            currentOutputs[i] = 0.0f;
+            continue;
+        }
+        // Silence KEY mode oscillators unless their note source matches this voice's trigger source
+        if (oscillators[i].getMode() == BrainwaveMode::KEY && params) {
+            int oscNoteSource = params->getOscNoteSource(i);
+            if (oscNoteSource != noteSource) {
+                currentOutputs[i] = 0.0f;
+                continue;
+            }
+        }
         currentOutputs[i] = oscillators[i].process(sampleRate,
                                                    fmInputs[i],
                                                    smoothedPitchMod[i],
@@ -257,26 +269,6 @@ float Voice::generateSample(unsigned int frameIndex) {
                                                    ratioMod[i],
                                                    offsetMod[i]);
         if (!std::isfinite(currentOutputs[i])) {
-            currentOutputs[i] = 0.0f;
-        }
-
-        // Silence output if oscillator shouldn't be heard in this voice
-        // (but it still contributes to FM routing via lastOscOutputs)
-        bool shouldSilence = false;
-
-        // Silence FREE mode oscillators unless this is their dedicated voice
-        if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex != i) {
-            shouldSilence = true;
-        }
-        // Silence KEY mode oscillators unless their note source matches this voice's trigger source
-        else if (oscillators[i].getMode() == BrainwaveMode::KEY && params) {
-            int oscNoteSource = params->getOscNoteSource(i);
-            if (oscNoteSource != noteSource) {
-                shouldSilence = true;
-            }
-        }
-
-        if (shouldSilence) {
             currentOutputs[i] = 0.0f;
         }
     }
