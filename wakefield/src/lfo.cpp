@@ -10,7 +10,7 @@ namespace {
 
 constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
 constexpr float kMaxBeta = 80.0f;
-constexpr float kPulseMorphLogBase = 9.0f;
+constexpr float kPulseMorphExponent = 2.5f;
 constexpr float kPulseMorphSmoothTime = 0.005f; // ~5 ms glide per buffer
 
 inline float lookupTanhGain(float morph) {
@@ -26,10 +26,7 @@ inline float lookupTanhGain(float morph) {
 
 inline float mapPulseMorph(float morph) {
     float clamped = fastclamp(morph, 0.0f, 1.0f);
-    constexpr float kBase = kPulseMorphLogBase;
-    constexpr float kScale = 1.0f / std::log(kBase);
-    float mapped = std::log(1.0f + (kBase - 1.0f) * clamped) * kScale;
-    return fastclamp(mapped, 0.0f, 1.0f);
+    return std::pow(clamped, kPulseMorphExponent);
 }
 
 } // namespace
