@@ -15,7 +15,7 @@ namespace {
 constexpr float kPhaseToFloat = 1.0f / 4294967296.0f;
 constexpr float kMinPivot = 0.0001f;
 constexpr float kMaxPivot = 0.9999f;
-constexpr float kMaxBeta = 80.0f;
+constexpr float kMaxBeta = 120.0f;
 constexpr float kPulseMorphExponent = 2.5f;
 constexpr float kPulseMorphSmoothTime = 0.003f; // ~3ms
 
@@ -65,7 +65,8 @@ inline float generateTanhSquare(float phase, float morph) {
     }
 
     float sine = fastsin(kTwoPi * phase);
-    float beta = 1.0f + edge * kMaxBeta;
+    float drive = 1.0f + 0.35f * edge;
+    float beta = 1.0f + edge * drive * kMaxBeta;
     float saturated = fasttanh(beta * sine);
     float normalized = saturated * lookupTanhGain(edge);
     return (1.0f - edge) * sine + edge * normalized;

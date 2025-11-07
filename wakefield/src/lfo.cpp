@@ -68,7 +68,8 @@ float LFO::generateTanhShaped(float phase, float morph, float duty) {
     float sine = fastsin(kTwoPi * phase);
     float theta = kTwoPi * (duty - 0.5f);
     float x = sine - fastsin(theta);
-    float beta = 1.0f + edge * kMaxBeta;
+    float drive = 1.0f + 0.35f * edge;
+    float beta = 1.0f + edge * drive * kMaxBeta;
     float tanhPulse = fasttanh(beta * x);
     float normalized = lookupTanhGain(edge) * tanhPulse;
     return (1.0f - edge) * sine + edge * normalized;

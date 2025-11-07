@@ -39,7 +39,7 @@ struct Voice {
 
     // Non-critical: Direct block-rate (no smoothing needed)
     float morphMod[OSCILLATORS_PER_VOICE];
-    float prevMorphMod[OSCILLATORS_PER_VOICE];
+    float smoothedMorphMod[OSCILLATORS_PER_VOICE];
     float ratioMod[OSCILLATORS_PER_VOICE];
     float offsetMod[OSCILLATORS_PER_VOICE];
 
