@@ -454,9 +454,51 @@ void Synth::sequencerNoteOff(int trackIndex, int midiNote) {
 
 void Synth::spawnFreeRunningVoice(int oscIndex) {
     if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
-    if (freeRunningVoiceActive[oscIndex]) return;
+    if (freeRunningVoiceActive[oscIndex]) {
+        int existingIndex = freeRunningVoiceIndex[oscIndex];
+        if (existingIndex >= 0 && existingIndex < MAX_VOICES) {
+            Voice& existingVoice = voices[existingIndex];
+            existingVoice.ampGateTarget = 1.0f;
+            existingVoice.ampGateValue = 1.0f;
+        }
+        return;
+    }
 
-    int voiceIndex = findFreeVoice();
+    int voiceIndex = -1;
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        if (!voices[i].active) {
+            voiceIndex = i;
+            break;
+        }
+    }
+
+    if (voiceIndex == -1) {
+        float lowestLevel = std::numeric_limits<float>::max();
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            if (voices[i].freeRunningOscIndex >= 0) continue;
+            float level = voices[i].getCurrentAmpLevel();
+            if (level < lowestLevel) {
+                lowestLevel = level;
+                voiceIndex = i;
+            }
+        }
+    }
+
+    if (voiceIndex == -1) {
+        int donorVoice = -1;
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            if (voices[i].freeRunningOscIndex >= 0) {
+                donorVoice = i;
+                break;
+            }
+        }
+        if (donorVoice >= 0) {
+            int donorOsc = voices[donorVoice].freeRunningOscIndex;
+            killFreeRunningVoice(donorOsc);
+            voiceIndex = donorVoice;
+        }
+    }
+
     if (voiceIndex == -1) {
         return;
     }
