@@ -126,8 +126,9 @@ float BrainwaveOscillator::process(float sampleRate, float fmInput,
 
     float normalizedPhase = static_cast<float>(phaseAccumulator_) * kPhaseToFloat;
     float morphTarget = fastclamp(morph_ + morphMod, 0.0f, 1.0f);
-    //float alpha = 1.0f - std::exp(-1.0f / (std::max(sampleRate, 1.0f) * kPulseMorphSmoothTime));
-    morphState_ += /*alpha * */(morphTarget - morphState_);
+    float smoothingSamples = std::max(sampleRate, 1.0f) * kPulseMorphSmoothTime;
+    float alpha = 1.0f - std::exp(-1.0f / smoothingSamples);
+    morphState_ += alpha * (morphTarget - morphState_);
 
     float sample;
     if (shape_ == BrainwaveShape::SAW) {

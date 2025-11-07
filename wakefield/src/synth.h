@@ -194,6 +194,7 @@ public:
     void setOscillatorState(int index, int shapeIndex,
                              float baseFreq, float morph,
                              float ratio, float offsetHz, float amp, float level);
+    void updateFreeRunningVoiceState();
 
     // Get oscillator base amp (for voice mixing with modulation)
     float getOscillatorBaseAmp(int index) const {
@@ -416,6 +417,7 @@ public:
 
     bool freeRunningVoiceActive = false;
     int freeRunningVoiceIndex = -1;
+    bool oscillatorNoteSourceFree[OSCILLATORS_PER_VOICE] = {false, false, false, false};
 
     // Voice stealing: global counter for voice priority/age tracking
     uint64_t voiceCounter = 0;

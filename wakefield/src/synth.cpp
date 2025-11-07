@@ -181,6 +181,7 @@ void Synth::setOscillatorState(int index, int shapeIndex,
             resolvedMode = BrainwaveMode::FREE;
         }
     }
+    oscillatorNoteSourceFree[index] = (resolvedMode == BrainwaveMode::FREE);
 
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
@@ -196,27 +197,23 @@ void Synth::setOscillatorState(int index, int shapeIndex,
     oscillatorBaseAmps[index] = amp;
     oscillatorBaseLevels[index] = level;
 
-    // Check if ANY oscillator or sampler is in FREE mode
-    bool anyFreeMode = false;
+    updateFreeRunningVoiceState();
+}
 
-    // Check all oscillators
-    for (const auto& voice : voices) {
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            if (voice.oscillators[i].getMode() == BrainwaveMode::FREE) {
-                anyFreeMode = true;
-                break;
-            }
+void Synth::updateFreeRunningVoiceState() {
+    bool anyFree = false;
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (oscillatorNoteSourceFree[i]) {
+            anyFree = true;
+            break;
         }
-        if (anyFreeMode) break;
     }
 
-    // Note: FREE sampler playback is handled by freeSamplers path directly.
-    // Do not spawn a free-running voice based on sampler FREE mode alone.
-
-    // Spawn or kill free-running voice based on mode
-    if (anyFreeMode && !freeRunningVoiceActive) {
-        spawnFreeRunningVoice();
-    } else if (!anyFreeMode && freeRunningVoiceActive) {
+    if (anyFree) {
+        if (!freeRunningVoiceActive) {
+            spawnFreeRunningVoice();
+        }
+    } else if (freeRunningVoiceActive) {
         killFreeRunningVoice();
     }
 }
@@ -1982,29 +1979,6 @@ void Synth::setSamplerKeyMode(int samplerIndex, bool enabled) {
     }
     freeSamplers[samplerIndex].setKeyMode(false);
 
-    // Check if ANY oscillator or sampler is in FREE mode
-    bool anyFreeMode = false;
-
-    // Check all oscillators
-    for (const auto& voice : voices) {
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            if (voice.oscillators[i].getMode() == BrainwaveMode::FREE) {
-                anyFreeMode = true;
-                break;
-            }
-        }
-        if (anyFreeMode) break;
-    }
-
-    // Note: FREE sampler playback is handled by freeSamplers path directly.
-    // Do not spawn a free-running voice based on sampler FREE mode alone.
-
-    // Spawn or kill free-running voice based on mode
-    if (anyFreeMode && !freeRunningVoiceActive) {
-        spawnFreeRunningVoice();
-    } else if (!anyFreeMode && freeRunningVoiceActive) {
-        killFreeRunningVoice();
-    }
 }
 
 void Synth::saveSamplerPhase(int samplerIndex, uint64_t phase) {
