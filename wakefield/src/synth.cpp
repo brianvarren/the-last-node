@@ -508,7 +508,7 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
     voice.active = true;
     voice.note = 60;
     voice.velocity = 100;
-    voice.freeRunningOscIndex = oscIndex;
+    voice.freeRunningOscIndex = oscIndex;  // Mark which oscillator spawned this voice
     voice.startTime = voiceCounter++;
 
     float frequency = midiNoteToFrequency(60);

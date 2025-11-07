@@ -80,8 +80,6 @@ float Voice::generateSample(unsigned int frameIndex) {
 
     ampGateValue += kAmpGateSmoothingAlpha * (ampGateTarget - ampGateValue);
     ampGateValue = std::clamp(ampGateValue, 0.0f, 1.0f);
-    const int restrictedOsc = freeRunningOscIndex;
-    const bool restrictOscillators = (restrictedOsc >= 0);
 
     if (frameIndex == 0) {
         cachedActiveOscCount = OSCILLATORS_PER_VOICE;
@@ -250,10 +248,6 @@ float Voice::generateSample(unsigned int frameIndex) {
             currentOutputs[i] = 0.0f;
             continue;
         }
-        if (restrictOscillators && i != restrictedOsc) {
-            currentOutputs[i] = 0.0f;
-            continue;
-        }
         currentOutputs[i] = oscillators[i].process(sampleRate,
                                                    fmInputs[i],
                                                    smoothedPitchMod[i],
@@ -274,10 +268,6 @@ float Voice::generateSample(unsigned int frameIndex) {
     float oscFinalGains[OSCILLATORS_PER_VOICE];
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         if (i >= cachedActiveOscCount) {
-            oscFinalGains[i] = 0.0f;
-            continue;
-        }
-        if (restrictOscillators && i != restrictedOsc) {
             oscFinalGains[i] = 0.0f;
             continue;
         }
@@ -407,11 +397,7 @@ float Voice::generateSample(unsigned int frameIndex) {
             lastOscOutputs[i] = 0.0f;
             continue;
         }
-        if (restrictOscillators && i != restrictedOsc) {
-            lastOscOutputs[i] = 0.0f;
-        } else {
-            lastOscOutputs[i] = currentOutputs[i];
-        }
+        lastOscOutputs[i] = currentOutputs[i];
     }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         if (i >= cachedActiveSamplerCount) {
