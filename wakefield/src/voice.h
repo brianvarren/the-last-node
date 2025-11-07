@@ -98,6 +98,7 @@ struct Voice {
     bool samplerAmpControllerActive[SAMPLERS_PER_VOICE]{};
     float ampGateValue = 0.0f;
     float ampGateTarget = 0.0f;
+    int freeRunningOscIndex = -1;
 
     Voice(float sampleRate)
         : active(false)
@@ -150,6 +151,7 @@ struct Voice {
         resetAmpControllers();
         ampGateValue = 0.0f;
         ampGateTarget = 0.0f;
+        freeRunningOscIndex = -1;
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)

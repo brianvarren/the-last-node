@@ -4,6 +4,7 @@
 #include "fast_math.h"
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <thread>
 
 Synth::Synth(float sampleRate)
@@ -91,6 +92,9 @@ int Synth::findFreeVoice() {
     uint64_t oldestReleaseTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
+        if (voices[i].freeRunningOscIndex >= 0) {
+            continue;
+        }
         if (voices[i].isGateReleasing()) {
             if (voices[i].startTime < oldestReleaseTime) {
                 oldestReleaseTime = voices[i].startTime;
@@ -108,6 +112,9 @@ int Synth::findFreeVoice() {
     uint64_t oldestTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
+        if (voices[i].freeRunningOscIndex >= 0) {
+            continue;
+        }
         if (!voices[i].isGateReleasing()) {
             if (voices[i].startTime < oldestTime) {
                 oldestTime = voices[i].startTime;
@@ -121,10 +128,13 @@ int Synth::findFreeVoice() {
     }
 
     // Priority 4: Steal voice with lowest current amplitude level
-    int quietestVoiceIndex = 0;
-    float lowestLevel = voices[0].getCurrentAmpLevel();
+    int quietestVoiceIndex = -1;
+    float lowestLevel = std::numeric_limits<float>::max();
 
-    for (int i = 1; i < MAX_VOICES; ++i) {
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        if (voices[i].freeRunningOscIndex >= 0) {
+            continue;
+        }
         float level = voices[i].getCurrentAmpLevel();
         if (level < lowestLevel) {
             lowestLevel = level;
@@ -181,7 +191,9 @@ void Synth::setOscillatorState(int index, int shapeIndex,
             resolvedMode = BrainwaveMode::FREE;
         }
     }
-    oscillatorNoteSourceFree[index] = (resolvedMode == BrainwaveMode::FREE);
+    bool wasFree = oscillatorNoteSourceFree[index];
+    bool isFree = (resolvedMode == BrainwaveMode::FREE);
+    oscillatorNoteSourceFree[index] = isFree;
 
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
@@ -197,24 +209,10 @@ void Synth::setOscillatorState(int index, int shapeIndex,
     oscillatorBaseAmps[index] = amp;
     oscillatorBaseLevels[index] = level;
 
-    updateFreeRunningVoiceState();
-}
-
-void Synth::updateFreeRunningVoiceState() {
-    bool anyFree = false;
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        if (oscillatorNoteSourceFree[i]) {
-            anyFree = true;
-            break;
-        }
-    }
-
-    if (anyFree) {
-        if (!freeRunningVoiceActive) {
-            spawnFreeRunningVoice();
-        }
-    } else if (freeRunningVoiceActive) {
-        killFreeRunningVoice();
+    if (isFree && !wasFree) {
+        spawnFreeRunningVoice(index);
+    } else if (!isFree && wasFree) {
+        killFreeRunningVoice(index);
     }
 }
 
@@ -454,34 +452,27 @@ void Synth::sequencerNoteOff(int trackIndex, int midiNote) {
     noteOff(midiNote);
 }
 
-void Synth::spawnFreeRunningVoice() {
-    // Kill existing free-running voice first
-    if (freeRunningVoiceActive) {
-        killFreeRunningVoice();
+void Synth::spawnFreeRunningVoice(int oscIndex) {
+    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
+    if (freeRunningVoiceActive[oscIndex]) return;
+
+    int voiceIndex = findFreeVoice();
+    if (voiceIndex == -1) {
+        return;
     }
 
-    // Find a free voice (prefer voice 0 for consistency)
-    int voiceIndex = 0;
-    if (voices[voiceIndex].active) {
-        // If voice 0 is busy, find any free voice
-        voiceIndex = findFreeVoice();
-        if (voiceIndex == -1) {
-            // No free voices available
-            return;
-        }
-    }
-
-    // Activate the free-running voice
     Voice& voice = voices[voiceIndex];
+    voice.forceSilence();
     voice.active = true;
-    voice.note = 60;  // Middle C as default note
-    voice.velocity = 100;  // Default velocity
+    voice.note = 60;
+    voice.velocity = 100;
+    voice.freeRunningOscIndex = oscIndex;
+    voice.startTime = voiceCounter++;
 
-    // Set note frequency for oscillators (used in KEY mode, ignored in FREE mode)
     float frequency = midiNoteToFrequency(60);
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         voice.oscillators[i].setNoteFrequency(frequency);
-        voice.oscillators[i].reset();  // Reset phase
+        voice.oscillators[i].reset();
         voice.pitchMod[i] = 0.0f;
         voice.morphMod[i] = 0.0f;
         voice.ratioMod[i] = 0.0f;
@@ -489,7 +480,6 @@ void Synth::spawnFreeRunningVoice() {
         voice.ampMod[i] = 0.0f;
     }
 
-    // Initialize samplers
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         voice.samplerPitchMod[i] = 0.0f;
         voice.samplerLoopStartMod[i] = 0.0f;
@@ -497,51 +487,35 @@ void Synth::spawnFreeRunningVoice() {
         voice.samplerCrossfadeMod[i] = 0.0f;
         voice.samplerLevelMod[i] = 0.0f;
         voice.samplers[i].setKeyMode(samplerKeyModes[i]);
-
-        // Always restart samplers in FREE mode
         if (!samplerKeyModes[i]) {
             voice.samplers[i].requestRestart();
+        } else {
+            voice.samplers[i].stopPlayback();
         }
     }
 
     voice.resetFMHistory();
-
-    // Trigger envelopes with sustain at max (infinite hold)
     for (int ei = 0; ei < 4; ++ei) {
         voice.envelopes[ei].noteOn();
     }
-
-    // Keep the amp gate fully open so the voice drones without MIDI input
     voice.ampGateTarget = 1.0f;
     voice.ampGateValue = 1.0f;
 
-    // Mark as free-running voice
-    freeRunningVoiceActive = true;
-    freeRunningVoiceIndex = voiceIndex;
+    freeRunningVoiceActive[oscIndex] = true;
+    freeRunningVoiceIndex[oscIndex] = voiceIndex;
 }
 
-void Synth::killFreeRunningVoice() {
-    if (!freeRunningVoiceActive || freeRunningVoiceIndex < 0 || freeRunningVoiceIndex >= MAX_VOICES) {
-        return;
-    }
+void Synth::killFreeRunningVoice(int oscIndex) {
+    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
+    if (!freeRunningVoiceActive[oscIndex]) return;
+    int voiceIndex = freeRunningVoiceIndex[oscIndex];
+    if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) return;
 
-    Voice& voice = voices[freeRunningVoiceIndex];
+    Voice& voice = voices[voiceIndex];
+    voice.forceSilence();
 
-    // Immediately deactivate the voice (no release envelope)
-    voice.active = false;
-    for (int ei = 0; ei < 4; ++ei) {
-        voice.envelopes[ei].noteOff();
-    }
-    voice.ampGateTarget = 0.0f;
-    voice.resetFMHistory();
-
-    // Stop all samplers
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        voice.samplers[i].stopPlayback();
-    }
-
-    freeRunningVoiceActive = false;
-    freeRunningVoiceIndex = -1;
+    freeRunningVoiceActive[oscIndex] = false;
+    freeRunningVoiceIndex[oscIndex] = -1;
 }
 
 int Synth::getActiveVoiceCount() const {
@@ -2159,6 +2133,9 @@ void Synth::resetAudioState() {
         chaosBufferY[i].clear();
         chaosOutputs[i] = 0.0f;
     }
-    freeRunningVoiceActive = false;
-    freeRunningVoiceIndex = -1;
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        freeRunningVoiceActive[i] = false;
+        freeRunningVoiceIndex[i] = -1;
+        oscillatorNoteSourceFree[i] = false;
+    }
 }

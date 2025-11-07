@@ -194,7 +194,6 @@ public:
     void setOscillatorState(int index, int shapeIndex,
                              float baseFreq, float morph,
                              float ratio, float offsetHz, float amp, float level);
-    void updateFreeRunningVoiceState();
 
     // Get oscillator base amp (for voice mixing with modulation)
     float getOscillatorBaseAmp(int index) const {
@@ -391,9 +390,14 @@ public:
     float normalizePhaseForDriver(float value, int type) const;
 
     // Free-running voice management
-    void spawnFreeRunningVoice();
-    void killFreeRunningVoice();
-    bool hasFreeRunningVoice() const { return freeRunningVoiceActive; }
+    void spawnFreeRunningVoice(int oscIndex);
+    void killFreeRunningVoice(int oscIndex);
+    bool hasFreeRunningVoice() const {
+        for (bool active : freeRunningVoiceActive) {
+            if (active) return true;
+        }
+        return false;
+    }
 
     // Soft clipping utility (Phase 3)
     inline float softClip(float x, float threshold = 0.9f) const {
@@ -415,8 +419,8 @@ public:
         return x;
     }
 
-    bool freeRunningVoiceActive = false;
-    int freeRunningVoiceIndex = -1;
+    bool freeRunningVoiceActive[OSCILLATORS_PER_VOICE] = {false, false, false, false};
+    int freeRunningVoiceIndex[OSCILLATORS_PER_VOICE] = {-1, -1, -1, -1};
     bool oscillatorNoteSourceFree[OSCILLATORS_PER_VOICE] = {false, false, false, false};
 
     // Voice stealing: global counter for voice priority/age tracking
