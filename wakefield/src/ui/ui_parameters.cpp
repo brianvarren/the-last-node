@@ -88,7 +88,6 @@ void UI::initializeParameters() {
     // ============================================================================
     // OSCILLATOR PAGE - MOSTLY RANDOMIZABLE (except mode)
     // ============================================================================
-    parameters.push_back({10, ParamType::ENUM, "Mode", "", 0, 1, {"FREE", "KEY"}, true, static_cast<int>(UIPage::OSCILLATOR), false});  // IMMUNE (deprecated, use Note Source)
     parameters.push_back({13, ParamType::ENUM, "Note Source", "", 0, 5, {"None", "Ext MIDI", "Track 1", "Track 2", "Track 3", "Track 4"}, true, static_cast<int>(UIPage::OSCILLATOR), false});  // IMMUNE
     parameters.push_back({19, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true, ParamCurve::Logarithmic});
@@ -296,7 +295,6 @@ void SynthParameters::applyParameterValue(int id,
             setEnvRelease(0, value);
             break;
         case 6: masterVolume = value; break;
-        case 10: setOscMode(osc, static_cast<int>(value)); break;
         case 13: setOscNoteSource(osc, static_cast<int>(value)); break;
         case 19: setOscShape(osc, static_cast<int>(value)); break;
         case 11: setOscFrequency(osc, value); break;
@@ -500,7 +498,7 @@ std::vector<int> UI::getRandomizableParameterIds() {
 // Helper to detect which selector index a parameter uses (if any)
 static inline bool paramUsesOscIndex(int id) {
     switch (id) {
-        case 10: case 11: case 12: case 13: case 14: case 15: case 18: case 19:
+        case 11: case 12: case 13: case 14: case 15: case 18: case 19:
             return true;
         default: return false;
     }
@@ -1760,7 +1758,6 @@ float UI::getParameterValue(int id) {
 
     switch (id) {
         case 6: return params->masterVolume.load();
-        case 10: return static_cast<float>(params->getOscMode(oscIndex));
         case 13: return static_cast<float>(params->getOscNoteSource(oscIndex));
         case 19: return static_cast<float>(params->getOscShape(oscIndex));
         case 11: return params->getOscFrequency(oscIndex);
@@ -1881,7 +1878,6 @@ void UI::setParameterValue(int id, float value) {
 
     switch (id) {
         case 6: params->masterVolume = value; break;
-        case 10: params->setOscMode(oscIndex, static_cast<int>(value)); break;
         case 13: params->setOscNoteSource(oscIndex, static_cast<int>(value)); break;
         case 19: params->setOscShape(oscIndex, static_cast<int>(value)); break;
         case 11: params->setOscFrequency(oscIndex, value); break;
@@ -2310,13 +2306,13 @@ void UI::finishNumericInput() {
 
 bool UI::handleMidiNoteForFrequencyInput(int midiNote) {
     // Only consume if we're in numeric input mode editing the frequency parameter (ID 11)
-    // and the current oscillator is in FREE mode
+    // and the current oscillator is configured for free running (Note Source = None)
     if (!numericInputActive || selectedParameterId != 11) {
         return false;
     }
 
-    // Check if current oscillator is in FREE mode (mode 0)
-    if (!params || params->getOscMode(currentOscillatorIndex) != 0) {
+    // Check if current oscillator uses Note Source = None (free running mode)
+    if (!params || params->getOscNoteSource(currentOscillatorIndex) != static_cast<int>(NoteSource::NONE)) {
         return false;
     }
 
@@ -2389,7 +2385,6 @@ bool UI::isParameterModulated(int id) {
     // Determine modulation destination based on parameter ID and current oscillator index
     switch (id) {
         // Oscillator parameters (ID 10-18) - need to map to correct osc based on currentOscillatorIndex
-        case 10: // Mode - not modulatable
         case 19: // Shape - not modulatable
             return false;
         case 11: // Frequency/Pitch

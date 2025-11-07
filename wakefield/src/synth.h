@@ -191,9 +191,9 @@ public:
     float getVoiceEnvelopeValue(int voiceIndex, int envIndex) const;
     int getVoiceNote(int voiceIndex) const;
 
-    void setOscillatorState(int index, BrainwaveMode mode, int shapeIndex,
-                               float baseFreq, float morph,
-                               float ratio, float offsetHz, float amp, float level);
+    void setOscillatorState(int index, int shapeIndex,
+                             float baseFreq, float morph,
+                             float ratio, float offsetHz, float amp, float level);
 
     // Get oscillator base amp (for voice mixing with modulation)
     float getOscillatorBaseAmp(int index) const {

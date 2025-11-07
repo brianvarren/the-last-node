@@ -215,7 +215,6 @@ struct SynthParameters {
     
     // Oscillator parameters - 4 independent oscillators per voice
     // Oscillator 1 (index 0)
-    std::atomic<int> osc1Mode{1};              // 0=FREE, 1=KEY (deprecated, use osc1NoteSource)
     std::atomic<int> osc1NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc1Freq{440.0f};       // Base frequency (20-2000 Hz)
     std::atomic<float> osc1Morph{0.5f};        // Phase distortion amount (0-1)
@@ -226,7 +225,6 @@ struct SynthParameters {
     std::atomic<float> osc1Level{0.8f};        // Mix level (static, 0.0-1.0)
 
     // Oscillator 2 (index 1)
-    std::atomic<int> osc2Mode{1};
     std::atomic<int> osc2NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc2Freq{440.0f};
     std::atomic<float> osc2Morph{0.5f};
@@ -237,7 +235,6 @@ struct SynthParameters {
     std::atomic<float> osc2Level{0.8f};
 
     // Oscillator 3 (index 2)
-    std::atomic<int> osc3Mode{1};
     std::atomic<int> osc3NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc3Freq{440.0f};
     std::atomic<float> osc3Morph{0.5f};
@@ -248,7 +245,6 @@ struct SynthParameters {
     std::atomic<float> osc3Level{0.8f};
 
     // Oscillator 4 (index 3)
-    std::atomic<int> osc4Mode{1};
     std::atomic<int> osc4NoteSource{1};        // NoteSource: 0=None, 1=ExtMIDI, 2-5=Track1-4
     std::atomic<float> osc4Freq{440.0f};
     std::atomic<float> osc4Morph{0.5f};
@@ -430,26 +426,6 @@ struct SynthParameters {
 
     // Reset all parameters to constructor defaults (init state)
     void resetToInitDefaults() { new (this) SynthParameters(); }
-
-    int getOscMode(int index) const {
-        switch (index) {
-            case 0: return osc1Mode.load();
-            case 1: return osc2Mode.load();
-            case 2: return osc3Mode.load();
-            case 3: return osc4Mode.load();
-            default: return osc1Mode.load();
-        }
-    }
-
-    void setOscMode(int index, int value) {
-        switch (index) {
-            case 0: osc1Mode = value; break;
-            case 1: osc2Mode = value; break;
-            case 2: osc3Mode = value; break;
-            case 3: osc4Mode = value; break;
-            default: osc1Mode = value; break;
-        }
-    }
 
     int getOscNoteSource(int index) const {
         switch (index) {

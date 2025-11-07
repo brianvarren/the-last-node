@@ -105,18 +105,19 @@ CONTROLS:
   G/M/R          - Full-page Randomize/Mutate/Reset (respects locks)
 
 PARAMETERS:
-  Mode       - FREE (manual freq) or KEY (MIDI tracking)
-  Frequency  - Base frequency or offset (20-2000 Hz)
-  Shape      - Saw (phase distortion) or Pulse (tanh shaper)
-  Morph      - PD skew / tanh hardness (0-1)
-  Octave     - Octave shift (-3 to +3)
-  LFO Enable - Enable modulation LFO
-  LFO Speed  - LFO rate (0-9, slow to fast)
+  Note Source - None (free), Ext MIDI, or Track 1-4
+  Frequency   - Base frequency or offset (20-2000 Hz)
+  Shape       - Saw (phase distortion) or Pulse (tanh shaper)
+  Morph       - PD skew / tanh hardness (0-1)
+  Octave      - Octave shift (-3 to +3)
+  LFO Enable  - Enable modulation LFO
+  LFO Speed   - LFO rate (0-9, slow to fast)
 
 ABOUT:
 The Oscillator page controls audio-rate oscillators that generate sound.
-Each voice has 4 oscillators that can be mixed together. In FREE mode,
-you control the frequency directly. In KEY mode, it tracks MIDI notes.
+Each voice has 4 oscillators that can be mixed together. Setting Note Source
+to None makes an oscillator free-running (manual frequency). Any other Note
+Source tracks incoming MIDI or sequencer notes.
 
 Shape selects between a Casio-style phase distorted saw and a tanh-shaped
 square. Morph controls the PD skew (left/right saw tilt with a sine at 0.5)

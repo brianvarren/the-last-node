@@ -164,7 +164,7 @@ void Synth::updateEnvelopeParameters(float attack, float decay, float sustain, f
     }
 }
 
-void Synth::setOscillatorState(int index, BrainwaveMode mode, int shapeIndex,
+void Synth::setOscillatorState(int index, int shapeIndex,
                                float baseFreq, float morph,
                                float ratio, float offsetHz, float amp, float level) {
     if (index < 0 || index >= OSCILLATORS_PER_VOICE) {
@@ -174,9 +174,17 @@ void Synth::setOscillatorState(int index, BrainwaveMode mode, int shapeIndex,
     // No change detection - always update for real-time control
     // The oscillator setters are simple and cheap to call every frame
 
+    BrainwaveMode resolvedMode = BrainwaveMode::KEY;
+    if (params) {
+        int noteSource = params->getOscNoteSource(index);
+        if (noteSource == static_cast<int>(NoteSource::NONE)) {
+            resolvedMode = BrainwaveMode::FREE;
+        }
+    }
+
     for (auto& voice : voices) {
         BrainwaveOscillator& osc = voice.oscillators[index];
-        osc.setMode(mode);
+        osc.setMode(resolvedMode);
         osc.setShape(shapeIndex);
         osc.setFrequency(baseFreq);
         osc.setMorph(morph);
