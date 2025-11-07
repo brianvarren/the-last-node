@@ -67,7 +67,8 @@ inline float generateTanhSquare(float phase, float morph) {
     float sine = fastsin(kTwoPi * phase);
     float beta = 1.0f + edge * kMaxBeta;
     float saturated = fasttanh(beta * sine);
-    return saturated * lookupTanhGain(edge);
+    float normalized = saturated * lookupTanhGain(edge);
+    return (1.0f - edge) * sine + edge * normalized;
 }
 
 } // namespace
