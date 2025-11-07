@@ -501,14 +501,16 @@ void Synth::sequencerNoteOff(int trackIndex, int midiNote) {
 
 void Synth::spawnFreeRunningVoice(int oscIndex) {
     if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
-    if (freeRunningVoiceActive[oscIndex]) {
-        int existingIndex = freeRunningVoiceIndex[oscIndex];
-        if (existingIndex >= 0 && existingIndex < MAX_VOICES) {
-            Voice& existingVoice = voices[existingIndex];
-            existingVoice.ampGateTarget = 1.0f;
-            existingVoice.ampGateValue = 1.0f;
+
+    // Check if we already have a shared free-running voice
+    // Look for any active free-running voice (doesn't matter which oscillator spawned it)
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (freeRunningVoiceActive[i]) {
+            // Found an existing free-running voice, reuse it
+            freeRunningVoiceActive[oscIndex] = true;
+            freeRunningVoiceIndex[oscIndex] = freeRunningVoiceIndex[i];
+            return;
         }
-        return;
     }
 
     int voiceIndex = -1;
@@ -599,11 +601,24 @@ void Synth::killFreeRunningVoice(int oscIndex) {
     int voiceIndex = freeRunningVoiceIndex[oscIndex];
     if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) return;
 
-    Voice& voice = voices[voiceIndex];
-    voice.forceSilence();
-
+    // Mark this oscillator as no longer using the free-running voice
     freeRunningVoiceActive[oscIndex] = false;
     freeRunningVoiceIndex[oscIndex] = -1;
+
+    // Check if any other oscillators are still using this voice
+    bool stillInUse = false;
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (freeRunningVoiceActive[i] && freeRunningVoiceIndex[i] == voiceIndex) {
+            stillInUse = true;
+            break;
+        }
+    }
+
+    // Only kill the voice if no oscillators are using it anymore
+    if (!stillInUse) {
+        Voice& voice = voices[voiceIndex];
+        voice.forceSilence();
+    }
 }
 
 int Synth::getActiveVoiceCount() const {

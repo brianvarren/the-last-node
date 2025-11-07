@@ -249,17 +249,24 @@ float Voice::generateSample(unsigned int frameIndex) {
             continue;
         }
         // Skip oscillators that shouldn't be active in this voice
-        // Silence FREE mode oscillators unless this is their dedicated voice
-        if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex != i) {
+        // FREE mode oscillators: only run in free-running voices (freeRunningOscIndex >= 0)
+        if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex < 0) {
             currentOutputs[i] = 0.0f;
             continue;
         }
-        // Silence KEY mode oscillators unless their note source matches this voice's trigger source
-        if (oscillators[i].getMode() == BrainwaveMode::KEY && params) {
-            int oscNoteSource = params->getOscNoteSource(i);
-            if (oscNoteSource != noteSource) {
+        // KEY mode oscillators: only run when note source matches AND not in a free-running voice
+        if (oscillators[i].getMode() == BrainwaveMode::KEY) {
+            if (freeRunningOscIndex >= 0) {
+                // This is a free-running voice, don't process KEY mode oscillators
                 currentOutputs[i] = 0.0f;
                 continue;
+            }
+            if (params) {
+                int oscNoteSource = params->getOscNoteSource(i);
+                if (oscNoteSource != noteSource) {
+                    currentOutputs[i] = 0.0f;
+                    continue;
+                }
             }
         }
         currentOutputs[i] = oscillators[i].process(sampleRate,
