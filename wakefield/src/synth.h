@@ -307,10 +307,15 @@ public:
     int samplerPhaseType[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};
     std::vector<float> fmSourceBuffer;
     std::vector<float> fmSourceBufferPrev;
+    float globalOscOutputs[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float globalSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float globalFmInputs[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float globalSamplerFmInputs[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float globalOscOutputsPrev[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float globalSamplerOutputsPrev[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
 
     // Per-voice temporary buffers for parallel processing
     std::vector<float> voiceBuffers[MAX_VOICES];
-    std::vector<float> voiceFmTraces[MAX_VOICES]; // per-voice, per-frame FM sources (osc + sampler)
 
     // Protect shared state writes invoked from voices (e.g., sampler phase save)
     std::mutex samplerPhaseMutex;
@@ -388,6 +393,7 @@ public:
     float midiNoteToFrequency(int midiNote);
     void refreshSamplerPhaseDrivers();
     float normalizePhaseForDriver(float value, int type) const;
+    void calculateGlobalFmInputs();
 
     // Free-running voice management
     void spawnFreeRunningVoice(int oscIndex);
