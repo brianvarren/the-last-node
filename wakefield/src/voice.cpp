@@ -248,6 +248,11 @@ float Voice::generateSample(unsigned int frameIndex) {
             currentOutputs[i] = 0.0f;
             continue;
         }
+        // Silence FREE mode oscillators unless this is their dedicated voice
+        if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex != i) {
+            currentOutputs[i] = 0.0f;
+            continue;
+        }
         currentOutputs[i] = oscillators[i].process(sampleRate,
                                                    fmInputs[i],
                                                    smoothedPitchMod[i],
