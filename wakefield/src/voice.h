@@ -37,9 +37,11 @@ struct Voice {
     float cachedOscLevel[OSCILLATORS_PER_VOICE];     // Target oscillator level
     float smoothedOscLevel[OSCILLATORS_PER_VOICE];   // Smoothed level
 
+    // Morph: Now smoothed to prevent block-rate buzzing
+    float morphMod[OSCILLATORS_PER_VOICE];             // Target morph mod (updated per buffer)
+    float smoothedMorphMod[OSCILLATORS_PER_VOICE];     // Smoothed state (updated per sample)
+
     // Non-critical: Direct block-rate (no smoothing needed)
-    float morphMod[OSCILLATORS_PER_VOICE];
-    float prevMorphMod[OSCILLATORS_PER_VOICE];
     float ratioMod[OSCILLATORS_PER_VOICE];
     float offsetMod[OSCILLATORS_PER_VOICE];
 
@@ -119,8 +121,10 @@ struct Voice {
             smoothedAmpMod[i] = 0.0f;
             cachedOscLevel[i] = 0.0f;
             smoothedOscLevel[i] = 0.0f;
-            // Non-critical (direct)
+            // Morph (smoothed)
             morphMod[i] = 0.0f;
+            smoothedMorphMod[i] = 0.0f;
+            // Non-critical (direct)
             ratioMod[i] = 0.0f;
             offsetMod[i] = 0.0f;
         }

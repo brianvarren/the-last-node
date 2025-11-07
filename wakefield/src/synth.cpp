@@ -617,10 +617,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         voice.pitchMod[2] = modOutputs.osc3Pitch;
         voice.pitchMod[3] = modOutputs.osc4Pitch;
 
-        voice.prevMorphMod[0] = voice.morphMod[0];
-        voice.prevMorphMod[1] = voice.morphMod[1];
-        voice.prevMorphMod[2] = voice.morphMod[2];
-        voice.prevMorphMod[3] = voice.morphMod[3];
         voice.morphMod[0] = modOutputs.osc1Morph;
         voice.morphMod[1] = modOutputs.osc2Morph;
         voice.morphMod[2] = modOutputs.osc3Morph;
