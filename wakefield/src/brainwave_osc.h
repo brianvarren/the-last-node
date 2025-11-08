@@ -55,7 +55,10 @@ public:
                   float ratioMod = 0.0f, float offsetMod = 0.0f);
 
     // Reset phase
-    void reset() { phaseAccumulator_ = 0; }
+    void reset() {
+        phaseAccumulator_ = 0;
+        morphState_ = morph_;
+    }
     
 private:
     BrainwaveMode mode_;

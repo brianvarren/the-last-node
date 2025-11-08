@@ -99,7 +99,6 @@ void BrainwaveOscillator::setShape(int shapeIndex) {
 
 void BrainwaveOscillator::setMorph(float morph) {
     morph_ = fastclamp(morph, 0.0f, 1.0f);
-    morphState_ = morph_;
 }
 
 float BrainwaveOscillator::process(float sampleRate, float fmInput,
