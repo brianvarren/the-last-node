@@ -6,6 +6,14 @@
 // Global profiler instance
 VoiceProfiler g_voiceProfiler;
 
+#ifdef ENABLE_VOICE_PROFILING
+#define VOICE_PROFILE_START(var) auto var = g_voiceProfiler.now()
+#define VOICE_PROFILE_END(field, var) g_voiceProfiler.field += g_voiceProfiler.elapsed_ns(var)
+#else
+#define VOICE_PROFILE_START(var) ((void)0)
+#define VOICE_PROFILE_END(field, var) ((void)0)
+#endif
+
 void Voice::resetFMHistory() {
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         lastOscOutputs[i] = 0.0f;
@@ -78,6 +86,10 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
         return 0.0f;
     }
+
+#ifdef ENABLE_VOICE_PROFILING
+    g_voiceProfiler.totalSamples++;
+#endif
 
     ampGateValue += kAmpGateSmoothingAlpha * (ampGateTarget - ampGateValue);
     ampGateValue = std::clamp(ampGateValue, 0.0f, 1.0f);
@@ -185,25 +197,36 @@ float Voice::generateSample(unsigned int frameIndex) {
     }
 
     constexpr float alpha = kSmoothingAlpha;
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_smoothing);
+#endif
 
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        smoothedPitchMod[i] += alpha * (pitchMod[i] - smoothedPitchMod[i]);
-        smoothedAmpMod[i] += alpha * (ampMod[i] - smoothedAmpMod[i]);
-        smoothedOscLevel[i] += alpha * (cachedOscLevel[i] - smoothedOscLevel[i]);
+    if (!restrictSamplers) {
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            smoothedPitchMod[i] += alpha * (pitchMod[i] - smoothedPitchMod[i]);
+            smoothedAmpMod[i] += alpha * (ampMod[i] - smoothedAmpMod[i]);
+            smoothedOscLevel[i] += alpha * (cachedOscLevel[i] - smoothedOscLevel[i]);
+        }
     }
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        smoothedSamplerPitchMod[i] += alpha * (samplerPitchMod[i] - smoothedSamplerPitchMod[i]);
-        smoothedSamplerLevelMod[i] += alpha * (samplerLevelMod[i] - smoothedSamplerLevelMod[i]);
+    if (!restrictOscillators) {
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            smoothedSamplerPitchMod[i] += alpha * (samplerPitchMod[i] - smoothedSamplerPitchMod[i]);
+            smoothedSamplerLevelMod[i] += alpha * (samplerLevelMod[i] - smoothedSamplerLevelMod[i]);
+        }
     }
 
     for (int i = 0; i < 4; ++i) {
         envelopeValues[i] += alpha * (envelopeTargets[i] - envelopeValues[i]);
     }
 
-    //     g_voiceProfiler.timeSmoothing += g_voiceProfiler.elapsed_ns(t_start);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeSmoothing, t_smoothing);
+#endif
 
     // === PROFILING: Oscillator FM ===
-    //     //     auto t_osc_fm = g_voiceProfiler.now();
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_osc_fm);
+#endif
 
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
     const float* oscFmForFrame = globalFmInputs
@@ -215,88 +238,94 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    //     g_voiceProfiler.timeOscFM += g_voiceProfiler.elapsed_ns(t_osc_fm);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeOscFM, t_osc_fm);
+#endif
 
     // === PROFILING: Oscillator Processing ===
-    //     //     auto t_osc_proc = g_voiceProfiler.now();
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_osc_proc);
+#endif
 
-    float currentOutputs[OSCILLATORS_PER_VOICE];
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        if (i >= cachedActiveOscCount) {
-            currentOutputs[i] = 0.0f;
-            continue;
-        }
-        if (restrictSamplers) {
-            currentOutputs[i] = 0.0f;
-            continue;
-        }
-        // Skip oscillators that shouldn't be active in this voice
-        // FREE mode oscillators: only run in free-running voices (freeRunningOscIndex >= 0)
-        if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex < 0) {
-            currentOutputs[i] = 0.0f;
-            continue;
-        }
-        // KEY mode oscillators: only run when note source matches AND not in a free-running voice
-        if (oscillators[i].getMode() == BrainwaveMode::KEY) {
-            if (freeRunningOscIndex >= 0) {
-                // This is a free-running voice, don't process KEY mode oscillators
-                currentOutputs[i] = 0.0f;
+    float currentOutputs[OSCILLATORS_PER_VOICE]{};
+    if (!restrictSamplers) {
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            if (i >= cachedActiveOscCount) {
                 continue;
             }
-            if (params) {
-                int oscNoteSource = params->getOscNoteSource(i);
-                if (oscNoteSource != noteSource) {
-                    currentOutputs[i] = 0.0f;
+            // FREE mode oscillators: only run in free-running voices (freeRunningOscIndex >= 0)
+            if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex < 0) {
+                continue;
+            }
+            // KEY mode oscillators: only run when note source matches AND not in a free-running voice
+            if (oscillators[i].getMode() == BrainwaveMode::KEY) {
+                if (freeRunningOscIndex >= 0) {
                     continue;
                 }
+                if (params) {
+                    int oscNoteSource = params->getOscNoteSource(i);
+                    if (oscNoteSource != noteSource) {
+                        continue;
+                    }
+                }
             }
-        }
-        currentOutputs[i] = oscillators[i].process(sampleRate,
-                                                   fmInputs[i],
-                                                   smoothedPitchMod[i],
-                                                   morphMod[i],
-                                                   ratioMod[i],
-                                                   offsetMod[i]);
-        if (!std::isfinite(currentOutputs[i])) {
-            currentOutputs[i] = 0.0f;
+            float oscSample = oscillators[i].process(sampleRate,
+                                                     fmInputs[i],
+                                                     smoothedPitchMod[i],
+                                                     morphMod[i],
+                                                     ratioMod[i],
+                                                     offsetMod[i]);
+            if (!std::isfinite(oscSample)) {
+                oscSample = 0.0f;
+            }
+            currentOutputs[i] = oscSample;
         }
     }
 
-    //     g_voiceProfiler.timeOscProcess += g_voiceProfiler.elapsed_ns(t_osc_proc);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeOscProcess, t_osc_proc);
+#endif
 
     // === PROFILING: Oscillator Gain Calculation ===
-    //     //     auto t_osc_gain = g_voiceProfiler.now();
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_osc_gain);
+#endif
 
     float mixedSample = 0.0f;
-    float oscFinalGains[OSCILLATORS_PER_VOICE];
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        if (i >= cachedActiveOscCount) {
-            oscFinalGains[i] = 0.0f;
-            continue;
-        }
+    float oscFinalGains[OSCILLATORS_PER_VOICE]{};
+    if (!restrictSamplers) {
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            if (i >= cachedActiveOscCount) {
+                continue;
+            }
 
-        float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
-        float baseLevel = smoothedOscLevel[i];
-        float modulatedAmp = std::clamp(baseAmp + smoothedAmpMod[i], 0.0f, 1.0f);
-        float finalGain = modulatedAmp * baseLevel;
+            float baseAmp = synth ? synth->getOscillatorBaseAmp(i) : 1.0f;
+            float baseLevel = smoothedOscLevel[i];
+            float modulatedAmp = std::clamp(baseAmp + smoothedAmpMod[i], 0.0f, 1.0f);
+            float finalGain = modulatedAmp * baseLevel;
 
-        if (cachedAnySolo) {
-            if (!cachedOscSolo[i]) {
+            if (cachedAnySolo) {
+                if (!cachedOscSolo[i]) {
+                    finalGain = 0.0f;
+                }
+            } else if (cachedOscMuted[i]) {
                 finalGain = 0.0f;
             }
-        } else if (cachedOscMuted[i]) {
-            finalGain = 0.0f;
-        }
 
-        float ampControl = oscAmpControllerActive[i] ? oscAmpControllerValue[i] : ampGateValue;
-        finalGain *= std::clamp(ampControl, 0.0f, 1.0f);
-        oscFinalGains[i] = finalGain;
+            float ampControl = oscAmpControllerActive[i] ? oscAmpControllerValue[i] : ampGateValue;
+            finalGain *= std::clamp(ampControl, 0.0f, 1.0f);
+            oscFinalGains[i] = finalGain;
+        }
     }
 
-    //     g_voiceProfiler.timeOscGainCalc += g_voiceProfiler.elapsed_ns(t_osc_gain);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeOscGainCalc, t_osc_gain);
+#endif
 
     // === PROFILING: Sampler FM ===
-    //     //     auto t_samp_fm = g_voiceProfiler.now();
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_samp_fm);
+#endif
 
     float samplerFMInputs[SAMPLERS_PER_VOICE] = {0.0f};
     const float* samplerFmForFrame = globalSamplerFmInputs
@@ -308,10 +337,14 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    //     g_voiceProfiler.timeSamplerFM += g_voiceProfiler.elapsed_ns(t_samp_fm);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeSamplerFM, t_samp_fm);
+#endif
 
     // === PROFILING: Sampler Processing ===
-    //     //     auto t_samp_proc = g_voiceProfiler.now();
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_samp_proc);
+#endif
 
     float currentSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f};
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
@@ -376,10 +409,14 @@ float Voice::generateSample(unsigned int frameIndex) {
         samplerFinalOutputs[i] = samplerOut * std::clamp(samplerControl, 0.0f, 1.0f);
     }
 
-    //     g_voiceProfiler.timeSamplerProcess += g_voiceProfiler.elapsed_ns(t_samp_proc);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeSamplerProcess, t_samp_proc);
+#endif
 
     // === PROFILING: Mixing ===
-    //     //     auto t_mix = g_voiceProfiler.now();
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_mix);
+#endif
 
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         if (i >= cachedActiveOscCount) continue;
@@ -394,10 +431,14 @@ float Voice::generateSample(unsigned int frameIndex) {
         mixedSample = 0.0f;
     }
 
-    //     g_voiceProfiler.timeMixing += g_voiceProfiler.elapsed_ns(t_mix);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeMixing, t_mix);
+#endif
 
     // === PROFILING: History Update ===
-    //     //     auto t_history = g_voiceProfiler.now();
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_history);
+#endif
 
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         if (i >= cachedActiveOscCount) {
@@ -414,7 +455,9 @@ float Voice::generateSample(unsigned int frameIndex) {
         lastSamplerOutputs[i] = currentSamplerOutputs[i];
     }
 
-    //     g_voiceProfiler.timeHistoryUpdate += g_voiceProfiler.elapsed_ns(t_history);
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeHistoryUpdate, t_history);
+#endif
 
     return mixedSample;
 }
