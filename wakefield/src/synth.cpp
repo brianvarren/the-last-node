@@ -57,13 +57,6 @@ Synth::Synth(float sampleRate)
             voice.samplers[s].setLevel(0.6f);
         }
     }
-    for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
-        freeSamplers[s].setLevel(0.6f);
-    }
-
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        freeSamplers[i].setKeyMode(false);
-    }
 
     // Initialize chaos generators with sample rate
     for (int i = 0; i < 4; ++i) {
@@ -99,7 +92,7 @@ int Synth::findFreeVoice() {
     uint64_t oldestReleaseTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].freeRunningOscIndex >= 0) {
+        if (voices[i].freeRunningOscIndex >= 0 || voices[i].freeRunningSamplerIndex >= 0) {
             continue;
         }
         if (voices[i].isGateReleasing()) {
@@ -119,7 +112,7 @@ int Synth::findFreeVoice() {
     uint64_t oldestTime = UINT64_MAX;
 
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].freeRunningOscIndex >= 0) {
+        if (voices[i].freeRunningOscIndex >= 0 || voices[i].freeRunningSamplerIndex >= 0) {
             continue;
         }
         if (!voices[i].isGateReleasing()) {
@@ -139,7 +132,7 @@ int Synth::findFreeVoice() {
     float lowestLevel = std::numeric_limits<float>::max();
 
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].freeRunningOscIndex >= 0) {
+        if (voices[i].freeRunningOscIndex >= 0 || voices[i].freeRunningSamplerIndex >= 0) {
             continue;
         }
         float level = voices[i].getCurrentAmpLevel();
@@ -354,6 +347,8 @@ void Synth::noteOn(int midiNote, int velocity) {
     voice.velocity = velocity;
     voice.noteSource = static_cast<int>(NoteSource::EXTERNAL_MIDI);
     voice.startTime = voiceCounter++;  // Assign timestamp for voice stealing priority
+    voice.freeRunningOscIndex = -1;
+    voice.freeRunningSamplerIndex = -1;
 
     float frequency = midiNoteToFrequency(midiNote);
     // Update note frequency for oscillators in KEY mode and reset phase
@@ -403,7 +398,9 @@ void Synth::noteOn(int midiNote, int velocity) {
 void Synth::noteOff(int midiNote) {
     // Find all voices playing this note and trigger their release
     for (int i = 0; i < MAX_VOICES; ++i) {
-        if (voices[i].active && voices[i].note == midiNote && voices[i].freeRunningOscIndex < 0) {
+        if (voices[i].active && voices[i].note == midiNote &&
+            voices[i].freeRunningOscIndex < 0 &&
+            voices[i].freeRunningSamplerIndex < 0) {
             for (int ei = 0; ei < 4; ++ei) {
                 voices[i].envelopes[ei].noteOff();  // Trigger release
             }
@@ -458,6 +455,8 @@ void Synth::sequencerNoteOn(int trackIndex, int midiNote, int velocity, float ga
     voice.velocity = velocity;
     voice.noteSource = trackNoteSource;  // Set to the appropriate track
     voice.startTime = voiceCounter++;
+    voice.freeRunningOscIndex = -1;
+    voice.freeRunningSamplerIndex = -1;
 
     float frequency = midiNoteToFrequency(midiNote);
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
@@ -506,55 +505,57 @@ void Synth::sequencerNoteOff(int trackIndex, int midiNote) {
     noteOff(midiNote);
 }
 
-void Synth::spawnFreeRunningVoice(int oscIndex) {
-    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
-
-    // Check if we already have a shared free-running voice
-    // Look for any active free-running voice (doesn't matter which oscillator spawned it)
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        if (freeRunningVoiceActive[i]) {
-            // Found an existing free-running voice, reuse it
-            freeRunningVoiceActive[oscIndex] = true;
-            freeRunningVoiceIndex[oscIndex] = freeRunningVoiceIndex[i];
-            return;
-        }
-    }
-
-    int voiceIndex = -1;
+int Synth::allocateFreeRunningVoiceSlot() {
     for (int i = 0; i < MAX_VOICES; ++i) {
         if (!voices[i].active) {
-            voiceIndex = i;
-            break;
+            return i;
         }
     }
 
-    if (voiceIndex == -1) {
-        float lowestLevel = std::numeric_limits<float>::max();
-        for (int i = 0; i < MAX_VOICES; ++i) {
-            if (voices[i].freeRunningOscIndex >= 0) continue;
-            float level = voices[i].getCurrentAmpLevel();
-            if (level < lowestLevel) {
-                lowestLevel = level;
-                voiceIndex = i;
-            }
+    float lowestLevel = std::numeric_limits<float>::max();
+    int quietestVoice = -1;
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        if (voices[i].freeRunningOscIndex >= 0 || voices[i].freeRunningSamplerIndex >= 0) continue;
+        float level = voices[i].getCurrentAmpLevel();
+        if (level < lowestLevel) {
+            lowestLevel = level;
+            quietestVoice = i;
         }
     }
-
-    if (voiceIndex == -1) {
-        int donorVoice = -1;
-        for (int i = 0; i < MAX_VOICES; ++i) {
-            if (voices[i].freeRunningOscIndex >= 0) {
-                donorVoice = i;
-                break;
-            }
-        }
-        if (donorVoice >= 0) {
-            int donorOsc = voices[donorVoice].freeRunningOscIndex;
-            killFreeRunningVoice(donorOsc);
-            voiceIndex = donorVoice;
-        }
+    if (quietestVoice >= 0) {
+        return quietestVoice;
     }
 
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        if (freeRunningVoiceActive[i]) {
+            int donorIndex = freeRunningVoiceIndex[i];
+            killFreeRunningVoice(i);
+            return donorIndex;
+        }
+    }
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        if (freeRunningSamplerActive[i]) {
+            int donorIndex = freeRunningSamplerVoiceIndex[i];
+            killFreeRunningSamplerVoice(i);
+            return donorIndex;
+        }
+    }
+    return -1;
+}
+
+void Synth::spawnFreeRunningVoice(int oscIndex) {
+    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
+    if (freeRunningVoiceActive[oscIndex]) {
+        int existingIndex = freeRunningVoiceIndex[oscIndex];
+        if (existingIndex >= 0 && existingIndex < MAX_VOICES) {
+            Voice& voice = voices[existingIndex];
+            voice.ampGateTarget = 1.0f;
+            voice.ampGateValue = 1.0f;
+        }
+        return;
+    }
+
+    int voiceIndex = allocateFreeRunningVoiceSlot();
     if (voiceIndex == -1) {
         return;
     }
@@ -562,29 +563,67 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
     Voice& voice = voices[voiceIndex];
     voice.forceSilence();
     voice.active = true;
-    voice.note = 60;  // Arbitrary - FREE mode oscillators ignore this
+    voice.note = 60;
     voice.velocity = 100;
     voice.noteSource = static_cast<int>(NoteSource::FREE);
-    voice.freeRunningOscIndex = oscIndex;  // Mark which oscillator spawned this voice
+    voice.freeRunningOscIndex = oscIndex;
+    voice.freeRunningSamplerIndex = -1;
     voice.startTime = voiceCounter++;
 
-    // Reset modulation for clean start
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        voice.pitchMod[i] = 0.0f;
-        voice.morphMod[i] = 0.0f;
-        voice.ratioMod[i] = 0.0f;
-        voice.offsetMod[i] = 0.0f;
-        voice.ampMod[i] = 0.0f;
+    voice.resetFMHistory();
+    for (int ei = 0; ei < 4; ++ei) {
+        voice.envelopes[ei].noteOn();
+    }
+    voice.ampGateTarget = 1.0f;
+    voice.ampGateValue = 1.0f;
+
+    freeRunningVoiceActive[oscIndex] = true;
+    freeRunningVoiceIndex[oscIndex] = voiceIndex;
+}
+void Synth::killFreeRunningVoice(int oscIndex) {
+    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
+    if (!freeRunningVoiceActive[oscIndex]) return;
+    int voiceIndex = freeRunningVoiceIndex[oscIndex];
+    if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) return;
+
+    freeRunningVoiceActive[oscIndex] = false;
+    freeRunningVoiceIndex[oscIndex] = -1;
+
+    Voice& voice = voices[voiceIndex];
+    voice.forceSilence();
+}
+
+void Synth::spawnFreeRunningSamplerVoice(int samplerIndex) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) return;
+    if (freeRunningSamplerActive[samplerIndex]) {
+        int existingIndex = freeRunningSamplerVoiceIndex[samplerIndex];
+        if (existingIndex >= 0 && existingIndex < MAX_VOICES) {
+            Voice& voice = voices[existingIndex];
+            voice.ampGateTarget = 1.0f;
+            voice.ampGateValue = 1.0f;
+        }
+        return;
     }
 
+    int voiceIndex = allocateFreeRunningVoiceSlot();
+    if (voiceIndex == -1) {
+        return;
+    }
+
+    Voice& voice = voices[voiceIndex];
+    voice.forceSilence();
+    voice.active = true;
+    voice.note = 60;
+    voice.velocity = 100;
+    voice.noteSource = static_cast<int>(NoteSource::FREE);
+    voice.freeRunningOscIndex = -1;
+    voice.freeRunningSamplerIndex = samplerIndex;
+    voice.startTime = voiceCounter++;
+
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        voice.samplerPitchMod[i] = 0.0f;
-        voice.samplerLoopStartMod[i] = 0.0f;
-        voice.samplerLoopLengthMod[i] = 0.0f;
-        voice.samplerCrossfadeMod[i] = 0.0f;
-        voice.samplerLevelMod[i] = 0.0f;
-        voice.samplers[i].setKeyMode(samplerKeyModes[i]);
-        if (!samplerKeyModes[i]) {
+        bool keyMode = (i == samplerIndex) ? false : samplerKeyModes[i];
+        voice.samplers[i].setKeyMode(keyMode);
+        if (i == samplerIndex) {
             voice.samplers[i].requestRestart();
         } else {
             voice.samplers[i].stopPlayback();
@@ -598,34 +637,21 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
     voice.ampGateTarget = 1.0f;
     voice.ampGateValue = 1.0f;
 
-    freeRunningVoiceActive[oscIndex] = true;
-    freeRunningVoiceIndex[oscIndex] = voiceIndex;
+    freeRunningSamplerActive[samplerIndex] = true;
+    freeRunningSamplerVoiceIndex[samplerIndex] = voiceIndex;
 }
 
-void Synth::killFreeRunningVoice(int oscIndex) {
-    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) return;
-    if (!freeRunningVoiceActive[oscIndex]) return;
-    int voiceIndex = freeRunningVoiceIndex[oscIndex];
+void Synth::killFreeRunningSamplerVoice(int samplerIndex) {
+    if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) return;
+    if (!freeRunningSamplerActive[samplerIndex]) return;
+    int voiceIndex = freeRunningSamplerVoiceIndex[samplerIndex];
     if (voiceIndex < 0 || voiceIndex >= MAX_VOICES) return;
 
-    // Mark this oscillator as no longer using the free-running voice
-    freeRunningVoiceActive[oscIndex] = false;
-    freeRunningVoiceIndex[oscIndex] = -1;
+    freeRunningSamplerActive[samplerIndex] = false;
+    freeRunningSamplerVoiceIndex[samplerIndex] = -1;
 
-    // Check if any other oscillators are still using this voice
-    bool stillInUse = false;
-    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        if (freeRunningVoiceActive[i] && freeRunningVoiceIndex[i] == voiceIndex) {
-            stillInUse = true;
-            break;
-        }
-    }
-
-    // Only kill the voice if no oscillators are using it anymore
-    if (!stillInUse) {
-        Voice& voice = voices[voiceIndex];
-        voice.forceSilence();
-    }
+    Voice& voice = voices[voiceIndex];
+    voice.forceSilence();
 }
 
 int Synth::getActiveVoiceCount() const {
@@ -681,6 +707,11 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
             bool shouldKeyMode = params->getSamplerNoteSource(s) != static_cast<int>(NoteSource::FREE);
             if (samplerKeyModes[s] != shouldKeyMode) {
                 setSamplerKeyMode(s, shouldKeyMode);
+            }
+            if (shouldKeyMode) {
+                killFreeRunningSamplerVoice(s);
+            } else {
+                spawnFreeRunningSamplerVoice(s);
             }
         }
     }
@@ -1081,127 +1112,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         }
     }
     
-    bool anyFreeSamplers = false;
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        if (!samplerKeyModes[i]) {
-            anyFreeSamplers = true;
-            break;
-        }
-    }
-
-    if (anyFreeSamplers) {
-        int activeSamp = params ? std::clamp(params->activeSamplerCount.load(), 1, SAMPLERS_PER_VOICE) : SAMPLERS_PER_VOICE;
-        // Current buffer's modulation values
-        float currSamplerPitchMods[SAMPLERS_PER_VOICE] = {
-            globalModOutputs.samp1Pitch, globalModOutputs.samp2Pitch,
-            globalModOutputs.samp3Pitch, globalModOutputs.samp4Pitch
-        };
-        float currSamplerLoopStartMods[SAMPLERS_PER_VOICE] = {
-            globalModOutputs.samp1LoopStart, globalModOutputs.samp2LoopStart,
-            globalModOutputs.samp3LoopStart, globalModOutputs.samp4LoopStart
-        };
-        float currSamplerLoopLengthMods[SAMPLERS_PER_VOICE] = {
-            globalModOutputs.samp1LoopLength, globalModOutputs.samp2LoopLength,
-            globalModOutputs.samp3LoopLength, globalModOutputs.samp4LoopLength
-        };
-        float currSamplerCrossfadeMods[SAMPLERS_PER_VOICE] = {
-            globalModOutputs.samp1Crossfade, globalModOutputs.samp2Crossfade,
-            globalModOutputs.samp3Crossfade, globalModOutputs.samp4Crossfade
-        };
-        float currSamplerLevelMods[SAMPLERS_PER_VOICE] = {
-            globalModOutputs.samp1Amp, globalModOutputs.samp2Amp,
-            globalModOutputs.samp3Amp, globalModOutputs.samp4Amp
-        };
-        float currSamplerLevelOffsets[SAMPLERS_PER_VOICE] = {
-            lastGlobalModOutputs.mixerSamplerLevel[0], lastGlobalModOutputs.mixerSamplerLevel[1],
-            lastGlobalModOutputs.mixerSamplerLevel[2], lastGlobalModOutputs.mixerSamplerLevel[3]
-        };
-        float samplerPhaseDrivers[SAMPLERS_PER_VOICE] = {
-            samplerPhaseSource[0] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[0], samplerPhaseType[0]) : -1.0f,
-            samplerPhaseSource[1] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[1], samplerPhaseType[1]) : -1.0f,
-            samplerPhaseSource[2] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[2], samplerPhaseType[2]) : -1.0f,
-            samplerPhaseSource[3] != kClockModSourceIndex ? normalizePhaseForDriver(globalModOutputs.samplerPhase[3], samplerPhaseType[3]) : -1.0f
-        };
-
-        // Process free samplers with per-sample interpolation (prevents crackling)
-        for (unsigned int i = 0; i < nFrames; ++i) {
-            // Calculate interpolation factor for smooth audio-rate transition
-            float interpFactor = 0.0f;
-            if (nFrames > 1) {
-                interpFactor = static_cast<float>(i) / static_cast<float>(nFrames - 1);
-                interpFactor = std::clamp(interpFactor, 0.0f, 1.0f);
-            }
-
-            float freeMix = 0.0f;
-            // Determine if any sampler channel is soloed
-            bool anySamplerSolo = false;
-            for (int ss = 0; ss < SAMPLERS_PER_VOICE; ++ss) {
-                if (params->samplerSolo[ss].load()) { anySamplerSolo = true; break; }
-            }
-            for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
-                if (s >= activeSamp) continue;
-                if (samplerKeyModes[s]) {
-                    continue;
-                }
-
-                // Apply mute/solo logic for free samplers
-                if (anySamplerSolo) {
-                    if (!params->samplerSolo[s].load()) {
-                        continue;
-                    }
-                } else if (params->samplerMuted[s].load()) {
-                    continue;
-                }
-
-                // Interpolate modulation values per-sample to prevent zippering
-                float interpPitchMod = prevFreeSamplerPitchMod[s] +
-                    (currSamplerPitchMods[s] - prevFreeSamplerPitchMod[s]) * interpFactor;
-                float interpLoopStartMod = prevFreeSamplerLoopStartMod[s] +
-                    (currSamplerLoopStartMods[s] - prevFreeSamplerLoopStartMod[s]) * interpFactor;
-                float interpLoopLengthMod = prevFreeSamplerLoopLengthMod[s] +
-                    (currSamplerLoopLengthMods[s] - prevFreeSamplerLoopLengthMod[s]) * interpFactor;
-                float interpCrossfadeMod = prevFreeSamplerCrossfadeMod[s] +
-                    (currSamplerCrossfadeMods[s] - prevFreeSamplerCrossfadeMod[s]) * interpFactor;
-                float interpLevelMod = prevFreeSamplerLevelMod[s] +
-                    (currSamplerLevelMods[s] - prevFreeSamplerLevelMod[s]) * interpFactor;
-                float interpLevelOffset = prevFreeSamplerLevelOffset[s] +
-                    (currSamplerLevelOffsets[s] - prevFreeSamplerLevelOffset[s]) * interpFactor;
-
-                float samplerOut = freeSamplers[s].process(
-                    sampleRate,
-                    0.0f,                            // No FM input
-                    interpPitchMod,
-                    interpLoopStartMod,
-                    interpLoopLengthMod,
-                    interpCrossfadeMod,
-                    interpLevelMod,
-                    interpLevelOffset,
-                    samplerPhaseDrivers[s],
-                    60                                // Reference MIDI note (ignored in FREE mode)
-                );
-                freeMix += samplerOut;
-                float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(i) * kFMSourceCount;
-                frameSources[kFMOscillatorTargetCount + s] += samplerOut;
-            }
-
-            if (freeMix != 0.0f) {
-                for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                    output[i * nChannels + ch] += freeMix * voiceGain * masterGain;
-                }
-            }
-        }
-
-        // Save current as previous for next buffer
-        for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
-            prevFreeSamplerPitchMod[s] = currSamplerPitchMods[s];
-            prevFreeSamplerLoopStartMod[s] = currSamplerLoopStartMods[s];
-            prevFreeSamplerLoopLengthMod[s] = currSamplerLoopLengthMods[s];
-            prevFreeSamplerCrossfadeMod[s] = currSamplerCrossfadeMods[s];
-            prevFreeSamplerLevelMod[s] = currSamplerLevelMods[s];
-            prevFreeSamplerLevelOffset[s] = currSamplerLevelOffsets[s];
-        }
-    }
-
     // Mix chaos generators directly to output (post-voices, pre-filter)
     if (nChannels >= 2 && params) {
         // Determine solo state for chaos
@@ -2088,7 +1998,6 @@ void Synth::setSamplerSample(int samplerIndex, int sampleIndex) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setSample(sample);
     }
-    freeSamplers[samplerIndex].setSample(sample);
 }
 
 void Synth::setSamplerLoopStart(int samplerIndex, float normalized) {
@@ -2099,7 +2008,6 @@ void Synth::setSamplerLoopStart(int samplerIndex, float normalized) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setLoopStart(normalized);
     }
-    freeSamplers[samplerIndex].setLoopStart(normalized);
 }
 
 void Synth::setSamplerLoopLength(int samplerIndex, float normalized) {
@@ -2110,7 +2018,6 @@ void Synth::setSamplerLoopLength(int samplerIndex, float normalized) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setLoopLength(normalized);
     }
-    freeSamplers[samplerIndex].setLoopLength(normalized);
 }
 
 void Synth::setSamplerCrossfadeLength(int samplerIndex, float normalized) {
@@ -2121,7 +2028,6 @@ void Synth::setSamplerCrossfadeLength(int samplerIndex, float normalized) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setCrossfadeLength(normalized);
     }
-    freeSamplers[samplerIndex].setCrossfadeLength(normalized);
 }
 
 void Synth::setSamplerPlaybackSpeed(int samplerIndex, float speed) {
@@ -2132,7 +2038,6 @@ void Synth::setSamplerPlaybackSpeed(int samplerIndex, float speed) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setPlaybackSpeed(speed);
     }
-    freeSamplers[samplerIndex].setPlaybackSpeed(speed);
 }
 
 void Synth::setSamplerOctave(int samplerIndex, int octave) {
@@ -2192,7 +2097,6 @@ void Synth::setSamplerTZFMDepth(int samplerIndex, float depth) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setTZFMDepth(depth);
     }
-    freeSamplers[samplerIndex].setTZFMDepth(depth);
 }
 
 void Synth::setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode) {
@@ -2203,7 +2107,6 @@ void Synth::setSamplerPlaybackMode(int samplerIndex, PlaybackMode mode) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setPlaybackMode(mode);
     }
-    freeSamplers[samplerIndex].setPlaybackMode(mode);
 }
 
 void Synth::setSamplerLevel(int samplerIndex, float level) {
@@ -2214,7 +2117,6 @@ void Synth::setSamplerLevel(int samplerIndex, float level) {
     for (auto& voice : voices) {
         voice.samplers[samplerIndex].setLevel(level);
     }
-    freeSamplers[samplerIndex].setLevel(level);
 }
 
 void Synth::setSamplerKeyMode(int samplerIndex, bool enabled) {
@@ -2228,15 +2130,6 @@ void Synth::setSamplerKeyMode(int samplerIndex, bool enabled) {
         voice.samplers[samplerIndex].setKeyMode(enabled);
         voice.samplers[samplerIndex].stopPlayback();
     }
-
-    if (enabled) {
-        freeSamplers[samplerIndex].stopPlayback();
-    } else {
-        freeSamplers[samplerIndex].setKeyMode(false);
-        freeSamplers[samplerIndex].requestRestart();
-    }
-    freeSamplers[samplerIndex].setKeyMode(false);
-
 }
 
 void Synth::saveSamplerPhase(int samplerIndex, uint64_t phase) {
@@ -2407,9 +2300,6 @@ void Synth::resetAudioState() {
     for (auto& voice : voices) {
         voice.forceSilence();
     }
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        freeSamplers[i].stopPlayback();
-    }
     std::fill(fmSourceBuffer.begin(), fmSourceBuffer.end(), 0.0f);
     std::fill(fmSourceBufferPrev.begin(), fmSourceBufferPrev.end(), 0.0f);
     std::fill(std::begin(globalOscOutputs), std::end(globalOscOutputs), 0.0f);
@@ -2425,5 +2315,9 @@ void Synth::resetAudioState() {
         freeRunningVoiceActive[i] = false;
         freeRunningVoiceIndex[i] = -1;
         oscillatorNoteSourceFree[i] = false;
+    }
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        freeRunningSamplerActive[i] = false;
+        freeRunningSamplerVoiceIndex[i] = -1;
     }
 }

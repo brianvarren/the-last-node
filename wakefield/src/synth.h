@@ -365,15 +365,6 @@ public:
     // Current sample index for each sampler (shared across all voices)
     int currentSampleIndices[SAMPLERS_PER_VOICE] = {-1, -1, -1, -1};
     bool samplerKeyModes[SAMPLERS_PER_VOICE] = {true, true, true, true};
-    Sampler freeSamplers[SAMPLERS_PER_VOICE];
-
-    // Free sampler modulation interpolation (to prevent crackling)
-    float prevFreeSamplerPitchMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float prevFreeSamplerLoopStartMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float prevFreeSamplerLoopLengthMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float prevFreeSamplerCrossfadeMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float prevFreeSamplerLevelMod[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float prevFreeSamplerLevelOffset[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
 
     // Sampler pitch parameters (octave and tune)
     int samplerOctaves[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};     // -5 to +5
@@ -395,8 +386,14 @@ public:
     // Free-running voice management
     void spawnFreeRunningVoice(int oscIndex);
     void killFreeRunningVoice(int oscIndex);
+    void spawnFreeRunningSamplerVoice(int samplerIndex);
+    void killFreeRunningSamplerVoice(int samplerIndex);
+    int allocateFreeRunningVoiceSlot();
     bool hasFreeRunningVoice() const {
         for (bool active : freeRunningVoiceActive) {
+            if (active) return true;
+        }
+        for (bool active : freeRunningSamplerActive) {
             if (active) return true;
         }
         return false;
@@ -425,6 +422,8 @@ public:
     bool freeRunningVoiceActive[OSCILLATORS_PER_VOICE] = {false, false, false, false};
     int freeRunningVoiceIndex[OSCILLATORS_PER_VOICE] = {-1, -1, -1, -1};
     bool oscillatorNoteSourceFree[OSCILLATORS_PER_VOICE] = {false, false, false, false};
+    bool freeRunningSamplerActive[SAMPLERS_PER_VOICE] = {false, false, false, false};
+    int freeRunningSamplerVoiceIndex[SAMPLERS_PER_VOICE] = {-1, -1, -1, -1};
 
     // Voice stealing: global counter for voice priority/age tracking
     uint64_t voiceCounter = 0;

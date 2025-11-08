@@ -18,6 +18,7 @@ void Voice::resetFMHistory() {
 void Voice::forceSilence() {
     active = false;
     freeRunningOscIndex = -1;
+    freeRunningSamplerIndex = -1;
     clearGlobalFmInputs();
     for (int i = 0; i < 4; ++i) {
         envelopes[i].reset();
@@ -80,6 +81,10 @@ float Voice::generateSample(unsigned int frameIndex) {
 
     ampGateValue += kAmpGateSmoothingAlpha * (ampGateTarget - ampGateValue);
     ampGateValue = std::clamp(ampGateValue, 0.0f, 1.0f);
+    const int restrictedOsc = freeRunningOscIndex;
+    const bool restrictOscillators = (restrictedOsc >= 0);
+    const int restrictedSampler = freeRunningSamplerIndex;
+    const bool restrictSamplers = (restrictedSampler >= 0);
 
     if (frameIndex == 0) {
         cachedActiveOscCount = OSCILLATORS_PER_VOICE;
@@ -221,6 +226,10 @@ float Voice::generateSample(unsigned int frameIndex) {
             currentOutputs[i] = 0.0f;
             continue;
         }
+        if (restrictSamplers) {
+            currentOutputs[i] = 0.0f;
+            continue;
+        }
         // Skip oscillators that shouldn't be active in this voice
         // FREE mode oscillators: only run in free-running voices (freeRunningOscIndex >= 0)
         if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex < 0) {
@@ -312,27 +321,30 @@ float Voice::generateSample(unsigned int frameIndex) {
             samplerFinalOutputs[i] = 0.0f;
             continue;
         }
+        if (restrictOscillators) {
+            currentSamplerOutputs[i] = 0.0f;
+            samplerFinalOutputs[i] = 0.0f;
+            continue;
+        }
 
         bool samplerKeyMode = samplers[i].isKeyMode();
-        if (!samplerKeyMode) {
-            currentSamplerOutputs[i] = 0.0f;
-            samplerFinalOutputs[i] = 0.0f;
-            continue;
-        }
-
-        // Key-mode samplers should only run on voices whose note source matches theirs
-        if (freeRunningOscIndex >= 0) {
-            currentSamplerOutputs[i] = 0.0f;
-            samplerFinalOutputs[i] = 0.0f;
-            continue;
-        }
-        if (params) {
-            int samplerNoteSource = params->getSamplerNoteSource(i);
-            if (samplerNoteSource != noteSource) {
-                currentSamplerOutputs[i] = 0.0f;
-                samplerFinalOutputs[i] = 0.0f;
-                continue;
+        bool processSampler = false;
+        if (samplerKeyMode) {
+            if (!restrictSamplers) {
+                if (!params) {
+                    processSampler = true;
+                } else {
+                    int samplerNoteSource = params->getSamplerNoteSource(i);
+                    processSampler = (samplerNoteSource == noteSource);
+                }
             }
+        } else {
+            processSampler = (restrictSamplers && restrictedSampler == i);
+        }
+        if (!processSampler) {
+            currentSamplerOutputs[i] = 0.0f;
+            samplerFinalOutputs[i] = 0.0f;
+            continue;
         }
 
         float samplerOut = samplers[i].process(sampleRate,
