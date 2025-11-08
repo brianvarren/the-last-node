@@ -173,7 +173,7 @@ void UI::drawSamplerPage() {
     attroff(COLOR_SECTION_HEADER | A_BOLD);
 
     // Get parameters from synth
-    bool keyMode = synth->getSamplerKeyMode(currentSamplerIndex);
+    int noteSource = params->getSamplerNoteSource(currentSamplerIndex);
     PlaybackMode direction = synth->getSamplerPlaybackMode(currentSamplerIndex);
     // loopStart and loopLength already declared above for loop indicator
     float crossfade = synth->getSamplerCrossfadeLength(currentSamplerIndex);
@@ -182,7 +182,16 @@ void UI::drawSamplerPage() {
     int syncMode = synth->getSamplerSyncMode(currentSamplerIndex);
     bool noteReset = synth->getSamplerNoteReset(currentSamplerIndex);
 
-    const char* keyModeStr = keyMode ? "KEY" : "FREE";
+    const char* noteSourceStr = "Unknown";
+    switch (noteSource) {
+        case static_cast<int>(NoteSource::FREE): noteSourceStr = "None"; break;
+        case static_cast<int>(NoteSource::EXTERNAL_MIDI): noteSourceStr = "Ext MIDI"; break;
+        case static_cast<int>(NoteSource::TRACK_1): noteSourceStr = "Track 1"; break;
+        case static_cast<int>(NoteSource::TRACK_2): noteSourceStr = "Track 2"; break;
+        case static_cast<int>(NoteSource::TRACK_3): noteSourceStr = "Track 3"; break;
+        case static_cast<int>(NoteSource::TRACK_4): noteSourceStr = "Track 4"; break;
+        default: noteSourceStr = "Unknown"; break;
+    }
     const char* directionStr = "Forward";
     if (direction == PlaybackMode::REVERSE) {
         directionStr = "Reverse";
@@ -201,8 +210,8 @@ void UI::drawSamplerPage() {
     int paramRow = row;
 
     // Column 1 parameters
-    const int paramIds1[] = {60, 68, 61, 62, 63};
-    const char* labels1[] = {"Key Mode:   ", "Direction:  ", "Loop Start: ", "Loop Length:", "Xfade:      "};
+    const int paramIds1[] = {80, 68, 61, 62, 63};
+    const char* labels1[] = {"Note Source:", "Direction:  ", "Loop Start: ", "Loop Length:", "Xfade:      "};
 
     for (int i = 0; i < 5; ++i) {
         if (paramIds1[i] == selectedParameterId) {
@@ -218,7 +227,7 @@ void UI::drawSamplerPage() {
         mvprintw(paramRow, col1 + 2, "%s", labels1[i]);
 
         if (i == 0) {
-            printw("%s", keyModeStr);
+            printw("%s", noteSourceStr);
         } else if (i == 1) {
             printw("%s", directionStr);
         } else if (i == 2) {
