@@ -309,8 +309,6 @@ public:
     std::vector<float> fmSourceBufferPrev;
     float globalOscOutputs[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
     float globalSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float globalFmInputs[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float globalSamplerFmInputs[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
     float globalOscOutputsPrev[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
     float globalSamplerOutputsPrev[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
 
@@ -393,7 +391,6 @@ public:
     float midiNoteToFrequency(int midiNote);
     void refreshSamplerPhaseDrivers();
     float normalizePhaseForDriver(float value, int type) const;
-    void calculateGlobalFmInputs();
 
     // Free-running voice management
     void spawnFreeRunningVoice(int oscIndex);

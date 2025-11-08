@@ -201,9 +201,12 @@ float Voice::generateSample(unsigned int frameIndex) {
     //     //     auto t_osc_fm = g_voiceProfiler.now();
 
     float fmInputs[OSCILLATORS_PER_VOICE] = {0.0f};
-    if (globalFmInputs) {
+    const float* oscFmForFrame = globalFmInputs
+        ? globalFmInputs + static_cast<size_t>(frameIndex) * OSCILLATORS_PER_VOICE
+        : nullptr;
+    if (oscFmForFrame) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            fmInputs[i] = globalFmInputs[i];
+            fmInputs[i] = oscFmForFrame[i];
         }
     }
 
@@ -287,9 +290,12 @@ float Voice::generateSample(unsigned int frameIndex) {
     //     //     auto t_samp_fm = g_voiceProfiler.now();
 
     float samplerFMInputs[SAMPLERS_PER_VOICE] = {0.0f};
-    if (globalSamplerFmInputs) {
+    const float* samplerFmForFrame = globalSamplerFmInputs
+        ? globalSamplerFmInputs + static_cast<size_t>(frameIndex) * SAMPLERS_PER_VOICE
+        : nullptr;
+    if (samplerFmForFrame) {
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            samplerFMInputs[i] = globalSamplerFmInputs[i];
+            samplerFMInputs[i] = samplerFmForFrame[i];
         }
     }
 
@@ -306,10 +312,27 @@ float Voice::generateSample(unsigned int frameIndex) {
             samplerFinalOutputs[i] = 0.0f;
             continue;
         }
-        if (!samplers[i].isKeyMode()) {
+
+        bool samplerKeyMode = samplers[i].isKeyMode();
+        if (!samplerKeyMode) {
             currentSamplerOutputs[i] = 0.0f;
             samplerFinalOutputs[i] = 0.0f;
             continue;
+        }
+
+        // Key-mode samplers should only run on voices whose note source matches theirs
+        if (freeRunningOscIndex >= 0) {
+            currentSamplerOutputs[i] = 0.0f;
+            samplerFinalOutputs[i] = 0.0f;
+            continue;
+        }
+        if (params) {
+            int samplerNoteSource = params->getSamplerNoteSource(i);
+            if (samplerNoteSource != noteSource) {
+                currentSamplerOutputs[i] = 0.0f;
+                samplerFinalOutputs[i] = 0.0f;
+                continue;
+            }
         }
 
         float samplerOut = samplers[i].process(sampleRate,

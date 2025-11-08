@@ -3,8 +3,10 @@
 #include "ui.h"
 #include "fast_math.h"
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <limits>
+#include <condition_variable>
 #include <thread>
 
 Synth::Synth(float sampleRate)
@@ -70,8 +72,6 @@ Synth::Synth(float sampleRate)
 
     std::fill(std::begin(globalOscOutputs), std::end(globalOscOutputs), 0.0f);
     std::fill(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), 0.0f);
-    std::fill(std::begin(globalFmInputs), std::end(globalFmInputs), 0.0f);
-    std::fill(std::begin(globalSamplerFmInputs), std::end(globalSamplerFmInputs), 0.0f);
     std::fill(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), 0.0f);
     std::fill(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), 0.0f);
 
@@ -666,63 +666,6 @@ int Synth::getVoiceNote(int voiceIndex) const {
     return voices[voiceIndex].note;
 }
 
-void Synth::calculateGlobalFmInputs() {
-    std::fill(std::begin(globalFmInputs), std::end(globalFmInputs), 0.0f);
-    std::fill(std::begin(globalSamplerFmInputs), std::end(globalSamplerFmInputs), 0.0f);
-
-    float globalDepth = 1.0f;
-    if (params) {
-        globalDepth = params->fmGlobalDepth.load();
-    }
-    globalDepth = std::clamp(globalDepth + lastGlobalModOutputs.fmGlobalDepth, 0.0f, 1.0f);
-
-    auto resolveDepth = [&](int target, int source) -> float {
-        float baseDepth = 0.0f;
-        if (params) {
-            baseDepth = params->getFMDepth(target, source);
-        }
-        float modDepth = lastGlobalModOutputs.fmDepth[target][source];
-        return std::clamp(baseDepth + modDepth, -0.99f, 0.99f);
-    };
-
-    for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
-        float totalFM = 0.0f;
-        for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-            float depth = resolveDepth(target, source);
-            if (depth != 0.0f) {
-                totalFM += globalOscOutputsPrev[source] * (depth * 100.0f);
-            }
-        }
-        for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
-            int sourceIdx = kFMOscillatorTargetCount + source;
-            float depth = resolveDepth(target, sourceIdx);
-            if (depth != 0.0f) {
-                totalFM += globalSamplerOutputsPrev[source] * (depth * 100.0f);
-            }
-        }
-        globalFmInputs[target] = totalFM * globalDepth;
-    }
-
-    for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
-        int targetIdx = kFMOscillatorTargetCount + target;
-        float totalFM = 0.0f;
-        for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
-            float depth = resolveDepth(targetIdx, source);
-            if (depth != 0.0f) {
-                totalFM += globalOscOutputsPrev[source] * (depth * 100.0f);
-            }
-        }
-        for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
-            int sourceIdx = kFMOscillatorTargetCount + source;
-            float depth = resolveDepth(targetIdx, sourceIdx);
-            if (depth != 0.0f) {
-                totalFM += globalSamplerOutputsPrev[source] * (depth * 100.0f);
-            }
-        }
-        globalSamplerFmInputs[target] = totalFM * globalDepth;
-    }
-}
-
 void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels, float tempo) {
     // Clear the output buffer first
     for (unsigned int i = 0; i < nFrames * nChannels; ++i) {
@@ -731,6 +674,16 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
 
     // Store tempo for voice access (used by samplers for tempo sync)
     currentTempo = tempo;
+
+    // Ensure sampler note sources map to the correct key/free modes
+    if (params) {
+        for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+            bool shouldKeyMode = params->getSamplerNoteSource(s) != static_cast<int>(NoteSource::FREE);
+            if (samplerKeyModes[s] != shouldKeyMode) {
+                setSamplerKeyMode(s, shouldKeyMode);
+            }
+        }
+    }
 
     const size_t frameSourceCount = static_cast<size_t>(nFrames) * kFMSourceCount;
     if (fmSourceBuffer.size() != frameSourceCount) {
@@ -750,10 +703,8 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
     constexpr float kVoiceHeadroomGain = 0.35f;  // tuned for 8 voices with internal source normalization
     float voiceGain = kVoiceHeadroomGain;
 
-    // Prepare global FM buffers for this frame
-    std::fill(std::begin(globalOscOutputs), std::end(globalOscOutputs), 0.0f);
-    std::fill(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), 0.0f);
-    calculateGlobalFmInputs();
+    std::vector<float> perFrameOscFm(static_cast<size_t>(nFrames) * OSCILLATORS_PER_VOICE, 0.0f);
+    std::vector<float> perFrameSamplerFm(static_cast<size_t>(nFrames) * SAMPLERS_PER_VOICE, 0.0f);
 
     // Copy modulation values to active voices (re-evaluated per voice for voice-specific sources)
     for (int v = 0; v < MAX_VOICES; ++v) {
@@ -778,6 +729,7 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         voice.morphMod[1] = modOutputs.osc2Morph;
         voice.morphMod[2] = modOutputs.osc3Morph;
         voice.morphMod[3] = modOutputs.osc4Morph;
+
 
         voice.ratioMod[0] = modOutputs.osc1Ratio;
         voice.ratioMod[1] = modOutputs.osc2Ratio;
@@ -846,7 +798,9 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
             voice.samplerAmpControllerValue[i] = std::clamp(modOutputs.samplerAmpController[i], 0.0f, 1.0f);
         }
 
-        voice.setGlobalFmInputs(globalFmInputs, globalSamplerFmInputs);
+        const float* oscFmPtr = perFrameOscFm.empty() ? nullptr : perFrameOscFm.data();
+        const float* samplerFmPtr = perFrameSamplerFm.empty() ? nullptr : perFrameSamplerFm.data();
+        voice.setGlobalFmInputs(oscFmPtr, samplerFmPtr);
     }
 
     // Parallel voice processing: generate into per-voice buffers
@@ -862,39 +816,248 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         std::fill(buf.begin(), buf.end(), 0.0f);
     }
 
-    unsigned int hwc = std::thread::hardware_concurrency();
-    if (hwc == 0) hwc = 1;
-    unsigned int threadsToUse = std::min<unsigned int>(hwc, std::max<size_t>(1, activeVoices.size()));
+    const float baseFmDepth = params ? params->fmGlobalDepth.load() : 0.0f;
+    float fmGlobalDepth = std::clamp(baseFmDepth + lastGlobalModOutputs.fmGlobalDepth, 0.0f, 1.0f);
+    float resolvedFmDepth[kFMTargetCount][kFMSourceCount];
+    for (int target = 0; target < kFMTargetCount; ++target) {
+        for (int source = 0; source < kFMSourceCount; ++source) {
+            float baseDepth = params ? params->getFMDepth(target, source) : 0.0f;
+            float depth = baseDepth + lastGlobalModOutputs.fmDepth[target][source];
+            resolvedFmDepth[target][source] = std::clamp(depth, -0.99f, 0.99f);
+        }
+    }
 
-    auto worker = [&](size_t beginIdx, size_t endIdx) {
-        for (size_t idx = beginIdx; idx < endIdx; ++idx) {
-            int v = activeVoices[idx];
-            Voice &voice = voices[v];
-            float *buf = voiceBuffers[v].data();
-            for (unsigned int i = 0; i < nFrames; ++i) {
-                float sample = voice.generateSample(i);
-                // write voice-local buffer (mono to all channels)
-                for (unsigned int ch = 0; ch < nChannels; ++ch) {
-                    buf[static_cast<size_t>(i) * nChannels + ch] = sample;
+    auto computeFmFromSources = [&](const float* oscSources,
+                                    const float* samplerSources,
+                                    float* oscTargets,
+                                    float* samplerTargets) {
+        if (!oscTargets || !samplerTargets) {
+            return;
+        }
+        for (int target = 0; target < OSCILLATORS_PER_VOICE; ++target) {
+            float totalFM = 0.0f;
+            for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+                float depth = resolvedFmDepth[target][source];
+                if (depth != 0.0f) {
+                    totalFM += oscSources[source] * (depth * 100.0f);
                 }
+            }
+            for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+                int sourceIdx = kFMOscillatorTargetCount + source;
+                float depth = resolvedFmDepth[target][sourceIdx];
+                if (depth != 0.0f) {
+                    totalFM += samplerSources[source] * (depth * 100.0f);
+                }
+            }
+            oscTargets[target] = totalFM * fmGlobalDepth;
+        }
+
+        for (int target = 0; target < SAMPLERS_PER_VOICE; ++target) {
+            int targetIdx = kFMOscillatorTargetCount + target;
+            float totalFM = 0.0f;
+            for (int source = 0; source < OSCILLATORS_PER_VOICE; ++source) {
+                float depth = resolvedFmDepth[targetIdx][source];
+                if (depth != 0.0f) {
+                    totalFM += oscSources[source] * (depth * 100.0f);
+                }
+            }
+            for (int source = 0; source < SAMPLERS_PER_VOICE; ++source) {
+                int sourceIdx = kFMOscillatorTargetCount + source;
+                float depth = resolvedFmDepth[targetIdx][sourceIdx];
+                if (depth != 0.0f) {
+                    totalFM += samplerSources[source] * (depth * 100.0f);
+                }
+            }
+            samplerTargets[target] = totalFM * fmGlobalDepth;
+        }
+    };
+
+    std::array<float, OSCILLATORS_PER_VOICE> prevSampleOsc{};
+    std::array<float, SAMPLERS_PER_VOICE> prevSampleSampler{};
+    std::copy(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), prevSampleOsc.begin());
+    std::copy(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), prevSampleSampler.begin());
+
+    if (!perFrameOscFm.empty()) {
+        computeFmFromSources(prevSampleOsc.data(),
+                             prevSampleSampler.data(),
+                             perFrameOscFm.data(),
+                             perFrameSamplerFm.data());
+    }
+
+    auto writeFrameSources = [&](unsigned int frameIndex,
+                                 const std::array<float, OSCILLATORS_PER_VOICE>& oscSources,
+                                 const std::array<float, SAMPLERS_PER_VOICE>& samplerSources) {
+        if (fmSourceBuffer.empty()) {
+            return;
+        }
+        float* frameSources = fmSourceBuffer.data() + static_cast<size_t>(frameIndex) * kFMSourceCount;
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            frameSources[i] = oscSources[i];
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            frameSources[kFMOscillatorTargetCount + i] = samplerSources[i];
+        }
+    };
+
+    auto runSingleThreadSamples = [&](std::array<float, OSCILLATORS_PER_VOICE>& accumOsc,
+                                      std::array<float, SAMPLERS_PER_VOICE>& accumSampler) {
+        for (unsigned int frame = 0; frame < nFrames; ++frame) {
+            accumOsc.fill(0.0f);
+            accumSampler.fill(0.0f);
+            for (int v : activeVoices) {
+                Voice &voice = voices[v];
+                float *buf = voiceBuffers[v].data();
+                float sample = voice.generateSample(frame);
+                for (unsigned int ch = 0; ch < nChannels; ++ch) {
+                    buf[static_cast<size_t>(frame) * nChannels + ch] = sample;
+                }
+                const float* osc = voice.getLastOscOutputs();
+                for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
+                    accumOsc[o] += osc[o];
+                }
+                const float* samp = voice.getLastSamplerOutputs();
+                for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+                    accumSampler[s] += samp[s];
+                }
+            }
+            writeFrameSources(frame, accumOsc, accumSampler);
+            if (frame + 1 < nFrames) {
+                computeFmFromSources(
+                    accumOsc.data(),
+                    accumSampler.data(),
+                    perFrameOscFm.data() + static_cast<size_t>(frame + 1) * OSCILLATORS_PER_VOICE,
+                    perFrameSamplerFm.data() + static_cast<size_t>(frame + 1) * SAMPLERS_PER_VOICE);
+            } else {
+                std::copy(accumOsc.begin(), accumOsc.end(), std::begin(globalOscOutputsPrev));
+                std::copy(accumSampler.begin(), accumSampler.end(), std::begin(globalSamplerOutputsPrev));
             }
         }
     };
 
-    if (threadsToUse <= 1 || activeVoices.size() <= 1) {
-        worker(0, activeVoices.size());
+    bool useParallelVoices = activeVoices.size() > 1;
+    unsigned int hwc = std::thread::hardware_concurrency();
+    if (hwc == 0) hwc = 1;
+    unsigned int threadsToUse = useParallelVoices ? std::min<unsigned int>(hwc, activeVoices.size()) : 1;
+
+    if (activeVoices.empty() || nFrames == 0) {
+        std::array<float, OSCILLATORS_PER_VOICE> zeroOsc{};
+        std::array<float, SAMPLERS_PER_VOICE> zeroSampler{};
+        for (unsigned int frame = 0; frame < nFrames; ++frame) {
+            writeFrameSources(frame, zeroOsc, zeroSampler);
+            if (frame + 1 < nFrames) {
+                computeFmFromSources(
+                    zeroOsc.data(),
+                    zeroSampler.data(),
+                    perFrameOscFm.data() + static_cast<size_t>(frame + 1) * OSCILLATORS_PER_VOICE,
+                    perFrameSamplerFm.data() + static_cast<size_t>(frame + 1) * SAMPLERS_PER_VOICE);
+            } else if (frame + 1 == nFrames) {
+                std::fill(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), 0.0f);
+                std::fill(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), 0.0f);
+            }
+        }
+        std::copy(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), std::begin(globalOscOutputs));
+        std::copy(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), std::begin(globalSamplerOutputs));
+    } else if (threadsToUse <= 1) {
+        std::array<float, OSCILLATORS_PER_VOICE> accumOsc{};
+        std::array<float, SAMPLERS_PER_VOICE> accumSampler{};
+        runSingleThreadSamples(accumOsc, accumSampler);
+        std::copy(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), std::begin(globalOscOutputs));
+        std::copy(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), std::begin(globalSamplerOutputs));
     } else {
+        class LocalBarrier {
+        public:
+            explicit LocalBarrier(unsigned count) : threshold(count), count(count), generation(0) {}
+            void wait() {
+                std::unique_lock<std::mutex> lock(mutex);
+                unsigned gen = generation;
+                if (--count == 0) {
+                    generation++;
+                    count = threshold;
+                    cv.notify_all();
+                } else {
+                    cv.wait(lock, [this, gen]() { return gen != generation; });
+                }
+            }
+        private:
+            std::mutex mutex;
+            std::condition_variable cv;
+            unsigned threshold;
+            unsigned count;
+            unsigned generation;
+        };
+
+        LocalBarrier sampleBarrier(threadsToUse + 1);
+        std::vector<std::array<float, OSCILLATORS_PER_VOICE>> threadOscSums(threadsToUse);
+        std::vector<std::array<float, SAMPLERS_PER_VOICE>> threadSamplerSums(threadsToUse);
+
+        auto workerFunc = [&](unsigned int threadId, size_t beginIdx, size_t endIdx) {
+            for (unsigned int frame = 0; frame < nFrames; ++frame) {
+                auto& oscSums = threadOscSums[threadId];
+                auto& samplerSums = threadSamplerSums[threadId];
+                oscSums.fill(0.0f);
+                samplerSums.fill(0.0f);
+                for (size_t idx = beginIdx; idx < endIdx; ++idx) {
+                    int v = activeVoices[idx];
+                    Voice &voice = voices[v];
+                    float *buf = voiceBuffers[v].data();
+                    float sample = voice.generateSample(frame);
+                    for (unsigned int ch = 0; ch < nChannels; ++ch) {
+                        buf[static_cast<size_t>(frame) * nChannels + ch] = sample;
+                    }
+                    const float* osc = voice.getLastOscOutputs();
+                    for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
+                        oscSums[o] += osc[o];
+                    }
+                    const float* samp = voice.getLastSamplerOutputs();
+                    for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+                        samplerSums[s] += samp[s];
+                    }
+                }
+                sampleBarrier.wait();
+                sampleBarrier.wait();
+            }
+        };
+
         std::vector<std::thread> threads;
         threads.reserve(threadsToUse);
         size_t total = activeVoices.size();
         size_t chunk = (total + threadsToUse - 1) / threadsToUse;
         size_t begin = 0;
-        for (unsigned int t = 0; t < threadsToUse && begin < total; ++t) {
+        for (unsigned int t = 0; t < threadsToUse; ++t) {
             size_t end = std::min(begin + chunk, total);
-            threads.emplace_back(worker, begin, end);
+            threads.emplace_back(workerFunc, t, begin, end);
             begin = end;
         }
+        std::array<float, OSCILLATORS_PER_VOICE> accumOsc{};
+        std::array<float, SAMPLERS_PER_VOICE> accumSampler{};
+        for (unsigned int frame = 0; frame < nFrames; ++frame) {
+            sampleBarrier.wait();
+            accumOsc.fill(0.0f);
+            accumSampler.fill(0.0f);
+            for (unsigned int t = 0; t < threadsToUse; ++t) {
+                for (int o = 0; o < OSCILLATORS_PER_VOICE; ++o) {
+                    accumOsc[o] += threadOscSums[t][o];
+                }
+                for (int s = 0; s < SAMPLERS_PER_VOICE; ++s) {
+                    accumSampler[s] += threadSamplerSums[t][s];
+                }
+            }
+            writeFrameSources(frame, accumOsc, accumSampler);
+            if (frame + 1 < nFrames) {
+                computeFmFromSources(
+                    accumOsc.data(),
+                    accumSampler.data(),
+                    perFrameOscFm.data() + static_cast<size_t>(frame + 1) * OSCILLATORS_PER_VOICE,
+                    perFrameSamplerFm.data() + static_cast<size_t>(frame + 1) * SAMPLERS_PER_VOICE);
+            } else {
+                std::copy(accumOsc.begin(), accumOsc.end(), std::begin(globalOscOutputsPrev));
+                std::copy(accumSampler.begin(), accumSampler.end(), std::begin(globalSamplerOutputsPrev));
+            }
+            sampleBarrier.wait();
+        }
         for (auto &th : threads) th.join();
+        std::copy(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), std::begin(globalOscOutputs));
+        std::copy(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), std::begin(globalSamplerOutputs));
     }
 
     // Write UI waveform using the first active voice's audio buffer (if any)
@@ -906,12 +1069,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
             ui->writeToWaveformBuffer(displaySample);
         }
     }
-
-    for (int v : activeVoices) {
-        voices[v].contributeToGlobalFm(globalOscOutputs, globalSamplerOutputs);
-    }
-    std::copy(std::begin(globalOscOutputs), std::end(globalOscOutputs), std::begin(globalOscOutputsPrev));
-    std::copy(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), std::begin(globalSamplerOutputsPrev));
 
     // Mix per-voice buffers into final output with gains
     for (unsigned int i = 0; i < nFrames; ++i) {
@@ -2257,8 +2414,6 @@ void Synth::resetAudioState() {
     std::fill(fmSourceBufferPrev.begin(), fmSourceBufferPrev.end(), 0.0f);
     std::fill(std::begin(globalOscOutputs), std::end(globalOscOutputs), 0.0f);
     std::fill(std::begin(globalSamplerOutputs), std::end(globalSamplerOutputs), 0.0f);
-    std::fill(std::begin(globalFmInputs), std::end(globalFmInputs), 0.0f);
-    std::fill(std::begin(globalSamplerFmInputs), std::end(globalSamplerFmInputs), 0.0f);
     std::fill(std::begin(globalOscOutputsPrev), std::end(globalOscOutputsPrev), 0.0f);
     std::fill(std::begin(globalSamplerOutputsPrev), std::end(globalSamplerOutputsPrev), 0.0f);
     for (int i = 0; i < 4; ++i) {
