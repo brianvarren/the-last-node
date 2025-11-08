@@ -15,7 +15,13 @@ option(WAKEFIELD_BUILD_PROFILER "Build the standalone profiling runner" ON)
 option(WAKEFIELD_ENABLE_GPROF "Enable gprof instrumentation for profiling builds" OFF)
 
 set(WAKEFIELD_CORE_SOURCES
-    src/synth.cpp
+    # Synth core - modular architecture
+    src/synth/synth_core.cpp
+    src/synth/synth_voices.cpp
+    src/synth/synth_process.cpp
+    src/synth/synth_modulation.cpp
+    src/synth/synth_parameters.cpp
+    # Other core files
     src/midi.cpp
     src/envelope.cpp
     src/oscillator.cpp

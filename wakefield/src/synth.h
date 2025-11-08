@@ -4,6 +4,9 @@
 #include <cmath>
 #include <vector>
 #include <mutex>
+#include <thread>
+#include <condition_variable>
+#include <atomic>
 #include "voice.h"
 #include "brainwave_osc.h"
 #include "lfo.h"
@@ -35,7 +38,8 @@ enum class NoteSource {
 class Synth {
 public:
     Synth(float sampleRate);
-    
+    ~Synth();
+
     void process(float* output, unsigned int nFrames, unsigned int nChannels, float tempo = 120.0f);
     
     void noteOn(int midiNote, int velocity);
@@ -267,6 +271,27 @@ private:
     UI* ui;
     SynthParameters* params;  // Pointer to parameters (for FM matrix)
     Clock* clock;
+
+    // === Effects Pipeline Threading ===
+    // Double-buffered ring for pipelined voice->effects processing
+    std::vector<float> effectsBuffer[2];     // Two buffers for ping-pong
+    std::atomic<int> effectsWriteIndex{0};   // Which buffer voices write to (0 or 1)
+    std::atomic<int> effectsReadIndex{1};    // Which buffer effects read from (opposite of write)
+    std::atomic<bool> effectsBufferReady{false};  // Signal that new buffer is ready
+
+    std::thread effectsThread;
+    std::mutex effectsMutex;
+    std::condition_variable effectsCV;
+    std::atomic<bool> effectsThreadRunning{false};
+
+    // Temporary buffer for voice rendering before copying to effects pipeline
+    std::vector<float> voiceRenderBuffer;
+
+    // Effects processing function (runs on separate thread)
+    void effectsThreadFunc();
+
+    // Sequential voice rendering (single-threaded, all voices)
+    void renderVoicesSequential(float* outputBuffer, unsigned int nFrames, unsigned int nChannels, float tempo);
 
     std::vector<Voice> voices;
     GreyholeReverb reverb;

@@ -12,7 +12,7 @@ cmake_install.cmake
 Makefile
 
 # Executables
-synth
+/synth
 compressor_tests
 *.exe
 
