@@ -1221,6 +1221,44 @@ std::string UI::serializeState() {
     }
     out << "#MIDI_END\n";
 
+    // Instance counts section
+    out << "#INSTANCE_COUNTS_BEGIN\n";
+    if (params) {
+        out << "activeOscCount " << params->activeOscCount.load() << '\n';
+        out << "activeSamplerCount " << params->activeSamplerCount.load() << '\n';
+        out << "activeLfoCount " << params->activeLfoCount.load() << '\n';
+        out << "activeEnvCount " << params->activeEnvCount.load() << '\n';
+        out << "activeChaosCount " << params->activeChaosCount.load() << '\n';
+    }
+    out << "#INSTANCE_COUNTS_END\n";
+
+    // Mixer mute/solo state section
+    out << "#MIXER_STATE_BEGIN\n";
+    if (params) {
+        // OSC mute/solo
+        for (int i = 0; i < 4; ++i) {
+            out << "oscMuted " << i << ' ' << (params->oscMuted[i].load() ? 1 : 0) << '\n';
+        }
+        for (int i = 0; i < 4; ++i) {
+            out << "oscSolo " << i << ' ' << (params->oscSolo[i].load() ? 1 : 0) << '\n';
+        }
+        // Sampler mute/solo
+        for (int i = 0; i < 4; ++i) {
+            out << "samplerMuted " << i << ' ' << (params->samplerMuted[i].load() ? 1 : 0) << '\n';
+        }
+        for (int i = 0; i < 4; ++i) {
+            out << "samplerSolo " << i << ' ' << (params->samplerSolo[i].load() ? 1 : 0) << '\n';
+        }
+        // Chaos mute/solo
+        for (int i = 0; i < 4; ++i) {
+            out << "chaosMuted " << i << ' ' << (params->chaosMuted[i].load() ? 1 : 0) << '\n';
+        }
+        for (int i = 0; i < 4; ++i) {
+            out << "chaosSolo " << i << ' ' << (params->chaosSolo[i].load() ? 1 : 0) << '\n';
+        }
+    }
+    out << "#MIXER_STATE_END\n";
+
     return out.str();
 }
 
@@ -1231,7 +1269,7 @@ void UI::applySerializedState(const std::string& data) {
 
     std::istringstream stream(data);
     std::string line;
-    enum class Section { None, Param, FM, FMLock, Mod, UI, MIDI };
+    enum class Section { None, Param, FM, FMLock, Mod, UI, MIDI, InstanceCounts, MixerState };
     Section section = Section::None;
 
     int savedOsc = currentOscillatorIndex;
@@ -1256,6 +1294,10 @@ void UI::applySerializedState(const std::string& data) {
             else if (line == "#UI_END") section = Section::None;
             else if (line == "#MIDI_BEGIN") section = Section::MIDI;
             else if (line == "#MIDI_END") section = Section::None;
+            else if (line == "#INSTANCE_COUNTS_BEGIN") section = Section::InstanceCounts;
+            else if (line == "#INSTANCE_COUNTS_END") section = Section::None;
+            else if (line == "#MIXER_STATE_BEGIN") section = Section::MixerState;
+            else if (line == "#MIXER_STATE_END") section = Section::None;
             continue;
         }
 
@@ -1385,6 +1427,44 @@ void UI::applySerializedState(const std::string& data) {
                             params->parameterContextChaos[pid] = chaos;
                         }
                     }
+                }
+                break;
+            }
+            case Section::InstanceCounts: {
+                // Format: activeOscCount <count>
+                std::string key;
+                ls >> key;
+                if (key == "activeOscCount") {
+                    int v; if (ls >> v) { params->activeOscCount = std::clamp(v, 1, 4); }
+                } else if (key == "activeSamplerCount") {
+                    int v; if (ls >> v) { params->activeSamplerCount = std::clamp(v, 1, 4); }
+                } else if (key == "activeLfoCount") {
+                    int v; if (ls >> v) { params->activeLfoCount = std::clamp(v, 1, 4); }
+                } else if (key == "activeEnvCount") {
+                    int v; if (ls >> v) { params->activeEnvCount = std::clamp(v, 1, 4); }
+                } else if (key == "activeChaosCount") {
+                    int v; if (ls >> v) { params->activeChaosCount = std::clamp(v, 1, 4); }
+                }
+                break;
+            }
+            case Section::MixerState: {
+                // Format: oscMuted <index> <0|1>
+                std::string key;
+                int index, value;
+                ls >> key >> index >> value;
+                if (index < 0 || index >= 4) break;
+                if (key == "oscMuted") {
+                    params->oscMuted[index] = (value != 0);
+                } else if (key == "oscSolo") {
+                    params->oscSolo[index] = (value != 0);
+                } else if (key == "samplerMuted") {
+                    params->samplerMuted[index] = (value != 0);
+                } else if (key == "samplerSolo") {
+                    params->samplerSolo[index] = (value != 0);
+                } else if (key == "chaosMuted") {
+                    params->chaosMuted[index] = (value != 0);
+                } else if (key == "chaosSolo") {
+                    params->chaosSolo[index] = (value != 0);
                 }
                 break;
             }
