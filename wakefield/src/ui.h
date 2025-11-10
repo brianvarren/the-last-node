@@ -1469,6 +1469,12 @@ public:
     void startQuitPopup() { quitPopupActive = true; }
     void finishQuitPopup(bool confirmed);
     void handleQuitPopupInput(int ch);
+
+    // Clear mod matrix confirmation popup
+    bool clearModMatrixPopupActive = false;
+    void startClearModMatrixPopup() { clearModMatrixPopupActive = true; }
+    void finishClearModMatrixPopup(bool confirmed);
+    void handleClearModMatrixPopupInput(int ch);
 };
 
 #endif // UI_H

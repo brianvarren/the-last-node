@@ -518,6 +518,33 @@ void UI::draw(int activeVoices) {
         attron(COLOR_HINT);
         mvprintw(startY + height - 2, startX + 2, "Y to quit, N or Esc to cancel");
         attroff(COLOR_HINT);
+    } else if (clearModMatrixPopupActive) {
+        int maxY = getmaxy(stdscr);
+        int maxX = getmaxx(stdscr);
+        int height = 8;
+        int width = 44;
+        int startY = std::max(1, (maxY - height) / 2);
+        int startX = std::max(1, (maxX - width) / 2);
+
+        for (int y = startY; y < startY + height; ++y) {
+            for (int x = startX; x < startX + width; ++x) {
+                mvaddch(y, x, ' ');
+            }
+        }
+
+        attron(A_BOLD);
+        mvhline(startY, startX, '-', width);
+        mvhline(startY + height - 1, startX, '-', width);
+        mvvline(startY, startX, '|', height);
+        mvvline(startY, startX + width - 1, '|', height);
+        mvprintw(startY + 1, startX + 2, "Clear All Mod Slots?");
+        attroff(A_BOLD);
+
+        mvprintw(startY + 3, startX + 2, "Clear all unlocked modulation slots?");
+
+        attron(COLOR_HINT);
+        mvprintw(startY + height - 2, startX + 2, "Y to clear, N or Esc to cancel");
+        attroff(COLOR_HINT);
     } else if (sampleBrowserActive) {
         int maxY = getmaxy(stdscr);
         int maxX = getmaxx(stdscr);
@@ -654,6 +681,11 @@ void UI::drawMainPage() {
 
     // Current preset name
     mvprintw(row++, col, "Current Preset: %s", currentPresetName.empty() ? "None" : currentPresetName.c_str());
+
+    // Master Gain display
+    float masterGain = params->masterVolume.load();
+    float masterGainDb = 20.0f * std::log10(std::max(0.001f, masterGain));  // Convert to dB
+    mvprintw(row++, col, "Master Gain: %.2f (%.1f dB)", masterGain, masterGainDb);
     row++;
 
     // Action buttons section

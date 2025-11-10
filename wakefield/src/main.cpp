@@ -519,6 +519,11 @@ int audioCallback(void* outputBuffer, void* /*inputBuffer*/,
         for (int oscIndex = 0; oscIndex < OSCILLATORS_PER_VOICE; ++oscIndex) {
             int shapeIndex = synthParams->getOscShape(oscIndex);
             float baseFreq = (oscIndex == 0) ? smoothedOscillatorFreq : synthParams->getOscFrequency(oscIndex);
+
+            // Apply oscillator octave offset
+            int octave = synth->getOscillatorOctave(oscIndex);
+            baseFreq *= std::pow(2.0f, static_cast<float>(octave));
+
             float morph = (oscIndex == 0) ? smoothedOscillatorMorph : synthParams->getOscMorph(oscIndex);
             float ratio = synthParams->getOscRatio(oscIndex);
             float offset = synthParams->getOscOffset(oscIndex);

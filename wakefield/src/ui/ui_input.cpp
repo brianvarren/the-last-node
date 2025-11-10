@@ -176,6 +176,12 @@ void UI::handleInput(int ch) {
         return;
     }
 
+    // Handle Clear Mod Matrix confirmation popup
+    if (clearModMatrixPopupActive) {
+        handleClearModMatrixPopupInput(ch);
+        return;
+    }
+
     // Handle Quit confirmation popup
     if (quitPopupActive) {
         handleQuitPopupInput(ch);
@@ -655,14 +661,8 @@ void UI::handleInput(int ch) {
                 return;
             case 'c':
             case 'C':
-                // Clear all modulation slots (respecting locks)
-                captureUndoSnapshot("clear_all_mod_slots");
-                for (int i = 0; i < 16; ++i) {
-                    if (!modSlotLocked[i]) {
-                        modulationSlots[i] = ModulationSlot();
-                    }
-                }
-                addConsoleMessage("Cleared all unlocked modulation slots");
+                // Show confirmation popup for clearing all mod slots
+                startClearModMatrixPopup();
                 return;
             case 'g':
                 randomizeModSlot(modMatrixCursorRow, std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));

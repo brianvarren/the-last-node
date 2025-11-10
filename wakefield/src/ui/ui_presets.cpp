@@ -463,3 +463,32 @@ void UI::handleQuitPopupInput(int ch) {
             break;
     }
 }
+
+void UI::finishClearModMatrixPopup(bool confirmed) {
+    clearModMatrixPopupActive = false;
+    if (confirmed) {
+        captureUndoSnapshot("clear_all_mod_slots");
+        for (int i = 0; i < 16; ++i) {
+            if (!modSlotLocked[i]) {
+                modulationSlots[i] = ModulationSlot();
+            }
+        }
+        addConsoleMessage("Cleared all unlocked modulation slots");
+    }
+}
+
+void UI::handleClearModMatrixPopupInput(int ch) {
+    switch (ch) {
+        case 'y':
+        case 'Y':
+            finishClearModMatrixPopup(true);
+            break;
+        case 'n':
+        case 'N':
+        case 27:  // Esc
+            finishClearModMatrixPopup(false);
+            break;
+        default:
+            break;
+    }
+}

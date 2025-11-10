@@ -172,11 +172,11 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         voice.currentBufferSize = nFrames;
         ModulationOutputs modOutputs = processModulationMatrix(&voice);
 
-        // Apply oscillator octave offset to pitch modulation
-        voice.pitchMod[0] = modOutputs.osc1Pitch + static_cast<float>(oscillatorOctaves[0]);
-        voice.pitchMod[1] = modOutputs.osc2Pitch + static_cast<float>(oscillatorOctaves[1]);
-        voice.pitchMod[2] = modOutputs.osc3Pitch + static_cast<float>(oscillatorOctaves[2]);
-        voice.pitchMod[3] = modOutputs.osc4Pitch + static_cast<float>(oscillatorOctaves[3]);
+        // Store pitch modulation (octave offset is applied in setOscillatorState)
+        voice.pitchMod[0] = modOutputs.osc1Pitch;
+        voice.pitchMod[1] = modOutputs.osc2Pitch;
+        voice.pitchMod[2] = modOutputs.osc3Pitch;
+        voice.pitchMod[3] = modOutputs.osc4Pitch;
 
         voice.morphMod[0] = modOutputs.osc1Morph;
         voice.morphMod[1] = modOutputs.osc2Morph;
