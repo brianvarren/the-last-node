@@ -111,7 +111,7 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
     ModulationOutputs globalModOutputs = processModulationMatrix();
     lastGlobalModOutputs = globalModOutputs;
     refreshSamplerPhaseDrivers();
-    float masterGain = std::clamp(masterVolume + lastGlobalModOutputs.mixerMasterVolume, 0.0f, 1.0f);
+    float masterGain = std::max(0.0f, masterVolume + lastGlobalModOutputs.mixerMasterVolume);  // Allow boost up to +12dB (4.0x)
 
     constexpr float kVoiceHeadroomGain = 0.35f;
     float voiceGain = kVoiceHeadroomGain;
@@ -172,10 +172,11 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         voice.currentBufferSize = nFrames;
         ModulationOutputs modOutputs = processModulationMatrix(&voice);
 
-        voice.pitchMod[0] = modOutputs.osc1Pitch;
-        voice.pitchMod[1] = modOutputs.osc2Pitch;
-        voice.pitchMod[2] = modOutputs.osc3Pitch;
-        voice.pitchMod[3] = modOutputs.osc4Pitch;
+        // Apply oscillator octave offset to pitch modulation
+        voice.pitchMod[0] = modOutputs.osc1Pitch + static_cast<float>(oscillatorOctaves[0]);
+        voice.pitchMod[1] = modOutputs.osc2Pitch + static_cast<float>(oscillatorOctaves[1]);
+        voice.pitchMod[2] = modOutputs.osc3Pitch + static_cast<float>(oscillatorOctaves[2]);
+        voice.pitchMod[3] = modOutputs.osc4Pitch + static_cast<float>(oscillatorOctaves[3]);
 
         voice.morphMod[0] = modOutputs.osc1Morph;
         voice.morphMod[1] = modOutputs.osc2Morph;

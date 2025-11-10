@@ -182,10 +182,15 @@ bool UI::update() {
         if (lastValidKey == 3) {  // Ctrl+C exits cleanly in raw mode
             return false;
         }
+
+        // Store previous quit popup state
+        bool wasQuitPopupActive = quitPopupActive;
+
         handleInput(lastValidKey);
 
-        if (lastValidKey == 'q' || lastValidKey == 'Q') {
-            return false;
+        // Check if quit was confirmed via popup
+        if (wasQuitPopupActive && !quitPopupActive && (lastValidKey == 'y' || lastValidKey == 'Y')) {
+            return false;  // Quit confirmed
         }
     }
 

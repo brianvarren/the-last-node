@@ -1463,6 +1463,12 @@ public:
     void startGlobalResetPopup() { globalResetPopupActive = true; globalResetPopupIndex = 0; }
     void finishGlobalResetPopup(bool applySelection);
     void handleGlobalResetPopupInput(int ch);
+
+    // Quit confirmation popup
+    bool quitPopupActive = false;
+    void startQuitPopup() { quitPopupActive = true; }
+    void finishQuitPopup(bool confirmed);
+    void handleQuitPopupInput(int ch);
 };
 
 #endif // UI_H

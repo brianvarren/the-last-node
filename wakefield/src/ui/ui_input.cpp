@@ -176,6 +176,20 @@ void UI::handleInput(int ch) {
         return;
     }
 
+    // Handle Quit confirmation popup
+    if (quitPopupActive) {
+        handleQuitPopupInput(ch);
+        return;
+    }
+
+    // Intercept 'q'/'Q' to show quit confirmation popup
+    if ((ch == 'q' || ch == 'Q') && !textInputActive && !numericInputActive &&
+        !sampleBrowserActive && !presetBrowserActive && !helpActive &&
+        !modMatrixMenuActive && !sequencerScaleMenuActive) {
+        startQuitPopup();
+        return;
+    }
+
     // Handle numeric input mode for parameters
     if (numericInputActive) {
         if (ch == '\n' || ch == KEY_ENTER) {
@@ -634,12 +648,21 @@ void UI::handleInput(int ch) {
                 return;
             case 'x':
             case 'X':
-            case 'c':
-            case 'C':
                 // Clear the current modulation slot
                 captureUndoSnapshot("clear_mod_slot");
                 modulationSlots[modMatrixCursorRow] = ModulationSlot();
                 addConsoleMessage("Cleared modulation slot " + std::to_string(modMatrixCursorRow + 1));
+                return;
+            case 'c':
+            case 'C':
+                // Clear all modulation slots (respecting locks)
+                captureUndoSnapshot("clear_all_mod_slots");
+                for (int i = 0; i < 16; ++i) {
+                    if (!modSlotLocked[i]) {
+                        modulationSlots[i] = ModulationSlot();
+                    }
+                }
+                addConsoleMessage("Cleared all unlocked modulation slots");
                 return;
             case 'g':
                 randomizeModSlot(modMatrixCursorRow, std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
@@ -859,7 +882,11 @@ void UI::handleInput(int ch) {
     }
 
     // Per-page actions on parameter pages
-    if (parameterPage && !numericInputActive) {
+    // Block hotkeys during any input mode to prevent accidental actions
+    bool anyInputActive = textInputActive || numericInputActive || sequencerScaleMenuActive ||
+                          modMatrixMenuActive || sampleBrowserActive || presetBrowserActive ||
+                          globalResetPopupActive || helpActive;
+    if (parameterPage && !anyInputActive) {
         if (ch == 'g') {
             randomizeCurrentEntity(currentPage, std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
             addConsoleMessage("Randomized current selection");
@@ -1223,7 +1250,8 @@ void UI::handleInput(int ch) {
     }
 
     // Sequencer-specific hotkeys (only active on sequencer page)
-    if (currentPage == UIPage::SEQUENCER && sequencer) {
+    // Block hotkeys during input modes
+    if (currentPage == UIPage::SEQUENCER && sequencer && !anyInputActive) {
         switch (ch) {
             // Generate pattern (G/g)
             case 'G':

@@ -852,6 +852,21 @@ int Synth::getSamplerOctave(int samplerIndex) const {
     return samplerOctaves[samplerIndex];
 }
 
+void Synth::setOscillatorOctave(int oscIndex, int octave) {
+    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) {
+        return;
+    }
+    // Clamp octave to -5 to +5 (same range as samplers)
+    oscillatorOctaves[oscIndex] = std::max(-5, std::min(5, octave));
+}
+
+int Synth::getOscillatorOctave(int oscIndex) const {
+    if (oscIndex < 0 || oscIndex >= OSCILLATORS_PER_VOICE) {
+        return 0;
+    }
+    return oscillatorOctaves[oscIndex];
+}
+
 float Synth::getSamplerTune(int samplerIndex) const {
     if (samplerIndex < 0 || samplerIndex >= SAMPLERS_PER_VOICE) {
         return 0.0f;

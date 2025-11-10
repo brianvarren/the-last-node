@@ -131,7 +131,7 @@ void UI::loadPreset(const std::string& filename) {
                     std::string key = trim(line.substr(0, eq));
                     std::string val = trim(line.substr(eq + 1));
                     if (key == "sample_dir") { sampleDir = val; continue; }
-                    if (key.rfind("sampler", 0) == 0 && key.size() > 8) {
+                    if (key.rfind("sampler", 0) == 0 && key.size() > 7) {
                         int idx = std::stoi(key.substr(7)); if (idx < 0 || idx >= 4) continue;
                         if (!val.empty() && bank) {
                             int sidx = bank->findSampleByName(val.c_str());
@@ -332,7 +332,7 @@ void UI::applyUnifiedPresetContent(const std::string& full) {
                     std::string key = trim(line.substr(0, eq));
                     std::string val = trim(line.substr(eq + 1));
                     if (key == "sample_dir") { sampleDir = val; continue; }
-                    if (key.rfind("sampler", 0) == 0 && key.size() > 8) {
+                    if (key.rfind("sampler", 0) == 0 && key.size() > 7) {
                         int idx = std::stoi(key.substr(7)); if (idx < 0 || idx >= 4) continue;
                         if (!val.empty() && bank) {
                             int sidx = bank->findSampleByName(val.c_str());
@@ -441,4 +441,25 @@ void UI::handleTextInput(int ch) {
 void UI::finishTextInput() {
     textInputActive = false;
     textInputBuffer.clear();
+}
+
+void UI::finishQuitPopup(bool confirmed) {
+    quitPopupActive = false;
+    // The confirmed flag will be checked by the caller
+}
+
+void UI::handleQuitPopupInput(int ch) {
+    switch (ch) {
+        case 'y':
+        case 'Y':
+            finishQuitPopup(true);
+            break;
+        case 'n':
+        case 'N':
+        case 27:  // Esc
+            finishQuitPopup(false);
+            break;
+        default:
+            break;
+    }
 }

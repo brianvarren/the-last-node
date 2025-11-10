@@ -199,6 +199,10 @@ public:
                              float baseFreq, float morph,
                              float ratio, float offsetHz, float amp, float level);
 
+    // Oscillator pitch control
+    void setOscillatorOctave(int oscIndex, int octave);
+    int getOscillatorOctave(int oscIndex) const;
+
     // Get oscillator base amp (for voice mixing with modulation)
     float getOscillatorBaseAmp(int index) const {
         if (index < 0 || index >= OSCILLATORS_PER_VOICE) return 0.0f;
@@ -390,6 +394,9 @@ public:
     // Current sample index for each sampler (shared across all voices)
     int currentSampleIndices[SAMPLERS_PER_VOICE] = {-1, -1, -1, -1};
     bool samplerKeyModes[SAMPLERS_PER_VOICE] = {true, true, true, true};
+
+    // Oscillator pitch parameters (octave)
+    int oscillatorOctaves[OSCILLATORS_PER_VOICE] = {0, 0, 0, 0};  // -5 to +5
 
     // Sampler pitch parameters (octave and tune)
     int samplerOctaves[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};     // -5 to +5

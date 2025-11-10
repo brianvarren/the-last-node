@@ -201,7 +201,7 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction, bool fine) {
             euclidean.setSteps(steps);
             pattern.setLength(steps);
             sequencerSelectedRow = std::min(sequencerSelectedRow, steps - 1);
-            sequencer->regenerateUnlocked();
+            // Don't regenerate pattern when just changing step count
             break;
         }
         case SequencerInfoField::SUBDIVISION: {
@@ -458,7 +458,7 @@ void UI::applySequencerNumericInput(const std::string& text) {
                 euclidean.setSteps(steps);
                 pattern.setLength(steps);
                 sequencerSelectedRow = std::min(sequencerSelectedRow, steps - 1);
-                sequencer->regenerateUnlocked();
+                // Don't regenerate pattern when just changing step count
             } catch (...) {}
             break;
         }

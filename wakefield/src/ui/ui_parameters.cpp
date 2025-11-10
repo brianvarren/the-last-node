@@ -45,7 +45,7 @@ const InlineParameter* Lookup(int id) {
  * global randomize and mutate operations.
  *
  * IMMUNE (randomizable = false):
- * - Master Volume (prevents sudden loud sounds)
+ * - Master Gain (prevents sudden loud sounds)
  * - Mix levels (OSC/SAMP levels - prevents silencing active sources)
  * - Mute/Solo states (not in parameter list, but immune via separate handling)
  * - CPU Monitor toggle
@@ -83,7 +83,7 @@ void UI::initializeParameters() {
     // ============================================================================
     // MAIN PAGE - IMMUNE (prevent volume disasters)
     // ============================================================================
-    parameters.push_back({6, ParamType::FLOAT, "Master Volume", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::MAIN), false});
+    parameters.push_back({6, ParamType::FLOAT, "Master Gain", "", 0.0f, 4.0f, {}, true, static_cast<int>(UIPage::MAIN), false});  // 0.0-4.0 (0dB to +12dB)
 
     // ============================================================================
     // OSCILLATOR PAGE - MOSTLY RANDOMIZABLE (except mode)
@@ -91,6 +91,7 @@ void UI::initializeParameters() {
     parameters.push_back({13, ParamType::ENUM, "Note Source", "", 0, 5, {"Free", "Ext MIDI", "Track 1", "Track 2", "Track 3", "Track 4"}, true, static_cast<int>(UIPage::OSCILLATOR), false});  // IMMUNE
     parameters.push_back({19, ParamType::ENUM, "Shape", "", 0, 1, {"Saw", "Pulse"}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({11, ParamType::FLOAT, "Frequency", "Hz", 20.0f, 2000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true, ParamCurve::Logarithmic});
+    parameters.push_back({16, ParamType::INT, "Octave", "", -5, 5, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({12, ParamType::FLOAT, "Morph", "", 0.0f, 1.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
     parameters.push_back({14, ParamType::FLOAT, "Ratio", "", 0.125f, 16.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true, ParamCurve::Logarithmic});
     parameters.push_back({15, ParamType::FLOAT, "Offset", "Hz", -1000.0f, 1000.0f, {}, true, static_cast<int>(UIPage::OSCILLATOR), true});
@@ -298,6 +299,7 @@ void SynthParameters::applyParameterValue(int id,
         case 13: setOscNoteSource(osc, static_cast<int>(value)); break;
         case 19: setOscShape(osc, static_cast<int>(value)); break;
         case 11: setOscFrequency(osc, value); break;
+        case 16: if (synth) synth->setOscillatorOctave(osc, static_cast<int>(value)); break;
         case 12: setOscMorph(osc, value); break;
         case 14: setOscRatio(osc, value); break;
         case 15: setOscOffset(osc, value); break;
@@ -498,7 +500,7 @@ std::vector<int> UI::getRandomizableParameterIds() {
 // Helper to detect which selector index a parameter uses (if any)
 static inline bool paramUsesOscIndex(int id) {
     switch (id) {
-        case 11: case 12: case 13: case 14: case 15: case 18: case 19:
+        case 11: case 12: case 13: case 14: case 15: case 16: case 18: case 19:
             return true;
         default: return false;
     }
@@ -706,6 +708,22 @@ void UI::randomizeAllParameters(float amount01) {
         }
     }
 
+    // Randomize note sources for oscillators and samplers
+    if (params && synth) {
+        // Randomize oscillator note sources
+        for (int i = 0; i < 4; ++i) {
+            // Random note source: 0=Free, 1=Ext MIDI, 2-5=Track 1-4
+            int noteSource = rand() % 6;
+            params->setOscNoteSource(i, noteSource);
+        }
+        // Randomize sampler note sources
+        for (int i = 0; i < 4; ++i) {
+            // Random note source: 0=Free, 1=Ext MIDI, 2-5=Track 1-4
+            int noteSource = rand() % 6;
+            params->setSamplerNoteSource(i, noteSource);
+        }
+    }
+
     // Randomize sequencer parameters and regenerate patterns
     if (sequencer) {
         // Randomize tempo slightly
@@ -761,7 +779,21 @@ void UI::randomizeSingleParameter(int id, float amount01) {
     switch (p->type) {
         case ParamType::FLOAT: {
             float cur = getParameterValue(id);
-            float rnd = frand(p->min_val, p->max_val);
+            float rnd;
+
+            // Special handling for oscillator frequency - use musical values
+            if (id == 11) {
+                // Convert to MIDI note for musical randomization
+                // A4 (440Hz) = MIDI note 69
+                // Random MIDI note from C2 (36) to C7 (96)
+                int midiNote = 36 + (rand() % 61);  // 61 notes range (5 octaves)
+                // Convert MIDI note to frequency: f = 440 * 2^((note-69)/12)
+                rnd = 440.0f * std::pow(2.0f, (midiNote - 69) / 12.0f);
+                rnd = std::clamp(rnd, p->min_val, p->max_val);
+            } else {
+                rnd = frand(p->min_val, p->max_val);
+            }
+
             float v = cur + (rnd - cur) * amount01;
             setParameterValue(id, std::clamp(v, p->min_val, p->max_val));
             break;
@@ -1841,6 +1873,7 @@ float UI::getParameterValue(int id) {
         case 13: return static_cast<float>(params->getOscNoteSource(oscIndex));
         case 19: return static_cast<float>(params->getOscShape(oscIndex));
         case 11: return params->getOscFrequency(oscIndex);
+        case 16: return static_cast<float>(synth->getOscillatorOctave(oscIndex));
         case 12: return params->getOscMorph(oscIndex);
         case 14: return params->getOscRatio(oscIndex);
         case 15: return params->getOscOffset(oscIndex);
@@ -1961,6 +1994,7 @@ void UI::setParameterValue(int id, float value) {
         case 13: params->setOscNoteSource(oscIndex, static_cast<int>(value)); break;
         case 19: params->setOscShape(oscIndex, static_cast<int>(value)); break;
         case 11: params->setOscFrequency(oscIndex, value); break;
+        case 16: synth->setOscillatorOctave(oscIndex, static_cast<int>(value)); break;
         case 12: params->setOscMorph(oscIndex, value); break;
         case 14: params->setOscRatio(oscIndex, value); break;
         case 15: params->setOscOffset(oscIndex, value); break;
@@ -2466,6 +2500,7 @@ bool UI::isParameterModulated(int id) {
     switch (id) {
         // Oscillator parameters (ID 10-18) - need to map to correct osc based on currentOscillatorIndex
         case 19: // Shape - not modulatable
+        case 16: // Octave - not modulatable
             return false;
         case 11: // Frequency/Pitch
             modDestination = currentOscillatorIndex * 5 + 0;
