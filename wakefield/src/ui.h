@@ -1262,6 +1262,9 @@ public:
     // Returns true if a MIDI note was consumed to fill the frequency input (FREE mode)
     bool handleMidiNoteForFrequencyInput(int midiNote);
 
+    // Returns true if a MIDI note was consumed to fill the sampler tune input
+    bool handleMidiNoteForTuneInput(int midiNote);
+
     // Baseline reset to last loaded/saved preset values
     void resetToBaseline();
 

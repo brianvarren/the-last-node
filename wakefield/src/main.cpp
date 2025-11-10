@@ -266,6 +266,10 @@ void onNoteOn(int note, int velocity) {
     if (ui && ui->handleMidiNoteForFrequencyInput(note)) {
         return;
     }
+    // If the UI is waiting for a sampler tune input, consume this MIDI note
+    if (ui && ui->handleMidiNoteForTuneInput(note)) {
+        return;
+    }
     if (synth) {
         synth->noteOn(note, velocity);
     }

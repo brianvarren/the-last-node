@@ -64,6 +64,9 @@ public:
         const EuclideanPattern& rhythm
     );
 
+    // Redistribute notes to match new Euclidean pattern (preserves existing notes)
+    void redistributeToEuclidean(const EuclideanPattern& rhythm);
+
     // Mutation (slight variation of existing pattern)
     void mutate(float amount);  // 0.0-1.0 (how much to change)
 

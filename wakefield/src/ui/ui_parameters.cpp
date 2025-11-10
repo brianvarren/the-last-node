@@ -2450,6 +2450,31 @@ bool UI::handleMidiNoteForFrequencyInput(int midiNote) {
     return false;
 }
 
+bool UI::handleMidiNoteForTuneInput(int midiNote) {
+    // Only consume if we're in numeric input mode editing the sampler tune parameter (ID 65)
+    if (!numericInputActive || selectedParameterId != 65) {
+        return false;
+    }
+
+    // Clamp to valid MIDI range
+    int clamped = std::max(0, std::min(127, midiNote));
+
+    // Convert MIDI note to tune value relative to C4 (60)
+    // Tune range is -1.0 to +1.0, representing ±6 semitones
+    // C4 (60) = 0.0, F#4 (66) = +1.0, F#3 (54) = -1.0
+    float semitones = static_cast<float>(clamped - 60);
+    float tuneValue = std::clamp(semitones / 6.0f, -1.0f, 1.0f);
+
+    // Format tune value with appropriate precision
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << tuneValue;
+    numericInputBuffer = oss.str();
+
+    // Immediately apply the value
+    finishNumericInput();
+    return true;
+}
+
 void UI::startMidiLearn(int id) {
     InlineParameter* param = getParameter(id);
     if (param && param->supports_midi_learn) {

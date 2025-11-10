@@ -94,6 +94,65 @@ void Pattern::regenerateUnlocked(
     }
 }
 
+void Pattern::redistributeToEuclidean(const EuclideanPattern& rhythm) {
+    // Collect existing active unlocked notes with their data
+    struct SavedNote {
+        int originalStep;
+        PatternStep data;
+    };
+    std::vector<SavedNote> savedNotes;
+
+    for (int step = 0; step < length; ++step) {
+        if (!steps[step].locked && steps[step].active) {
+            savedNotes.push_back({step, steps[step]});
+        }
+    }
+
+    // Get new trigger positions from Euclidean pattern
+    std::vector<int> newTriggers;
+    for (int step = 0; step < length; ++step) {
+        if (rhythm.getTrigger(step)) {
+            newTriggers.push_back(step);
+        }
+    }
+
+    // Clear all unlocked steps first
+    for (int step = 0; step < length; ++step) {
+        if (!steps[step].locked) {
+            steps[step].active = false;
+        }
+    }
+
+    // Map saved notes to new trigger positions
+    // Strategy: For each saved note, find the closest trigger position
+    std::vector<bool> triggerUsed(newTriggers.size(), false);
+
+    for (const auto& saved : savedNotes) {
+        // Find closest available trigger
+        int bestTriggerIdx = -1;
+        int bestDistance = length + 1;
+
+        for (size_t i = 0; i < newTriggers.size(); ++i) {
+            if (triggerUsed[i]) continue;
+
+            int distance = std::abs(newTriggers[i] - saved.originalStep);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestTriggerIdx = static_cast<int>(i);
+            }
+        }
+
+        if (bestTriggerIdx >= 0) {
+            int targetStep = newTriggers[bestTriggerIdx];
+            if (!steps[targetStep].locked) {
+                steps[targetStep] = saved.data;
+                steps[targetStep].active = true;
+                triggerUsed[bestTriggerIdx] = true;
+            }
+        }
+    }
+}
+
 void Pattern::mutate(float amount) {
     // Mutate unlocked steps slightly
     amount = std::clamp(amount, 0.0f, 1.0f);

@@ -193,7 +193,8 @@ void UI::adjustSequencerInfoField(int infoIndex, int direction, bool fine) {
         case SequencerInfoField::EUCLID_HITS: {
             int hits = std::clamp(euclidean.getHits() + direction, 0, euclidean.getSteps());
             euclidean.setHits(hits);
-            sequencer->regenerateUnlocked();
+            euclidean.generate();  // Regenerate Euclidean pattern with new hits
+            pattern.redistributeToEuclidean(euclidean);  // Redistribute existing notes
             break;
         }
         case SequencerInfoField::EUCLID_STEPS: {
