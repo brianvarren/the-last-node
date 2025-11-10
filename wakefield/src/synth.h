@@ -400,7 +400,7 @@ public:
 
     // Sampler pitch parameters (octave and tune)
     int samplerOctaves[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};     // -5 to +5
-    float samplerTunes[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};  // -1.0 to +1.0 (±6 semitones)
+    float samplerTunes[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};  // -60.0 to +67.0 semitones (full MIDI range relative to C4)
 
     // Sampler sync and note reset parameters
     int samplerSyncModes[SAMPLERS_PER_VOICE] = {0, 0, 0, 0};  // 0=Off, 1=On, 2=Trip, 3=Dot

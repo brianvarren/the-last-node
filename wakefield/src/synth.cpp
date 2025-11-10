@@ -2097,8 +2097,8 @@ void Synth::setSamplerOctave(int samplerIndex, int octave) {
     samplerOctaves[samplerIndex] = std::max(-5, std::min(5, octave));
 
     // Recalculate and update playback speed
-    // Formula: 2^(octave + tune * 0.5)
-    float speed = std::pow(2.0f, samplerOctaves[samplerIndex] + samplerTunes[samplerIndex] * 0.5f);
+    // Formula: 2^(octave + tune/12) where tune is in semitones
+    float speed = std::pow(2.0f, samplerOctaves[samplerIndex] + samplerTunes[samplerIndex] / 12.0f);
     setSamplerPlaybackSpeed(samplerIndex, speed);
 }
 
@@ -2107,12 +2107,12 @@ void Synth::setSamplerTune(int samplerIndex, float tune) {
         return;
     }
 
-    // Clamp tune to -1.0 to +1.0
-    samplerTunes[samplerIndex] = std::max(-1.0f, std::min(1.0f, tune));
+    // Clamp tune to full MIDI range (-60 to +67 semitones relative to C4)
+    samplerTunes[samplerIndex] = std::max(-60.0f, std::min(67.0f, tune));
 
     // Recalculate and update playback speed
-    // Formula: 2^(octave + tune * 0.5)
-    float speed = std::pow(2.0f, samplerOctaves[samplerIndex] + samplerTunes[samplerIndex] * 0.5f);
+    // Formula: 2^(octave + tune/12) where tune is in semitones
+    float speed = std::pow(2.0f, samplerOctaves[samplerIndex] + samplerTunes[samplerIndex] / 12.0f);
     setSamplerPlaybackSpeed(samplerIndex, speed);
 }
 

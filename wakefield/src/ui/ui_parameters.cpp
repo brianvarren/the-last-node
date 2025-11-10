@@ -164,7 +164,7 @@ void UI::initializeParameters() {
     parameters.push_back({62, ParamType::FLOAT, "Loop Length", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
     parameters.push_back({63, ParamType::FLOAT, "Xfade", "%", 0.0f, 100.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
     parameters.push_back({64, ParamType::INT, "Octave", "", -5, 5, {}, true, static_cast<int>(UIPage::SAMPLER), true});
-    parameters.push_back({65, ParamType::FLOAT, "Tune", "", -1.0f, 1.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
+    parameters.push_back({65, ParamType::FLOAT, "Tune", "st", -60.0f, 67.0f, {}, true, static_cast<int>(UIPage::SAMPLER), true});
     parameters.push_back({66, ParamType::ENUM, "Sync", "", 0, 3, {"Off", "On", "Trip", "Dot"}, true, static_cast<int>(UIPage::SAMPLER), true});
     parameters.push_back({67, ParamType::BOOL, "Note Reset", "", 0, 1, {}, true, static_cast<int>(UIPage::SAMPLER), true});
 
@@ -2459,15 +2459,14 @@ bool UI::handleMidiNoteForTuneInput(int midiNote) {
     // Clamp to valid MIDI range
     int clamped = std::max(0, std::min(127, midiNote));
 
-    // Convert MIDI note to tune value relative to C4 (60)
-    // Tune range is -1.0 to +1.0, representing ±6 semitones
-    // C4 (60) = 0.0, F#4 (66) = +1.0, F#3 (54) = -1.0
-    float semitones = static_cast<float>(clamped - 60);
-    float tuneValue = std::clamp(semitones / 6.0f, -1.0f, 1.0f);
+    // Convert MIDI note to tune value in semitones relative to C4 (60)
+    // Tune range is -60.0 to +67.0 semitones (full MIDI keyboard)
+    // C4 (60) = 0.0 st, C0 (0) = -60.0 st, G10 (127) = +67.0 st
+    float tuneValue = static_cast<float>(clamped - 60);
 
     // Format tune value with appropriate precision
     std::ostringstream oss;
-    oss << std::fixed << std::setprecision(2) << tuneValue;
+    oss << std::fixed << std::setprecision(1) << tuneValue;
     numericInputBuffer = oss.str();
 
     // Immediately apply the value
