@@ -223,6 +223,19 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         voice.samplerLevelMod[2] = modOutputs.samp3Amp;
         voice.samplerLevelMod[3] = modOutputs.samp4Amp;
 
+        // Calculate linear interpolation increments for critical modulation
+        // This eliminates block-rate zipper noise
+        float blockSize = static_cast<float>(std::max(1u, nFrames));
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            voice.pitchModIncrement[i] = (voice.pitchMod[i] - voice.smoothedPitchMod[i]) / blockSize;
+            voice.ampModIncrement[i] = (voice.ampMod[i] - voice.smoothedAmpMod[i]) / blockSize;
+            voice.oscLevelIncrement[i] = (voice.cachedOscLevel[i] - voice.smoothedOscLevel[i]) / blockSize;
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            voice.samplerPitchModIncrement[i] = (voice.samplerPitchMod[i] - voice.smoothedSamplerPitchMod[i]) / blockSize;
+            voice.samplerLevelModIncrement[i] = (voice.samplerLevelMod[i] - voice.smoothedSamplerLevelMod[i]) / blockSize;
+        }
+
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             if (samplerPhaseSource[i] != kClockModSourceIndex) {
                 voice.samplerPhaseDriver[i] = normalizePhaseForDriver(modOutputs.samplerPhase[i], samplerPhaseType[i]);

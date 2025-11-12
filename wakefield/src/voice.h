@@ -62,14 +62,20 @@ struct Voice {
 
     // Cached sampler level modulation (non-critical)
     float cachedSamplerLevelMod[SAMPLERS_PER_VOICE];
-    
+
     // Buffer size for audio-rate interpolation (set per buffer)
     unsigned int currentBufferSize;
 
-    // One-pole smoothing coefficient (alpha) for pitch/amp/level modulation
-    // NOTE: Envelopes use linear interpolation instead (see envelopeIncrements)
-    // alpha = 0.1 settles in ~20 samples @ 48kHz (~0.4ms)
-    // Smaller alpha = slower/smoother, Larger alpha = faster/choppier
+    // Linear interpolation increments for critical modulation (per-sample deltas)
+    float pitchModIncrement[OSCILLATORS_PER_VOICE];
+    float ampModIncrement[OSCILLATORS_PER_VOICE];
+    float oscLevelIncrement[OSCILLATORS_PER_VOICE];
+    float samplerPitchModIncrement[SAMPLERS_PER_VOICE];
+    float samplerLevelModIncrement[SAMPLERS_PER_VOICE];
+
+    // One-pole smoothing coefficient (alpha) - DEPRECATED, now using linear interpolation
+    // NOTE: All critical modulation (envelopes, pitch, amp, level) use linear interpolation
+    // Kept for reference only
     static constexpr float kSmoothingAlpha = 0.1f;
     static constexpr float kAmpGateSmoothingAlpha = 0.05f;
     static constexpr float kAmpGateSilenceThreshold = 1e-4f;

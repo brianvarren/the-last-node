@@ -60,6 +60,10 @@ void Voice::forceSilence() {
         smoothedAmpMod[i] = 0.0f;
         cachedOscLevel[i] = 0.0f;
         smoothedOscLevel[i] = 0.0f;
+        // Increments for linear interpolation
+        pitchModIncrement[i] = 0.0f;
+        ampModIncrement[i] = 0.0f;
+        oscLevelIncrement[i] = 0.0f;
         morphMod[i] = 0.0f;
         // Non-critical (direct)
         ratioMod[i] = 0.0f;
@@ -71,6 +75,9 @@ void Voice::forceSilence() {
         smoothedSamplerPitchMod[i] = 0.0f;
         samplerLevelMod[i] = 0.0f;
         smoothedSamplerLevelMod[i] = 0.0f;
+        // Increments for linear interpolation
+        samplerPitchModIncrement[i] = 0.0f;
+        samplerLevelModIncrement[i] = 0.0f;
         // Non-critical (direct)
         samplerLoopStartMod[i] = 0.0f;
         samplerLoopLengthMod[i] = 0.0f;
@@ -202,26 +209,26 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
-    constexpr float alpha = kSmoothingAlpha;
 #ifdef ENABLE_VOICE_PROFILING
     VOICE_PROFILE_START(t_smoothing);
 #endif
 
+    // Linear interpolation for all critical modulation (eliminates block-rate zipper noise)
     if (!restrictSamplers) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            smoothedPitchMod[i] += alpha * (pitchMod[i] - smoothedPitchMod[i]);
-            smoothedAmpMod[i] += alpha * (ampMod[i] - smoothedAmpMod[i]);
-            smoothedOscLevel[i] += alpha * (cachedOscLevel[i] - smoothedOscLevel[i]);
+            smoothedPitchMod[i] += pitchModIncrement[i];
+            smoothedAmpMod[i] += ampModIncrement[i];
+            smoothedOscLevel[i] += oscLevelIncrement[i];
         }
     }
     if (!restrictOscillators) {
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            smoothedSamplerPitchMod[i] += alpha * (samplerPitchMod[i] - smoothedSamplerPitchMod[i]);
-            smoothedSamplerLevelMod[i] += alpha * (samplerLevelMod[i] - smoothedSamplerLevelMod[i]);
+            smoothedSamplerPitchMod[i] += samplerPitchModIncrement[i];
+            smoothedSamplerLevelMod[i] += samplerLevelModIncrement[i];
         }
     }
 
-    // Linear interpolation for envelopes (better than one-pole for variable stage durations)
+    // Linear interpolation for envelopes
     for (int i = 0; i < 4; ++i) {
         envelopeValues[i] += envelopeIncrements[i];
     }
