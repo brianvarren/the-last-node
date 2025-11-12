@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cwchar>
+#include <sstream>
+#include <iomanip>
 
 namespace UIUtils {
 
@@ -353,9 +355,23 @@ bool parseRootText(const std::string& text, int& rootOut) {
 // Subdivision helpers
 
 std::string subdivisionToString(Subdivision subdiv) {
-    int denom = static_cast<int>(subdiv);
-    if (denom <= 0) denom = 4;
-    return "1/" + std::to_string(denom);
+    // Subdivision is now a tempo multiplier (float)
+    // 4.0 = 1/16 (4x faster), 1.0 = 1/4 (baseline), 0.25 = whole (4x slower)
+    // Convert multiplier to traditional note name for display
+    float mult = subdiv;
+    int noteDenom = static_cast<int>(std::round(4.0f / mult));
+    if (noteDenom <= 0) noteDenom = 4;
+
+    // Format multiplier cleanly (remove trailing zeros)
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << mult;
+    std::string multStr = oss.str();
+    // Remove trailing zeros after decimal point
+    multStr.erase(multStr.find_last_not_of('0') + 1, std::string::npos);
+    if (multStr.back() == '.') multStr.pop_back();
+
+    // Display as traditional fraction with multiplier
+    return "1/" + std::to_string(noteDenom) + " (×" + multStr + ")";
 }
 
 bool parseSubdivisionText(const std::string& text, Subdivision& outSubdiv) {
