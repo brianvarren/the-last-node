@@ -324,10 +324,10 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
 
 void UI::drawModPage() {
     // Columns (left-to-right): Slot | Destination | Source | Curve | Amount | Type | Result
-    // Tight widths for Slot/Curve/Amount/Type to maximize space for Destination/Source
+    // Adjusted layout: moved columns left and shrunk Source to prevent Result from wrapping
     static const char* headers[] = {"Slot", "Destination", "Source", "Map", "Amt", "Type", "Result"};
-    static const int headerCols[] = {2, 8, 44, 69, 73, 78, 82};
-    static const int colWidths[]  = {4, 34, 23, 3, 4, 3, 6};
+    static const int headerCols[] = {2, 8, 40, 60, 64, 69, 73};
+    static const int colWidths[]  = {4, 30, 18, 3, 4, 3, 6};
     constexpr int slotCount = 16;
     constexpr int columnCount = 6;  // Destination..Result
 
@@ -350,7 +350,7 @@ void UI::drawModPage() {
         attroff(COLOR_SECTION_HEADER);
     }
     row++;
-    mvhline(row, 2, '-', 88);
+    mvhline(row, 2, '-', 77);
     row += 2;
 
     for (int slot = 0; slot < slotCount; ++slot) {

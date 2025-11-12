@@ -44,6 +44,8 @@ private:
     float sampleRate;
     EnvelopeStage stage;
     float level;
+    float smoothedLevel;  // Audio-rate smoothed output (prevents block-rate zipper noise)
+    float smoothCoeff;    // One-pole lowpass smoothing coefficient
     // 0..1 linear time progress through current stage
     float stageProgress;
 
