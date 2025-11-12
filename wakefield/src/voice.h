@@ -66,9 +66,9 @@ struct Voice {
     // Buffer size for audio-rate interpolation (set per buffer)
     unsigned int currentBufferSize;
 
-    // One-pole smoothing coefficient (alpha)
+    // One-pole smoothing coefficient (alpha) for pitch/amp/level modulation
+    // NOTE: Envelopes use linear interpolation instead (see envelopeIncrements)
     // alpha = 0.1 settles in ~20 samples @ 48kHz (~0.4ms)
-    // Increased from 0.02 to better track block-rate envelope updates
     // Smaller alpha = slower/smoother, Larger alpha = faster/choppier
     static constexpr float kSmoothingAlpha = 0.1f;
     static constexpr float kAmpGateSmoothingAlpha = 0.05f;
@@ -85,6 +85,7 @@ struct Voice {
     bool cachedChaosSolo[4]{};
 
     float envelopeTargets[4]{};
+    float envelopeIncrements[4]{};  // Per-sample increments for linear interpolation
     float oscAmpControllerValue[OSCILLATORS_PER_VOICE]{};
     bool oscAmpControllerActive[OSCILLATORS_PER_VOICE]{};
     float samplerAmpControllerValue[SAMPLERS_PER_VOICE]{};

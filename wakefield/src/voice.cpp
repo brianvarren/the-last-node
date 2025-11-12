@@ -32,6 +32,7 @@ void Voice::forceSilence() {
         envelopes[i].reset();
         envelopeValues[i] = 0.0f;
         envelopeTargets[i] = 0.0f;
+        envelopeIncrements[i] = 0.0f;
     }
     cachedAnySolo = false;
     cachedActiveOscCount = OSCILLATORS_PER_VOICE;
@@ -83,6 +84,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     if (!active) {
         for (int i = 0; i < 4; ++i) {
             envelopeValues[i] = 0.0f;
+            envelopeIncrements[i] = 0.0f;
         }
         return 0.0f;
     }
@@ -161,7 +163,10 @@ float Voice::generateSample(unsigned int frameIndex) {
 
         unsigned int blockSize = std::max(1u, currentBufferSize);
         for (int i = 0; i < 4; ++i) {
-            envelopeTargets[i] = envelopes[i].processBlock(blockSize);
+            float newTarget = envelopes[i].processBlock(blockSize);
+            // Calculate per-sample increment for linear interpolation
+            envelopeIncrements[i] = (newTarget - envelopeValues[i]) / static_cast<float>(blockSize);
+            envelopeTargets[i] = newTarget;
         }
     }
 
@@ -187,6 +192,7 @@ float Voice::generateSample(unsigned int frameIndex) {
             for (int i = 0; i < 4; ++i) {
                 envelopeValues[i] = 0.0f;
                 envelopeTargets[i] = 0.0f;
+                envelopeIncrements[i] = 0.0f;
             }
             resetFMHistory();
             resetAmpControllers();
@@ -215,8 +221,9 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
+    // Linear interpolation for envelopes (better than one-pole for variable stage durations)
     for (int i = 0; i < 4; ++i) {
-        envelopeValues[i] += alpha * (envelopeTargets[i] - envelopeValues[i]);
+        envelopeValues[i] += envelopeIncrements[i];
     }
 
 #ifdef ENABLE_VOICE_PROFILING
