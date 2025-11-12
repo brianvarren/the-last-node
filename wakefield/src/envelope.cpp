@@ -6,7 +6,6 @@ Envelope::Envelope(float sampleRate)
     : sampleRate(sampleRate)
     , stage(EnvelopeStage::OFF)
     , level(0.0f)
-    , smoothedLevel(0.0f)
     , stageProgress(0.0f)
     , attackTime(0.01f)      // 10ms default attack
     , decayTime(0.1f)        // 100ms default decay
@@ -19,12 +18,6 @@ Envelope::Envelope(float sampleRate)
     , releaseRate(0.0f)
     , attackStartLevel(0.0f)
     , releaseStartLevel(0.0f) {
-    // Calculate smoothing coefficient for ~1ms time constant
-    // smoothCoeff = e^(-1 / (timeConstant * sampleRate))
-    // For 1ms at 48kHz: e^(-1 / 48) ≈ 0.979
-    float timeConstantMs = 1.0f;
-    smoothCoeff = std::exp(-1.0f / (timeConstantMs * 0.001f * sampleRate));
-
     // Initialize rates and bend tables once
     calculateRates();
     rebuildBendTables();
@@ -119,7 +112,6 @@ void Envelope::noteOn(bool fromCurrentLevel) {
     } else {
         attackStartLevel = 0.0f;
         level = 0.0f;
-        smoothedLevel = 0.0f;  // Reset smoothing for hard retrigger
     }
     stageProgress = 0.0f;
     // Recalculate rates to apply any parameter changes that occurred during previous stages
@@ -143,7 +135,6 @@ void Envelope::noteOff() {
 void Envelope::reset() {
     stage = EnvelopeStage::OFF;
     level = 0.0f;
-    smoothedLevel = 0.0f;
     stageProgress = 0.0f;
     attackStartLevel = 0.0f;
     releaseStartLevel = 0.0f;
@@ -203,13 +194,7 @@ float Envelope::process() {
 
     // Denormal guard
     if (std::fabs(level) < 1e-12f) level = 0.0f;
-
-    // Apply audio-rate smoothing to prevent block-rate zipper noise
-    // One-pole lowpass: smoothedLevel = smoothedLevel * coeff + level * (1 - coeff)
-    smoothedLevel = smoothedLevel * smoothCoeff + level * (1.0f - smoothCoeff);
-    if (std::fabs(smoothedLevel) < 1e-12f) smoothedLevel = 0.0f;
-
-    return smoothedLevel;
+    return level;
 }
 
 float Envelope::processBlock(unsigned int samples) {
@@ -336,11 +321,5 @@ float Envelope::processBlock(unsigned int samples) {
     if (std::fabs(level) < 1e-12f) {
         level = 0.0f;
     }
-
-    // Apply audio-rate smoothing to prevent block-rate zipper noise
-    // One-pole lowpass: smoothedLevel = smoothedLevel * coeff + level * (1 - coeff)
-    smoothedLevel = smoothedLevel * smoothCoeff + level * (1.0f - smoothCoeff);
-    if (std::fabs(smoothedLevel) < 1e-12f) smoothedLevel = 0.0f;
-
-    return smoothedLevel;
+    return level;
 }

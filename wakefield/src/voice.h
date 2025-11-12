@@ -67,9 +67,10 @@ struct Voice {
     unsigned int currentBufferSize;
 
     // One-pole smoothing coefficient (alpha)
-    // alpha = 0.02 settles in ~100 samples @ 48kHz (~2ms)
+    // alpha = 0.1 settles in ~20 samples @ 48kHz (~0.4ms)
+    // Increased from 0.02 to better track block-rate envelope updates
     // Smaller alpha = slower/smoother, Larger alpha = faster/choppier
-    static constexpr float kSmoothingAlpha = 0.02f;
+    static constexpr float kSmoothingAlpha = 0.1f;
     static constexpr float kAmpGateSmoothingAlpha = 0.05f;
     static constexpr float kAmpGateSilenceThreshold = 1e-4f;
 
