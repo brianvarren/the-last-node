@@ -10,11 +10,11 @@ void UI::startModMatrixMenu() {
 
     ModulationSlot& slot = modulationSlots[modMatrixCursorRow];
 
-    // New-connection workflow defaults: Linear / 99 / -->, start at Destination picker
+    // New-connection workflow defaults: Linear / 0 / -->, start at Destination picker
     bool isNew = (slot.source == -1 && slot.curve == -1 && slot.destination == -1 && slot.type == -1);
     if (isNew) {
         slot.curve = 0;   // Linear
-        slot.amount = 99; // Default depth
+        slot.amount = 0;  // Default depth (start at zero)
         slot.type = 0;    // Unidirectional (-->)
         modMatrixMenuColumn = 0; // Force Destination first
         modMatrixCursorCol = 0;

@@ -10,7 +10,7 @@
 // A single track in the sequencer (independent pattern + constraints)
 class Track {
 public:
-    Track(int trackId, int patternLength = 16, Subdivision subdivision = Subdivision::SIXTEENTH);
+    Track(int trackId, int patternLength = 16, Subdivision subdivision = Subdivisions::SIXTEENTH);
 
     // Track identification
     int getId() const { return id; }

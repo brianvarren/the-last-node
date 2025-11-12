@@ -15,7 +15,7 @@ Sequencer::Sequencer(Clock* clockSource, Synth* synth)
 
     // Create 4 tracks by default
     for (int i = 0; i < 4; ++i) {
-        tracks.emplace_back(i, 16, Subdivision::SIXTEENTH);
+        tracks.emplace_back(i, 16, Subdivisions::SIXTEENTH);
         lastTriggeredStep.push_back(-1);
         currentSteps.push_back(0);
         trackPhaseDrivers.push_back(PhaseDriver::CLOCK);
@@ -231,29 +231,37 @@ void Sequencer::process(unsigned int nFrames) {
         Track& track = tracks[trackIdx];
         Pattern& pattern = track.getPattern();
         Subdivision subdiv = pattern.getResolution();
+        int patternLength = pattern.getLength();
 
-        int stepIndex;
-        if (clock->checkStepTrigger(nFrames, subdiv, stepIndex)) {
-            int patternLength = pattern.getLength();
-            if (patternLength <= 0) {
-                continue;
-            }
+        if (patternLength <= 0) {
+            continue;
+        }
 
-            int trackStep = 0;
-            if (trackPhaseDrivers[trackIdx] == PhaseDriver::CLOCK) {
+        int trackStep = 0;
+        bool shouldCheckTrigger = false;
+
+        if (trackPhaseDrivers[trackIdx] == PhaseDriver::CLOCK) {
+            // Clock-driven: only check at clock trigger points
+            int stepIndex;
+            if (clock->checkStepTrigger(nFrames, subdiv, stepIndex)) {
                 trackStep = stepIndex % patternLength;
-            } else {
-                float driverValue = modOutputs.sequencerPhase[trackIdx];
-                float normalized = std::clamp((driverValue + 1.0f) * 0.5f, 0.0f, 1.0f);
-                trackStep = static_cast<int>(normalized * patternLength);
-                if (trackStep >= patternLength) {
-                    trackStep = patternLength - 1;
-                }
-                if (trackStep < 0) {
-                    trackStep = 0;
-                }
+                shouldCheckTrigger = true;
             }
+        } else {
+            // Modulation-driven: check phase every block (block-rate polling)
+            float driverValue = modOutputs.sequencerPhase[trackIdx];
+            float normalized = std::clamp((driverValue + 1.0f) * 0.5f, 0.0f, 1.0f);
+            trackStep = static_cast<int>(normalized * patternLength);
+            if (trackStep >= patternLength) {
+                trackStep = patternLength - 1;
+            }
+            if (trackStep < 0) {
+                trackStep = 0;
+            }
+            shouldCheckTrigger = true;  // Always check for modulation-driven tracks
+        }
 
+        if (shouldCheckTrigger) {
             currentSteps[trackIdx] = trackStep;
 
             if (trackStep != lastTriggeredStep[trackIdx]) {

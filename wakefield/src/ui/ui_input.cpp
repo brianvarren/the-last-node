@@ -652,6 +652,9 @@ void UI::handleInput(int ch) {
                     startModMatrixMenu();
                 }
                 return;
+            case KEY_BACKSPACE:
+            case 127:  // DEL
+            case KEY_DC:  // Delete key
             case 'x':
             case 'X':
                 // Clear the current modulation slot

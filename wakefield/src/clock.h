@@ -4,16 +4,26 @@
 #include <cstdint>
 #include <cmath>
 
-// Musical subdivisions
-enum class Subdivision {
-    WHOLE = 1,
-    HALF = 2,
-    QUARTER = 4,
-    EIGHTH = 8,
-    SIXTEENTH = 16,
-    THIRTYSECOND = 32,
-    SIXTYFOURTH = 64
-};
+// Tempo multiplier (replaces old subdivision enum)
+// Multiplier relative to quarter note:
+//   4.0 = 1/16 note (4x faster than quarter)
+//   2.0 = 1/8 note (2x faster)
+//   1.0 = 1/4 note (quarter note, baseline)
+//   0.5 = 1/2 note (half as fast)
+//   0.25 = whole note (quarter as fast)
+//   Supports fractional values for unconventional subdivisions
+using Subdivision = float;
+
+// Common subdivision constants
+namespace Subdivisions {
+    constexpr Subdivision WHOLE = 0.25f;
+    constexpr Subdivision HALF = 0.5f;
+    constexpr Subdivision QUARTER = 1.0f;
+    constexpr Subdivision EIGHTH = 2.0f;
+    constexpr Subdivision SIXTEENTH = 4.0f;
+    constexpr Subdivision THIRTYSECOND = 8.0f;
+    constexpr Subdivision SIXTYFOURTH = 16.0f;
+}
 
 class Clock {
 public:
@@ -57,10 +67,9 @@ public:
 
 private:
     float sampleRate;
-    double tempo;                  // BPM (20-300)
+    double tempo;                  // BPM (0.1-999)
     double samplesPerBeat;         // Samples in one quarter note
     uint64_t sampleCounter;        // Global sample position
-    uint64_t lastStepSample[7];    // Last trigger sample for each subdivision
 
     bool playing;
     bool loopEnabled;
@@ -69,14 +78,6 @@ private:
     int loopStartStep;
     int loopEndStep;
     Subdivision loopSubdivision;
-
-    // Helper to convert subdivision enum to integer
-    int subdivisionToInt(Subdivision subdiv) const {
-        return static_cast<int>(subdiv);
-    }
-
-    // Helper to get subdivision index (for array access)
-    int getSubdivIndex(Subdivision subdiv) const;
 };
 
 #endif // CLOCK_H

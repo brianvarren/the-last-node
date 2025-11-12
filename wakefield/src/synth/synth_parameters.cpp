@@ -232,13 +232,19 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     } else if (sourceIndex >= 4 && sourceIndex <= 7) {
         // ENV 1-4 (per-voice)
         int envIdx = sourceIndex - 4; // 0..3
+
+        if (voiceContext) {
+            // Per-voice modulation: always return the envelope value
+            // The activeEnvCount optimization only applies to global modulation
+            return voiceContext->getEnvelopeValue(envIdx);
+        }
+
+        // Global modulation (no voice context): check activeEnvCount
         if (params) {
             int activeEnv = std::clamp(params->activeEnvCount.load(), 1, 4);
             if (envIdx >= activeEnv) return 0.0f;
         }
-        if (voiceContext) {
-            return voiceContext->getEnvelopeValue(envIdx);
-        }
+
         // Fallback: max of active voices for this envelope index
         float maxEnv = 0.0f;
         for (int i = MAX_VOICES - 1; i >= 0; --i) {
@@ -284,7 +290,7 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     } else if (sourceIndex == 13) {
         // Clock
         if (clock) {
-            float phase = static_cast<float>(clock->getPhase(Subdivision::SIXTEENTH));
+            float phase = static_cast<float>(clock->getPhase(Subdivisions::SIXTEENTH));
             return phase * 2.0f - 1.0f;
         }
         return -1.0f;
@@ -402,19 +408,19 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
         // 10-14: OSC 3 Pitch/Morph/Ratio/Offset/Amp
         // 15-19: OSC 4 Pitch/Morph/Ratio/Offset/Amp
         // 20-26: Filter Cutoff/Resonance/Drive/Width/NotchFeedback/Spread/DryWet
-        // 27-28: Reverb Mix/Size
-        // 29-48: SAMP 1-4 Pitch/LoopStart/LoopLength/Crossfade/Level
-        // 49-60: LFO 1-4 Rate/Morph/Duty
-        // 61: Mixer Master Volume
-        // 62-65: Mixer Oscillator Levels
-        // 66-69: Mixer Sampler Levels
-        // 70-73: Sequencer Track 1-4 Phase Drivers
-        // 74-77: Sampler 1-4 Phase Drivers
-        // 78: FM Global Depth
-        // 83- (83 + kFMTargetCount*kFMSourceCount - 1): Individual FM depths
+        // 27-34: Reverb Mix/Size/DelayTime/Damping/Decay/Diffusion/ModDepth/ModFreq
+        // 35-54: SAMP 1-4 Pitch/LoopStart/LoopLength/Crossfade/Level
+        // 55-66: LFO 1-4 Rate/Morph/Duty
+        // 67: Mixer Master Volume
+        // 68-71: Mixer Oscillator Levels
+        // 72-75: Mixer Sampler Levels
+        // 76-79: Sequencer Track 1-4 Phase Drivers
+        // 80-83: Sampler 1-4 Phase Drivers
+        // 84: FM Global Depth
+        // 85- (85 + kFMTargetCount*kFMSourceCount - 1): Individual FM depths
         // Remaining: Chaos parameters (Clock/U/Level)
 
-        const int fmGlobalIndex = 78;
+        const int fmGlobalIndex = 84;
         const int fmCellStart = fmGlobalIndex + 1;
         const int fmCellEnd = fmCellStart + kFMTargetCount * kFMSourceCount;
         const int chaosBase = fmCellEnd;
@@ -524,12 +530,18 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             // Reverb
             case 27: outputs.reverbMix += modValue; break;
             case 28: outputs.reverbSize += modValue; break;
+            case 29: outputs.reverbDelayTime += modValue; break;
+            case 30: outputs.reverbDamping += modValue; break;
+            case 31: outputs.reverbDecay += modValue; break;
+            case 32: outputs.reverbDiffusion += modValue; break;
+            case 33: outputs.reverbModDepth += modValue; break;
+            case 34: outputs.reverbModFreq += modValue; break;
             // SAMP 1
-            case 29: outputs.samp1Pitch += modValue; break;
-            case 30: outputs.samp1LoopStart += modValue; break;
-            case 31: outputs.samp1LoopLength += modValue; break;
-            case 32: outputs.samp1Crossfade += modValue; break;
-            case 33:
+            case 35: outputs.samp1Pitch += modValue; break;
+            case 36: outputs.samp1LoopStart += modValue; break;
+            case 37: outputs.samp1LoopLength += modValue; break;
+            case 38: outputs.samp1Crossfade += modValue; break;
+            case 39:
                 if (slot.source >= 4 && slot.source <= 7) {
                     if (!voiceContext) continue;
                     outputs.samplerAmpControllerActive[0] = true;
@@ -539,11 +551,11 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
                 outputs.samp1Amp += adjustAmpMod(modValue);
                 break;
             // SAMP 2
-            case 34: outputs.samp2Pitch += modValue; break;
-            case 35: outputs.samp2LoopStart += modValue; break;
-            case 36: outputs.samp2LoopLength += modValue; break;
-            case 37: outputs.samp2Crossfade += modValue; break;
-            case 38:
+            case 40: outputs.samp2Pitch += modValue; break;
+            case 41: outputs.samp2LoopStart += modValue; break;
+            case 42: outputs.samp2LoopLength += modValue; break;
+            case 43: outputs.samp2Crossfade += modValue; break;
+            case 44:
                 if (slot.source >= 4 && slot.source <= 7) {
                     if (!voiceContext) continue;
                     outputs.samplerAmpControllerActive[1] = true;
@@ -553,11 +565,11 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
                 outputs.samp2Amp += adjustAmpMod(modValue);
                 break;
             // SAMP 3
-            case 39: outputs.samp3Pitch += modValue; break;
-            case 40: outputs.samp3LoopStart += modValue; break;
-            case 41: outputs.samp3LoopLength += modValue; break;
-            case 42: outputs.samp3Crossfade += modValue; break;
-            case 43:
+            case 45: outputs.samp3Pitch += modValue; break;
+            case 46: outputs.samp3LoopStart += modValue; break;
+            case 47: outputs.samp3LoopLength += modValue; break;
+            case 48: outputs.samp3Crossfade += modValue; break;
+            case 49:
                 if (slot.source >= 4 && slot.source <= 7) {
                     if (!voiceContext) continue;
                     outputs.samplerAmpControllerActive[2] = true;
@@ -567,11 +579,11 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
                 outputs.samp3Amp += adjustAmpMod(modValue);
                 break;
             // SAMP 4
-            case 44: outputs.samp4Pitch += modValue; break;
-            case 45: outputs.samp4LoopStart += modValue; break;
-            case 46: outputs.samp4LoopLength += modValue; break;
-            case 47: outputs.samp4Crossfade += modValue; break;
-            case 48:
+            case 50: outputs.samp4Pitch += modValue; break;
+            case 51: outputs.samp4LoopStart += modValue; break;
+            case 52: outputs.samp4LoopLength += modValue; break;
+            case 53: outputs.samp4Crossfade += modValue; break;
+            case 54:
                 if (slot.source >= 4 && slot.source <= 7) {
                     if (!voiceContext) continue;
                     outputs.samplerAmpControllerActive[3] = true;
@@ -581,41 +593,41 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
                 outputs.samp4Amp += adjustAmpMod(modValue);
                 break;
             // LFO 1
-            case 49: outputs.lfoPeriod[0] += modValue; break;
-            case 50: outputs.lfoMorph[0] += modValue; break;
-            case 51: outputs.lfoDuty[0] += modValue; break;
+            case 55: outputs.lfoPeriod[0] += modValue; break;
+            case 56: outputs.lfoMorph[0] += modValue; break;
+            case 57: outputs.lfoDuty[0] += modValue; break;
             // LFO 2
-            case 52: outputs.lfoPeriod[1] += modValue; break;
-            case 53: outputs.lfoMorph[1] += modValue; break;
-            case 54: outputs.lfoDuty[1] += modValue; break;
+            case 58: outputs.lfoPeriod[1] += modValue; break;
+            case 59: outputs.lfoMorph[1] += modValue; break;
+            case 60: outputs.lfoDuty[1] += modValue; break;
             // LFO 3
-            case 55: outputs.lfoPeriod[2] += modValue; break;
-            case 56: outputs.lfoMorph[2] += modValue; break;
-            case 57: outputs.lfoDuty[2] += modValue; break;
+            case 61: outputs.lfoPeriod[2] += modValue; break;
+            case 62: outputs.lfoMorph[2] += modValue; break;
+            case 63: outputs.lfoDuty[2] += modValue; break;
             // LFO 4
-            case 58: outputs.lfoPeriod[3] += modValue; break;
-            case 59: outputs.lfoMorph[3] += modValue; break;
-            case 60: outputs.lfoDuty[3] += modValue; break;
+            case 64: outputs.lfoPeriod[3] += modValue; break;
+            case 65: outputs.lfoMorph[3] += modValue; break;
+            case 66: outputs.lfoDuty[3] += modValue; break;
             // Mixer
-            case 61: outputs.mixerMasterVolume += modValue; break;
-            case 62: outputs.mixerOscLevel[0] += modValue; break;
-            case 63: outputs.mixerOscLevel[1] += modValue; break;
-            case 64: outputs.mixerOscLevel[2] += modValue; break;
-            case 65: outputs.mixerOscLevel[3] += modValue; break;
-            case 66: outputs.mixerSamplerLevel[0] += modValue; break;
-            case 67: outputs.mixerSamplerLevel[1] += modValue; break;
-            case 68: outputs.mixerSamplerLevel[2] += modValue; break;
-            case 69: outputs.mixerSamplerLevel[3] += modValue; break;
+            case 67: outputs.mixerMasterVolume += modValue; break;
+            case 68: outputs.mixerOscLevel[0] += modValue; break;
+            case 69: outputs.mixerOscLevel[1] += modValue; break;
+            case 70: outputs.mixerOscLevel[2] += modValue; break;
+            case 71: outputs.mixerOscLevel[3] += modValue; break;
+            case 72: outputs.mixerSamplerLevel[0] += modValue; break;
+            case 73: outputs.mixerSamplerLevel[1] += modValue; break;
+            case 74: outputs.mixerSamplerLevel[2] += modValue; break;
+            case 75: outputs.mixerSamplerLevel[3] += modValue; break;
             // Sequencer phase drivers
-            case 70: outputs.sequencerPhase[0] += modValue; break;
-            case 71: outputs.sequencerPhase[1] += modValue; break;
-            case 72: outputs.sequencerPhase[2] += modValue; break;
-            case 73: outputs.sequencerPhase[3] += modValue; break;
+            case 76: outputs.sequencerPhase[0] += modValue; break;
+            case 77: outputs.sequencerPhase[1] += modValue; break;
+            case 78: outputs.sequencerPhase[2] += modValue; break;
+            case 79: outputs.sequencerPhase[3] += modValue; break;
             // Sampler phase drivers
-            case 74: outputs.samplerPhase[0] += modValue; break;
-            case 75: outputs.samplerPhase[1] += modValue; break;
-            case 76: outputs.samplerPhase[2] += modValue; break;
-            case 77: outputs.samplerPhase[3] += modValue; break;
+            case 80: outputs.samplerPhase[0] += modValue; break;
+            case 81: outputs.samplerPhase[1] += modValue; break;
+            case 82: outputs.samplerPhase[2] += modValue; break;
+            case 83: outputs.samplerPhase[3] += modValue; break;
         }
     }
 

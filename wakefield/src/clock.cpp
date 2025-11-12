@@ -10,22 +10,14 @@ Clock::Clock(float sampleRate)
     , externalSync(false)
     , loopStartStep(0)
     , loopEndStep(16)
-    , loopSubdivision(Subdivision::SIXTEENTH)
+    , loopSubdivision(Subdivisions::SIXTEENTH)
 {
-    // Initialize samples per beat
+    // Initialize samples per beat (quarter note baseline)
     samplesPerBeat = (60.0 / tempo) * sampleRate;
-
-    // Initialize last step samples
-    for (int i = 0; i < 7; ++i) {
-        lastStepSample[i] = 0;
-    }
 }
 
 void Clock::reset() {
     sampleCounter = 0;
-    for (int i = 0; i < 7; ++i) {
-        lastStepSample[i] = 0;
-    }
 }
 
 void Clock::setTempo(double bpm) {
@@ -41,24 +33,13 @@ void Clock::advance(unsigned int nFrames) {
     sampleCounter += nFrames;
 }
 
-int Clock::getSubdivIndex(Subdivision subdiv) const {
-    // Map subdivision to array index (0-6)
-    switch (subdiv) {
-        case Subdivision::WHOLE: return 0;
-        case Subdivision::HALF: return 1;
-        case Subdivision::QUARTER: return 2;
-        case Subdivision::EIGHTH: return 3;
-        case Subdivision::SIXTEENTH: return 4;
-        case Subdivision::THIRTYSECOND: return 5;
-        case Subdivision::SIXTYFOURTH: return 6;
-    }
-    return 2; // Default to quarter note
-}
-
 double Clock::getSamplesPerStep(Subdivision subdiv) const {
-    // Quarter note = 1 beat
-    // Whole = 4 beats, Half = 2 beats, Eighth = 0.5 beats, etc.
-    double beatsPerStep = 4.0 / subdivisionToInt(subdiv);
+    // Subdivision is a tempo multiplier relative to quarter note:
+    //   4.0 = 1/16 note (4x faster) = 0.25 beats per step
+    //   1.0 = 1/4 note (baseline) = 1.0 beats per step
+    //   0.25 = whole note (0.25x) = 4.0 beats per step
+    // beatsPerStep = 1.0 / subdivisionMultiplier
+    double beatsPerStep = 1.0 / subdiv;
     return samplesPerBeat * beatsPerStep;
 }
 
@@ -67,7 +48,6 @@ bool Clock::checkStepTrigger(unsigned int nFrames, Subdivision subdiv, int& step
         return false;
     }
 
-    int idx = getSubdivIndex(subdiv);
     double samplesPerStep = getSamplesPerStep(subdiv);
 
     uint64_t oldSample = sampleCounter - nFrames;
@@ -80,7 +60,6 @@ bool Clock::checkStepTrigger(unsigned int nFrames, Subdivision subdiv, int& step
     // Did we cross a step boundary?
     if (newStep > oldStep) {
         stepIndex = newStep;
-        lastStepSample[idx] = newStep * samplesPerStep;
 
         // Handle looping
         if (loopEnabled && subdiv == loopSubdivision) {

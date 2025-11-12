@@ -27,7 +27,11 @@ void Envelope::setAttack(float seconds) {
     float newAttack = std::max(0.001f, seconds);  // Minimum 1ms
     if (std::fabs(newAttack - attackTime) > 1e-6f) {
         attackTime = newAttack;
-        calculateRates();
+        // Only update attack rate if we're not currently in the attack stage
+        // This prevents zipper noise from mid-envelope parameter changes
+        if (stage != EnvelopeStage::ATTACK) {
+            attackRate = 1.0f / (attackTime * sampleRate);
+        }
     }
 }
 
@@ -35,7 +39,10 @@ void Envelope::setDecay(float seconds) {
     float newDecay = std::max(0.001f, seconds);
     if (std::fabs(newDecay - decayTime) > 1e-6f) {
         decayTime = newDecay;
-        calculateRates();
+        // Only update decay rate if we're not currently in the decay stage
+        if (stage != EnvelopeStage::DECAY) {
+            decayRate = 1.0f / (decayTime * sampleRate);
+        }
     }
 }
 
@@ -47,7 +54,10 @@ void Envelope::setRelease(float seconds) {
     float newRelease = std::max(0.001f, seconds);
     if (std::fabs(newRelease - releaseTime) > 1e-6f) {
         releaseTime = newRelease;
-        calculateRates();
+        // Only update release rate if we're not currently in the release stage
+        if (stage != EnvelopeStage::RELEASE) {
+            releaseRate = 1.0f / (releaseTime * sampleRate);
+        }
     }
 }
 
@@ -104,6 +114,8 @@ void Envelope::noteOn(bool fromCurrentLevel) {
         level = 0.0f;
     }
     stageProgress = 0.0f;
+    // Recalculate rates to apply any parameter changes that occurred during previous stages
+    calculateRates();
 }
 
 void Envelope::noteOff() {
@@ -111,6 +123,8 @@ void Envelope::noteOff() {
     stage = EnvelopeStage::RELEASE;
     releaseStartLevel = level;
     stageProgress = 0.0f;
+    // Recalculate release rate to apply any parameter changes
+    releaseRate = 1.0f / (releaseTime * sampleRate);
     if (releaseRate >= 1.0f) {
         // Instant release
         level = 0.0f;
@@ -138,6 +152,8 @@ float Envelope::process() {
                 level = 1.0f;
                 stage = EnvelopeStage::DECAY;
                 stageProgress = 0.0f;
+                // Update decay rate when transitioning to decay stage
+                decayRate = 1.0f / (decayTime * sampleRate);
             } else {
                 float bent = lookupAttack(stageProgress);
                 level = attackStartLevel + (1.0f - attackStartLevel) * bent;
@@ -200,6 +216,8 @@ float Envelope::processBlock(unsigned int samples) {
                     level = 1.0f;
                     stage = EnvelopeStage::DECAY;
                     stageProgress = 0.0f;
+                    // Update decay rate when transitioning to decay stage
+                    decayRate = 1.0f / (decayTime * sampleRate);
                     continue;
                 }
 
@@ -219,6 +237,8 @@ float Envelope::processBlock(unsigned int samples) {
                     level = 1.0f;
                     stage = EnvelopeStage::DECAY;
                     stageProgress = 0.0f;
+                    // Update decay rate when transitioning to decay stage
+                    decayRate = 1.0f / (decayTime * sampleRate);
                     remaining -= consumed;
                     continue;
                 }

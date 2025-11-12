@@ -144,9 +144,11 @@ private:
 
     // Helper functions
     void calculateLoopBoundaries(const SampleData* sample, float startMod, float lengthMod,
-                                float sampleRate, float tempo, int syncMode);
+                                float sampleRate, float tempo, int syncMode,
+                                float pitchMod, int midiNote);
     void ensurePendingLoop(const SampleData* sample, float startMod, float lengthMod,
-                          float sampleRate, float tempo, int syncMode);
+                          float sampleRate, float tempo, int syncMode,
+                          float pitchMod, int midiNote);
     void applyPendingLoopToVoice(SamplerVoice* voice);
     bool wrapPhase(SamplerVoice* voice) const;
     int16_t getSample(const SampleData* sample, const SamplerVoice* voice, bool isReverse) const;

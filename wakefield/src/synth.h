@@ -137,6 +137,12 @@ public:
         float filterDryWet = 0.0f;
         float reverbMix = 0.0f;
         float reverbSize = 0.0f;
+        float reverbDelayTime = 0.0f;
+        float reverbDamping = 0.0f;
+        float reverbDecay = 0.0f;
+        float reverbDiffusion = 0.0f;
+        float reverbModDepth = 0.0f;
+        float reverbModFreq = 0.0f;
         // Sampler 1 modulation
         float samp1Pitch = 0.0f;
         float samp1LoopStart = 0.0f;
@@ -188,6 +194,7 @@ public:
     float getModulationSource(int sourceIndex, const Voice* voiceContext = nullptr);
 
     int getActiveVoiceCount() const;
+    const ModulationOutputs& getLastGlobalModOutputs() const { return lastGlobalModOutputs; }
 
     // Voice envelope debugging
     bool isVoiceActive(int voiceIndex) const;

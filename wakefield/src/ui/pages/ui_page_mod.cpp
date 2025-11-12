@@ -1,10 +1,86 @@
 #include "../../ui.h"
 #include "../ui_mod_data.h"
+#include "../../synth.h"
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <iomanip>
 
 namespace {
+
+// Helper function to get modulation output value for a specific destination
+float getModOutputForDestination(int destination, const Synth::ModulationOutputs& modOutputs) {
+    // Map destination indices to modulation output fields
+    // Based on the destination mapping in synth_parameters.cpp
+    if (destination >= 0 && destination <= 3) {
+        // OSC 1 Pitch/Morph/Ratio/Offset
+        const float* values[] = {&modOutputs.osc1Pitch, &modOutputs.osc1Morph, &modOutputs.osc1Ratio, &modOutputs.osc1Offset};
+        return *values[destination];
+    } else if (destination == 4) {
+        return modOutputs.osc1Amp;
+    } else if (destination >= 5 && destination <= 9) {
+        // OSC 2
+        const float* values[] = {&modOutputs.osc2Pitch, &modOutputs.osc2Morph, &modOutputs.osc2Ratio, &modOutputs.osc2Offset, &modOutputs.osc2Amp};
+        return *values[destination - 5];
+    } else if (destination >= 10 && destination <= 14) {
+        // OSC 3
+        const float* values[] = {&modOutputs.osc3Pitch, &modOutputs.osc3Morph, &modOutputs.osc3Ratio, &modOutputs.osc3Offset, &modOutputs.osc3Amp};
+        return *values[destination - 10];
+    } else if (destination >= 15 && destination <= 19) {
+        // OSC 4
+        const float* values[] = {&modOutputs.osc4Pitch, &modOutputs.osc4Morph, &modOutputs.osc4Ratio, &modOutputs.osc4Offset, &modOutputs.osc4Amp};
+        return *values[destination - 15];
+    } else if (destination >= 20 && destination <= 26) {
+        // Filter
+        const float* values[] = {&modOutputs.filterCutoff, &modOutputs.filterResonance, &modOutputs.filterDrive,
+                                  &modOutputs.filterWidth, &modOutputs.filterNotchFeedback, &modOutputs.filterSpread, &modOutputs.filterDryWet};
+        return *values[destination - 20];
+    } else if (destination >= 27 && destination <= 34) {
+        // Reverb
+        const float* values[] = {&modOutputs.reverbMix, &modOutputs.reverbSize, &modOutputs.reverbDelayTime,
+                                  &modOutputs.reverbDamping, &modOutputs.reverbDecay, &modOutputs.reverbDiffusion,
+                                  &modOutputs.reverbModDepth, &modOutputs.reverbModFreq};
+        return *values[destination - 27];
+    } else if (destination >= 35 && destination <= 39) {
+        // SAMP 1
+        const float* values[] = {&modOutputs.samp1Pitch, &modOutputs.samp1LoopStart, &modOutputs.samp1LoopLength,
+                                  &modOutputs.samp1Crossfade, &modOutputs.samp1Amp};
+        return *values[destination - 35];
+    } else if (destination >= 40 && destination <= 44) {
+        // SAMP 2
+        const float* values[] = {&modOutputs.samp2Pitch, &modOutputs.samp2LoopStart, &modOutputs.samp2LoopLength,
+                                  &modOutputs.samp2Crossfade, &modOutputs.samp2Amp};
+        return *values[destination - 40];
+    } else if (destination >= 45 && destination <= 49) {
+        // SAMP 3
+        const float* values[] = {&modOutputs.samp3Pitch, &modOutputs.samp3LoopStart, &modOutputs.samp3LoopLength,
+                                  &modOutputs.samp3Crossfade, &modOutputs.samp3Amp};
+        return *values[destination - 45];
+    } else if (destination >= 50 && destination <= 54) {
+        // SAMP 4
+        const float* values[] = {&modOutputs.samp4Pitch, &modOutputs.samp4LoopStart, &modOutputs.samp4LoopLength,
+                                  &modOutputs.samp4Crossfade, &modOutputs.samp4Amp};
+        return *values[destination - 50];
+    } else if (destination >= 55 && destination <= 66) {
+        // LFOs (4 LFOs * 3 params)
+        int lfoIndex = (destination - 55) / 3;
+        int paramIndex = (destination - 55) % 3;
+        const float* params[] = {&modOutputs.lfoPeriod[lfoIndex], &modOutputs.lfoMorph[lfoIndex], &modOutputs.lfoDuty[lfoIndex]};
+        return *params[paramIndex];
+    } else if (destination == 67) {
+        return modOutputs.mixerMasterVolume;
+    } else if (destination >= 68 && destination <= 71) {
+        return modOutputs.mixerOscLevel[destination - 68];
+    } else if (destination >= 72 && destination <= 75) {
+        return modOutputs.mixerSamplerLevel[destination - 72];
+    } else if (destination >= 76 && destination <= 79) {
+        return modOutputs.sequencerPhase[destination - 76];
+    } else if (destination >= 80 && destination <= 83) {
+        return modOutputs.samplerPhase[destination - 80];
+    }
+    return 0.0f;
+}
 
 struct SelectionHighlight {
     int moduleIndex = -1;
@@ -247,13 +323,13 @@ void drawDestinationPicker(const std::vector<ModDestinationModule>& modules,
 } // namespace
 
 void UI::drawModPage() {
-    // Columns (left-to-right): Slot | Destination | Source | Curve | Amount | Type
+    // Columns (left-to-right): Slot | Destination | Source | Curve | Amount | Type | Result
     // Tight widths for Slot/Curve/Amount/Type to maximize space for Destination/Source
-    static const char* headers[] = {"Slot", "Destination", "Source", "Map", "Amt", "Type"};
-    static const int headerCols[] = {2, 8, 44, 69, 73, 78};
-    static const int colWidths[]  = {4, 34, 23, 3, 4, 3};
+    static const char* headers[] = {"Slot", "Destination", "Source", "Map", "Amt", "Type", "Result"};
+    static const int headerCols[] = {2, 8, 44, 69, 73, 78, 82};
+    static const int colWidths[]  = {4, 34, 23, 3, 4, 3, 6};
     constexpr int slotCount = 16;
-    constexpr int columnCount = 5;  // Destination..Type
+    constexpr int columnCount = 6;  // Destination..Result
 
     const auto& sources = getModSourceOptions();
     const auto& curves = getModCurveOptions();
@@ -268,13 +344,13 @@ void UI::drawModPage() {
     attroff(COLOR_PAGE_TITLE | A_BOLD);
     row += 2;
 
-    for (int h = 0; h < 6; ++h) {
+    for (int h = 0; h < 7; ++h) {
         attron(COLOR_SECTION_HEADER);
         mvprintw(row, headerCols[h], "%s", headers[h]);
         attroff(COLOR_SECTION_HEADER);
     }
     row++;
-    mvhline(row, 2, '-', 78);
+    mvhline(row, 2, '-', 88);
     row += 2;
 
     for (int slot = 0; slot < slotCount; ++slot) {
@@ -309,6 +385,17 @@ void UI::drawModPage() {
                         ? std::to_string(static_cast<int>(modSlot.amount)) : "--";
         cellValues[4] = (modSlot.type >= 0 && modSlot.type < static_cast<int>(types.size()))
                         ? types[modSlot.type].symbol : "--";
+
+        // Calculate and display the resultant modulation value
+        if (modSlot.isComplete() && synth) {
+            const Synth::ModulationOutputs& modOutputs = synth->getLastGlobalModOutputs();
+            float resultValue = getModOutputForDestination(modSlot.destination, modOutputs);
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(2) << resultValue;
+            cellValues[5] = oss.str();
+        } else {
+            cellValues[5] = "--";
+        }
 
         bool locked = modSlotLocked[slot];
         for (int col = 0; col < columnCount; ++col) {

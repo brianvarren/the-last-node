@@ -600,6 +600,29 @@ void Synth::effectsThreadFunc() {
 
         // Apply reverb if enabled (stereo processing)
         if (reverbEnabled && nChannels == 2) {
+            // Apply modulation to reverb parameters
+            // The base parameters are set via updateReverbParameters(), modulation is applied on top
+            if (params) {
+                float baseMix = params->reverbMix.load();
+                float baseSize = params->reverbSize.load();
+                float baseDelayTime = params->reverbDelayTime.load();
+                float baseDamping = params->reverbDamping.load();
+                float baseDecay = params->reverbDecay.load();
+                float baseDiffusion = params->reverbDiffusion.load();
+                float baseModDepth = params->reverbModDepth.load();
+                float baseModFreq = params->reverbModFreq.load();
+
+                // Apply modulation (clamped to valid ranges)
+                reverb.setMix(std::clamp(baseMix + lastGlobalModOutputs.reverbMix, 0.0f, 1.0f));
+                reverb.setSize(std::clamp(baseSize + lastGlobalModOutputs.reverbSize, 0.0f, 1.0f));
+                reverb.setDelayTime(std::clamp(baseDelayTime + lastGlobalModOutputs.reverbDelayTime, 0.0f, 1.0f));
+                reverb.setDamping(std::clamp(baseDamping + lastGlobalModOutputs.reverbDamping, 0.0f, 1.0f));
+                reverb.setDecay(std::clamp(baseDecay + lastGlobalModOutputs.reverbDecay, 0.0f, 1.0f));
+                reverb.setDiffusion(std::clamp(baseDiffusion + lastGlobalModOutputs.reverbDiffusion, 0.0f, 1.0f));
+                reverb.setModDepth(std::clamp(baseModDepth + lastGlobalModOutputs.reverbModDepth, 0.0f, 1.0f));
+                reverb.setModFreq(std::clamp(baseModFreq + lastGlobalModOutputs.reverbModFreq, 0.0f, 10.0f));
+            }
+
             std::vector<float> leftChannel(nFrames);
             std::vector<float> rightChannel(nFrames);
 

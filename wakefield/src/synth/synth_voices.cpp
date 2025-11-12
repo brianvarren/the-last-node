@@ -147,6 +147,13 @@ void Synth::noteOn(int midiNote, int velocity) {
     for (int ei = 0; ei < 4; ++ei) {
         voice.envelopes[ei].noteOn(isStealingVoice);
     }
+
+    // Reset LFOs if resetOnNote is enabled
+    for (int li = 0; li < 4; ++li) {
+        if (lfos[li].getResetOnNote()) {
+            lfos[li].reset();
+        }
+    }
     voice.ampGateTarget = 1.0f;
     if (!isStealingVoice) {
         voice.ampGateValue = 0.0f;

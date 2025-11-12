@@ -743,7 +743,7 @@ void UI::randomizeAllParameters(float amount01) {
             pattern.setLength(newLen);
 
             // Subdivision: pick among typical values
-            const Subdivision subdivs[4] = {Subdivision::EIGHTH, Subdivision::SIXTEENTH, Subdivision::THIRTYSECOND, Subdivision::QUARTER};
+            const Subdivision subdivs[4] = {Subdivisions::EIGHTH, Subdivisions::SIXTEENTH, Subdivisions::THIRTYSECOND, Subdivisions::QUARTER};
             track.setSubdivision(subdivs[rand() % 4]);
 
             // Euclidean

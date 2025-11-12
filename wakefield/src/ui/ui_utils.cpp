@@ -27,13 +27,13 @@ extern const std::vector<Scale> kScaleOrder = {
 
 // Subdivision order
 extern const std::vector<Subdivision> kSubdivisionOrder = {
-    Subdivision::WHOLE,
-    Subdivision::HALF,
-    Subdivision::QUARTER,
-    Subdivision::EIGHTH,
-    Subdivision::SIXTEENTH,
-    Subdivision::THIRTYSECOND,
-    Subdivision::SIXTYFOURTH
+    Subdivisions::WHOLE,
+    Subdivisions::HALF,
+    Subdivisions::QUARTER,
+    Subdivisions::EIGHTH,
+    Subdivisions::SIXTEENTH,
+    Subdivisions::THIRTYSECOND,
+    Subdivisions::SIXTYFOURTH
 };
 
 // UTF-8 / Wide string functions
@@ -384,13 +384,13 @@ bool parseSubdivisionText(const std::string& text, Subdivision& outSubdiv) {
     }
 
     switch (denom) {
-        case 1: outSubdiv = Subdivision::WHOLE; return true;
-        case 2: outSubdiv = Subdivision::HALF; return true;
-        case 4: outSubdiv = Subdivision::QUARTER; return true;
-        case 8: outSubdiv = Subdivision::EIGHTH; return true;
-        case 16: outSubdiv = Subdivision::SIXTEENTH; return true;
-        case 32: outSubdiv = Subdivision::THIRTYSECOND; return true;
-        case 64: outSubdiv = Subdivision::SIXTYFOURTH; return true;
+        case 1: outSubdiv = Subdivisions::WHOLE; return true;
+        case 2: outSubdiv = Subdivisions::HALF; return true;
+        case 4: outSubdiv = Subdivisions::QUARTER; return true;
+        case 8: outSubdiv = Subdivisions::EIGHTH; return true;
+        case 16: outSubdiv = Subdivisions::SIXTEENTH; return true;
+        case 32: outSubdiv = Subdivisions::THIRTYSECOND; return true;
+        case 64: outSubdiv = Subdivisions::SIXTYFOURTH; return true;
         default: break;
     }
     return false;

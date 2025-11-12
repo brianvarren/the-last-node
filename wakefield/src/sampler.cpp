@@ -301,7 +301,8 @@ const char* Sampler::getSampleName() const {
 }
 
 void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, float lengthMod,
-                                      float sampleRate, float tempo, int syncMode) {
+                                      float sampleRate, float tempo, int syncMode,
+                                      float pitchMod, int midiNote) {
     if (!sample || sample->sampleCount < MIN_LOOP_LENGTH) {
         pendingStart = 0;
         pendingEnd = 0;
@@ -322,10 +323,24 @@ void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, 
 
     // Tempo sync quantization
     if (syncMode > 0 && tempo > 0.1f && sampleRate > 0.0f) {
-        // Calculate samples per quarter note at source sample rate
-        // Use source rate since loop lengths are in source samples, not output samples
+        // Calculate samples per quarter note at OUTPUT sample rate
+        // This ensures the perceived loop time matches the tempo regardless of pitch
+        float samplesPerQuarterNote = (60.0f / tempo) * sampleRate;
+
+        // Calculate effective playback rate to account for pitch transposition
+        // This is the same calculation as in calculateIncrement
+        double pitchScale = 1.0;
+        if (keyMode) {
+            int clampedNote = std::clamp(midiNote, 0, 127);
+            pitchScale = MIDI_PITCH_TABLE[clampedNote];
+        }
+        pitchScale *= fastPow2(pitchMod);
+
+        // Adjust samples per quarter note by playback rate
+        // If playing faster (higher pitch), we need MORE source samples to match the tempo
         float sourceSampleRate = static_cast<float>(sample->sampleRate);
-        float samplesPerQuarterNote = (60.0f / tempo) * sourceSampleRate;
+        float effectiveRate = sourceSampleRate / sampleRate * static_cast<float>(pitchScale) * playbackSpeed;
+        float adjustedSamplesPerQuarterNote = samplesPerQuarterNote * effectiveRate;
 
         // Apply sync mode modifier
         float syncMultiplier = 1.0f;
@@ -341,8 +356,8 @@ void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, 
                 break;
         }
 
-        // Calculate quantized loop length in source samples
-        float quantizedLoopLength = samplesPerQuarterNote * syncMultiplier;
+        // Calculate quantized loop length in source samples (pitch-adjusted)
+        float quantizedLoopLength = adjustedSamplesPerQuarterNote * syncMultiplier;
 
         // Use user's loop length control as a multiplier (0.0-1.0 maps to 0.25x-4x tempo)
         // This allows user to select different subdivisions
@@ -371,8 +386,9 @@ void Sampler::calculateLoopBoundaries(const SampleData* sample, float startMod, 
 }
 
 void Sampler::ensurePendingLoop(const SampleData* sample, float startMod, float lengthMod,
-                                float sampleRate, float tempo, int syncMode) {
-    calculateLoopBoundaries(sample, startMod, lengthMod, sampleRate, tempo, syncMode);
+                                float sampleRate, float tempo, int syncMode,
+                                float pitchMod, int midiNote) {
+    calculateLoopBoundaries(sample, startMod, lengthMod, sampleRate, tempo, syncMode, pitchMod, midiNote);
 }
 
 void Sampler::applyPendingLoopToVoice(SamplerVoice* voice) {
@@ -621,7 +637,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
     }
 
     if (restartRequested) {
-        ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode);
+        ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode, pitchMod, midiNote);
         crossfading = false;
         crossfadeSamplesRemaining = 0;
         crossfadeSamplesTotal = 0;
@@ -688,7 +704,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                                        xfadeLen, isReverse);
 
         if (inZone && !wasInZoneLastSample) {
-            ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode);
+            ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode, pitchMod, midiNote);
             setupCrossfade(xfadeLen, xfadeSamples, isReverse);
         }
         wasInZoneLastSample = inZone;
@@ -707,7 +723,7 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
             }
 
             if (xfadeLen == 0) {
-                ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode);
+                ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode, pitchMod, midiNote);
                 applyPendingLoopToVoice(primaryVoice);
             }
         }

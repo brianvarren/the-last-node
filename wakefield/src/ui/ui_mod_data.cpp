@@ -112,7 +112,9 @@ const std::vector<ModuleData>& buildDestinationModules() {
             {"Dry/Wet", "Flt:D/W"}
         }},
         {"Reverb", {
-            {"Mix", "Rvb:Mix"}, {"Size", "Rvb:Size"}
+            {"Mix", "Rvb:Mix"}, {"Size", "Rvb:Size"}, {"Delay Time", "Rvb:Dly"},
+            {"Damping", "Rvb:Dmp"}, {"Decay", "Rvb:Dec"}, {"Diffusion", "Rvb:Dif"},
+            {"Mod Depth", "Rvb:MdD"}, {"Mod Freq", "Rvb:MdF"}
         }},
         {"Sampler 1", {
             {"Pitch", "S1:Pitch"}, {"Loop Start", "S1:LpSt"}, {"Loop Length", "S1:LpLen"},

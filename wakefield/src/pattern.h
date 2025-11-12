@@ -37,7 +37,7 @@ struct PatternStep {
 
 class Pattern {
 public:
-    Pattern(int length = 16, Subdivision resolution = Subdivision::SIXTEENTH);
+    Pattern(int length = 16, Subdivision resolution = Subdivisions::SIXTEENTH);
 
     // Configuration
     void setLength(int len);

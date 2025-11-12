@@ -5,8 +5,8 @@
 
 constexpr int kModulationSlotCount = 16;
 constexpr int kClockModSourceIndex = 13;  // Clock source (was 12 before MIDI Note was added)
-constexpr int kClockTargetSequencerBase = 69;
-constexpr int kClockTargetSamplerBase = 73;
+constexpr int kClockTargetSequencerBase = 76;  // Was 69, shifted +6 for reverb params
+constexpr int kClockTargetSamplerBase = 80;    // Was 73, shifted +6 for reverb params
 
 // Modulation slot for the modulation matrix
 struct ModulationSlot {

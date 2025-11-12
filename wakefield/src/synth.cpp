@@ -1685,7 +1685,7 @@ float Synth::getModulationSource(int sourceIndex, const Voice* voiceContext) {
     } else if (sourceIndex == 13) {
         // Clock
         if (clock) {
-            float phase = static_cast<float>(clock->getPhase(Subdivision::SIXTEENTH));
+            float phase = static_cast<float>(clock->getPhase(Subdivisions::SIXTEENTH));
             return phase * 2.0f - 1.0f;
         }
         return -1.0f;
