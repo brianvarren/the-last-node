@@ -252,15 +252,6 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             voice.cachedSamplerLevelMod[i] = modOutputs.mixerSamplerLevel[i];
         }
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            voice.oscAmpControllerActive[i] = modOutputs.oscAmpControllerActive[i];
-            voice.oscAmpControllerValue[i] = std::clamp(modOutputs.oscAmpController[i], 0.0f, 1.0f);
-        }
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            voice.samplerAmpControllerActive[i] = modOutputs.samplerAmpControllerActive[i];
-            voice.samplerAmpControllerValue[i] = std::clamp(modOutputs.samplerAmpController[i], 0.0f, 1.0f);
-        }
-
         const float* oscFmPtr = fmRoutingActive ? perFrameOscFm.data() : nullptr;
         const float* samplerFmPtr = fmRoutingActive ? perFrameSamplerFm.data() : nullptr;
         voice.setGlobalFmInputs(oscFmPtr, samplerFmPtr);

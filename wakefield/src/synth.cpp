@@ -381,7 +381,6 @@ void Synth::noteOn(int midiNote, int velocity) {
             voice.samplers[i].stopPlayback();
         }
     }
-    voice.resetAmpControllers();
     voice.resetFMHistory();
 
     // Trigger envelope attack on all envelopes
@@ -486,7 +485,6 @@ void Synth::sequencerNoteOn(int trackIndex, int midiNote, int velocity, float ga
             voice.samplers[i].stopPlayback();
         }
     }
-    voice.resetAmpControllers();
     voice.resetFMHistory();
 
     for (int ei = 0; ei < 4; ++ei) {
@@ -860,15 +858,6 @@ void Synth::process(float* output, unsigned int nFrames, unsigned int nChannels,
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             voice.cachedSamplerLevelMod[i] = modOutputs.mixerSamplerLevel[i];
         }
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            voice.oscAmpControllerActive[i] = modOutputs.oscAmpControllerActive[i];
-            voice.oscAmpControllerValue[i] = std::clamp(modOutputs.oscAmpController[i], 0.0f, 1.0f);
-        }
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            voice.samplerAmpControllerActive[i] = modOutputs.samplerAmpControllerActive[i];
-            voice.samplerAmpControllerValue[i] = std::clamp(modOutputs.samplerAmpController[i], 0.0f, 1.0f);
-        }
-
         const float* oscFmPtr = fmRoutingActive ? perFrameOscFm.data() : nullptr;
         const float* samplerFmPtr = fmRoutingActive ? perFrameSamplerFm.data() : nullptr;
         voice.setGlobalFmInputs(oscFmPtr, samplerFmPtr);
@@ -1864,12 +1853,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 2: outputs.osc1Ratio += modValue; break;
             case 3: outputs.osc1Offset += modValue; break;
             case 4:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.oscAmpControllerActive[0] = true;
-                    outputs.oscAmpController[0] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.osc1Amp += adjustAmpMod(modValue);
                 break;
             // OSC 2
@@ -1878,12 +1861,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 7: outputs.osc2Ratio += modValue; break;
             case 8: outputs.osc2Offset += modValue; break;
             case 9:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.oscAmpControllerActive[1] = true;
-                    outputs.oscAmpController[1] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.osc2Amp += adjustAmpMod(modValue);
                 break;
             // OSC 3
@@ -1892,12 +1869,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 12: outputs.osc3Ratio += modValue; break;
             case 13: outputs.osc3Offset += modValue; break;
             case 14:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.oscAmpControllerActive[2] = true;
-                    outputs.oscAmpController[2] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.osc3Amp += adjustAmpMod(modValue);
                 break;
             // OSC 4
@@ -1906,12 +1877,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 17: outputs.osc4Ratio += modValue; break;
             case 18: outputs.osc4Offset += modValue; break;
             case 19:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.oscAmpControllerActive[3] = true;
-                    outputs.oscAmpController[3] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.osc4Amp += adjustAmpMod(modValue);
                 break;
             // Filter
@@ -1931,12 +1896,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 31: outputs.samp1LoopLength += modValue; break;
             case 32: outputs.samp1Crossfade += modValue; break;
             case 33:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.samplerAmpControllerActive[0] = true;
-                    outputs.samplerAmpController[0] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.samp1Amp += adjustAmpMod(modValue);
                 break;
             // SAMP 2
@@ -1945,12 +1904,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 36: outputs.samp2LoopLength += modValue; break;
             case 37: outputs.samp2Crossfade += modValue; break;
             case 38:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.samplerAmpControllerActive[1] = true;
-                    outputs.samplerAmpController[1] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.samp2Amp += adjustAmpMod(modValue);
                 break;
             // SAMP 3
@@ -1959,12 +1912,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 41: outputs.samp3LoopLength += modValue; break;
             case 42: outputs.samp3Crossfade += modValue; break;
             case 43:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.samplerAmpControllerActive[2] = true;
-                    outputs.samplerAmpController[2] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.samp3Amp += adjustAmpMod(modValue);
                 break;
             // SAMP 4
@@ -1973,12 +1920,6 @@ Synth::ModulationOutputs Synth::processModulationMatrix(const Voice* voiceContex
             case 46: outputs.samp4LoopLength += modValue; break;
             case 47: outputs.samp4Crossfade += modValue; break;
             case 48:
-                if (slot.source >= 4 && slot.source <= 7) {
-                    if (!voiceContext) continue;
-                    outputs.samplerAmpControllerActive[3] = true;
-                    outputs.samplerAmpController[3] = std::clamp(modValue, 0.0f, 1.0f);
-                    continue;
-                }
                 outputs.samp4Amp += adjustAmpMod(modValue);
                 break;
             // LFO 1

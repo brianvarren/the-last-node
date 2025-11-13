@@ -185,4 +185,5 @@ void UI::loadSampleForCurrentSampler(const std::string& filepath) {
                           filepath.substr(lastSlash + 1) : filepath;
 
     addConsoleMessage("Loaded: " + filename);
+    notifyAutosaveNeeded("sample_load");
 }

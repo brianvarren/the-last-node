@@ -1517,7 +1517,7 @@ void UI::applySerializedState(const std::string& data) {
     currentEnvelopeIndex = std::clamp(currentEnvelopeIndex, 0, 3);
     currentChaosIndex = std::clamp(currentChaosIndex, 0, 3);
     mainPageMixerChannel = std::clamp(mainPageMixerChannel, 0, 11);
-    mainPageActionIndex = std::clamp(mainPageActionIndex, 0, 7);
+    mainPageActionIndex = std::clamp(mainPageActionIndex, 0, kMainPageActionCount - 1);
     modMatrixCursorRow = std::clamp(modMatrixCursorRow, 0, kModulationSlotCount - 1);
     modMatrixCursorCol = std::clamp(modMatrixCursorCol, 0, kFMTargetCount - 1);
 
@@ -2188,6 +2188,8 @@ void UI::setParameterValue(int id, float value) {
     if (id >= 0 && id < SynthParameters::kMaxParamMap) {
         params->parameterCCPickedUp[id] = false;
     }
+
+    notifyAutosaveNeeded("param_change");
 }
 
 void UI::adjustParameter(int id, bool increase, bool fine) {

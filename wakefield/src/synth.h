@@ -126,8 +126,6 @@ public:
         float osc2Amp = 0.0f;  // Renamed from osc2Level
         float osc3Amp = 0.0f;  // Renamed from osc3Level
         float osc4Amp = 0.0f;  // Renamed from osc4Level
-        float oscAmpController[OSCILLATORS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-        bool oscAmpControllerActive[OSCILLATORS_PER_VOICE] = {false, false, false, false};
         float filterCutoff = 0.0f;
         float filterResonance = 0.0f;
         float filterDrive = 0.0f;
@@ -167,8 +165,6 @@ public:
         float samp4LoopLength = 0.0f;
         float samp4Crossfade = 0.0f;
         float samp4Amp = 0.0f;
-        float samplerAmpController[SAMPLERS_PER_VOICE] = {0.0f, 0.0f, 0.0f, 0.0f};
-        bool samplerAmpControllerActive[SAMPLERS_PER_VOICE] = {false, false, false, false};
         // LFO modulation
         float lfoPeriod[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float lfoMorph[4] = {0.0f, 0.0f, 0.0f, 0.0f};
