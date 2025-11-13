@@ -692,6 +692,7 @@ void UI::drawMainPage() {
     const char* actionLabels[] = {
         "Save Preset",
         "Load Preset",
+        "Load Autosave",
         "Global Randomize",
         "Global Mutate",
         "Random Amount",
@@ -711,7 +712,7 @@ void UI::drawMainPage() {
     row += 2;
 
     // Draw action buttons
-    const int actionCount = 14;
+    const int actionCount = kMainPageActionCount;
     for (int i = 0; i < actionCount; ++i) {
         bool selected = (i == mainPageActionIndex && mainPageFocusLeft);
 
@@ -724,39 +725,36 @@ void UI::drawMainPage() {
         }
 
         // Show percentages for Amount items
-        if (i == 4) {  // Random Amount
+        if (i == static_cast<int>(MainPageAction::RandomAmount)) {
             mvprintw(row, col + 20, "%.0f%%", globalRandomizePercentage);
         }
-        if (i == 5) {  // Mutate Amount
+        if (i == static_cast<int>(MainPageAction::MutateAmount)) {
             mvprintw(row, col + 20, "%.0f%%", globalMutatePercentage);
         }
 
-        // Show compressor state
-        if (i == 7) {  // Compressor
+        if (i == static_cast<int>(MainPageAction::CompressorToggle)) {
             const char* state = params->compressorEnabled.load() ? "ON" : "OFF";
             mvprintw(row, col + 20, "%s", state);
         }
 
-        // Show CPU monitor state
-        if (i == 8) {  // CPU Monitor
+        if (i == static_cast<int>(MainPageAction::CpuMonitorToggle)) {
             const char* state = cpuMonitor.isEnabled() ? "ON" : "OFF";
             mvprintw(row, col + 20, "%s", state);
         }
 
-        // Show instance counts for generator items
-        if (i == 9) {
+        if (i == static_cast<int>(MainPageAction::OscInstanceCount)) {
             mvprintw(row, col + 20, "%d", std::clamp(params->activeOscCount.load(), 1, 4));
         }
-        if (i == 10) {
+        if (i == static_cast<int>(MainPageAction::SampInstanceCount)) {
             mvprintw(row, col + 20, "%d", std::clamp(params->activeSamplerCount.load(), 1, 4));
         }
-        if (i == 11) {
+        if (i == static_cast<int>(MainPageAction::LfoInstanceCount)) {
             mvprintw(row, col + 20, "%d", std::clamp(params->activeLfoCount.load(), 1, 4));
         }
-        if (i == 12) {
+        if (i == static_cast<int>(MainPageAction::EnvInstanceCount)) {
             mvprintw(row, col + 20, "%d", std::clamp(params->activeEnvCount.load(), 1, 4));
         }
-        if (i == 13) {
+        if (i == static_cast<int>(MainPageAction::ChaosInstanceCount)) {
             mvprintw(row, col + 20, "%d", std::clamp(params->activeChaosCount.load(), 1, 4));
         }
 
@@ -1016,8 +1014,11 @@ void UI::drawMainPage() {
         attroff(COLOR_POPUP_BORDER | A_BOLD);
 
         // Title
+        const char* browserTitle = (presetBrowserMode == PresetBrowserMode::Autosaves)
+                                       ? "Load Autosave"
+                                       : "Load Preset";
         attron(COLOR_SECTION_HEADER | A_BOLD);
-        mvprintw(boxTop + 1, boxLeft + 2, "Load Preset");
+        mvprintw(boxTop + 1, boxLeft + 2, "%s", browserTitle);
         attroff(COLOR_SECTION_HEADER | A_BOLD);
 
         // List contents
@@ -1047,7 +1048,7 @@ void UI::drawMainPage() {
 
         // Instructions
         attron(COLOR_HINT);
-        mvprintw(boxTop + boxHeight - 2, boxLeft + 2, "Enter=Load  Esc/Q=Cancel");
+        mvprintw(boxTop + boxHeight - 2, boxLeft + 2, "Enter=Load  D=Delete  Esc/Q=Cancel");
         attroff(COLOR_HINT);
     }
 }

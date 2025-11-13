@@ -13,196 +13,55 @@ void UI::refreshPresetList() {
 void UI::loadPreset(const std::string& filename) {
     std::string baseDir = PresetManager::getPresetDirectory();
     std::string presetPath = baseDir + "/" + filename + ".txt";
+    loadPresetFromPath(presetPath, filename);
+}
 
-    // Load the combined preset file if present
-    std::ifstream pf(presetPath);
+void UI::loadPresetFromPath(const std::string& path, const std::string& displayName) {
+    pushAutosaveSuppression();
+
+    std::ifstream pf(path);
     std::string full;
     if (pf.good()) {
         std::stringstream ss; ss << pf.rdbuf();
         full = ss.str();
     }
 
-    // Always parse base INI via PresetManager (unknown lines/blocks are ignored)
-    PresetManager::loadPreset(filename, params);
+    if (!PresetManager::loadPresetFromPath(path, params)) {
+        addConsoleMessage("Failed to load preset: " + displayName);
+        popAutosaveSuppression();
+        return;
+    }
 
-    currentPresetName = filename;
+    currentPresetName = displayName;
     resetUndoHistory();
+    applyUnifiedPresetContent(full);
 
-    auto findBlock = [&](const char* beginTag, const char* endTag) -> std::string {
-        size_t b = full.find(beginTag);
-        size_t e = full.find(endTag);
-        if (b == std::string::npos || e == std::string::npos || e <= b) return {};
-        b += std::char_traits<char>::length(beginTag);
-        return full.substr(b, e - b);
-    };
-
-    // 1) UI state block
-    try {
-        std::string state = findBlock("#STATE_BEGIN\n", "#STATE_END");
-        if (!state.empty()) {
-            applySerializedState(state);
-        }
-    } catch (...) {}
-
-    // 2) Sequencer meta
-    if (sequencer) {
-        try {
-            std::string meta = findBlock("#SEQ_META_BEGIN\n", "#SEQ_META_END");
-            if (!meta.empty()) {
-                std::istringstream f(meta);
-                std::string line;
-                auto trim = [](std::string s){ size_t a=s.find_first_not_of(" \t\r\n"); size_t b=s.find_last_not_of(" \t\r\n"); if (a==std::string::npos) return std::string(); return s.substr(a,b-a+1); };
-                while (std::getline(f, line)) {
-                    if (line.empty() || line[0] == '#') continue;
-                    auto eq = line.find('='); if (eq == std::string::npos) continue;
-                    std::string key = trim(line.substr(0, eq));
-                    std::string val = trim(line.substr(eq + 1));
-                    if (key == "tempo") { try { sequencer->setTempo(std::stod(val)); } catch (...) {} continue; }
-                    if (key.rfind("t", 0) == 0 && key.size() > 2) {
-                        size_t dot = key.find('.'); if (dot == std::string::npos) continue;
-                        int tIdx = std::stoi(key.substr(1, dot - 1)); if (tIdx < 0 || tIdx >= 4) continue;
-                        std::string field = key.substr(dot + 1);
-                        auto& track = sequencer->getTrack(tIdx);
-                        auto& constraints = track.getConstraints();
-                        auto& euclid = track.getEuclideanPattern();
-                        try {
-                            if (field == "len") track.getPattern().setLength(std::stoi(val));
-                            else if (field == "subdiv") track.setSubdivision(static_cast<Subdivision>(std::stoi(val)));
-                            else if (field == "muted") track.setMuted(val == "1" || val == "true");
-                            else if (field == "solo") track.setSolo(val == "1" || val == "true");
-                            else if (field == "eu_hits") euclid.setHits(std::stoi(val));
-                            else if (field == "eu_steps") euclid.setSteps(std::stoi(val));
-                            else if (field == "eu_rot") euclid.setRotation(std::stoi(val));
-                            else if (field == "scale") constraints.setScale(static_cast<Scale>(std::stoi(val)));
-                            else if (field == "root") constraints.setRootNote(std::stoi(val));
-                            else if (field == "oct_min") constraints.setOctaveRange(std::stoi(val), constraints.getOctaveMax());
-                            else if (field == "oct_max") constraints.setOctaveRange(constraints.getOctaveMin(), std::stoi(val));
-                            else if (field == "density") constraints.setDensity(std::stof(val));
-                            else if (field == "max_interval") constraints.setMaxInterval(std::stoi(val));
-                            else if (field == "contour") constraints.setContour(static_cast<Contour>(std::stoi(val)));
-                            else if (field == "gravity") constraints.setGravityNote(std::stoi(val));
-                            else if (field == "phase_driver") sequencer->setTrackPhaseDriver(tIdx, static_cast<Sequencer::PhaseDriver>(std::stoi(val)));
-                        } catch (...) {}
-                    }
-                }
-            }
-        } catch (...) {}
-    }
-
-    // 3) Sequencer tracks CSV
-    auto loadTrackCsv = [&](int idx, const std::string& csv){
-        if (!sequencer || csv.empty()) return;
-        Pattern& pat = sequencer->getTrack(idx).getPattern();
-        std::istringstream f(csv);
-        std::string line;
-        std::getline(f, line); // header
-        int stepIndex = 0;
-        while (std::getline(f, line) && stepIndex < pat.getLength()) {
-            if (line.empty()) continue;
-            std::stringstream ss(line);
-            std::string token;
-            std::getline(ss, token, ','); // step
-            std::getline(ss, token, ','); pat.getStep(stepIndex).active = (token == "1");
-            std::getline(ss, token, ','); pat.getStep(stepIndex).locked = (token == "1");
-            std::getline(ss, token, ','); pat.getStep(stepIndex).midiNote = std::stoi(token);
-            std::getline(ss, token, ','); pat.getStep(stepIndex).velocity = std::stoi(token);
-            std::getline(ss, token, ','); pat.getStep(stepIndex).gateLength = std::stof(token);
-            std::getline(ss, token, ','); pat.getStep(stepIndex).probability = std::stof(token);
-            stepIndex++;
-        }
-    };
-    loadTrackCsv(0, findBlock("#SEQ_TRACK1_BEGIN\n", "#SEQ_TRACK1_END"));
-    loadTrackCsv(1, findBlock("#SEQ_TRACK2_BEGIN\n", "#SEQ_TRACK2_END"));
-    loadTrackCsv(2, findBlock("#SEQ_TRACK3_BEGIN\n", "#SEQ_TRACK3_END"));
-    loadTrackCsv(3, findBlock("#SEQ_TRACK4_BEGIN\n", "#SEQ_TRACK4_END"));
-
-    // 4) Samplers + sample_dir
-    if (synth) {
-        try {
-            std::string sblock = findBlock("#SAMPLERS_BEGIN\n", "#SAMPLERS_END");
-            if (!sblock.empty()) {
-                auto* bank = synth->getSampleBank();
-                std::istringstream f(sblock);
-                std::string line; std::string sampleDir;
-                auto trim = [](std::string s){ size_t a=s.find_first_not_of(" \t\r\n"); size_t b=s.find_last_not_of(" \t\r\n"); if (a==std::string::npos) return std::string(); return s.substr(a,b-a+1); };
-                while (std::getline(f, line)) {
-                    if (line.empty() || line[0] == '#') continue;
-                    auto eq = line.find('='); if (eq == std::string::npos) continue;
-                    std::string key = trim(line.substr(0, eq));
-                    std::string val = trim(line.substr(eq + 1));
-                    if (key == "sample_dir") { sampleDir = val; continue; }
-                    if (key.rfind("sampler", 0) == 0 && key.size() > 7) {
-                        int idx = std::stoi(key.substr(7)); if (idx < 0 || idx >= 4) continue;
-                        if (!val.empty() && bank) {
-                            int sidx = bank->findSampleByName(val.c_str());
-                            if (sidx < 0 && !sampleDir.empty()) {
-                                bank->loadSamplesFromDirectory(sampleDir.c_str());
-                                sidx = bank->findSampleByName(val.c_str());
-                            }
-                            if (sidx >= 0) synth->setSamplerSample(idx, sidx);
-                        }
-                    }
-                }
-                if (!sampleDir.empty()) setSampleDirectory(sampleDir);
-            }
-        } catch (...) {}
-    }
-
-    // Fallbacks: handle bundles/sidecars for legacy presets
-    if (full.empty()) {
-        // If no unified content read, try legacy bundle/sidecars
-        // (re-use previous legacy flow)
-        // If sidecars missing but bundle exists, import it first
-        std::ifstream stateCheck(baseDir + "/" + filename + ".state");
-        if (!stateCheck.good()) {
-            std::string bundle = baseDir + "/" + filename + ".wkbundle";
-            std::ifstream b(bundle);
-            if (b.good()) {
-                PresetManager::importPresetBundle(bundle);
-            }
-        }
-        // Load state
-        try {
-            std::ifstream f(baseDir + "/" + filename + ".state"); if (f.good()) { std::stringstream s; s << f.rdbuf(); applySerializedState(s.str()); }
-        } catch (...) {}
-        // Load patterns
-        if (sequencer) {
-            for (int t = 0; t < 4; ++t) {
-                std::string trackPath = baseDir + "/" + filename + "_track" + std::to_string(t+1) + ".csv";
-                try { sequencer->getTrack(t).getPattern().loadFromFile(trackPath); } catch (...) {}
-            }
-        }
-    }
-
-    // Capture baseline from unified content if present; otherwise build from current state
     if (!full.empty()) {
         baselinePresetContent = full;
         baselineAvailable = true;
     } else {
-        baselinePresetContent = buildUnifiedPresetContent(filename);
+        baselinePresetContent = buildUnifiedPresetContent(displayName);
         baselineAvailable = true;
     }
+
+    popAutosaveSuppression();
+    notifyAutosaveNeeded("preset_load");
 }
 
 void UI::savePreset(const std::string& filename) {
-    // Build a single, unified preset file
     const std::string baseDir = PresetManager::getPresetDirectory();
     const std::string presetPath = baseDir + "/" + filename + ".txt";
 
-    std::string content = buildUnifiedPresetContent(filename);
-    // Write unified file
-    try {
-        std::ofstream f(presetPath);
-        if (f.is_open()) {
-            f << content;
-        }
-    } catch (...) {}
+    std::string cachedContent;
+    if (!writeUnifiedPresetToPath(presetPath, filename, &cachedContent)) {
+        addConsoleMessage("Failed to save preset: " + filename);
+        return;
+    }
 
     currentPresetName = filename;
     refreshPresetList();
 
-    // Update baseline to the saved content
-    baselinePresetContent = content;
+    baselinePresetContent = cachedContent.empty() ? buildUnifiedPresetContent(filename) : cachedContent;
     baselineAvailable = true;
 }
 
@@ -261,6 +120,23 @@ std::string UI::buildUnifiedPresetContent(const std::string& name) {
         out << "#SAMPLERS_END\n";
     }
     return out.str();
+}
+
+bool UI::writeUnifiedPresetToPath(const std::string& path, const std::string& name, std::string* outContent) {
+    std::string content = buildUnifiedPresetContent(name);
+    if (outContent) {
+        *outContent = content;
+    }
+    try {
+        std::ofstream f(path);
+        if (!f.is_open()) {
+            return false;
+        }
+        f << content;
+    } catch (...) {
+        return false;
+    }
+    return true;
 }
 
 void UI::applyUnifiedPresetContent(const std::string& full) {

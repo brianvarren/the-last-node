@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <ctime>
 #include <istream>
 #include <ostream>
 #include "ui.h"
@@ -10,22 +11,32 @@
 // Forward declaration
 struct SynthParameters;
 
+struct AutosaveInfo {
+    std::string label;     // Human-friendly label for UI
+    std::string path;      // Absolute path to the autosave file
+    std::time_t timestamp; // Last write time
+};
+
 class PresetManager {
 public:
     // Get preset directory path
     static std::string getPresetDirectory();
+    static std::string getAutosaveDirectory();
     
     // Ensure preset directory exists
     static bool ensurePresetDirectoryExists();
+    static bool ensureAutosaveDirectoryExists();
     
     // List all available presets
     static std::vector<std::string> listPresets();
+    static std::vector<AutosaveInfo> listAutosaves();
     
     // Save current parameters to a preset file
     static bool savePreset(const std::string& name, SynthParameters* params);
     
     // Load preset file into parameters
     static bool loadPreset(const std::string& name, SynthParameters* params);
+    static bool loadPresetFromPath(const std::string& filepath, SynthParameters* params);
 
     // Serialize parameters to an in-memory string
     static std::string serializeToString(SynthParameters* params);

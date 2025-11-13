@@ -5,6 +5,29 @@
 #include <limits>
 #include <algorithm>
 #include <chrono>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
+#include <ctime>
+
+namespace {
+std::string formatTimestamp(std::time_t ts, const char* fmt) {
+    if (ts <= 0) {
+        ts = std::time(nullptr);
+    }
+    std::tm tm{};
+#if defined(_WIN32)
+    localtime_s(&tm, &ts);
+#else
+    localtime_r(&ts, &tm);
+#endif
+    char buffer[64] = {0};
+    if (std::strftime(buffer, sizeof(buffer), fmt, &tm) == 0) {
+        return {};
+    }
+    return buffer;
+}
+}
 
 UI::UI(Synth* synth, SynthParameters* params)
     : synth(synth)
@@ -31,6 +54,9 @@ UI::UI(Synth* synth, SynthParameters* params)
     , bufferSizeChangeRequested(false)
     , requestedBufferSize(-1)
     , bufferSizeOptions{64, 128, 256, 512, 1024}
+    , sampleRateChangeRequested(false)
+    , requestedSampleRate(-1)
+    , sampleRateOptions{44100, 48000, 88200, 96000, 176400, 192000}
     , helpActive(false)
     , helpScrollOffset(0)
     , currentOscillatorIndex(0)
@@ -78,7 +104,8 @@ UI::UI(Synth* synth, SynthParameters* params)
     , midiKeyboardOctave(4)
     , hasOriginalTermios(false)
     , statusMessage()
-    , statusMessageExpiry() {
+    , statusMessageExpiry()
+    , autosaveLastSave(std::chrono::steady_clock::now()) {
 
     // Initialize LFO history buffers
     for (int i = 0; i < 4; ++i) {
@@ -207,6 +234,8 @@ bool UI::update() {
         }
     }
 
+    processAutosaveQueue();
+
     return true;
 }
 
@@ -217,6 +246,81 @@ void UI::setDeviceInfo(const std::string& audioDevice, int sampleRate, int buffe
     audioBufferSize = bufferSize;
     midiDeviceName = midiDevice;
     midiPortNum = midiPort;
+}
+
+void UI::initializeAutosaveSession() {
+    if (autosaveInitialized) {
+        return;
+    }
+
+    PresetManager::ensureAutosaveDirectoryExists();
+
+    auto now = std::chrono::system_clock::now();
+    std::time_t ts = std::chrono::system_clock::to_time_t(now);
+    std::string stamp = formatTimestamp(ts, "%Y%m%d-%H%M%S");
+    if (stamp.empty()) {
+        stamp = "autosave";
+    }
+    autosaveSessionName = "autosave-" + stamp + "-p" + std::to_string(getpid());
+    std::string human = formatTimestamp(ts, "%Y-%m-%d %H:%M:%S");
+    autosaveDisplayLabel = human.empty()
+                               ? autosaveSessionName
+                               : ("Autosave " + human + " (PID " + std::to_string(getpid()) + ")");
+    autosaveFilePath = PresetManager::getAutosaveDirectory() + "/" + autosaveSessionName + ".txt";
+    autosaveEnabled = true;
+    autosaveInitialized = true;
+    autosavePending = true;
+    autosaveLastSave = std::chrono::steady_clock::now() - autosaveMinInterval;
+    processAutosaveQueue();
+    addConsoleMessage("Autosave armed: " + autosaveDisplayLabel);
+}
+
+void UI::notifyAutosaveNeeded(const char* /*reason*/) {
+    if (!autosaveEnabled || autosaveFilePath.empty()) {
+        return;
+    }
+    if (autosaveSuppressDepth > 0) {
+        autosaveDirtyDuringSuppression = true;
+        return;
+    }
+    autosavePending = true;
+}
+
+void UI::pushAutosaveSuppression() {
+    autosaveSuppressDepth++;
+}
+
+void UI::popAutosaveSuppression() {
+    if (autosaveSuppressDepth == 0) {
+        return;
+    }
+    autosaveSuppressDepth--;
+    if (autosaveSuppressDepth == 0 && autosaveDirtyDuringSuppression) {
+        autosaveDirtyDuringSuppression = false;
+        autosavePending = true;
+    }
+}
+
+void UI::processAutosaveQueue() {
+    if (!autosaveEnabled || !autosavePending || autosaveFilePath.empty()) {
+        return;
+    }
+    auto now = std::chrono::steady_clock::now();
+    if (now - autosaveLastSave < autosaveMinInterval) {
+        return;
+    }
+
+    if (!writeUnifiedPresetToPath(autosaveFilePath,
+                                  autosaveSessionName.empty() ? "autosave" : autosaveSessionName)) {
+        if (autosaveInitialized) {
+            addConsoleMessage("Autosave failed: unable to write file");
+        }
+        autosavePending = false;
+        return;
+    }
+
+    autosaveLastSave = now;
+    autosavePending = false;
 }
 
 void UI::setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId) {
@@ -332,6 +436,14 @@ void UI::requestAudioBufferSizeChange(int newSize) {
     bufferSizeChangeRequested = true;
 }
 
+void UI::requestAudioSampleRateChange(int newRate) {
+    if (newRate <= 0) {
+        return;
+    }
+    requestedSampleRate = newRate;
+    sampleRateChangeRequested = true;
+}
+
 void UI::cycleAudioBufferSize(int direction) {
     if (direction == 0 || bufferSizeOptions.empty()) {
         return;
@@ -373,6 +485,49 @@ void UI::cycleAudioBufferSize(int direction) {
 
     requestAudioBufferSizeChange(newSize);
     addConsoleMessage("Switching audio buffer to " + std::to_string(newSize) + " samples...");
+}
+
+void UI::cycleAudioSampleRate(int direction) {
+    if (direction == 0 || sampleRateOptions.empty()) {
+        return;
+    }
+
+    auto ensureOption = [&](int rate) {
+        if (rate <= 0) {
+            return;
+        }
+        if (std::find(sampleRateOptions.begin(), sampleRateOptions.end(), rate) == sampleRateOptions.end()) {
+            sampleRateOptions.push_back(rate);
+            std::sort(sampleRateOptions.begin(), sampleRateOptions.end());
+            sampleRateOptions.erase(std::unique(sampleRateOptions.begin(), sampleRateOptions.end()),
+                                    sampleRateOptions.end());
+        }
+    };
+
+    if (audioSampleRate > 0) {
+        ensureOption(audioSampleRate);
+    }
+
+    auto it = std::find(sampleRateOptions.begin(), sampleRateOptions.end(), audioSampleRate);
+    int idx = 0;
+    if (it != sampleRateOptions.end()) {
+        idx = static_cast<int>(std::distance(sampleRateOptions.begin(), it));
+    }
+
+    int optionCount = static_cast<int>(sampleRateOptions.size());
+    int newIdx = (idx + direction) % optionCount;
+    if (newIdx < 0) {
+        newIdx += optionCount;
+    }
+
+    int newRate = sampleRateOptions[newIdx];
+    if (newRate == audioSampleRate) {
+        addConsoleMessage("Sample rate already " + std::to_string(newRate) + " Hz");
+        return;
+    }
+
+    requestAudioSampleRateChange(newRate);
+    addConsoleMessage("Switching sample rate to " + std::to_string(newRate) + " Hz...");
 }
 
 void UI::addConsoleMessage(const std::string& message) {

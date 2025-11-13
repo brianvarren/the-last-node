@@ -13,31 +13,40 @@
 #include <sstream>
 #include <filesystem>
 
-std::string PresetManager::getPresetDirectory() {
+static std::string resolveHomeDirectory() {
     const char* homeDir = getenv("HOME");
     if (!homeDir) {
         struct passwd* pw = getpwuid(getuid());
-        homeDir = pw->pw_dir;
+        homeDir = pw ? pw->pw_dir : "/tmp";
     }
-    
-    std::string configDir = std::string(homeDir) + "/.config/wakefield/presets";
-    return configDir;
+    return homeDir ? std::string(homeDir) : std::string("/tmp");
+}
+
+std::string PresetManager::getPresetDirectory() {
+    return resolveHomeDirectory() + "/.config/wakefield/presets";
+}
+
+std::string PresetManager::getAutosaveDirectory() {
+    return resolveHomeDirectory() + "/.config/wakefield/autosaves";
 }
 
 bool PresetManager::ensurePresetDirectoryExists() {
     std::string presetDir = getPresetDirectory();
-    
-    // Create ~/.config if it doesn't exist
-    std::string configBase = std::string(getenv("HOME")) + "/.config";
+    std::string configBase = resolveHomeDirectory() + "/.config";
     mkdir(configBase.c_str(), 0755);
-    
-    // Create ~/.config/wakefield if it doesn't exist
     std::string wakeFieldDir = configBase + "/wakefield";
     mkdir(wakeFieldDir.c_str(), 0755);
-    
-    // Create presets directory
     mkdir(presetDir.c_str(), 0755);
-    
+    return true;
+}
+
+bool PresetManager::ensureAutosaveDirectoryExists() {
+    std::string autosaveDir = getAutosaveDirectory();
+    std::string configBase = resolveHomeDirectory() + "/.config";
+    mkdir(configBase.c_str(), 0755);
+    std::string wakeFieldDir = configBase + "/wakefield";
+    mkdir(wakeFieldDir.c_str(), 0755);
+    mkdir(autosaveDir.c_str(), 0755);
     return true;
 }
 
@@ -69,6 +78,40 @@ std::vector<std::string> PresetManager::listPresets() {
     std::sort(presets.begin(), presets.end());
     
     return presets;
+}
+
+static std::time_t fileTimeToTimeT(const std::filesystem::file_time_type& ftp) {
+    using namespace std::chrono;
+    auto sctp = time_point_cast<system_clock::duration>(ftp - std::filesystem::file_time_type::clock::now()
+                                                        + system_clock::now());
+    return system_clock::to_time_t(sctp);
+}
+
+std::vector<AutosaveInfo> PresetManager::listAutosaves() {
+    std::vector<AutosaveInfo> autosaves;
+    std::string dir = getAutosaveDirectory();
+    ensureAutosaveDirectoryExists();
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+            if (!entry.is_regular_file()) continue;
+            const auto& path = entry.path();
+            if (path.extension() != ".txt") continue;
+            AutosaveInfo info;
+            info.path = path.string();
+            info.label = path.stem().string();
+            info.timestamp = fileTimeToTimeT(entry.last_write_time());
+            autosaves.push_back(std::move(info));
+        }
+    } catch (...) {
+        return autosaves;
+    }
+
+    std::sort(autosaves.begin(), autosaves.end(), [](const AutosaveInfo& a, const AutosaveInfo& b) {
+        return a.timestamp > b.timestamp;
+    });
+
+    return autosaves;
 }
 
 std::string PresetManager::getPresetPath(const std::string& name) {
@@ -284,6 +327,10 @@ bool PresetManager::savePreset(const std::string& name, SynthParameters* params)
 
 bool PresetManager::loadPreset(const std::string& name, SynthParameters* params) {
     std::string filepath = getPresetPath(name);
+    return parsePresetFile(filepath, params);
+}
+
+bool PresetManager::loadPresetFromPath(const std::string& filepath, SynthParameters* params) {
     return parsePresetFile(filepath, params);
 }
 

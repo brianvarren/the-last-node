@@ -54,6 +54,30 @@ enum class ParamCurve {
     Logarithmic
 };
 
+enum class MainPageAction : int {
+    SavePreset = 0,
+    LoadPreset,
+    LoadAutosave,
+    GlobalRandomize,
+    GlobalMutate,
+    RandomAmount,
+    MutateAmount,
+    GlobalReset,
+    CompressorToggle,
+    CpuMonitorToggle,
+    OscInstanceCount,
+    SampInstanceCount,
+    LfoInstanceCount,
+    EnvInstanceCount,
+    ChaosInstanceCount,
+    Count
+};
+
+enum class PresetBrowserMode {
+    UserPresets = 0,
+    Autosaves = 1
+};
+
 struct InlineParameter {
     int id;
     ParamType type;
@@ -1105,6 +1129,11 @@ public:
     bool isBufferSizeChangeRequested() const { return bufferSizeChangeRequested; }
     int getRequestedBufferSize() const { return requestedBufferSize; }
     void clearBufferSizeChangeRequest() { bufferSizeChangeRequested = false; requestedBufferSize = -1; }
+    // Audio sample rate request
+    void requestAudioSampleRateChange(int newRate);
+    bool isSampleRateChangeRequested() const { return sampleRateChangeRequested; }
+    int getRequestedSampleRate() const { return requestedSampleRate; }
+    void clearSampleRateChangeRequest() { sampleRateChangeRequested = false; requestedSampleRate = -1; }
     int getCurrentAudioDeviceId() const { return currentAudioDeviceId; }
     int getCurrentMidiPort() const { return currentMidiPortNum; }
     int getCurrentAudioBufferSize() const { return audioBufferSize; }
@@ -1180,6 +1209,9 @@ private:
     bool bufferSizeChangeRequested;
     int requestedBufferSize;
     std::vector<int> bufferSizeOptions;
+    bool sampleRateChangeRequested;
+    int requestedSampleRate;
+    std::vector<int> sampleRateOptions;
 
     // Help system
     bool helpActive;
@@ -1230,6 +1262,7 @@ private:
     void drawConfigPage();
     void drawDebugPage();
     void cycleAudioBufferSize(int direction);
+    void cycleAudioSampleRate(int direction);
     void drawBar(int y, int x, const char* label, float value, float min, float max, int width);
     void drawBarInactive(int y, int x, const char* label, float value, float min, float max, int width);
     void drawHotkeyLine();
@@ -1432,7 +1465,8 @@ public:
     void loadSampleForCurrentSampler(const std::string& filepath);
 
     // Main page action buttons state
-    int mainPageActionIndex;         // 0=Save, 1=Load, 2=Randomize, 3=Mutate, 4=MutateAmount, 5=Reset, 6=CPU Monitor
+    static constexpr int kMainPageActionCount = static_cast<int>(MainPageAction::Count);
+    int mainPageActionIndex;         // See MainPageAction enum for ordering
     float globalMutatePercentage;    // 0-100%
     float globalRandomizePercentage; // 0-100%
     bool mainPageFocusLeft;          // true=left column (actions), false=right column (mixer)
@@ -1443,18 +1477,24 @@ public:
     // Preset browser state (similar to sample browser)
     bool presetBrowserActive;
     std::vector<std::string> presetBrowserPresets;
+    std::vector<std::string> presetBrowserPaths;
     int presetBrowserSelectedIndex;
     int presetBrowserScrollOffset;
+    PresetBrowserMode presetBrowserMode = PresetBrowserMode::UserPresets;
 
     // Preset browser helpers
-    void startPresetBrowser();
+    void startPresetBrowser(PresetBrowserMode mode = PresetBrowserMode::UserPresets);
+    void startAutosaveBrowser() { startPresetBrowser(PresetBrowserMode::Autosaves); }
     void handlePresetBrowserInput(int ch);
     void finishPresetBrowser(bool applySelection);
     void refreshPresetBrowserList();
 
+    void loadPresetFromPath(const std::string& filepath, const std::string& displayName);
+
     // Unified preset helpers
     std::string buildUnifiedPresetContent(const std::string& name);
     void applyUnifiedPresetContent(const std::string& fullContent);
+    bool writeUnifiedPresetToPath(const std::string& path, const std::string& name, std::string* outContent = nullptr);
 
     // Baseline content captured on load/save for global reset
     std::string baselinePresetContent;
@@ -1478,6 +1518,23 @@ public:
     void startClearModMatrixPopup() { clearModMatrixPopupActive = true; }
     void finishClearModMatrixPopup(bool confirmed);
     void handleClearModMatrixPopupInput(int ch);
+
+    // Autosave system
+    void initializeAutosaveSession();
+    void notifyAutosaveNeeded(const char* reason = nullptr);
+    void processAutosaveQueue();
+    void pushAutosaveSuppression();
+    void popAutosaveSuppression();
+    bool autosaveEnabled = false;
+    bool autosavePending = false;
+    int autosaveSuppressDepth = 0;
+    bool autosaveDirtyDuringSuppression = false;
+    std::string autosaveSessionName;
+    std::string autosaveDisplayLabel;
+    std::string autosaveFilePath;
+    std::chrono::steady_clock::time_point autosaveLastSave;
+    std::chrono::milliseconds autosaveMinInterval{750};
+    bool autosaveInitialized = false;
 };
 
 #endif // UI_H
