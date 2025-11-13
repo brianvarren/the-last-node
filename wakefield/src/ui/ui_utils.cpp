@@ -356,22 +356,10 @@ bool parseRootText(const std::string& text, int& rootOut) {
 
 std::string subdivisionToString(Subdivision subdiv) {
     // Subdivision is now a tempo multiplier (float)
-    // 4.0 = 1/16 (4x faster), 1.0 = 1/4 (baseline), 0.25 = whole (4x slower)
-    // Convert multiplier to traditional note name for display
-    float mult = subdiv;
-    int noteDenom = static_cast<int>(std::round(4.0f / mult));
-    if (noteDenom <= 0) noteDenom = 4;
-
-    // Format multiplier cleanly (remove trailing zeros)
+    // Display as raw multiplier value with 3 decimal places
     std::ostringstream oss;
-    oss << std::fixed << std::setprecision(2) << mult;
-    std::string multStr = oss.str();
-    // Remove trailing zeros after decimal point
-    multStr.erase(multStr.find_last_not_of('0') + 1, std::string::npos);
-    if (multStr.back() == '.') multStr.pop_back();
-
-    // Display as traditional fraction with multiplier
-    return "1/" + std::to_string(noteDenom) + " (×" + multStr + ")";
+    oss << std::fixed << std::setprecision(3) << subdiv;
+    return oss.str();
 }
 
 bool parseSubdivisionText(const std::string& text, Subdivision& outSubdiv) {
@@ -383,33 +371,36 @@ bool parseSubdivisionText(const std::string& text, Subdivision& outSubdiv) {
         }
     }
 
-    size_t slashPos = cleaned.find('/');
-    if (slashPos != std::string::npos && slashPos + 1 < cleaned.size()) {
-        cleaned = cleaned.substr(slashPos + 1);
-    }
-
     if (cleaned.empty()) {
         return false;
     }
 
-    int denom = 0;
+    // Check for legacy fraction format "1/16" -> convert to multiplier
+    size_t slashPos = cleaned.find('/');
+    if (slashPos != std::string::npos && slashPos + 1 < cleaned.size()) {
+        std::string denomStr = cleaned.substr(slashPos + 1);
+        try {
+            int denom = std::stoi(denomStr);
+            if (denom > 0) {
+                // Convert fraction to multiplier: 1/16 -> 4.0, 1/4 -> 1.0
+                float mult = 4.0f / static_cast<float>(denom);
+                outSubdiv = std::clamp(mult, 0.001f, 16.0f);
+                return true;
+            }
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Parse as raw float multiplier
     try {
-        denom = std::stoi(cleaned);
+        float mult = std::stof(cleaned);
+        // Clamp to reasonable range: 0.001 (very slow) to 16.0 (very fast)
+        outSubdiv = std::clamp(mult, 0.001f, 16.0f);
+        return true;
     } catch (...) {
         return false;
     }
-
-    switch (denom) {
-        case 1: outSubdiv = Subdivisions::WHOLE; return true;
-        case 2: outSubdiv = Subdivisions::HALF; return true;
-        case 4: outSubdiv = Subdivisions::QUARTER; return true;
-        case 8: outSubdiv = Subdivisions::EIGHTH; return true;
-        case 16: outSubdiv = Subdivisions::SIXTEENTH; return true;
-        case 32: outSubdiv = Subdivisions::THIRTYSECOND; return true;
-        case 64: outSubdiv = Subdivisions::SIXTYFOURTH; return true;
-        default: break;
-    }
-    return false;
 }
 
 // Scale helpers

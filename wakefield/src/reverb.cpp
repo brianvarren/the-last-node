@@ -9,6 +9,36 @@
 #include <cmath>
 #include <cstring>
 
+struct GreyholeReverb::ParameterUI : public GreyholeDSPUI {
+    float* damping = nullptr;
+    float* diffusion = nullptr;
+    float* feedback = nullptr;
+    float* modDepth = nullptr;
+    float* modFreq = nullptr;
+    float* delayTime = nullptr;
+    float* size = nullptr;
+
+    void openVerticalBox(const char*) override {}
+    void openHorizontalBox(const char*) override {}
+    void closeBox() override {}
+    void declare(void*, const char*, const char*) override {}
+
+    void addHorizontalSlider(const char* label,
+                             float* zone,
+                             float,
+                             float,
+                             float,
+                             float) override {
+        if (strcmp(label, "damping") == 0) damping = zone;
+        else if (strcmp(label, "diffusion") == 0) diffusion = zone;
+        else if (strcmp(label, "feedback") == 0) feedback = zone;
+        else if (strcmp(label, "modDepth") == 0) modDepth = zone;
+        else if (strcmp(label, "modFreq") == 0) modFreq = zone;
+        else if (strcmp(label, "delayTime") == 0) delayTime = zone;
+        else if (strcmp(label, "size") == 0) size = zone;
+    }
+};
+
 GreyholeReverb::GreyholeReverb(float sampleRate)
     : sampleRate(sampleRate)
     , dsp(nullptr)
@@ -28,6 +58,8 @@ GreyholeReverb::GreyholeReverb(float sampleRate)
     // Create and initialize the Faust DSP
     dsp = new mydsp();
     dsp->init(static_cast<int>(sampleRate));
+    parameterUI = std::make_unique<ParameterUI>();
+    dsp->buildUserInterface(parameterUI.get());
     
     // Set up input/output pointers
     inputs[0] = leftInput.data();
@@ -44,7 +76,7 @@ GreyholeReverb::~GreyholeReverb() {
 }
 
 void GreyholeReverb::updateParameters() {
-    if (!dsp) return;
+    if (!dsp || !parameterUI) return;
     
     // Access the Faust hslider parameters directly (as defined in greyhole.cpp buildUserInterface)
     // fHslider4 = delayTime (0.001 - 1.45, default 0.2)
@@ -58,51 +90,13 @@ void GreyholeReverb::updateParameters() {
     // Note: We need to access these through a setter method or directly
     // For now, we'll create a simple UI class to set parameters
     
-    class SimpleUI : public GreyholeDSPUI {
-    public:
-        float* damping;
-        float* diffusion;
-        float* feedback;
-        float* modDepth;
-        float* modFreq;
-        float* delayTime;
-        float* size;
-        
-        SimpleUI() : damping(nullptr), diffusion(nullptr), feedback(nullptr), 
-                     modDepth(nullptr), modFreq(nullptr), delayTime(nullptr), size(nullptr) {}
-        
-        virtual ~SimpleUI() {}
-        
-        virtual void openVerticalBox(const char*) override {}
-        virtual void openHorizontalBox(const char*) override {}
-        virtual void closeBox() override {}
-        virtual void declare(void*, const char*, const char*) override {}
-        
-        virtual void addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step) override {
-            if (strcmp(label, "damping") == 0) damping = zone;
-            else if (strcmp(label, "diffusion") == 0) diffusion = zone;
-            else if (strcmp(label, "feedback") == 0) feedback = zone;
-            else if (strcmp(label, "modDepth") == 0) modDepth = zone;
-            else if (strcmp(label, "modFreq") == 0) modFreq = zone;
-            else if (strcmp(label, "delayTime") == 0) delayTime = zone;
-            else if (strcmp(label, "size") == 0) size = zone;
-        }
-    };
-    
-    static SimpleUI* ui = nullptr;
-    if (!ui) {
-        ui = new SimpleUI();
-        dsp->buildUserInterface(ui);
-    }
-    
-    // Set the parameters
-    *ui->damping = damping;
-    *ui->diffusion = diffusion;
-    *ui->feedback = feedback;
-    *ui->modDepth = modDepth;
-    *ui->modFreq = modFreq;
-    *ui->delayTime = delayTime;
-    *ui->size = size;
+    *parameterUI->damping = damping;
+    *parameterUI->diffusion = diffusion;
+    *parameterUI->feedback = feedback;
+    *parameterUI->modDepth = modDepth;
+    *parameterUI->modFreq = modFreq;
+    *parameterUI->delayTime = delayTime;
+    *parameterUI->size = size;
 }
 
 void GreyholeReverb::setDelayTime(float t) {

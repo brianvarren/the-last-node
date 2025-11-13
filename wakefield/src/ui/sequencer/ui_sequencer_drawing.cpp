@@ -22,7 +22,7 @@ static const std::vector<SequencerInfoEntryDef> kSequencerInfoEntries = {
     {UI::SequencerInfoField::SCALE,       "Scale",        true},
     {UI::SequencerInfoField::EUCLID_HITS, "Euclid Hits",  true},
     {UI::SequencerInfoField::EUCLID_STEPS,"Euclid Steps", true},
-    {UI::SequencerInfoField::SUBDIVISION, "Subdivision",  true},
+    {UI::SequencerInfoField::SUBDIVISION, "Tempo Mult.", true},
     {UI::SequencerInfoField::MUTATE_AMOUNT, "Mutate %",   true},
     {UI::SequencerInfoField::MUTED,       "Muted",        true},
     {UI::SequencerInfoField::SOLO,        "Solo",         true},

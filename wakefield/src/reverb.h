@@ -2,6 +2,7 @@
 #define REVERB_H
 
 #include <vector>
+#include <memory>
 
 // Forward declaration of Faust-generated class
 class mydsp;
@@ -28,6 +29,8 @@ private:
     std::vector<float> rightOutput;
     float* inputs[2];
     float* outputs[2];
+    struct ParameterUI;
+    std::unique_ptr<ParameterUI> parameterUI;
     
 public:
     GreyholeReverb(float sampleRate);
