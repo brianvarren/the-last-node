@@ -60,10 +60,10 @@ std::string getConfigDirectory() {
 }
 
 // Read device config
-void readDeviceConfig(int& audioDeviceId, int& midiPort, unsigned int& bufferSize) {
+void readDeviceConfig(int& audioDeviceId, int& midiPort, unsigned int& bufferSize, unsigned int& sampleRate) {
     std::string configPath = getConfigDirectory() + "/device_config.txt";
     std::ifstream file(configPath);
-    
+
     if (file.is_open()) {
         std::string line;
         while (std::getline(file, line)) {
@@ -73,6 +73,8 @@ void readDeviceConfig(int& audioDeviceId, int& midiPort, unsigned int& bufferSiz
                 midiPort = std::stoi(line.substr(10));
             } else if (line.find("buffer_size=") == 0) {
                 bufferSize = static_cast<unsigned int>(std::stoi(line.substr(12)));
+            } else if (line.find("sample_rate=") == 0) {
+                sampleRate = static_cast<unsigned int>(std::stoi(line.substr(12)));
             }
         }
         file.close();
@@ -80,23 +82,24 @@ void readDeviceConfig(int& audioDeviceId, int& midiPort, unsigned int& bufferSiz
 }
 
 // Write device config
-void writeDeviceConfig(int audioDeviceId, int midiPort, unsigned int bufferSize) {
+void writeDeviceConfig(int audioDeviceId, int midiPort, unsigned int bufferSize, unsigned int sampleRate) {
     std::string configDir = getConfigDirectory();
     mkdir(configDir.c_str(), 0755);
-    
+
     std::string configPath = configDir + "/device_config.txt";
     std::ofstream file(configPath);
-    
+
     if (file.is_open()) {
         file << "audio_device=" << audioDeviceId << "\n";
         file << "midi_port=" << midiPort << "\n";
         file << "buffer_size=" << bufferSize << "\n";
+        file << "sample_rate=" << sampleRate << "\n";
         file.close();
     }
 }
 
 // Restart app with new devices
-void restartWithNewDevices(int audioDeviceId, int midiPort, unsigned int bufferSize,
+void restartWithNewDevices(int audioDeviceId, int midiPort, unsigned int bufferSize, unsigned int sampleRate,
                            SynthParameters* params, char** argv) {
     // Save current state as temp preset
     PresetManager::savePreset("__temp_restart__", params);
@@ -161,7 +164,7 @@ void restartWithNewDevices(int audioDeviceId, int midiPort, unsigned int bufferS
     } catch (...) {}
     
     // Write new device config
-    writeDeviceConfig(audioDeviceId, midiPort, bufferSize);
+    writeDeviceConfig(audioDeviceId, midiPort, bufferSize, sampleRate);
     
     // Restart the application
     execv(argv[0], argv);
@@ -640,7 +643,8 @@ int main(int argc, char** argv) {
     int preferredAudioDevice = -1;
     int preferredMidiPort = -1;
     unsigned int preferredBufferSize = 256;
-    readDeviceConfig(preferredAudioDevice, preferredMidiPort, preferredBufferSize);
+    unsigned int preferredSampleRate = 48000;
+    readDeviceConfig(preferredAudioDevice, preferredMidiPort, preferredBufferSize, preferredSampleRate);
     
     // Initialize MIDI
     midiHandler = new MidiHandler();
@@ -680,8 +684,8 @@ int main(int argc, char** argv) {
     // Initialize Audio
     RtAudio audio;
     bool audioAvailable = false;
-    
-    unsigned int sampleRate = 48000;
+
+    unsigned int sampleRate = (preferredSampleRate > 0) ? preferredSampleRate : 48000;
     unsigned int bufferFrames = preferredBufferSize > 0 ? preferredBufferSize : 256;
     
     // Create synth instance
@@ -919,6 +923,8 @@ int main(int argc, char** argv) {
         }
         unlink((baseDir + "/" + name + ".samplers.txt").c_str());
     }
+
+    ui->initializeAutosaveSession();
     
     // Main UI loop
     float deltaTime = 0.05f;  // 50ms default (20 FPS)
@@ -950,7 +956,7 @@ int main(int argc, char** argv) {
             }
             
             // Restart with new devices
-            restartWithNewDevices(newAudioDevice, newMidiPort, bufferFrames, synthParams, argv);
+            restartWithNewDevices(newAudioDevice, newMidiPort, bufferFrames, sampleRate, synthParams, argv);
             
             // If restart failed, continue running
             ui->clearDeviceChangeRequest();
@@ -1037,14 +1043,121 @@ int main(int argc, char** argv) {
                         // Keep previous name if query fails
                     }
                     ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPortToUse);
-                    writeDeviceConfig(ui->getCurrentAudioDeviceId(), ui->getCurrentMidiPort(), bufferFrames);
+                    writeDeviceConfig(ui->getCurrentAudioDeviceId(), ui->getCurrentMidiPort(), bufferFrames, sampleRate);
                     ui->addConsoleMessage("Audio buffer size set to " + std::to_string(bufferFrames) + " samples");
                 }
 
                 ui->clearBufferSizeChangeRequest();
             }
         }
-        
+
+        if (ui->isSampleRateChangeRequested()) {
+            unsigned int requestedRate = static_cast<unsigned int>(ui->getRequestedSampleRate());
+
+            if (!(deviceCount > 0 && parameters.deviceId >= 0)) {
+                ui->addConsoleMessage("No audio device available to change sample rate");
+                ui->clearSampleRateChangeRequest();
+            } else if (requestedRate == 0) {
+                ui->addConsoleMessage("Invalid sample rate request");
+                ui->clearSampleRateChangeRequest();
+            } else {
+                unsigned int previousRate = sampleRate;
+                std::string failureReason;
+                bool reopened = false;
+
+                try {
+                    if (audio.isStreamRunning()) {
+                        audio.stopStream();
+                    }
+                    if (audio.isStreamOpen()) {
+                        audio.closeStream();
+                    }
+                } catch (...) {
+                    // Ignore exceptions while shutting down stream
+                }
+
+                audioAvailable = false;
+
+                // Delete old synth, clock, and sequencer instances (they store sample rate)
+                synth->setUI(nullptr);
+                delete sequencer;
+                delete synth;
+                delete transportClock;
+
+                // Create new synth and clock with new sample rate
+                synth = new Synth(static_cast<float>(requestedRate));
+                synth->setUI(ui);
+                synth->setParams(synthParams);
+                transportClock = new Clock(static_cast<float>(requestedRate));
+                synth->setClock(transportClock);
+                sequencer = new Sequencer(transportClock, synth);
+
+                unsigned int openFrames = bufferFrames;
+                try {
+                    audio.openStream(&parameters, nullptr, RTAUDIO_FLOAT32,
+                                     requestedRate, &openFrames, &audioCallback);
+                    audio.startStream();
+                    sampleRate = requestedRate;
+                    bufferFrames = openFrames;
+                    audioAvailable = true;
+                    reopened = true;
+                } catch (std::exception& e) {
+                    failureReason = e.what();
+                } catch (...) {
+                    failureReason = "unknown error";
+                }
+
+                if (!reopened) {
+                    // Attempt to restore previous sample rate
+                    delete sequencer;
+                    delete synth;
+                    delete transportClock;
+                    synth = new Synth(static_cast<float>(previousRate));
+                    synth->setUI(ui);
+                    synth->setParams(synthParams);
+                    transportClock = new Clock(static_cast<float>(previousRate));
+                    synth->setClock(transportClock);
+                    sequencer = new Sequencer(transportClock, synth);
+
+                    try {
+                        unsigned int restoreFrames = bufferFrames;
+                        audio.openStream(&parameters, nullptr, RTAUDIO_FLOAT32,
+                                         previousRate, &restoreFrames, &audioCallback);
+                        audio.startStream();
+                        bufferFrames = restoreFrames;
+                        audioAvailable = true;
+                    } catch (...) {
+                        audioAvailable = false;
+                    }
+                    if (failureReason.empty()) {
+                        failureReason = "unable to open stream";
+                    }
+                    ui->addConsoleMessage("Failed to set sample rate: " + failureReason);
+                    if (audioAvailable) {
+                        try {
+                            RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
+                            audioDeviceName = deviceInfo.name;
+                        } catch (...) {
+                            // Keep previous name if query fails
+                        }
+                        ui->setDeviceInfo(audioDeviceName, previousRate, bufferFrames, midiDeviceName, midiPortToUse);
+                    }
+                } else {
+                    try {
+                        RtAudio::DeviceInfo deviceInfo = audio.getDeviceInfo(parameters.deviceId);
+                        audioDeviceName = deviceInfo.name;
+                    } catch (...) {
+                        // Keep previous name if query fails
+                    }
+                    ui->setDeviceInfo(audioDeviceName, sampleRate, bufferFrames, midiDeviceName, midiPortToUse);
+                    writeDeviceConfig(ui->getCurrentAudioDeviceId(), ui->getCurrentMidiPort(), bufferFrames, sampleRate);
+                    ui->addConsoleMessage("Sample rate set to " + std::to_string(sampleRate) + " Hz");
+                }
+
+                ui->clearSampleRateChangeRequest();
+            }
+        }
+
         // Oscilloscopes removed for simplified UI
         
         // Draw UI

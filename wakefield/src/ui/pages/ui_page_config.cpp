@@ -20,6 +20,14 @@ void UI::drawConfigPage() {
     attroff(A_BOLD);
     mvprintw(row++, 2, "Device: %s", audioDeviceName.c_str());
     mvprintw(row++, 2, "Sample Rate: %d Hz", audioSampleRate);
+    mvprintw(row++, 2, "Press ; / ' to change sample rate");
+
+    if (sampleRateChangeRequested && requestedSampleRate > 0) {
+        attron(COLOR_STATUS_ACTIVE);
+        mvprintw(row++, 4, "Pending: %d Hz (applying)", requestedSampleRate);
+        attroff(COLOR_STATUS_ACTIVE);
+    }
+
     mvprintw(row++, 2, "Buffer Size: %d samples", audioBufferSize);
     mvprintw(row++, 2, "Press [ / ] to change buffer size");
 

@@ -306,7 +306,7 @@ void UI::handleInput(int ch) {
                 return;
             case KEY_DOWN:
                 if (mainPageFocusLeft) {
-                    if (mainPageActionIndex < 13) {
+                    if (mainPageActionIndex < kMainPageActionCount - 1) {
                         mainPageActionIndex++;
                     }
                 } else {
@@ -318,39 +318,40 @@ void UI::handleInput(int ch) {
             case '+':
             case '=': {
                 if (mainPageFocusLeft) {
+                    MainPageAction action = static_cast<MainPageAction>(mainPageActionIndex);
                     float delta = (ch == '+') ? 1.0f : 5.0f;
-                    if (mainPageActionIndex == 4) {  // Random Amount
+                    if (action == MainPageAction::RandomAmount) {
                         globalRandomizePercentage = std::min(100.0f, globalRandomizePercentage + delta);
                         return;
                     }
-                    if (mainPageActionIndex == 5) {  // Mutate Amount
+                    if (action == MainPageAction::MutateAmount) {
                         globalMutatePercentage = std::min(100.0f, globalMutatePercentage + delta);
                         return;
                     }
-                    // Instance counts increment (1..4)
-                    if (mainPageActionIndex >= 9 && mainPageActionIndex <= 13) {
+                    if (mainPageActionIndex >= static_cast<int>(MainPageAction::OscInstanceCount) &&
+                        mainPageActionIndex <= static_cast<int>(MainPageAction::ChaosInstanceCount)) {
                         switch (mainPageActionIndex) {
-                            case 9: {
+                            case static_cast<int>(MainPageAction::OscInstanceCount): {
                                 int cur = params->activeOscCount.load();
                                 params->activeOscCount = std::min(4, cur + 1);
                                 break;
                             }
-                            case 10: {
+                            case static_cast<int>(MainPageAction::SampInstanceCount): {
                                 int cur = params->activeSamplerCount.load();
                                 params->activeSamplerCount = std::min(4, cur + 1);
                                 break;
                             }
-                            case 11: {
+                            case static_cast<int>(MainPageAction::LfoInstanceCount): {
                                 int cur = params->activeLfoCount.load();
                                 params->activeLfoCount = std::min(4, cur + 1);
                                 break;
                             }
-                            case 12: {
+                            case static_cast<int>(MainPageAction::EnvInstanceCount): {
                                 int cur = params->activeEnvCount.load();
                                 params->activeEnvCount = std::min(4, cur + 1);
                                 break;
                             }
-                            case 13: {
+                            case static_cast<int>(MainPageAction::ChaosInstanceCount): {
                                 int cur = params->activeChaosCount.load();
                                 params->activeChaosCount = std::min(4, cur + 1);
                                 break;
@@ -367,39 +368,40 @@ void UI::handleInput(int ch) {
             case '-':
             case '_': {
                 if (mainPageFocusLeft) {
+                    MainPageAction action = static_cast<MainPageAction>(mainPageActionIndex);
                     float delta = (ch == '_') ? 1.0f : 5.0f;
-                    if (mainPageActionIndex == 4) {  // Random Amount
+                    if (action == MainPageAction::RandomAmount) {
                         globalRandomizePercentage = std::max(0.0f, globalRandomizePercentage - delta);
                         return;
                     }
-                    if (mainPageActionIndex == 5) {  // Mutate Amount
+                    if (action == MainPageAction::MutateAmount) {
                         globalMutatePercentage = std::max(0.0f, globalMutatePercentage - delta);
                         return;
                     }
-                    // Instance counts decrement (1..4)
-                    if (mainPageActionIndex >= 9 && mainPageActionIndex <= 13) {
+                    if (mainPageActionIndex >= static_cast<int>(MainPageAction::OscInstanceCount) &&
+                        mainPageActionIndex <= static_cast<int>(MainPageAction::ChaosInstanceCount)) {
                         switch (mainPageActionIndex) {
-                            case 9: {
+                            case static_cast<int>(MainPageAction::OscInstanceCount): {
                                 int cur = params->activeOscCount.load();
                                 params->activeOscCount = std::max(1, cur - 1);
                                 break;
                             }
-                            case 10: {
+                            case static_cast<int>(MainPageAction::SampInstanceCount): {
                                 int cur = params->activeSamplerCount.load();
                                 params->activeSamplerCount = std::max(1, cur - 1);
                                 break;
                             }
-                            case 11: {
+                            case static_cast<int>(MainPageAction::LfoInstanceCount): {
                                 int cur = params->activeLfoCount.load();
                                 params->activeLfoCount = std::max(1, cur - 1);
                                 break;
                             }
-                            case 12: {
+                            case static_cast<int>(MainPageAction::EnvInstanceCount): {
                                 int cur = params->activeEnvCount.load();
                                 params->activeEnvCount = std::max(1, cur - 1);
                                 break;
                             }
-                            case 13: {
+                            case static_cast<int>(MainPageAction::ChaosInstanceCount): {
                                 int cur = params->activeChaosCount.load();
                                 params->activeChaosCount = std::max(1, cur - 1);
                                 break;
@@ -416,38 +418,42 @@ void UI::handleInput(int ch) {
             case '\n':
             case KEY_ENTER:
                 if (mainPageFocusLeft) {
-                    // Execute selected action
-                    switch (mainPageActionIndex) {
-                        case 0:  // Save Preset
+                    MainPageAction action = static_cast<MainPageAction>(mainPageActionIndex);
+                    switch (action) {
+                        case MainPageAction::SavePreset:
                             startTextInput();
                             return;
-                        case 1:  // Load Preset
+                        case MainPageAction::LoadPreset:
                             startPresetBrowser();
                             return;
-                        case 2:  // Global Randomize
+                        case MainPageAction::LoadAutosave:
+                            startAutosaveBrowser();
+                            return;
+                        case MainPageAction::GlobalRandomize:
                             randomizeAllParameters(std::clamp(globalRandomizePercentage / 100.0f, 0.0f, 1.0f));
                             addConsoleMessage("Global randomize applied (whitelist-respecting)");
                             return;
-                        case 3:  // Global Mutate
+                        case MainPageAction::GlobalMutate:
                             mutateAllParameters(std::clamp(globalMutatePercentage / 100.0f, 0.0f, 1.0f));
                             addConsoleMessage("Global mutate applied");
                             return;
-                        case 4:  // Random Amount (no action)
+                        case MainPageAction::RandomAmount:
+                        case MainPageAction::MutateAmount:
                             return;
-                        case 5:  // Mutate Amount (no action)
-                            return;
-                        case 6:  // Global Reset
+                        case MainPageAction::GlobalReset:
                             startGlobalResetPopup();
                             return;
-                        case 7:  // Compressor Toggle
+                        case MainPageAction::CompressorToggle:
                             params->compressorEnabled = !params->compressorEnabled.load();
                             if (synth) synth->setCompressorEnabled(params->compressorEnabled.load());
                             addConsoleMessage(params->compressorEnabled.load() ? "Compressor: ON" : "Compressor: OFF");
                             return;
-                        case 8:  // CPU Monitor Toggle
+                        case MainPageAction::CpuMonitorToggle:
                             cpuMonitor.setEnabled(!cpuMonitor.isEnabled());
                             addConsoleMessage(cpuMonitor.isEnabled() ? "CPU Monitor: ON" : "CPU Monitor: OFF");
                             return;
+                        default:
+                            break;
                     }
                 }
                 return;
@@ -524,6 +530,14 @@ void UI::handleInput(int ch) {
         }
         if (ch == ']') {
             cycleAudioBufferSize(1);
+            return;
+        }
+        if (ch == ';') {
+            cycleAudioSampleRate(-1);
+            return;
+        }
+        if (ch == '\'') {
+            cycleAudioSampleRate(1);
             return;
         }
     }
@@ -833,15 +847,16 @@ void UI::handleInput(int ch) {
         startMidiLearn(selectedParameterId);
         return;
     }
-    if (ch == 'l') {
-        if (currentPage == UIPage::FM) {
-            int src = fmMatrixCursorRow;
-            int tgt = fmMatrixCursorCol;
-            captureUndoSnapshot("toggle_fm_lock");
-            fmMatrixLocked[tgt][src] = !fmMatrixLocked[tgt][src];
-            addConsoleMessage(std::string("FM cell ") + std::to_string(src) + "," + std::to_string(tgt) + (fmMatrixLocked[tgt][src] ? " locked" : " unlocked"));
-            return;
-        }
+        if (ch == 'l') {
+            if (currentPage == UIPage::FM) {
+                int src = fmMatrixCursorRow;
+                int tgt = fmMatrixCursorCol;
+                captureUndoSnapshot("toggle_fm_lock");
+                fmMatrixLocked[tgt][src] = !fmMatrixLocked[tgt][src];
+                addConsoleMessage(std::string("FM cell ") + std::to_string(src) + "," + std::to_string(tgt) + (fmMatrixLocked[tgt][src] ? " locked" : " unlocked"));
+                notifyAutosaveNeeded("fm_lock_toggle");
+                return;
+            }
         if (currentPage == UIPage::MOD) {
             captureUndoSnapshot("toggle_mod_lock");
             modSlotLocked[modMatrixCursorRow] = !modSlotLocked[modMatrixCursorRow];
@@ -1000,6 +1015,7 @@ void UI::handleInput(int ch) {
             float depth = params->getFMDepth(fmMatrixCursorCol, fmMatrixCursorRow);
             depth = std::max(-0.99f, std::min(0.99f, depth + delta));
             params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, depth);
+            notifyAutosaveNeeded("fm_depth");
         };
 
         auto toggleAllLocks = [&]() {
@@ -1025,6 +1041,7 @@ void UI::handleInput(int ch) {
                 }
                 addConsoleMessage("FM: Locked all cells");
             }
+            notifyAutosaveNeeded("fm_lock_all");
         };
 
         switch (ch) {
@@ -1148,6 +1165,7 @@ void UI::handleInput(int ch) {
                     } else {
                         params->setFMDepth(fmMatrixCursorCol, fmMatrixCursorRow, 0.99f);
                     }
+                    notifyAutosaveNeeded("fm_depth_cycle");
                 }
                 return;
 
@@ -1171,6 +1189,7 @@ void UI::handleInput(int ch) {
                         }
                     }
                     addConsoleMessage("FM matrix randomized");
+                    notifyAutosaveNeeded("fm_randomize");
                 }
                 return;
 
@@ -1186,6 +1205,7 @@ void UI::handleInput(int ch) {
                         }
                     }
                     addConsoleMessage("FM matrix reset");
+                    notifyAutosaveNeeded("fm_reset");
                 }
                 return;
 
@@ -1206,6 +1226,7 @@ void UI::handleInput(int ch) {
                         }
                     }
                     addConsoleMessage("FM matrix mutated (±20%)");
+                    notifyAutosaveNeeded("fm_mutate");
                 }
                 return;
         }
