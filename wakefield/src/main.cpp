@@ -1080,6 +1080,7 @@ int main(int argc, char** argv) {
 
                 // Delete old synth, clock, and sequencer instances (they store sample rate)
                 synth->setUI(nullptr);
+                ui->setSynthInstance(nullptr);
                 delete sequencer;
                 delete synth;
                 delete transportClock;
@@ -1088,6 +1089,7 @@ int main(int argc, char** argv) {
                 synth = new Synth(static_cast<float>(requestedRate));
                 synth->setUI(ui);
                 synth->setParams(synthParams);
+                ui->setSynthInstance(synth);
                 transportClock = new Clock(static_cast<float>(requestedRate));
                 synth->setClock(transportClock);
                 sequencer = new Sequencer(transportClock, synth);
@@ -1115,6 +1117,7 @@ int main(int argc, char** argv) {
                     synth = new Synth(static_cast<float>(previousRate));
                     synth->setUI(ui);
                     synth->setParams(synthParams);
+                    ui->setSynthInstance(synth);
                     transportClock = new Clock(static_cast<float>(previousRate));
                     synth->setClock(transportClock);
                     sequencer = new Sequencer(transportClock, synth);

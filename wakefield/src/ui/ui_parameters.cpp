@@ -1115,6 +1115,7 @@ void UI::captureUndoSnapshot(const char* /*reason*/) {
     }
     undoStack.push_back(std::move(snapshot));
     redoStack.clear();
+    notifyAutosaveNeeded("undo_snapshot");
 }
 
 void UI::resetUndoHistory() {

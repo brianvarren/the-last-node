@@ -1081,6 +1081,7 @@ public:
     // Set device info
     void setDeviceInfo(const std::string& audioDevice, int sampleRate, int bufferSize,
                        const std::string& midiDevice, int midiPort);
+    void setSynthInstance(Synth* newSynth) { synth = newSynth; }
     
     // Set available devices
     void setAvailableAudioDevices(const std::vector<std::pair<int, std::string>>& devices, int currentDeviceId);
