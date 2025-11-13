@@ -139,7 +139,6 @@ void Synth::noteOn(int midiNote, int velocity) {
             voice.samplers[i].stopPlayback();
         }
     }
-    voice.resetAmpControllers();
     voice.resetFMHistory();
 
     // Trigger envelope attack on all envelopes
@@ -251,7 +250,6 @@ void Synth::sequencerNoteOn(int trackIndex, int midiNote, int velocity, float ga
             voice.samplers[i].stopPlayback();
         }
     }
-    voice.resetAmpControllers();
     voice.resetFMHistory();
 
     for (int ei = 0; ei < 4; ++ei) {

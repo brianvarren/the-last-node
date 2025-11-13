@@ -49,7 +49,6 @@ void Voice::forceSilence() {
         cachedChaosSolo[i] = false;
     }
     resetFMHistory();
-    resetAmpControllers();
     ampGateValue = 0.0f;
     ampGateTarget = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
@@ -93,6 +92,7 @@ float Voice::generateSample(unsigned int frameIndex) {
             envelopeValues[i] = 0.0f;
             envelopeIncrements[i] = 0.0f;
         }
+        ampGateValue = 0.0f;
         return 0.0f;
     }
 
@@ -100,8 +100,6 @@ float Voice::generateSample(unsigned int frameIndex) {
     g_voiceProfiler.totalSamples++;
 #endif
 
-    ampGateValue += kAmpGateSmoothingAlpha * (ampGateTarget - ampGateValue);
-    ampGateValue = std::clamp(ampGateValue, 0.0f, 1.0f);
     const int restrictedOsc = freeRunningOscIndex;
     const bool restrictOscillators = (restrictedOsc >= 0);
     const int restrictedSampler = freeRunningSamplerIndex;
@@ -177,65 +175,26 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
     }
 
+    ampGateValue = std::clamp(envelopeValues[0], 0.0f, 1.0f);
+    float ampEnvelope = ampGateValue;
+
     if (ampGateTarget <= 0.0f && ampGateValue < kAmpGateSilenceThreshold) {
-        bool controllersAudible = false;
-        for (int i = 0; i < OSCILLATORS_PER_VOICE && !controllersAudible; ++i) {
-            if (oscAmpControllerActive[i] && oscAmpControllerValue[i] > kAmpGateSilenceThreshold) {
-                controllersAudible = true;
+        if (synth) {
+            for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+                synth->saveSamplerPhase(i, samplers[i].getCurrentPhase());
             }
         }
-        for (int i = 0; i < SAMPLERS_PER_VOICE && !controllersAudible; ++i) {
-            if (samplerAmpControllerActive[i] && samplerAmpControllerValue[i] > kAmpGateSilenceThreshold) {
-                controllersAudible = true;
-            }
+        active = false;
+        for (int i = 0; i < 4; ++i) {
+            envelopeValues[i] = 0.0f;
+            envelopeTargets[i] = 0.0f;
+            envelopeIncrements[i] = 0.0f;
         }
-        if (!controllersAudible) {
-            if (synth) {
-                for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-                    synth->saveSamplerPhase(i, samplers[i].getCurrentPhase());
-                }
-            }
-            active = false;
-            for (int i = 0; i < 4; ++i) {
-                envelopeValues[i] = 0.0f;
-                envelopeTargets[i] = 0.0f;
-                envelopeIncrements[i] = 0.0f;
-            }
-            resetFMHistory();
-            resetAmpControllers();
-            ampGateValue = 0.0f;
-            ampGateTarget = 0.0f;
-            return 0.0f;
-        }
+        resetFMHistory();
+        ampGateValue = 0.0f;
+        ampGateTarget = 0.0f;
+        return 0.0f;
     }
-
-#ifdef ENABLE_VOICE_PROFILING
-    VOICE_PROFILE_START(t_smoothing);
-#endif
-
-    // Linear interpolation for all critical modulation (eliminates block-rate zipper noise)
-    if (!restrictSamplers) {
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            smoothedPitchMod[i] += pitchModIncrement[i];
-            smoothedAmpMod[i] += ampModIncrement[i];
-            smoothedOscLevel[i] += oscLevelIncrement[i];
-        }
-    }
-    if (!restrictOscillators) {
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            smoothedSamplerPitchMod[i] += samplerPitchModIncrement[i];
-            smoothedSamplerLevelMod[i] += samplerLevelModIncrement[i];
-        }
-    }
-
-    // Linear interpolation for envelopes
-    for (int i = 0; i < 4; ++i) {
-        envelopeValues[i] += envelopeIncrements[i];
-    }
-
-#ifdef ENABLE_VOICE_PROFILING
-    VOICE_PROFILE_END(timeSmoothing, t_smoothing);
-#endif
 
     // === PROFILING: Oscillator FM ===
 #ifdef ENABLE_VOICE_PROFILING
@@ -326,8 +285,7 @@ float Voice::generateSample(unsigned int frameIndex) {
                 finalGain = 0.0f;
             }
 
-            float ampControl = oscAmpControllerActive[i] ? oscAmpControllerValue[i] : ampGateValue;
-            finalGain *= std::clamp(ampControl, 0.0f, 1.0f);
+            finalGain *= ampEnvelope;
             oscFinalGains[i] = finalGain;
         }
     }
@@ -419,8 +377,7 @@ float Voice::generateSample(unsigned int frameIndex) {
             samplerOut = 0.0f;
         }
 
-        float samplerControl = samplerAmpControllerActive[i] ? samplerAmpControllerValue[i] : ampGateValue;
-        samplerFinalOutputs[i] = samplerOut * std::clamp(samplerControl, 0.0f, 1.0f);
+        samplerFinalOutputs[i] = samplerOut * ampEnvelope;
     }
 
 #ifdef ENABLE_VOICE_PROFILING
@@ -471,6 +428,27 @@ float Voice::generateSample(unsigned int frameIndex) {
 
 #ifdef ENABLE_VOICE_PROFILING
     VOICE_PROFILE_END(timeHistoryUpdate, t_history);
+#endif
+
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_START(t_smoothing);
+#endif
+
+    for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+        smoothedPitchMod[i] += pitchModIncrement[i];
+        smoothedAmpMod[i] += ampModIncrement[i];
+        smoothedOscLevel[i] += oscLevelIncrement[i];
+    }
+    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+        smoothedSamplerPitchMod[i] += samplerPitchModIncrement[i];
+        smoothedSamplerLevelMod[i] += samplerLevelModIncrement[i];
+    }
+    for (int i = 0; i < 4; ++i) {
+        envelopeValues[i] += envelopeIncrements[i];
+    }
+
+#ifdef ENABLE_VOICE_PROFILING
+    VOICE_PROFILE_END(timeSmoothing, t_smoothing);
 #endif
 
     return mixedSample;

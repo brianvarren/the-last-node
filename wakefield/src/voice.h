@@ -77,7 +77,6 @@ struct Voice {
     // NOTE: All critical modulation (envelopes, pitch, amp, level) use linear interpolation
     // Kept for reference only
     static constexpr float kSmoothingAlpha = 0.1f;
-    static constexpr float kAmpGateSmoothingAlpha = 0.05f;
     static constexpr float kAmpGateSilenceThreshold = 1e-4f;
 
     // Block-level caches to avoid per-sample atomics
@@ -92,10 +91,6 @@ struct Voice {
 
     float envelopeTargets[4]{};
     float envelopeIncrements[4]{};  // Per-sample increments for linear interpolation
-    float oscAmpControllerValue[OSCILLATORS_PER_VOICE]{};
-    bool oscAmpControllerActive[OSCILLATORS_PER_VOICE]{};
-    float samplerAmpControllerValue[SAMPLERS_PER_VOICE]{};
-    bool samplerAmpControllerActive[SAMPLERS_PER_VOICE]{};
     float ampGateValue = 0.0f;
     float ampGateTarget = 0.0f;
     int freeRunningOscIndex = -1;
@@ -144,7 +139,6 @@ struct Voice {
         }
         currentBufferSize = 256;  // Default buffer size
         for (int i = 0; i < 4; ++i) envelopeValues[i] = 0.0f;
-        resetAmpControllers();
         ampGateValue = 0.0f;
         ampGateTarget = 0.0f;
         freeRunningOscIndex = -1;
@@ -168,30 +162,7 @@ struct Voice {
         return envelopeValues[idx];
     }
     bool isGateReleasing() const { return ampGateTarget <= 0.0f; }
-    float getCurrentAmpLevel() const {
-        float level = ampGateValue;
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            if (oscAmpControllerActive[i]) {
-                level = std::max(level, oscAmpControllerValue[i]);
-            }
-        }
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            if (samplerAmpControllerActive[i]) {
-                level = std::max(level, samplerAmpControllerValue[i]);
-            }
-        }
-        return level;
-    }
-    void resetAmpControllers() {
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            oscAmpControllerValue[i] = 0.0f;
-            oscAmpControllerActive[i] = false;
-        }
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            samplerAmpControllerValue[i] = 0.0f;
-            samplerAmpControllerActive[i] = false;
-        }
-    }
+    float getCurrentAmpLevel() const { return ampGateValue; }
 
     const float* getLastOscOutputs() const { return lastOscOutputs; }
     const float* getLastSamplerOutputs() const { return lastSamplerOutputs; }
