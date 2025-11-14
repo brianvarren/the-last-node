@@ -184,7 +184,7 @@ void UI::drawSamplerPage() {
 
     const char* noteSourceStr = "Unknown";
     switch (noteSource) {
-        case static_cast<int>(NoteSource::FREE): noteSourceStr = "None"; break;
+        case static_cast<int>(NoteSource::FREE): noteSourceStr = "Free"; break;
         case static_cast<int>(NoteSource::EXTERNAL_MIDI): noteSourceStr = "Ext MIDI"; break;
         case static_cast<int>(NoteSource::TRACK_1): noteSourceStr = "Track 1"; break;
         case static_cast<int>(NoteSource::TRACK_2): noteSourceStr = "Track 2"; break;

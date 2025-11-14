@@ -255,7 +255,17 @@ void UI::handleInput(int ch) {
                 return;
             }
             bool changed = false;
-            if (mainPageMixerChannel < 4) {
+            if (mainPageMixerChannel == 12) {
+                // Master gain (0.0-4.0 range, larger deltas)
+                float current = params->masterVolume.load();
+                float scaledDelta = delta * 4.0f; // Scale to match 0-4 range
+                float newLevel = std::clamp(current + scaledDelta, 0.0f, 4.0f);
+                if (std::abs(newLevel - current) > 1e-6f) {
+                    captureUndoSnapshot("mixer_level");
+                    params->masterVolume = newLevel;
+                    changed = true;
+                }
+            } else if (mainPageMixerChannel < 4) {
                 float current = params->getOscLevel(mainPageMixerChannel);
                 float newLevel = std::clamp(current + delta, 0.0f, 1.0f);
                 if (std::abs(newLevel - current) > 1e-6f) {
@@ -310,7 +320,7 @@ void UI::handleInput(int ch) {
                         mainPageActionIndex++;
                     }
                 } else {
-                    if (mainPageMixerChannel < 11) {
+                    if (mainPageMixerChannel < 12) {
                         mainPageMixerChannel++;
                     }
                 }
@@ -460,7 +470,7 @@ void UI::handleInput(int ch) {
 
             // Mixer controls (only when focused on right column)
             case 'm': case 'M': {
-                if (mainPageFocusLeft) return;
+                if (mainPageFocusLeft || mainPageMixerChannel == 12) return;  // Master has no mute
                 captureUndoSnapshot("mixer_mute");
                 // Toggle mute for selected channel
                 if (mainPageMixerChannel < 4) {
@@ -475,7 +485,7 @@ void UI::handleInput(int ch) {
                 return;
             }
             case 's': case 'S': {
-                if (mainPageFocusLeft) return;
+                if (mainPageFocusLeft || mainPageMixerChannel == 12) return;  // Master has no solo
                 captureUndoSnapshot("mixer_solo");
                 // Toggle solo for selected channel
                 if (mainPageMixerChannel < 4) {
@@ -489,6 +499,82 @@ void UI::handleInput(int ch) {
                 }
                 return;
             }
+
+            // Number keys to select mixer channels (only on main page, right side)
+            case '`': case '~':
+                if (!mainPageFocusLeft) {
+                    mainPageMixerChannel = 12;  // Master
+                    addConsoleMessage("Mixer: MASTER selected");
+                }
+                return;
+            case '1': case '!':
+                if (!mainPageFocusLeft) {
+                    if (ch == '!') {
+                        mainPageMixerChannel = 8;  // Chaos 1
+                        addConsoleMessage("Mixer: CHAOS 1 selected");
+                    } else {
+                        mainPageMixerChannel = 0;  // OSC 1
+                        addConsoleMessage("Mixer: OSC 1 selected");
+                    }
+                }
+                return;
+            case '2': case '@':
+                if (!mainPageFocusLeft) {
+                    if (ch == '@') {
+                        mainPageMixerChannel = 9;  // Chaos 2
+                        addConsoleMessage("Mixer: CHAOS 2 selected");
+                    } else {
+                        mainPageMixerChannel = 1;  // OSC 2
+                        addConsoleMessage("Mixer: OSC 2 selected");
+                    }
+                }
+                return;
+            case '3': case '#':
+                if (!mainPageFocusLeft) {
+                    if (ch == '#') {
+                        mainPageMixerChannel = 10;  // Chaos 3
+                        addConsoleMessage("Mixer: CHAOS 3 selected");
+                    } else {
+                        mainPageMixerChannel = 2;  // OSC 3
+                        addConsoleMessage("Mixer: OSC 3 selected");
+                    }
+                }
+                return;
+            case '4': case '$':
+                if (!mainPageFocusLeft) {
+                    if (ch == '$') {
+                        mainPageMixerChannel = 11;  // Chaos 4
+                        addConsoleMessage("Mixer: CHAOS 4 selected");
+                    } else {
+                        mainPageMixerChannel = 3;  // OSC 4
+                        addConsoleMessage("Mixer: OSC 4 selected");
+                    }
+                }
+                return;
+            case '5': case '%':
+                if (!mainPageFocusLeft) {
+                    mainPageMixerChannel = 4;  // Sampler 1
+                    addConsoleMessage("Mixer: SAMP 1 selected");
+                }
+                return;
+            case '6': case '^':
+                if (!mainPageFocusLeft) {
+                    mainPageMixerChannel = 5;  // Sampler 2
+                    addConsoleMessage("Mixer: SAMP 2 selected");
+                }
+                return;
+            case '7': case '&':
+                if (!mainPageFocusLeft) {
+                    mainPageMixerChannel = 6;  // Sampler 3
+                    addConsoleMessage("Mixer: SAMP 3 selected");
+                }
+                return;
+            case '8': case '*':
+                if (!mainPageFocusLeft) {
+                    mainPageMixerChannel = 7;  // Sampler 4
+                    addConsoleMessage("Mixer: SAMP 4 selected");
+                }
+                return;
         }
     }
 
@@ -831,7 +917,9 @@ void UI::handleInput(int ch) {
         // Special-case MAIN page mixer: map current channel to a parameter ID
         if (currentPage == UIPage::MAIN && !mainPageFocusLeft) {
             int pid = -1;
-            if (mainPageMixerChannel >= 0 && mainPageMixerChannel < 4) {
+            if (mainPageMixerChannel == 12) {
+                pid = 6; // Master volume
+            } else if (mainPageMixerChannel >= 0 && mainPageMixerChannel < 4) {
                 pid = 50 + mainPageMixerChannel; // OSC levels 50-53
             } else if (mainPageMixerChannel >= 4 && mainPageMixerChannel < 8) {
                 pid = 54 + (mainPageMixerChannel - 4); // SAMP levels 54-57

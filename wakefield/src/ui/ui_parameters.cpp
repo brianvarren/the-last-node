@@ -1517,7 +1517,7 @@ void UI::applySerializedState(const std::string& data) {
     currentLFOIndex = std::clamp(currentLFOIndex, 0, 3);
     currentEnvelopeIndex = std::clamp(currentEnvelopeIndex, 0, 3);
     currentChaosIndex = std::clamp(currentChaosIndex, 0, 3);
-    mainPageMixerChannel = std::clamp(mainPageMixerChannel, 0, 11);
+    mainPageMixerChannel = std::clamp(mainPageMixerChannel, 0, 12);
     mainPageActionIndex = std::clamp(mainPageActionIndex, 0, kMainPageActionCount - 1);
     modMatrixCursorRow = std::clamp(modMatrixCursorRow, 0, kModulationSlotCount - 1);
     modMatrixCursorCol = std::clamp(modMatrixCursorCol, 0, kFMTargetCount - 1);
@@ -2344,7 +2344,12 @@ std::string UI::getParameterDisplayString(int id) {
             }
         }
         case ParamType::INT: {
-            return std::to_string(static_cast<int>(value));
+            int intValue = static_cast<int>(value);
+            // Add + prefix for positive octave shift parameters
+            if ((param->id == 16 || param->id == 64) && intValue > 0) {
+                return "+" + std::to_string(intValue);
+            }
+            return std::to_string(intValue);
         }
         case ParamType::ENUM: {
             int enumIndex = static_cast<int>(value);

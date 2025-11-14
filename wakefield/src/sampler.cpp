@@ -489,7 +489,12 @@ int16_t Sampler::getSample(const SampleData* sample, const SamplerVoice* voice, 
 
     // Extract 8-bit fractional part for interpolation
     const uint32_t frac32 = static_cast<uint32_t>(voice->phase_q32_32 & 0xFFFFFFFFull);
-    const uint8_t mu8 = static_cast<uint8_t>(frac32 >> 24);
+    uint8_t mu8 = static_cast<uint8_t>(frac32 >> 24);
+
+    // Invert interpolation fraction when playing in reverse
+    if (isReverse) {
+        mu8 = 255 - mu8;
+    }
 
     // Perform interpolation
     int16_t sampleValue = interpolate(sample->samples[i],
@@ -722,7 +727,9 @@ float Sampler::process(float sampleRate, float fmInput, float pitchMod,
                 playingReverse = !playingReverse;
             }
 
-            if (xfadeLen == 0) {
+            // Only recalculate loop if crossfade is disabled and NOT in ping-pong mode
+            // (ping-pong uses wrapPhase() for direction changes, not loop resets)
+            if (xfadeLen == 0 && mode != PlaybackMode::ALTERNATE) {
                 ensurePendingLoop(sample, loopStartMod, loopLengthMod, sampleRate, tempo, syncMode, pitchMod, midiNote);
                 applyPendingLoopToVoice(primaryVoice);
             }
