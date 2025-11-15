@@ -235,7 +235,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     float currentOutputs[OSCILLATORS_PER_VOICE]{};
 
     // Half-rate processing: Only run oscillators on even samples (0, 2, 4, ...)
-    // On odd samples, reuse cached outputs (zero-order hold)
+    // On odd samples, use linear interpolation between previous two samples
     const bool processOscillators = !halfRateEnabled || isEvenSample;
 
     if (processOscillators && !restrictSamplers) {
@@ -269,15 +269,16 @@ float Voice::generateSample(unsigned int frameIndex) {
                 oscSample = 0.0f;
             }
             currentOutputs[i] = oscSample;
-            // Cache for next (odd) sample if half-rate enabled
+            // Update cache for linear interpolation if half-rate enabled
             if (halfRateEnabled) {
-                cachedOscOutputs[i] = oscSample;
+                prevOscOutputs[i] = cachedOscOutputs[i];  // Shift cache
+                cachedOscOutputs[i] = oscSample;           // Store new sample
             }
         }
     } else if (halfRateEnabled && !isEvenSample) {
-        // Odd sample: Reuse cached outputs from previous (even) sample
+        // Odd sample: Linear interpolation between previous two processed samples
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            currentOutputs[i] = cachedOscOutputs[i];
+            currentOutputs[i] = (prevOscOutputs[i] + cachedOscOutputs[i]) * 0.5f;
         }
     }
 
@@ -348,7 +349,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
 
     // Half-rate processing: Only run samplers on even samples (0, 2, 4, ...)
-    // On odd samples, reuse cached outputs (zero-order hold)
+    // On odd samples, use linear interpolation between previous two samples
     const bool processSamplers = !halfRateEnabled || isEvenSample;
 
     if (processSamplers) {
@@ -401,9 +402,10 @@ float Voice::generateSample(unsigned int frameIndex) {
             }
             currentSamplerOutputs[i] = samplerOut;
 
-            // Cache for next (odd) sample if half-rate enabled
+            // Update cache for linear interpolation if half-rate enabled
             if (halfRateEnabled) {
-                cachedSamplerOutputs[i] = samplerOut;
+                prevSamplerOutputs[i] = cachedSamplerOutputs[i];  // Shift cache
+                cachedSamplerOutputs[i] = samplerOut;              // Store new sample
             }
 
             if (cachedAnySolo) {
@@ -417,11 +419,12 @@ float Voice::generateSample(unsigned int frameIndex) {
             samplerFinalOutputs[i] = samplerOut * ampEnvelope;
         }
     } else if (halfRateEnabled && !isEvenSample) {
-        // Odd sample: Reuse cached outputs from previous (even) sample
+        // Odd sample: Linear interpolation between previous two processed samples
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            currentSamplerOutputs[i] = cachedSamplerOutputs[i];
+            float interpolated = (prevSamplerOutputs[i] + cachedSamplerOutputs[i]) * 0.5f;
+            currentSamplerOutputs[i] = interpolated;
 
-            float samplerOut = cachedSamplerOutputs[i];
+            float samplerOut = interpolated;
             if (cachedAnySolo) {
                 if (!cachedSamplerSolo[i]) {
                     samplerOut = 0.0f;

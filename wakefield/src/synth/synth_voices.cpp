@@ -146,6 +146,7 @@ void Synth::noteOn(int midiNote, int velocity) {
     for (int ei = 0; ei < 4; ++ei) {
         voice.envelopes[ei].noteOn(isStealingVoice);
     }
+    voice.ampGateEnvelope.noteOn(isStealingVoice);
 
     // Reset LFOs if resetOnNote is enabled
     for (int li = 0; li < 4; ++li) {
@@ -168,6 +169,7 @@ void Synth::noteOff(int midiNote) {
             for (int ei = 0; ei < 4; ++ei) {
                 voices[i].envelopes[ei].noteOff();  // Trigger release
             }
+            voices[i].ampGateEnvelope.noteOff();
             voices[i].ampGateTarget = 0.0f;
         }
     }
@@ -255,7 +257,11 @@ void Synth::sequencerNoteOn(int trackIndex, int midiNote, int velocity, float ga
     for (int ei = 0; ei < 4; ++ei) {
         voice.envelopes[ei].noteOn(isStealingVoice);
     }
+    voice.ampGateEnvelope.noteOn(isStealingVoice);
     voice.ampGateTarget = 1.0f;
+    if (!isStealingVoice) {
+        voice.ampGateValue = 0.0f;
+    }
 }
 
 void Synth::sequencerNoteOff(int trackIndex, int midiNote) {
@@ -313,7 +319,7 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
         if (existingIndex >= 0 && existingIndex < MAX_VOICES) {
             Voice& voice = voices[existingIndex];
             voice.ampGateTarget = 1.0f;
-            voice.ampGateValue = 1.0f;
+            voice.ampGateEnvelope.noteOn(true);
         }
         return;
     }
@@ -338,7 +344,7 @@ void Synth::spawnFreeRunningVoice(int oscIndex) {
         voice.envelopes[ei].noteOn();
     }
     voice.ampGateTarget = 1.0f;
-    voice.ampGateValue = 1.0f;
+    voice.ampGateEnvelope.noteOn();
 
     freeRunningVoiceActive[oscIndex] = true;
     freeRunningVoiceIndex[oscIndex] = voiceIndex;
@@ -363,7 +369,7 @@ void Synth::spawnFreeRunningSamplerVoice(int samplerIndex) {
         if (existingIndex >= 0 && existingIndex < MAX_VOICES) {
             Voice& voice = voices[existingIndex];
             voice.ampGateTarget = 1.0f;
-            voice.ampGateValue = 1.0f;
+            voice.ampGateEnvelope.noteOn(true);
         }
         return;
     }
@@ -398,7 +404,7 @@ void Synth::spawnFreeRunningSamplerVoice(int samplerIndex) {
         voice.envelopes[ei].noteOn();
     }
     voice.ampGateTarget = 1.0f;
-    voice.ampGateValue = 1.0f;
+    voice.ampGateEnvelope.noteOn();
 
     freeRunningSamplerActive[samplerIndex] = true;
     freeRunningSamplerVoiceIndex[samplerIndex] = voiceIndex;

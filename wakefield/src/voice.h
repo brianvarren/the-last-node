@@ -103,10 +103,12 @@ struct Voice {
     // === Half-Rate Processing State ===
     // When enabled, oscillators and samplers run at half the sample rate (e.g., 24kHz @ 48kHz)
     // Provides ~30-35% CPU savings at the cost of bandwidth above ~12kHz
-    // Processing happens on even samples (0, 2, 4, ...), odd samples use cached outputs
+    // Processing happens on even samples (0, 2, 4, ...), odd samples use linear interpolation
     bool halfRateEnabled = false;
-    float cachedOscOutputs[OSCILLATORS_PER_VOICE]{};   // Cached osc outputs from last even sample
-    float cachedSamplerOutputs[SAMPLERS_PER_VOICE]{};  // Cached sampler outputs from last even sample
+    float prevOscOutputs[OSCILLATORS_PER_VOICE]{};     // Osc outputs from sample N-2 (for interpolation)
+    float cachedOscOutputs[OSCILLATORS_PER_VOICE]{};   // Osc outputs from sample N (last even sample)
+    float prevSamplerOutputs[SAMPLERS_PER_VOICE]{};    // Sampler outputs from sample N-2
+    float cachedSamplerOutputs[SAMPLERS_PER_VOICE]{};  // Sampler outputs from sample N
 
     Voice(float sampleRate)
         : active(false)
@@ -158,8 +160,14 @@ struct Voice {
         freeRunningOscIndex = -1;
         freeRunningSamplerIndex = -1;
         halfRateEnabled = false;
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) cachedOscOutputs[i] = 0.0f;
-        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) cachedSamplerOutputs[i] = 0.0f;
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            prevOscOutputs[i] = 0.0f;
+            cachedOscOutputs[i] = 0.0f;
+        }
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            prevSamplerOutputs[i] = 0.0f;
+            cachedSamplerOutputs[i] = 0.0f;
+        }
 
         ampGateEnvelope.setAttack(kDefaultAmpGateAttack);
         ampGateEnvelope.setDecay(0.0f);
