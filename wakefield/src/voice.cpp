@@ -49,8 +49,10 @@ void Voice::forceSilence() {
         cachedChaosSolo[i] = false;
     }
     resetFMHistory();
+    ampGateEnvelope.reset();
     ampGateValue = 0.0f;
     ampGateTarget = 0.0f;
+    ampGateIncrement = 0.0f;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         // Critical (smoothed)
         pitchMod[i] = 0.0f;
@@ -93,6 +95,7 @@ float Voice::generateSample(unsigned int frameIndex) {
             envelopeIncrements[i] = 0.0f;
         }
         ampGateValue = 0.0f;
+        ampGateIncrement = 0.0f;
         return 0.0f;
     }
 
@@ -100,12 +103,10 @@ float Voice::generateSample(unsigned int frameIndex) {
     g_voiceProfiler.totalSamples++;
 #endif
 
-    // === Half-Rate Processing: Toggle tick ===
-    // When enabled, oscillators/samplers only run on even ticks (halfRateTick==false)
-    // Odd ticks use linear interpolation between cached and current samples
-    if (halfRateEnabled) {
-        halfRateTick = !halfRateTick;
-    }
+    // === Half-Rate Processing: Determine even/odd sample ===
+    // When enabled, oscillators/samplers only run on even samples (0, 2, 4, ...)
+    // Odd samples (1, 3, 5, ...) use cached outputs from previous even sample
+    const bool isEvenSample = (frameIndex & 1) == 0;
 
     const int restrictedOsc = freeRunningOscIndex;
     const bool restrictOscillators = (restrictedOsc >= 0);
@@ -180,10 +181,12 @@ float Voice::generateSample(unsigned int frameIndex) {
             envelopeIncrements[i] = (newTarget - envelopeValues[i]) / static_cast<float>(blockSize);
             envelopeTargets[i] = newTarget;
         }
+
+        float newGateTarget = ampGateEnvelope.processBlock(blockSize);
+        ampGateIncrement = (newGateTarget - ampGateValue) / static_cast<float>(blockSize);
     }
 
-    ampGateValue = std::clamp(envelopeValues[0], 0.0f, 1.0f);
-    float ampEnvelope = ampGateValue;
+    float ampEnvelope = std::clamp(ampGateValue, 0.0f, 1.0f);
 
     if (ampGateTarget <= 0.0f && ampGateValue < kAmpGateSilenceThreshold) {
         if (synth) {
@@ -198,8 +201,10 @@ float Voice::generateSample(unsigned int frameIndex) {
             envelopeIncrements[i] = 0.0f;
         }
         resetFMHistory();
+        ampGateEnvelope.reset();
         ampGateValue = 0.0f;
         ampGateTarget = 0.0f;
+        ampGateIncrement = 0.0f;
         return 0.0f;
     }
 
@@ -229,9 +234,9 @@ float Voice::generateSample(unsigned int frameIndex) {
 
     float currentOutputs[OSCILLATORS_PER_VOICE]{};
 
-    // Half-rate processing: Only run oscillators on even ticks (when halfRateTick==false)
-    // On odd ticks, reuse cached outputs (zero-order hold)
-    const bool processOscillators = !halfRateEnabled || !halfRateTick;
+    // Half-rate processing: Only run oscillators on even samples (0, 2, 4, ...)
+    // On odd samples, reuse cached outputs (zero-order hold)
+    const bool processOscillators = !halfRateEnabled || isEvenSample;
 
     if (processOscillators && !restrictSamplers) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
@@ -269,8 +274,8 @@ float Voice::generateSample(unsigned int frameIndex) {
                 cachedOscOutputs[i] = oscSample;
             }
         }
-    } else if (halfRateEnabled && halfRateTick) {
-        // Odd tick: Reuse cached outputs from previous (even) sample
+    } else if (halfRateEnabled && !isEvenSample) {
+        // Odd sample: Reuse cached outputs from previous (even) sample
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             currentOutputs[i] = cachedOscOutputs[i];
         }
@@ -342,9 +347,9 @@ float Voice::generateSample(unsigned int frameIndex) {
     float currentSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f};
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
 
-    // Half-rate processing: Only run samplers on even ticks (when halfRateTick==false)
-    // On odd ticks, reuse cached outputs (zero-order hold)
-    const bool processSamplers = !halfRateEnabled || !halfRateTick;
+    // Half-rate processing: Only run samplers on even samples (0, 2, 4, ...)
+    // On odd samples, reuse cached outputs (zero-order hold)
+    const bool processSamplers = !halfRateEnabled || isEvenSample;
 
     if (processSamplers) {
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
@@ -411,8 +416,8 @@ float Voice::generateSample(unsigned int frameIndex) {
 
             samplerFinalOutputs[i] = samplerOut * ampEnvelope;
         }
-    } else if (halfRateEnabled && halfRateTick) {
-        // Odd tick: Reuse cached outputs from previous (even) sample
+    } else if (halfRateEnabled && !isEvenSample) {
+        // Odd sample: Reuse cached outputs from previous (even) sample
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             currentSamplerOutputs[i] = cachedSamplerOutputs[i];
 
@@ -495,6 +500,7 @@ float Voice::generateSample(unsigned int frameIndex) {
     for (int i = 0; i < 4; ++i) {
         envelopeValues[i] += envelopeIncrements[i];
     }
+    ampGateValue = std::clamp(ampGateValue + ampGateIncrement, 0.0f, 1.0f);
 
 #ifdef ENABLE_VOICE_PROFILING
     VOICE_PROFILE_END(timeSmoothing, t_smoothing);

@@ -23,6 +23,7 @@ struct Voice {
     BrainwaveOscillator oscillators[OSCILLATORS_PER_VOICE]; // 4 oscillators per voice
     Sampler samplers[SAMPLERS_PER_VOICE]; // 4 samplers per voice
     Envelope envelopes[4];     // 4 per-voice envelopes (ENV1..ENV4)
+    Envelope ampGateEnvelope;  // Dedicated amplitude gate envelope
     SynthParameters* params;  // Pointer to FM matrix and other params
     Synth* synth;          // Pointer to synth for base level access
 
@@ -78,6 +79,8 @@ struct Voice {
     // Kept for reference only
     static constexpr float kSmoothingAlpha = 0.1f;
     static constexpr float kAmpGateSilenceThreshold = 1e-4f;
+    static constexpr float kDefaultAmpGateAttack = 0.002f;
+    static constexpr float kDefaultAmpGateRelease = 0.03f;
 
     // Block-level caches to avoid per-sample atomics
     int cachedActiveOscCount = OSCILLATORS_PER_VOICE;
@@ -93,16 +96,17 @@ struct Voice {
     float envelopeIncrements[4]{};  // Per-sample increments for linear interpolation
     float ampGateValue = 0.0f;
     float ampGateTarget = 0.0f;
+    float ampGateIncrement = 0.0f;
     int freeRunningOscIndex = -1;
     int freeRunningSamplerIndex = -1;
 
     // === Half-Rate Processing State ===
     // When enabled, oscillators and samplers run at half the sample rate (e.g., 24kHz @ 48kHz)
     // Provides ~30-35% CPU savings at the cost of bandwidth above ~12kHz
-    bool halfRateEnabled = false;              // Enable half-rate mode
-    bool halfRateTick = false;                 // Alternates true/false each sample
-    float cachedOscOutputs[OSCILLATORS_PER_VOICE]{};   // Previous osc samples for interpolation
-    float cachedSamplerOutputs[SAMPLERS_PER_VOICE]{};  // Previous sampler samples for interpolation
+    // Processing happens on even samples (0, 2, 4, ...), odd samples use cached outputs
+    bool halfRateEnabled = false;
+    float cachedOscOutputs[OSCILLATORS_PER_VOICE]{};   // Cached osc outputs from last even sample
+    float cachedSamplerOutputs[SAMPLERS_PER_VOICE]{};  // Cached sampler outputs from last even sample
 
     Voice(float sampleRate)
         : active(false)
@@ -111,6 +115,7 @@ struct Voice {
         , startTime(0)
         , noteSource(0)
         , envelopes{ Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate), Envelope(sampleRate) }
+        , ampGateEnvelope(sampleRate)
         , sampleRate(sampleRate)
         , globalFmInputs(nullptr)
         , globalSamplerFmInputs(nullptr)
@@ -149,12 +154,19 @@ struct Voice {
         for (int i = 0; i < 4; ++i) envelopeValues[i] = 0.0f;
         ampGateValue = 0.0f;
         ampGateTarget = 0.0f;
+        ampGateIncrement = 0.0f;
         freeRunningOscIndex = -1;
         freeRunningSamplerIndex = -1;
         halfRateEnabled = false;
-        halfRateTick = false;
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) cachedOscOutputs[i] = 0.0f;
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) cachedSamplerOutputs[i] = 0.0f;
+
+        ampGateEnvelope.setAttack(kDefaultAmpGateAttack);
+        ampGateEnvelope.setDecay(0.0f);
+        ampGateEnvelope.setSustain(1.0f);
+        ampGateEnvelope.setRelease(kDefaultAmpGateRelease);
+        ampGateEnvelope.setAttackBend(0.5f);
+        ampGateEnvelope.setReleaseBend(0.5f);
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)
