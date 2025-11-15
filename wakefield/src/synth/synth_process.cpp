@@ -170,6 +170,10 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         }
 
         voice.currentBufferSize = nFrames;
+
+        // Apply half-rate processing configuration
+        voice.halfRateEnabled = params ? params->halfRateEnabled.load() : false;
+
         ModulationOutputs modOutputs = processModulationMatrix(&voice);
 
         // Store pitch modulation with octave offsets applied

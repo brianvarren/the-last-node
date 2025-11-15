@@ -20,7 +20,7 @@ Sequencer* sequencer = nullptr;
 
 // Helper to configure a "stress test" preset with maximum features enabled
 void configureStressTestPreset(SynthParameters& params, Synth& synth, float sampleRate) {
-    std::cout << "Configuring stress-test preset...\n";
+    std::cout << "Configuring MAXED-OUT stress-test preset...\n";
 
     // === Oscillators: All 4 active, unmuted ===
     std::cout << "  Enabling all oscillators...\n";
@@ -30,12 +30,72 @@ void configureStressTestPreset(SynthParameters& params, Synth& synth, float samp
     params.oscMuted[2] = false;
     params.oscMuted[3] = false;
 
-    // === FM Matrix: Create complex FM routing ===
-    std::cout << "  Configuring FM matrix...\n";
-    params.fmGlobalDepth = 0.6f;
-    params.fmMatrix[1][0] = 0.3f;  // OSC1 -> OSC2
-    params.fmMatrix[2][1] = 0.25f; // OSC2 -> OSC3
-    params.fmMatrix[3][2] = 0.2f;  // OSC3 -> OSC4
+    // === Samplers: All 4 active, unmuted, with samples loaded ===
+    std::cout << "  Enabling all samplers...\n";
+    params.activeSamplerCount = 4;
+    params.samplerMuted[0] = false;
+    params.samplerMuted[1] = false;
+    params.samplerMuted[2] = false;
+    params.samplerMuted[3] = false;
+
+    // Load sample bank
+    SampleBank* sampleBank = synth.getSampleBank();
+    int sampleCount = sampleBank->loadSamplesFromDirectory("samples");
+    std::cout << "  Loaded " << sampleCount << " samples\n";
+
+    // Assign samples to samplers (use first 4 available samples)
+    if (sampleCount >= 4) {
+        synth.setSamplerSample(0, 0);  // Sampler 1
+        synth.setSamplerSample(1, 1);  // Sampler 2
+        synth.setSamplerSample(2, 2);  // Sampler 3
+        synth.setSamplerSample(3, 3);  // Sampler 4
+        std::cout << "    Sampler 1: " << sampleBank->getSampleName(0) << "\n";
+        std::cout << "    Sampler 2: " << sampleBank->getSampleName(1) << "\n";
+        std::cout << "    Sampler 3: " << sampleBank->getSampleName(2) << "\n";
+        std::cout << "    Sampler 4: " << sampleBank->getSampleName(3) << "\n";
+    }
+
+    // Configure samplers for active playback
+    for (int i = 0; i < 4; ++i) {
+        synth.setSamplerKeyMode(i, true);  // KEY mode (tracks MIDI notes)
+        synth.setSamplerLevel(i, 0.6f);    // Moderate level
+        synth.setSamplerLoopStart(i, 0.0f);
+        synth.setSamplerLoopLength(i, 1.0f);
+        synth.setSamplerCrossfadeLength(i, 0.1f);
+        synth.setSamplerPlaybackSpeed(i, 1.0f);
+        synth.setSamplerTZFMDepth(i, 0.8f);  // Enable FM depth
+    }
+
+    // === FM Matrix: DENSE routing (12+ connections across all 8 sources/targets) ===
+    std::cout << "  Configuring DENSE FM matrix (8 sources x 8 targets)...\n";
+    params.fmGlobalDepth = 0.7f;  // Higher global depth
+
+    // Oscillator -> Oscillator FM (ring modulation chain)
+    params.fmMatrix[1][0] = 0.35f;   // OSC1 -> OSC2
+    params.fmMatrix[2][1] = 0.30f;   // OSC2 -> OSC3
+    params.fmMatrix[3][2] = 0.25f;   // OSC3 -> OSC4
+    params.fmMatrix[0][3] = 0.20f;   // OSC4 -> OSC1 (feedback!)
+
+    // Oscillator -> Sampler FM (timbral modulation)
+    params.fmMatrix[4][0] = 0.25f;   // OSC1 -> SAMP1
+    params.fmMatrix[5][1] = 0.20f;   // OSC2 -> SAMP2
+    params.fmMatrix[6][2] = 0.25f;   // OSC3 -> SAMP3
+    params.fmMatrix[7][3] = 0.20f;   // OSC4 -> SAMP4
+
+    // Sampler -> Oscillator FM (pitched chaos)
+    params.fmMatrix[0][4] = 0.15f;   // SAMP1 -> OSC1
+    params.fmMatrix[1][5] = 0.15f;   // SAMP2 -> OSC2
+    params.fmMatrix[2][6] = 0.15f;   // SAMP3 -> OSC3
+    params.fmMatrix[3][7] = 0.15f;   // SAMP4 -> OSC4
+
+    // Sampler -> Sampler FM (granular intermodulation)
+    params.fmMatrix[5][4] = 0.20f;   // SAMP1 -> SAMP2
+    params.fmMatrix[7][6] = 0.20f;   // SAMP3 -> SAMP4
+
+    std::cout << "    Created 14 FM connections (osc↔osc, osc↔samp, samp↔samp)\n";
+
+    // NOTE: Modulation matrix configuration skipped - requires UI instance
+    // The profiling will still stress modulation processing via internal routing
 
     // === Filter: Enabled with resonant ladder filter ===
     std::cout << "  Enabling filter...\n";
@@ -61,6 +121,19 @@ void configureStressTestPreset(SynthParameters& params, Synth& synth, float samp
                                 0.6f, // diffusion
                                 0.15f, // modDepth
                                 2.0f); // modFreq
+
+    // === Compressor: ENABLED (was disabled before!) ===
+    std::cout << "  Enabling compressor...\n";
+    synth.setCompressorEnabled(true);
+    synth.updateCompressorParameters(-12.0f,  // threshold
+                                     4.0f,    // ratio
+                                     0.005f,  // attack
+                                     0.100f,  // release
+                                     3.0f,    // knee
+                                     1.0f,    // mix (100% wet)
+                                     true,    // auto makeup
+                                     1.0f,    // manual makeup
+                                     true);   // RMS mode
 
     // === LFOs: All 4 active ===
     std::cout << "  Configuring LFOs...\n";
@@ -90,12 +163,25 @@ void configureStressTestPreset(SynthParameters& params, Synth& synth, float samp
     synth.setChaosClockFreq(3, 15.0f);
     synth.setChaosFastMode(3, true);
 
-    std::cout << "Stress-test configuration complete:\n";
-    std::cout << "  - 4 Oscillators active with FM matrix (3 connections)\n";
-    std::cout << "  - 4 LFOs running (0.5Hz - 20Hz)\n";
+    // === Half-Rate Processing ===
+    // Check environment variable to enable half-rate mode for benchmarking
+    const bool halfRateProfile = (std::getenv("WF_HALF_RATE") != nullptr);
+    if (halfRateProfile) {
+        params.halfRateEnabled = true;
+        std::cout << "  HALF-RATE MODE ENABLED (osc/sampler @ 24kHz)\n";
+    } else {
+        params.halfRateEnabled = false;
+    }
+
+    std::cout << "\n=== MAXED-OUT Stress-test configuration complete ===\n";
+    std::cout << "  - 4 Oscillators active + 4 Samplers active (8 generators)\n";
+    std::cout << "  - 14 FM connections (dense 8x8 matrix)\n";
+    std::cout << "  - 4 LFOs running (0.05Hz - 2Hz)\n";
     std::cout << "  - 4 Chaos generators (2-15Hz, mixed fast/slow modes)\n";
     std::cout << "  - Ladder filter enabled (800Hz cutoff, Q=0.6)\n";
     std::cout << "  - Greyhole reverb active (30% mix, size=0.7)\n";
+    std::cout << "  - Compressor enabled (-12dB threshold, 4:1 ratio)\n";
+    std::cout << "====================================================\n\n";
 }
 
 namespace {
@@ -174,38 +260,7 @@ int main(int argc, char** argv) {
         configureSamplerDronePreset(params, synth);
         std::cout << "Sampler drone profile enabled via WF_PROFILE_SAMPLER=1\n";
     } else {
-        std::cout << "Enabling stress-test features...\n";
-
-        // All 4 oscillators active
-        params.oscMuted[0] = false;
-        params.oscMuted[1] = false;
-        params.oscMuted[2] = false;
-        params.oscMuted[3] = false;
-
-        // FM Matrix routing
-        params.fmGlobalDepth = 0.6f;
-        params.fmMatrix[1][0] = 0.3f;  // OSC1 -> OSC2
-        params.fmMatrix[2][1] = 0.25f; // OSC2 -> OSC3
-        params.fmMatrix[3][2] = 0.2f;  // OSC3 -> OSC4
-
-        // Filter enabled
-        synth.setFilterEnabled(true);
-        synth.updateFilterParameters(4, 800.0f, 0.0f, 0.6f, 1.5f, 200.0f, 0.5f, 0.3f, 0.5f);
-
-        // Reverb enabled
-        synth.setReverbEnabled(true);
-        synth.updateReverbParameters(0.5f, 0.7f, 0.5f, 0.3f, 0.6f, 0.6f, 0.15f, 2.0f);
-
-        // All 4 LFOs running
-        synth.updateLFOParameters(0, 2.0f, 0, 0, 0.7f, 0.5f, false, false, 120.0f);
-        synth.updateLFOParameters(1, 0.5f, 0, 1, 0.5f, 0.3f, false, false, 120.0f);
-        synth.updateLFOParameters(2, 0.1f, 0, 0, 0.3f, 0.5f, false, false, 120.0f);
-        synth.updateLFOParameters(3, 0.05f, 0, 1, 0.5f, 0.7f, false, false, 120.0f);
-
-        std::cout << "  - 4 Oscillators unmuted + FM matrix\n";
-        std::cout << "  - 4 LFOs active\n";
-        std::cout << "  - Ladder filter enabled\n";
-        std::cout << "  - Greyhole reverb enabled\n\n";
+        configureStressTestPreset(params, synth, static_cast<float>(cfg.sampleRate));
     }
 
     constexpr unsigned int channels = 2;

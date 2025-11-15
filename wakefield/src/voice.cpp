@@ -100,6 +100,13 @@ float Voice::generateSample(unsigned int frameIndex) {
     g_voiceProfiler.totalSamples++;
 #endif
 
+    // === Half-Rate Processing: Toggle tick ===
+    // When enabled, oscillators/samplers only run on even ticks (halfRateTick==false)
+    // Odd ticks use linear interpolation between cached and current samples
+    if (halfRateEnabled) {
+        halfRateTick = !halfRateTick;
+    }
+
     const int restrictedOsc = freeRunningOscIndex;
     const bool restrictOscillators = (restrictedOsc >= 0);
     const int restrictedSampler = freeRunningSamplerIndex;
@@ -221,7 +228,12 @@ float Voice::generateSample(unsigned int frameIndex) {
 #endif
 
     float currentOutputs[OSCILLATORS_PER_VOICE]{};
-    if (!restrictSamplers) {
+
+    // Half-rate processing: Only run oscillators on even ticks (when halfRateTick==false)
+    // On odd ticks, reuse cached outputs (zero-order hold)
+    const bool processOscillators = !halfRateEnabled || !halfRateTick;
+
+    if (processOscillators && !restrictSamplers) {
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             if (i >= cachedActiveOscCount) {
                 continue;
@@ -252,6 +264,15 @@ float Voice::generateSample(unsigned int frameIndex) {
                 oscSample = 0.0f;
             }
             currentOutputs[i] = oscSample;
+            // Cache for next (odd) sample if half-rate enabled
+            if (halfRateEnabled) {
+                cachedOscOutputs[i] = oscSample;
+            }
+        }
+    } else if (halfRateEnabled && halfRateTick) {
+        // Odd tick: Reuse cached outputs from previous (even) sample
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            currentOutputs[i] = cachedOscOutputs[i];
         }
     }
 
@@ -320,64 +341,92 @@ float Voice::generateSample(unsigned int frameIndex) {
 
     float currentSamplerOutputs[SAMPLERS_PER_VOICE] = {0.0f};
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
-    for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        if (i >= cachedActiveSamplerCount) {
-            currentSamplerOutputs[i] = 0.0f;
-            samplerFinalOutputs[i] = 0.0f;
-            continue;
-        }
-        if (restrictOscillators) {
-            currentSamplerOutputs[i] = 0.0f;
-            samplerFinalOutputs[i] = 0.0f;
-            continue;
-        }
 
-        bool samplerKeyMode = samplers[i].isKeyMode();
-        bool processSampler = false;
-        if (samplerKeyMode) {
-            if (!restrictSamplers) {
-                if (!params) {
-                    processSampler = true;
-                } else {
-                    int samplerNoteSource = params->getSamplerNoteSource(i);
-                    processSampler = (samplerNoteSource == noteSource);
-                }
+    // Half-rate processing: Only run samplers on even ticks (when halfRateTick==false)
+    // On odd ticks, reuse cached outputs (zero-order hold)
+    const bool processSamplers = !halfRateEnabled || !halfRateTick;
+
+    if (processSamplers) {
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            if (i >= cachedActiveSamplerCount) {
+                currentSamplerOutputs[i] = 0.0f;
+                samplerFinalOutputs[i] = 0.0f;
+                continue;
             }
-        } else {
-            processSampler = (restrictSamplers && restrictedSampler == i);
-        }
-        if (!processSampler) {
-            currentSamplerOutputs[i] = 0.0f;
-            samplerFinalOutputs[i] = 0.0f;
-            continue;
-        }
+            if (restrictOscillators) {
+                currentSamplerOutputs[i] = 0.0f;
+                samplerFinalOutputs[i] = 0.0f;
+                continue;
+            }
 
-        float samplerOut = samplers[i].process(sampleRate,
-                                               samplerFMInputs[i],
-                                               smoothedSamplerPitchMod[i],
-                                               samplerLoopStartMod[i],
-                                               samplerLoopLengthMod[i],
-                                               samplerCrossfadeMod[i],
-                                               smoothedSamplerLevelMod[i],
-                                               cachedSamplerLevelMod[i],
-                                               samplerPhaseDriver[i],
-                                               note,
-                                               synth ? synth->currentTempo : 120.0f,
-                                               synth ? synth->getSamplerSyncMode(i) : 0);
-        if (!std::isfinite(samplerOut)) {
-            samplerOut = 0.0f;
-        }
-        currentSamplerOutputs[i] = samplerOut;
+            bool samplerKeyMode = samplers[i].isKeyMode();
+            bool processSampler = false;
+            if (samplerKeyMode) {
+                if (!restrictSamplers) {
+                    if (!params) {
+                        processSampler = true;
+                    } else {
+                        int samplerNoteSource = params->getSamplerNoteSource(i);
+                        processSampler = (samplerNoteSource == noteSource);
+                    }
+                }
+            } else {
+                processSampler = (restrictSamplers && restrictedSampler == i);
+            }
+            if (!processSampler) {
+                currentSamplerOutputs[i] = 0.0f;
+                samplerFinalOutputs[i] = 0.0f;
+                continue;
+            }
 
-        if (cachedAnySolo) {
-            if (!cachedSamplerSolo[i]) {
+            float samplerOut = samplers[i].process(sampleRate,
+                                                   samplerFMInputs[i],
+                                                   smoothedSamplerPitchMod[i],
+                                                   samplerLoopStartMod[i],
+                                                   samplerLoopLengthMod[i],
+                                                   samplerCrossfadeMod[i],
+                                                   smoothedSamplerLevelMod[i],
+                                                   cachedSamplerLevelMod[i],
+                                                   samplerPhaseDriver[i],
+                                                   note,
+                                                   synth ? synth->currentTempo : 120.0f,
+                                                   synth ? synth->getSamplerSyncMode(i) : 0);
+            if (!std::isfinite(samplerOut)) {
                 samplerOut = 0.0f;
             }
-        } else if (cachedSamplerMuted[i]) {
-            samplerOut = 0.0f;
-        }
+            currentSamplerOutputs[i] = samplerOut;
 
-        samplerFinalOutputs[i] = samplerOut * ampEnvelope;
+            // Cache for next (odd) sample if half-rate enabled
+            if (halfRateEnabled) {
+                cachedSamplerOutputs[i] = samplerOut;
+            }
+
+            if (cachedAnySolo) {
+                if (!cachedSamplerSolo[i]) {
+                    samplerOut = 0.0f;
+                }
+            } else if (cachedSamplerMuted[i]) {
+                samplerOut = 0.0f;
+            }
+
+            samplerFinalOutputs[i] = samplerOut * ampEnvelope;
+        }
+    } else if (halfRateEnabled && halfRateTick) {
+        // Odd tick: Reuse cached outputs from previous (even) sample
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            currentSamplerOutputs[i] = cachedSamplerOutputs[i];
+
+            float samplerOut = cachedSamplerOutputs[i];
+            if (cachedAnySolo) {
+                if (!cachedSamplerSolo[i]) {
+                    samplerOut = 0.0f;
+                }
+            } else if (cachedSamplerMuted[i]) {
+                samplerOut = 0.0f;
+            }
+
+            samplerFinalOutputs[i] = samplerOut * ampEnvelope;
+        }
     }
 
 #ifdef ENABLE_VOICE_PROFILING

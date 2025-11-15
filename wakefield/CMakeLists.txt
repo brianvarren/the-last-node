@@ -85,6 +85,9 @@ target_include_directories(wakefield_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/reverb
 )
 
+# Enable voice and oscillator profiling for detailed CPU breakdown
+target_compile_definitions(wakefield_core PUBLIC ENABLE_VOICE_PROFILING)
+
 set(WAKEFIELD_LINK_LIBS
     ${RTAUDIO_LIBRARIES}
     ${RTMIDI_LIBRARIES}

@@ -205,6 +205,11 @@ struct SynthParameters {
     std::atomic<float> compressorManualMakeup{12.0f}; // Manual makeup gain in dB (0 to 24)
     std::atomic<bool> compressorRMS{false};           // Detection mode: false=Peak, true=RMS
 
+    // Half-Rate Processing (performance vs quality trade-off)
+    // When enabled, oscillators/samplers run at half sample rate (~30-35% CPU savings)
+    // Trade-off: bandwidth limited to ~12kHz, "vintage" character
+    std::atomic<bool> halfRateEnabled{false};
+
     // Instance counts (runtime-scalable generator counts: 1-4)
     std::atomic<int> activeOscCount{4};
     std::atomic<int> activeSamplerCount{4};

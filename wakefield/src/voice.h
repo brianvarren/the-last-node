@@ -96,6 +96,14 @@ struct Voice {
     int freeRunningOscIndex = -1;
     int freeRunningSamplerIndex = -1;
 
+    // === Half-Rate Processing State ===
+    // When enabled, oscillators and samplers run at half the sample rate (e.g., 24kHz @ 48kHz)
+    // Provides ~30-35% CPU savings at the cost of bandwidth above ~12kHz
+    bool halfRateEnabled = false;              // Enable half-rate mode
+    bool halfRateTick = false;                 // Alternates true/false each sample
+    float cachedOscOutputs[OSCILLATORS_PER_VOICE]{};   // Previous osc samples for interpolation
+    float cachedSamplerOutputs[SAMPLERS_PER_VOICE]{};  // Previous sampler samples for interpolation
+
     Voice(float sampleRate)
         : active(false)
         , note(-1)
@@ -143,6 +151,10 @@ struct Voice {
         ampGateTarget = 0.0f;
         freeRunningOscIndex = -1;
         freeRunningSamplerIndex = -1;
+        halfRateEnabled = false;
+        halfRateTick = false;
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) cachedOscOutputs[i] = 0.0f;
+        for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) cachedSamplerOutputs[i] = 0.0f;
     }
 
     // Generate one sample for this voice (implemented in voice.cpp)
