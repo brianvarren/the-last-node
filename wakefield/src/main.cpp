@@ -15,6 +15,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <cctype>
+#include <ctime>
 #include <filesystem>
 #include <sys/stat.h>
 #include <pwd.h>
@@ -46,253 +47,10 @@ static Clock* transportClock = nullptr;
 static bool running = true;
 static std::atomic<uint64_t> gAudioUnderrunCounter{0};
 
-static std::string trimString(const std::string& input) {
-    size_t start = 0;
-    while (start < input.size() && std::isspace(static_cast<unsigned char>(input[start]))) {
-        ++start;
-    }
-    size_t end = input.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(input[end - 1]))) {
-        --end;
-    }
-    return input.substr(start, end - start);
-}
-
-static std::string normalizeDeviceString(const std::string& input) {
-    std::string result;
-    result.reserve(input.size());
-    bool lastWasSpace = false;
-    for (unsigned char c : input) {
-        if (std::isspace(c)) {
-            if (!lastWasSpace) {
-                result.push_back(' ');
-                lastWasSpace = true;
-            }
-        } else {
-            result.push_back(static_cast<char>(std::tolower(c)));
-            lastWasSpace = false;
-        }
-    }
-    while (!result.empty() && result.front() == ' ') {
-        result.erase(result.begin());
-    }
-    while (!result.empty() && result.back() == ' ') {
-        result.pop_back();
-    }
-    return result;
-}
-
-static std::string toLowerCopy(const std::string& input) {
-    std::string result = input;
-    std::transform(result.begin(), result.end(), result.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return result;
-}
-
-struct AlsaCardEntry {
-    int index = -1;
-    std::string shortId;
-    std::string longName;
+struct AudioDeviceRecord {
+    int id;
+    RtAudio::DeviceInfo info;
 };
-
-#if defined(__linux__)
-static std::vector<AlsaCardEntry> getAlsaCardEntries() {
-    std::vector<AlsaCardEntry> entries;
-    std::ifstream file("/proc/asound/cards");
-    if (!file.is_open()) {
-        return entries;
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        std::string trimmed = trimString(line);
-        if (trimmed.empty() || !std::isdigit(static_cast<unsigned char>(trimmed[0]))) {
-            continue;
-        }
-
-        size_t pos = 0;
-        while (pos < trimmed.size() && std::isdigit(static_cast<unsigned char>(trimmed[pos]))) {
-            ++pos;
-        }
-        int index = std::stoi(trimmed.substr(0, pos));
-
-        size_t bracketStart = trimmed.find('[', pos);
-        size_t bracketEnd = (bracketStart != std::string::npos) ? trimmed.find(']', bracketStart) : std::string::npos;
-        std::string shortId;
-        if (bracketStart != std::string::npos && bracketEnd != std::string::npos && bracketEnd > bracketStart + 1) {
-            shortId = trimString(trimmed.substr(bracketStart + 1, bracketEnd - bracketStart - 1));
-        }
-
-        size_t colonPos = (bracketEnd != std::string::npos) ? trimmed.find(':', bracketEnd) : std::string::npos;
-        std::string longName;
-        if (colonPos != std::string::npos && colonPos + 1 < trimmed.size()) {
-            longName = trimString(trimmed.substr(colonPos + 1));
-            size_t dashPos = longName.find('-');
-            if (dashPos != std::string::npos && dashPos + 1 < longName.size()) {
-                longName = trimString(longName.substr(dashPos + 1));
-            }
-        }
-
-        entries.push_back({index, shortId, longName});
-    }
-    return entries;
-}
-
-static bool parseHwStyleOverride(const std::string& value, int& cardIndex, int& deviceIndex) {
-    static const std::vector<std::string> prefixes = {"hw:", "plughw:"};
-    std::string lower = toLowerCopy(value);
-    size_t prefixLen = std::string::npos;
-    for (const auto& prefix : prefixes) {
-        if (lower.rfind(prefix, 0) == 0) {
-            prefixLen = prefix.size();
-            break;
-        }
-    }
-
-    if (prefixLen == std::string::npos) {
-        return false;
-    }
-
-    std::string rest = lower.substr(prefixLen);
-    size_t commaPos = rest.find(',');
-    std::string cardPart = trimString(rest.substr(0, commaPos));
-    std::string devicePart = (commaPos == std::string::npos) ? "" : trimString(rest.substr(commaPos + 1));
-    if (cardPart.empty()) {
-        return false;
-    }
-
-    char* endPtr = nullptr;
-    long parsedCard = std::strtol(cardPart.c_str(), &endPtr, 10);
-    if (!endPtr || *endPtr != '\0') {
-        return false;
-    }
-    cardIndex = static_cast<int>(parsedCard);
-    if (cardIndex < 0) {
-        return false;
-    }
-
-    deviceIndex = -1;
-    if (!devicePart.empty()) {
-        char* deviceEnd = nullptr;
-        long parsedDevice = std::strtol(devicePart.c_str(), &deviceEnd, 10);
-        if (!deviceEnd || *deviceEnd != '\0') {
-            return false;
-        }
-        deviceIndex = static_cast<int>(parsedDevice);
-    }
-    return true;
-}
-
-static int resolveAlsaCardDeviceOverride(int cardIndex,
-                                         int deviceIndex,
-                                         const std::vector<std::pair<int, std::string>>& devices) {
-    if (cardIndex < 0) {
-        return -1;
-    }
-
-    const auto cardEntries = getAlsaCardEntries();
-    auto it = std::find_if(cardEntries.begin(), cardEntries.end(),
-                           [cardIndex](const AlsaCardEntry& entry) { return entry.index == cardIndex; });
-    if (it == cardEntries.end()) {
-        return -1;
-    }
-
-    std::vector<std::string> candidateBases;
-    if (!it->longName.empty()) {
-        candidateBases.push_back(it->longName);
-    }
-    if (!it->shortId.empty()) {
-        candidateBases.push_back(it->shortId);
-    }
-
-    if (candidateBases.empty()) {
-        return -1;
-    }
-
-    std::vector<std::string> normalizedForms;
-    for (const auto& base : candidateBases) {
-        std::string normalizedBase = normalizeDeviceString(base);
-        if (normalizedBase.empty()) {
-            continue;
-        }
-        if (deviceIndex >= 0) {
-            normalizedForms.push_back(normalizedBase + "," + std::to_string(deviceIndex));
-            normalizedForms.push_back("hw:" + normalizedBase + "," + std::to_string(deviceIndex));
-            normalizedForms.push_back("plughw:" + normalizedBase + "," + std::to_string(deviceIndex));
-        } else {
-            normalizedForms.push_back(normalizedBase);
-            normalizedForms.push_back("hw:" + normalizedBase);
-            normalizedForms.push_back("plughw:" + normalizedBase);
-        }
-    }
-
-    for (const auto& device : devices) {
-        std::string normalizedDevice = normalizeDeviceString(device.second);
-        for (const auto& form : normalizedForms) {
-            if (normalizedDevice.find(form) != std::string::npos) {
-                return device.first;
-            }
-        }
-    }
-    return -1;
-}
-#else
-static bool parseHwStyleOverride(const std::string&, int&, int&) {
-    return false;
-}
-static int resolveAlsaCardDeviceOverride(int, int, const std::vector<std::pair<int, std::string>>&) {
-    return -1;
-}
-#endif
-
-static int resolveAudioDeviceOverride(const std::string& overrideValue,
-                                      const std::vector<std::pair<int, std::string>>& devices) {
-    if (overrideValue.empty()) {
-        return -1;
-    }
-
-    char* endPtr = nullptr;
-    long parsed = std::strtol(overrideValue.c_str(), &endPtr, 10);
-    if (endPtr && *endPtr == '\0') {
-        int candidate = static_cast<int>(parsed);
-        auto match = std::find_if(devices.begin(), devices.end(),
-                                  [candidate](const auto& device) { return device.first == candidate; });
-        if (match != devices.end()) {
-            return candidate;
-        }
-    }
-
-    std::string needle = toLowerCopy(overrideValue);
-    if (needle.empty()) {
-        return -1;
-    }
-
-    for (const auto& device : devices) {
-        if (toLowerCopy(device.second) == needle) {
-            return device.first;
-        }
-    }
-
-    for (const auto& device : devices) {
-        std::string haystack = toLowerCopy(device.second);
-        if (haystack.find(needle) != std::string::npos) {
-            return device.first;
-        }
-    }
-
-#if defined(__linux__)
-    int hwCardIndex = -1;
-    int hwDeviceIndex = -1;
-    if (parseHwStyleOverride(overrideValue, hwCardIndex, hwDeviceIndex)) {
-        int resolved = resolveAlsaCardDeviceOverride(hwCardIndex, hwDeviceIndex, devices);
-        if (resolved >= 0) {
-            return resolved;
-        }
-    }
-#endif
-
-    return -1;
-}
 
 void signalHandler(int signum) {
     running = false;
@@ -306,6 +64,48 @@ std::string getConfigDirectory() {
         homeDir = pw->pw_dir;
     }
     return std::string(homeDir) + "/.config/wakefield";
+}
+
+// Write enumerated RtAudio devices to a helper file for manual reference
+std::string writeAudioDeviceListFile(const std::vector<AudioDeviceRecord>& devices) {
+    if (devices.empty()) {
+        return {};
+    }
+
+    std::string configDir = getConfigDirectory();
+    mkdir(configDir.c_str(), 0755);
+
+    std::string filePath = configDir + "/available_audio_devices.txt";
+    std::ofstream file(filePath);
+    if (!file.is_open()) {
+        return {};
+    }
+
+    file << "Wakefield Audio Device List\n";
+    file << "Last updated (epoch): " << std::time(nullptr) << "\n";
+    file << "Use the index in 'audio_device=<id>' inside device_config.txt\n\n";
+
+    for (const auto& record : devices) {
+        const auto& info = record.info;
+        file << "[" << record.id << "] " << info.name << "\n";
+        file << "  outputs: " << info.outputChannels
+             << "  inputs: " << info.inputChannels
+             << "  duplex: " << info.duplexChannels << "\n";
+        file << "  preferred_sample_rate: " << info.preferredSampleRate << "\n";
+        file << "  sample_rates:";
+        if (info.sampleRates.empty()) {
+            file << " (none reported)";
+        } else {
+            for (auto rate : info.sampleRates) {
+                file << " " << rate;
+            }
+        }
+        file << "\n";
+        file << "  is_default_output: " << (info.isDefaultOutput ? "yes" : "no")
+             << "  is_default_input: " << (info.isDefaultInput ? "yes" : "no") << "\n\n";
+    }
+
+    return filePath;
 }
 
 // Read device config
@@ -894,27 +694,6 @@ int main(int argc, char** argv) {
     unsigned int preferredBufferSize = 256;
     unsigned int preferredSampleRate = 48000;
     readDeviceConfig(preferredAudioDevice, preferredMidiPort, preferredBufferSize, preferredSampleRate);
-
-    // Allow environment and CLI overrides for the audio device
-    std::string audioDeviceOverride;
-    if (const char* envOverride = std::getenv("WAKEFIELD_AUDIO_DEVICE")) {
-        if (*envOverride) {
-            audioDeviceOverride = envOverride;
-        }
-    }
-
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "-D" || arg == "--device") {
-            if (i + 1 < argc) {
-                audioDeviceOverride = argv[++i];
-            } else {
-                std::cerr << "Option " << arg << " requires a value\n";
-            }
-        } else if (arg.rfind("-D", 0) == 0 && arg.size() > 2) {
-            audioDeviceOverride = arg.substr(2);
-        }
-    }
     
     // Initialize MIDI
     midiHandler = new MidiHandler();
@@ -1035,6 +814,7 @@ int main(int argc, char** argv) {
     
     // Get list of available audio devices
     std::vector<std::pair<int, std::string>> audioDevices;
+    std::vector<AudioDeviceRecord> audioDeviceRecords;
     unsigned int deviceCount = audio.getDeviceCount();
     int audioDeviceIdToUse = -1;
     
@@ -1043,33 +823,27 @@ int main(int argc, char** argv) {
             RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
             if (info.outputChannels > 0) {  // Only list output devices
                 audioDevices.push_back({static_cast<int>(i), info.name});
+                audioDeviceRecords.push_back({static_cast<int>(i), info});
             }
         } catch (...) {
             continue;
         }
     }
-    
-    // Determine which audio device to use
-    if (!audioDeviceOverride.empty()) {
-        int resolvedOverride = resolveAudioDeviceOverride(audioDeviceOverride, audioDevices);
-        if (resolvedOverride >= 0) {
-            audioDeviceIdToUse = resolvedOverride;
-            std::cout << "Using audio device override '" << audioDeviceOverride
-                      << "' -> id " << audioDeviceIdToUse << "\n";
-        } else {
-            std::cerr << "Audio device override '" << audioDeviceOverride
-                      << "' did not match any available devices\n";
+
+    if (!audioDeviceRecords.empty()) {
+        std::string deviceListPath = writeAudioDeviceListFile(audioDeviceRecords);
+        if (!deviceListPath.empty()) {
+            std::cout << "Audio device list written to " << deviceListPath << "\n";
         }
     }
-
-    if (audioDeviceIdToUse < 0) {
-        if (preferredAudioDevice >= 0 && preferredAudioDevice < static_cast<int>(deviceCount)) {
-            audioDeviceIdToUse = preferredAudioDevice;
-            std::cout << "Using preferred audio device: " << preferredAudioDevice << "\n";
-        } else {
-            audioDeviceIdToUse = audio.getDefaultOutputDevice();
-            std::cout << "Using default audio device: " << audioDeviceIdToUse << "\n";
-        }
+    
+    // Determine which audio device to use
+    if (preferredAudioDevice >= 0 && preferredAudioDevice < static_cast<int>(deviceCount)) {
+        audioDeviceIdToUse = preferredAudioDevice;
+        std::cout << "Using preferred audio device: " << preferredAudioDevice << "\n";
+    } else {
+        audioDeviceIdToUse = audio.getDefaultOutputDevice();
+        std::cout << "Using default audio device: " << audioDeviceIdToUse << "\n";
     }
     
     // Try to initialize audio
