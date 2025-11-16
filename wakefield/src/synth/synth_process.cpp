@@ -172,7 +172,13 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         voice.currentBufferSize = nFrames;
 
         // Apply half-rate processing configuration
-        voice.halfRateEnabled = params ? params->halfRateEnabled.load() : false;
+        bool requestedHalfRate = params ? params->halfRateEnabled.load() : false;
+        if (voice.halfRateEnabled != requestedHalfRate) {
+            voice.halfRateEnabled = requestedHalfRate;
+            if (!requestedHalfRate) {
+                voice.halfRateEvenPhase = true;
+            }
+        }
 
         ModulationOutputs modOutputs = processModulationMatrix(&voice);
 

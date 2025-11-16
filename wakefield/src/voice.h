@@ -108,6 +108,7 @@ struct Voice {
     static constexpr int kHalfRateHistorySize = 4;
     float halfRateOscHistory[OSCILLATORS_PER_VOICE][kHalfRateHistorySize]{};
     float halfRateSamplerHistory[SAMPLERS_PER_VOICE][kHalfRateHistorySize]{};
+    bool halfRateEvenPhase = true;
 
     Voice(float sampleRate)
         : active(false)
@@ -159,6 +160,7 @@ struct Voice {
         freeRunningOscIndex = -1;
         freeRunningSamplerIndex = -1;
         halfRateEnabled = false;
+        halfRateEvenPhase = true;
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
             for (int h = 0; h < kHalfRateHistorySize; ++h) {
                 halfRateOscHistory[i][h] = 0.0f;

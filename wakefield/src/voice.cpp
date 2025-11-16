@@ -38,6 +38,7 @@ inline float reconstructHalfRateSample(const float* history) {
 #endif
 
 void Voice::resetFMHistory() {
+    halfRateEvenPhase = true;
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         lastOscOutputs[i] = 0.0f;
         for (int h = 0; h < kHalfRateHistorySize; ++h) {
@@ -56,6 +57,7 @@ void Voice::forceSilence() {
     active = false;
     freeRunningOscIndex = -1;
     freeRunningSamplerIndex = -1;
+    halfRateEvenPhase = true;
     clearGlobalFmInputs();
     for (int i = 0; i < 4; ++i) {
         envelopes[i].reset();
@@ -133,9 +135,12 @@ float Voice::generateSample(unsigned int frameIndex) {
 #endif
 
     // === Half-Rate Processing: Determine even/odd sample ===
-    // When enabled, oscillators/samplers only run on even samples (0, 2, 4, ...)
-    // Odd samples (1, 3, 5, ...) use cached outputs from previous even sample
-    const bool isEvenSample = (frameIndex & 1) == 0;
+    // Half-rate voices maintain their own sample parity to avoid buffer-boundary resets
+    bool isEvenSample = (frameIndex & 1) == 0;
+    if (halfRateEnabled) {
+        isEvenSample = halfRateEvenPhase;
+        halfRateEvenPhase = !halfRateEvenPhase;
+    }
 
     const int restrictedOsc = freeRunningOscIndex;
     const bool restrictOscillators = (restrictedOsc >= 0);
