@@ -713,10 +713,16 @@ int main(int argc, char** argv) {
 
     if (listAudioDevicesOnly) {
         try {
+#if defined(__linux__)
+            RtAudio audio(RtAudio::LINUX_ALSA);
+#else
             RtAudio audio;
+#endif
+            audio.showWarnings(false);
             std::vector<std::pair<int, std::string>> deviceNames;
             std::vector<AudioDeviceRecord> deviceRecords;
             enumerateAudioDevices(audio, deviceNames, deviceRecords);
+            audio.showWarnings(true);
             std::cout << "Detected " << deviceRecords.size() << " output-capable audio device(s):\n";
             for (const auto& record : deviceRecords) {
                 const auto& info = record.info;
@@ -783,8 +789,13 @@ int main(int argc, char** argv) {
     }
     
     // Initialize Audio
+#if defined(__linux__)
+    RtAudio audio(RtAudio::LINUX_ALSA);
+#else
     RtAudio audio;
+#endif
     bool audioAvailable = false;
+    audio.showWarnings(false);
 
     unsigned int sampleRate = (preferredSampleRate > 0) ? preferredSampleRate : 48000;
     unsigned int bufferFrames = preferredBufferSize > 0 ? preferredBufferSize : 256;
@@ -878,6 +889,8 @@ int main(int argc, char** argv) {
             std::cout << "Audio device list written to " << deviceListPath << "\n";
         }
     }
+
+    audio.showWarnings(true);
     
     // Determine which audio device to use
     if (preferredAudioDevice >= 0 && preferredAudioDevice < static_cast<int>(deviceCount)) {
