@@ -216,8 +216,9 @@ Executable: `build/synth` (~157KB)
 - Audio and MIDI devices can be changed from Config page
 - Preferences stored in: `~/.config/wakefield/device_config.txt`
 - App automatically restarts with new devices, preserving state
-- Every launch writes the current audio device list (indexes + capabilities) to
-  `~/.config/wakefield/available_audio_devices.txt` so you can copy the desired id into `device_config.txt`
+- Run `./build/synth --list-audio-devices` (or `-L`) to dump all output-capable RtAudio devices.
+  The list is also written to `~/.config/wakefield/available_audio_devices.txt` so you can copy
+  the desired `audio_device=<id>` into `device_config.txt`
 
 ## Configuration Files
 

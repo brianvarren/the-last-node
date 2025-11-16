@@ -68,10 +68,6 @@ std::string getConfigDirectory() {
 
 // Write enumerated RtAudio devices to a helper file for manual reference
 std::string writeAudioDeviceListFile(const std::vector<AudioDeviceRecord>& devices) {
-    if (devices.empty()) {
-        return {};
-    }
-
     std::string configDir = getConfigDirectory();
     mkdir(configDir.c_str(), 0755);
 
@@ -85,27 +81,48 @@ std::string writeAudioDeviceListFile(const std::vector<AudioDeviceRecord>& devic
     file << "Last updated (epoch): " << std::time(nullptr) << "\n";
     file << "Use the index in 'audio_device=<id>' inside device_config.txt\n\n";
 
-    for (const auto& record : devices) {
-        const auto& info = record.info;
-        file << "[" << record.id << "] " << info.name << "\n";
-        file << "  outputs: " << info.outputChannels
-             << "  inputs: " << info.inputChannels
-             << "  duplex: " << info.duplexChannels << "\n";
-        file << "  preferred_sample_rate: " << info.preferredSampleRate << "\n";
-        file << "  sample_rates:";
-        if (info.sampleRates.empty()) {
-            file << " (none reported)";
-        } else {
-            for (auto rate : info.sampleRates) {
-                file << " " << rate;
+    if (devices.empty()) {
+        file << "No output-capable audio devices were detected.\n";
+    } else {
+        for (const auto& record : devices) {
+            const auto& info = record.info;
+            file << "[" << record.id << "] " << info.name << "\n";
+            file << "  outputs: " << info.outputChannels
+                 << "  inputs: " << info.inputChannels
+                 << "  duplex: " << info.duplexChannels << "\n";
+            file << "  preferred_sample_rate: " << info.preferredSampleRate << "\n";
+            file << "  sample_rates:";
+            if (info.sampleRates.empty()) {
+               file << " (none reported)";
+            } else {
+               for (auto rate : info.sampleRates) {
+                   file << " " << rate;
+               }
             }
+            file << "\n";
+            file << "  is_default_output: " << (info.isDefaultOutput ? "yes" : "no")
+                 << "  is_default_input: " << (info.isDefaultInput ? "yes" : "no") << "\n\n";
         }
-        file << "\n";
-        file << "  is_default_output: " << (info.isDefaultOutput ? "yes" : "no")
-             << "  is_default_input: " << (info.isDefaultInput ? "yes" : "no") << "\n\n";
     }
 
     return filePath;
+}
+
+void enumerateAudioDevices(RtAudio& audio,
+                           std::vector<std::pair<int, std::string>>& deviceNames,
+                           std::vector<AudioDeviceRecord>& deviceRecords) {
+    unsigned int deviceCount = audio.getDeviceCount();
+    for (unsigned int i = 0; i < deviceCount; ++i) {
+        try {
+            RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
+            if (info.outputChannels > 0) {
+                deviceNames.push_back({static_cast<int>(i), info.name});
+                deviceRecords.push_back({static_cast<int>(i), info});
+            }
+        } catch (...) {
+            continue;
+        }
+    }
 }
 
 // Read device config
@@ -684,6 +701,41 @@ int main(int argc, char** argv) {
     setlocale(LC_ALL, "");
     // Set up signal handler for Ctrl+C
     signal(SIGINT, signalHandler);
+
+    bool listAudioDevicesOnly = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--list-audio-devices" || arg == "-L") {
+            listAudioDevicesOnly = true;
+            break;
+        }
+    }
+
+    if (listAudioDevicesOnly) {
+        try {
+            RtAudio audio;
+            std::vector<std::pair<int, std::string>> deviceNames;
+            std::vector<AudioDeviceRecord> deviceRecords;
+            enumerateAudioDevices(audio, deviceNames, deviceRecords);
+            std::cout << "Detected " << deviceRecords.size() << " output-capable audio device(s):\n";
+            for (const auto& record : deviceRecords) {
+                const auto& info = record.info;
+                std::cout << "[" << record.id << "] " << info.name
+                          << " (outputs=" << info.outputChannels
+                          << ", inputs=" << info.inputChannels << ")\n";
+            }
+            std::string path = writeAudioDeviceListFile(deviceRecords);
+            if (!path.empty()) {
+                std::cout << "Wrote device list to " << path << "\n";
+            } else {
+                std::cout << "No device list file was written (unable to open config directory?)\n";
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to enumerate audio devices: " << e.what() << "\n";
+            return 1;
+        }
+    }
     
     // Create synth parameters
     synthParams = new SynthParameters();
@@ -818,17 +870,7 @@ int main(int argc, char** argv) {
     unsigned int deviceCount = audio.getDeviceCount();
     int audioDeviceIdToUse = -1;
     
-    for (unsigned int i = 0; i < deviceCount; ++i) {
-        try {
-            RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
-            if (info.outputChannels > 0) {  // Only list output devices
-                audioDevices.push_back({static_cast<int>(i), info.name});
-                audioDeviceRecords.push_back({static_cast<int>(i), info});
-            }
-        } catch (...) {
-            continue;
-        }
-    }
+    enumerateAudioDevices(audio, audioDevices, audioDeviceRecords);
 
     if (!audioDeviceRecords.empty()) {
         std::string deviceListPath = writeAudioDeviceListFile(audioDeviceRecords);
