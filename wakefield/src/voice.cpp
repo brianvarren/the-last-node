@@ -6,6 +6,29 @@
 // Global profiler instance
 VoiceProfiler g_voiceProfiler;
 
+namespace {
+
+constexpr float kHalfRateInterpCoeffs[Voice::kHalfRateHistorySize] = {
+    0.3125f, 0.9375f, -0.3125f, 0.0625f
+};
+
+inline void pushHalfRateSample(float* history, float sample) {
+    for (int i = Voice::kHalfRateHistorySize - 1; i > 0; --i) {
+        history[i] = history[i - 1];
+    }
+    history[0] = sample;
+}
+
+inline float reconstructHalfRateSample(const float* history) {
+    float result = 0.0f;
+    for (int i = 0; i < Voice::kHalfRateHistorySize; ++i) {
+        result += history[i] * kHalfRateInterpCoeffs[i];
+    }
+    return result;
+}
+
+} // namespace
+
 #ifdef ENABLE_VOICE_PROFILING
 #define VOICE_PROFILE_START(var) auto var = g_voiceProfiler.now()
 #define VOICE_PROFILE_END(field, var) g_voiceProfiler.field += g_voiceProfiler.elapsed_ns(var)
@@ -17,9 +40,15 @@ VoiceProfiler g_voiceProfiler;
 void Voice::resetFMHistory() {
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
         lastOscOutputs[i] = 0.0f;
+        for (int h = 0; h < kHalfRateHistorySize; ++h) {
+            halfRateOscHistory[i][h] = 0.0f;
+        }
     }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
         lastSamplerOutputs[i] = 0.0f;
+        for (int h = 0; h < kHalfRateHistorySize; ++h) {
+            halfRateSamplerHistory[i][h] = 0.0f;
+        }
     }
 }
 
@@ -235,50 +264,54 @@ float Voice::generateSample(unsigned int frameIndex) {
     float currentOutputs[OSCILLATORS_PER_VOICE]{};
 
     // Half-rate processing: Only run oscillators on even samples (0, 2, 4, ...)
-    // On odd samples, use linear interpolation between previous two samples
     const bool processOscillators = !halfRateEnabled || isEvenSample;
+    const float oscSampleRate = halfRateEnabled ? (sampleRate * 0.5f) : sampleRate;
 
-    if (processOscillators && !restrictSamplers) {
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            if (i >= cachedActiveOscCount) {
-                continue;
-            }
-            // FREE mode oscillators: only run in free-running voices (freeRunningOscIndex >= 0)
-            if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex < 0) {
-                continue;
-            }
-            // KEY mode oscillators: only run when note source matches AND not in a free-running voice
-            if (oscillators[i].getMode() == BrainwaveMode::KEY) {
-                if (freeRunningOscIndex >= 0) {
-                    continue;
-                }
-                if (params) {
-                    int oscNoteSource = params->getOscNoteSource(i);
-                    if (oscNoteSource != noteSource) {
-                        continue;
+    if (!restrictSamplers) {
+        if (processOscillators) {
+            for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+                bool shouldProcess = true;
+                if (i >= cachedActiveOscCount) {
+                    shouldProcess = false;
+                } else if (oscillators[i].getMode() == BrainwaveMode::FREE && freeRunningOscIndex < 0) {
+                    shouldProcess = false;
+                } else if (oscillators[i].getMode() == BrainwaveMode::KEY) {
+                    if (freeRunningOscIndex >= 0) {
+                        shouldProcess = false;
+                    } else if (params) {
+                        int oscNoteSource = params->getOscNoteSource(i);
+                        if (oscNoteSource != noteSource) {
+                            shouldProcess = false;
+                        }
                     }
                 }
+
+                float oscSample = 0.0f;
+                if (shouldProcess) {
+                    oscSample = oscillators[i].process(oscSampleRate,
+                                                        fmInputs[i],
+                                                        smoothedPitchMod[i],
+                                                        morphMod[i],
+                                                        ratioMod[i],
+                                                        offsetMod[i]);
+                    if (!std::isfinite(oscSample)) {
+                        oscSample = 0.0f;
+                    }
+                }
+
+                currentOutputs[i] = oscSample;
+                pushHalfRateSample(halfRateOscHistory[i], oscSample);
             }
-            float oscSample = oscillators[i].process(sampleRate,
-                                                     fmInputs[i],
-                                                     smoothedPitchMod[i],
-                                                     morphMod[i],
-                                                     ratioMod[i],
-                                                     offsetMod[i]);
-            if (!std::isfinite(oscSample)) {
-                oscSample = 0.0f;
-            }
-            currentOutputs[i] = oscSample;
-            // Update cache for linear interpolation if half-rate enabled
-            if (halfRateEnabled) {
-                prevOscOutputs[i] = cachedOscOutputs[i];  // Shift cache
-                cachedOscOutputs[i] = oscSample;           // Store new sample
+        } else if (halfRateEnabled) {
+            for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+                currentOutputs[i] = reconstructHalfRateSample(halfRateOscHistory[i]);
             }
         }
-    } else if (halfRateEnabled && !isEvenSample) {
-        // Odd sample: Linear interpolation between previous two processed samples
+    } else {
+        // Oscillators are fully restricted (e.g., sampler free-run mode)
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            currentOutputs[i] = (prevOscOutputs[i] + cachedOscOutputs[i]) * 0.5f;
+            pushHalfRateSample(halfRateOscHistory[i], 0.0f);
+            currentOutputs[i] = 0.0f;
         }
     }
 
@@ -349,79 +382,71 @@ float Voice::generateSample(unsigned int frameIndex) {
     float samplerFinalOutputs[SAMPLERS_PER_VOICE] = {0.0f};
 
     // Half-rate processing: Only run samplers on even samples (0, 2, 4, ...)
-    // On odd samples, use linear interpolation between previous two samples
     const bool processSamplers = !halfRateEnabled || isEvenSample;
+    const float samplerSampleRate = halfRateEnabled ? (sampleRate * 0.5f) : sampleRate;
 
     if (processSamplers) {
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
+            float samplerOut = 0.0f;
+            bool shouldProcess = true;
+
             if (i >= cachedActiveSamplerCount) {
-                currentSamplerOutputs[i] = 0.0f;
-                samplerFinalOutputs[i] = 0.0f;
-                continue;
-            }
-            if (restrictOscillators) {
-                currentSamplerOutputs[i] = 0.0f;
-                samplerFinalOutputs[i] = 0.0f;
-                continue;
-            }
-
-            bool samplerKeyMode = samplers[i].isKeyMode();
-            bool processSampler = false;
-            if (samplerKeyMode) {
-                if (!restrictSamplers) {
-                    if (!params) {
-                        processSampler = true;
-                    } else {
-                        int samplerNoteSource = params->getSamplerNoteSource(i);
-                        processSampler = (samplerNoteSource == noteSource);
-                    }
-                }
+                shouldProcess = false;
+            } else if (restrictOscillators) {
+                shouldProcess = false;
             } else {
-                processSampler = (restrictSamplers && restrictedSampler == i);
-            }
-            if (!processSampler) {
-                currentSamplerOutputs[i] = 0.0f;
-                samplerFinalOutputs[i] = 0.0f;
-                continue;
-            }
-
-            float samplerOut = samplers[i].process(sampleRate,
-                                                   samplerFMInputs[i],
-                                                   smoothedSamplerPitchMod[i],
-                                                   samplerLoopStartMod[i],
-                                                   samplerLoopLengthMod[i],
-                                                   samplerCrossfadeMod[i],
-                                                   smoothedSamplerLevelMod[i],
-                                                   cachedSamplerLevelMod[i],
-                                                   samplerPhaseDriver[i],
-                                                   note,
-                                                   synth ? synth->currentTempo : 120.0f,
-                                                   synth ? synth->getSamplerSyncMode(i) : 0);
-            if (!std::isfinite(samplerOut)) {
-                samplerOut = 0.0f;
-            }
-            currentSamplerOutputs[i] = samplerOut;
-
-            // Update cache for linear interpolation if half-rate enabled
-            if (halfRateEnabled) {
-                prevSamplerOutputs[i] = cachedSamplerOutputs[i];  // Shift cache
-                cachedSamplerOutputs[i] = samplerOut;              // Store new sample
+                bool samplerKeyMode = samplers[i].isKeyMode();
+                if (samplerKeyMode) {
+                    if (!restrictSamplers) {
+                        if (!params) {
+                            shouldProcess = true;
+                        } else {
+                            int samplerNoteSource = params->getSamplerNoteSource(i);
+                            shouldProcess = (samplerNoteSource == noteSource);
+                        }
+                    } else {
+                        shouldProcess = false;
+                    }
+                } else {
+                    shouldProcess = (restrictSamplers && restrictedSampler == i);
+                }
             }
 
-            if (cachedAnySolo) {
-                if (!cachedSamplerSolo[i]) {
+            if (shouldProcess) {
+                samplerOut = samplers[i].process(samplerSampleRate,
+                                                 samplerFMInputs[i],
+                                                 smoothedSamplerPitchMod[i],
+                                                 samplerLoopStartMod[i],
+                                                 samplerLoopLengthMod[i],
+                                                 samplerCrossfadeMod[i],
+                                                 smoothedSamplerLevelMod[i],
+                                                 cachedSamplerLevelMod[i],
+                                                 samplerPhaseDriver[i],
+                                                 note,
+                                                 synth ? synth->currentTempo : 120.0f,
+                                                 synth ? synth->getSamplerSyncMode(i) : 0);
+                if (!std::isfinite(samplerOut)) {
                     samplerOut = 0.0f;
                 }
-            } else if (cachedSamplerMuted[i]) {
-                samplerOut = 0.0f;
             }
 
-            samplerFinalOutputs[i] = samplerOut * ampEnvelope;
+            currentSamplerOutputs[i] = samplerOut;
+            pushHalfRateSample(halfRateSamplerHistory[i], samplerOut);
+
+            float samplerOutPost = samplerOut;
+            if (cachedAnySolo) {
+                if (!cachedSamplerSolo[i]) {
+                    samplerOutPost = 0.0f;
+                }
+            } else if (cachedSamplerMuted[i]) {
+                samplerOutPost = 0.0f;
+            }
+
+            samplerFinalOutputs[i] = samplerOutPost * ampEnvelope;
         }
-    } else if (halfRateEnabled && !isEvenSample) {
-        // Odd sample: Linear interpolation between previous two processed samples
+    } else if (halfRateEnabled) {
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            float interpolated = (prevSamplerOutputs[i] + cachedSamplerOutputs[i]) * 0.5f;
+            float interpolated = reconstructHalfRateSample(halfRateSamplerHistory[i]);
             currentSamplerOutputs[i] = interpolated;
 
             float samplerOut = interpolated;

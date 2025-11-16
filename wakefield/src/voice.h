@@ -105,10 +105,9 @@ struct Voice {
     // Provides ~30-35% CPU savings at the cost of bandwidth above ~12kHz
     // Processing happens on even samples (0, 2, 4, ...), odd samples use linear interpolation
     bool halfRateEnabled = false;
-    float prevOscOutputs[OSCILLATORS_PER_VOICE]{};     // Osc outputs from sample N-2 (for interpolation)
-    float cachedOscOutputs[OSCILLATORS_PER_VOICE]{};   // Osc outputs from sample N (last even sample)
-    float prevSamplerOutputs[SAMPLERS_PER_VOICE]{};    // Sampler outputs from sample N-2
-    float cachedSamplerOutputs[SAMPLERS_PER_VOICE]{};  // Sampler outputs from sample N
+    static constexpr int kHalfRateHistorySize = 4;
+    float halfRateOscHistory[OSCILLATORS_PER_VOICE][kHalfRateHistorySize]{};
+    float halfRateSamplerHistory[SAMPLERS_PER_VOICE][kHalfRateHistorySize]{};
 
     Voice(float sampleRate)
         : active(false)
@@ -161,12 +160,14 @@ struct Voice {
         freeRunningSamplerIndex = -1;
         halfRateEnabled = false;
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            prevOscOutputs[i] = 0.0f;
-            cachedOscOutputs[i] = 0.0f;
+            for (int h = 0; h < kHalfRateHistorySize; ++h) {
+                halfRateOscHistory[i][h] = 0.0f;
+            }
         }
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            prevSamplerOutputs[i] = 0.0f;
-            cachedSamplerOutputs[i] = 0.0f;
+            for (int h = 0; h < kHalfRateHistorySize; ++h) {
+                halfRateSamplerHistory[i][h] = 0.0f;
+            }
         }
 
         ampGateEnvelope.setAttack(kDefaultAmpGateAttack);
