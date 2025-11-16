@@ -231,16 +231,18 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         }
 
         // Calculate linear interpolation increments for critical modulation
-        // This eliminates block-rate zipper noise
-        float blockSize = static_cast<float>(std::max(1u, nFrames));
+        // Divide by (blockSize - 1) so the last sample reaches the exact target
+        unsigned int blockSamples = std::max(1u, nFrames);
+        unsigned int interpSteps = (blockSamples > 1) ? (blockSamples - 1) : 1;
+        float invSteps = 1.0f / static_cast<float>(interpSteps);
         for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            voice.pitchModIncrement[i] = (voice.pitchMod[i] - voice.smoothedPitchMod[i]) / blockSize;
-            voice.ampModIncrement[i] = (voice.ampMod[i] - voice.smoothedAmpMod[i]) / blockSize;
-            voice.oscLevelIncrement[i] = (voice.cachedOscLevel[i] - voice.smoothedOscLevel[i]) / blockSize;
+            voice.pitchModIncrement[i] = (voice.pitchMod[i] - voice.smoothedPitchMod[i]) * invSteps;
+            voice.ampModIncrement[i] = (voice.ampMod[i] - voice.smoothedAmpMod[i]) * invSteps;
+            voice.oscLevelIncrement[i] = (voice.cachedOscLevel[i] - voice.smoothedOscLevel[i]) * invSteps;
         }
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-            voice.samplerPitchModIncrement[i] = (voice.samplerPitchMod[i] - voice.smoothedSamplerPitchMod[i]) / blockSize;
-            voice.samplerLevelModIncrement[i] = (voice.samplerLevelMod[i] - voice.smoothedSamplerLevelMod[i]) / blockSize;
+            voice.samplerPitchModIncrement[i] = (voice.samplerPitchMod[i] - voice.smoothedSamplerPitchMod[i]) * invSteps;
+            voice.samplerLevelModIncrement[i] = (voice.samplerLevelMod[i] - voice.smoothedSamplerLevelMod[i]) * invSteps;
         }
 
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {

@@ -167,10 +167,12 @@ float Voice::generateSample(unsigned int frameIndex) {
         }
 
         unsigned int blockSize = std::max(1u, currentBufferSize);
+        unsigned int interpSteps = (blockSize > 1) ? (blockSize - 1) : 1;
+        float invSteps = 1.0f / static_cast<float>(interpSteps);
         for (int i = 0; i < 4; ++i) {
             float newTarget = envelopes[i].processBlock(blockSize);
-            // Calculate per-sample increment for linear interpolation
-            envelopeIncrements[i] = (newTarget - envelopeValues[i]) / static_cast<float>(blockSize);
+            // Calculate per-sample increment for linear interpolation (last sample hits target)
+            envelopeIncrements[i] = (newTarget - envelopeValues[i]) * invSteps;
             envelopeTargets[i] = newTarget;
         }
     }
@@ -434,17 +436,35 @@ float Voice::generateSample(unsigned int frameIndex) {
     VOICE_PROFILE_START(t_smoothing);
 #endif
 
+    const unsigned int blockSamples = std::max(1u, currentBufferSize);
+    const bool lastSampleInBlock = (frameIndex + 1 >= blockSamples);
+
     for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-        smoothedPitchMod[i] += pitchModIncrement[i];
-        smoothedAmpMod[i] += ampModIncrement[i];
-        smoothedOscLevel[i] += oscLevelIncrement[i];
+        if (!lastSampleInBlock) {
+            smoothedPitchMod[i] += pitchModIncrement[i];
+            smoothedAmpMod[i] += ampModIncrement[i];
+            smoothedOscLevel[i] += oscLevelIncrement[i];
+        } else {
+            smoothedPitchMod[i] = pitchMod[i];
+            smoothedAmpMod[i] = ampMod[i];
+            smoothedOscLevel[i] = cachedOscLevel[i];
+        }
     }
     for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
-        smoothedSamplerPitchMod[i] += samplerPitchModIncrement[i];
-        smoothedSamplerLevelMod[i] += samplerLevelModIncrement[i];
+        if (!lastSampleInBlock) {
+            smoothedSamplerPitchMod[i] += samplerPitchModIncrement[i];
+            smoothedSamplerLevelMod[i] += samplerLevelModIncrement[i];
+        } else {
+            smoothedSamplerPitchMod[i] = samplerPitchMod[i];
+            smoothedSamplerLevelMod[i] = samplerLevelMod[i];
+        }
     }
     for (int i = 0; i < 4; ++i) {
-        envelopeValues[i] += envelopeIncrements[i];
+        if (!lastSampleInBlock) {
+            envelopeValues[i] += envelopeIncrements[i];
+        } else {
+            envelopeValues[i] = envelopeTargets[i];
+        }
     }
 
 #ifdef ENABLE_VOICE_PROFILING
