@@ -224,6 +224,12 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
         voice.samplerLevelMod[2] = modOutputs.samp3Amp;
         voice.samplerLevelMod[3] = modOutputs.samp4Amp;
 
+        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
+            float baseLevel = oscillatorBaseLevels[i];
+            float offset = modOutputs.mixerOscLevel[i];
+            voice.cachedOscLevel[i] = std::clamp(baseLevel + offset, 0.0f, 1.0f);
+        }
+
         // Calculate linear interpolation increments for critical modulation
         // This eliminates block-rate zipper noise
         float blockSize = static_cast<float>(std::max(1u, nFrames));
@@ -243,12 +249,6 @@ void Synth::renderVoicesSequential(float* outputBuffer, unsigned int nFrames, un
             } else {
                 voice.samplerPhaseDriver[i] = -1.0f;
             }
-        }
-
-        for (int i = 0; i < OSCILLATORS_PER_VOICE; ++i) {
-            float baseLevel = oscillatorBaseLevels[i];
-            float offset = modOutputs.mixerOscLevel[i];
-            voice.cachedOscLevel[i] = std::clamp(baseLevel + offset, 0.0f, 1.0f);
         }
         for (int i = 0; i < SAMPLERS_PER_VOICE; ++i) {
             voice.cachedSamplerLevelMod[i] = modOutputs.mixerSamplerLevel[i];
