@@ -216,6 +216,8 @@ Executable: `build/synth` (~157KB)
 - Audio and MIDI devices can be changed from Config page
 - Preferences stored in: `~/.config/wakefield/device_config.txt`
 - App automatically restarts with new devices, preserving state
+- Temporary overrides: set `WAKEFIELD_AUDIO_DEVICE=<id-or-name>` or launch with `./build/synth -D hw:2,0`
+  to force a specific audio interface for that run (matches device ids, full names, or substrings)
 
 ## Configuration Files
 

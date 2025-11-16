@@ -14,6 +14,7 @@
 #include <chrono>
 #include <atomic>
 #include <cstdlib>
+#include <cctype>
 #include <filesystem>
 #include <sys/stat.h>
 #include <pwd.h>
@@ -44,6 +45,51 @@ Sequencer* sequencer = nullptr;  // Non-static so UI can access it
 static Clock* transportClock = nullptr;
 static bool running = true;
 static std::atomic<uint64_t> gAudioUnderrunCounter{0};
+
+static std::string toLowerCopy(const std::string& input) {
+    std::string result = input;
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return result;
+}
+
+static int resolveAudioDeviceOverride(const std::string& overrideValue,
+                                      const std::vector<std::pair<int, std::string>>& devices) {
+    if (overrideValue.empty()) {
+        return -1;
+    }
+
+    char* endPtr = nullptr;
+    long parsed = std::strtol(overrideValue.c_str(), &endPtr, 10);
+    if (endPtr && *endPtr == '\0') {
+        int candidate = static_cast<int>(parsed);
+        auto match = std::find_if(devices.begin(), devices.end(),
+                                  [candidate](const auto& device) { return device.first == candidate; });
+        if (match != devices.end()) {
+            return candidate;
+        }
+    }
+
+    std::string needle = toLowerCopy(overrideValue);
+    if (needle.empty()) {
+        return -1;
+    }
+
+    for (const auto& device : devices) {
+        if (toLowerCopy(device.second) == needle) {
+            return device.first;
+        }
+    }
+
+    for (const auto& device : devices) {
+        std::string haystack = toLowerCopy(device.second);
+        if (haystack.find(needle) != std::string::npos) {
+            return device.first;
+        }
+    }
+
+    return -1;
+}
 
 void signalHandler(int signum) {
     running = false;
@@ -645,6 +691,27 @@ int main(int argc, char** argv) {
     unsigned int preferredBufferSize = 256;
     unsigned int preferredSampleRate = 48000;
     readDeviceConfig(preferredAudioDevice, preferredMidiPort, preferredBufferSize, preferredSampleRate);
+
+    // Allow environment and CLI overrides for the audio device
+    std::string audioDeviceOverride;
+    if (const char* envOverride = std::getenv("WAKEFIELD_AUDIO_DEVICE")) {
+        if (*envOverride) {
+            audioDeviceOverride = envOverride;
+        }
+    }
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-D" || arg == "--device") {
+            if (i + 1 < argc) {
+                audioDeviceOverride = argv[++i];
+            } else {
+                std::cerr << "Option " << arg << " requires a value\n";
+            }
+        } else if (arg.rfind("-D", 0) == 0 && arg.size() > 2) {
+            audioDeviceOverride = arg.substr(2);
+        }
+    }
     
     // Initialize MIDI
     midiHandler = new MidiHandler();
@@ -780,12 +847,26 @@ int main(int argc, char** argv) {
     }
     
     // Determine which audio device to use
-    if (preferredAudioDevice >= 0 && preferredAudioDevice < static_cast<int>(deviceCount)) {
-        audioDeviceIdToUse = preferredAudioDevice;
-        std::cout << "Using preferred audio device: " << preferredAudioDevice << "\n";
-    } else {
-        audioDeviceIdToUse = audio.getDefaultOutputDevice();
-        std::cout << "Using default audio device: " << audioDeviceIdToUse << "\n";
+    if (!audioDeviceOverride.empty()) {
+        int resolvedOverride = resolveAudioDeviceOverride(audioDeviceOverride, audioDevices);
+        if (resolvedOverride >= 0) {
+            audioDeviceIdToUse = resolvedOverride;
+            std::cout << "Using audio device override '" << audioDeviceOverride
+                      << "' -> id " << audioDeviceIdToUse << "\n";
+        } else {
+            std::cerr << "Audio device override '" << audioDeviceOverride
+                      << "' did not match any available devices\n";
+        }
+    }
+
+    if (audioDeviceIdToUse < 0) {
+        if (preferredAudioDevice >= 0 && preferredAudioDevice < static_cast<int>(deviceCount)) {
+            audioDeviceIdToUse = preferredAudioDevice;
+            std::cout << "Using preferred audio device: " << preferredAudioDevice << "\n";
+        } else {
+            audioDeviceIdToUse = audio.getDefaultOutputDevice();
+            std::cout << "Using default audio device: " << audioDeviceIdToUse << "\n";
+        }
     }
     
     // Try to initialize audio
